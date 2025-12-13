@@ -96,6 +96,7 @@ def analyze_intent(prompt: str) -> dict[str, Any]:
         "uses_external_framework": intent.uses_external_framework,
         "ambiguity_score": intent.ambiguity_score,
         "ambiguity_level": ambiguity_level,
+        "extracted_entities": [e.to_dict() for e in intent.entities],
     }
 
 

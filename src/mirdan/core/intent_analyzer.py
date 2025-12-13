@@ -3,6 +3,7 @@
 import re
 
 from mirdan.config import ProjectConfig
+from mirdan.core.entity_extractor import EntityExtractor
 from mirdan.models import Intent, TaskType
 
 
@@ -16,6 +17,7 @@ class IntentAnalyzer:
             config: Project config for default language/framework hints
         """
         self._config = config
+        self._entity_extractor = EntityExtractor()
 
     # Task type detection patterns with weights (pattern, weight)
     # Higher weight = more specific/stronger indicator
@@ -141,11 +143,15 @@ class IntentAnalyzer:
         # Calculate ambiguity
         ambiguity = self._calculate_ambiguity(prompt, task_type, language)
 
+        # Extract entities from prompt
+        extracted_entities = self._entity_extractor.extract(prompt)
+
         return Intent(
             original_prompt=prompt,
             task_type=task_type,
             primary_language=language,
             frameworks=frameworks,
+            entities=extracted_entities,
             touches_security=touches_security,
             uses_external_framework=len(frameworks) > 0,
             ambiguity_score=ambiguity,

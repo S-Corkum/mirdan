@@ -139,3 +139,36 @@ class TestAmbiguityScoring:
         """Vague words should increase ambiguity score."""
         intent = analyzer.analyze("do something with that thing")
         assert intent.ambiguity_score >= 0.5
+
+
+class TestEntityExtraction:
+    """Tests for entity extraction integration."""
+
+    def test_analyze_returns_entities(self, analyzer: IntentAnalyzer) -> None:
+        """Should return extracted entities in Intent."""
+        intent = analyzer.analyze("fix the validate_input() function in /src/utils/validators.py")
+        assert len(intent.entities) >= 2
+
+        # Check file path entity
+        file_entities = [e for e in intent.entities if e.type.value == "file_path"]
+        assert len(file_entities) == 1
+        assert "/src/utils/validators.py" in file_entities[0].value
+
+        # Check function entity
+        func_entities = [e for e in intent.entities if e.type.value == "function_name"]
+        assert len(func_entities) >= 1
+
+    def test_entities_have_confidence(self, analyzer: IntentAnalyzer) -> None:
+        """Entities should have confidence scores."""
+        intent = analyzer.analyze("use requests.get to fetch /api/data.json")
+        for entity in intent.entities:
+            assert 0.0 <= entity.confidence <= 1.0
+
+    def test_entities_serializable(self, analyzer: IntentAnalyzer) -> None:
+        """Entities should serialize to dict."""
+        intent = analyzer.analyze("modify /src/app.py")
+        for entity in intent.entities:
+            d = entity.to_dict()
+            assert "type" in d
+            assert "value" in d
+            assert "confidence" in d

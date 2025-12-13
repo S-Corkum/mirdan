@@ -17,6 +17,14 @@ class TaskType(Enum):
     UNKNOWN = "unknown"
 
 
+class EntityType(Enum):
+    """Types of entities that can be extracted from prompts."""
+
+    FILE_PATH = "file_path"
+    FUNCTION_NAME = "function_name"
+    API_REFERENCE = "api_reference"
+
+
 @dataclass
 class Intent:
     """Analyzed intent from a developer prompt."""
@@ -25,10 +33,31 @@ class Intent:
     task_type: TaskType
     primary_language: str | None = None
     frameworks: list[str] = field(default_factory=list)
-    entities: list[str] = field(default_factory=list)
+    entities: list["ExtractedEntity"] = field(default_factory=list)
     touches_security: bool = False
     uses_external_framework: bool = False
     ambiguity_score: float = 0.0  # 0 = clear, 1 = very ambiguous
+
+
+@dataclass
+class ExtractedEntity:
+    """An entity extracted from a developer prompt."""
+
+    type: EntityType
+    value: str
+    raw_match: str = ""
+    context: str = ""  # Surrounding text for disambiguation
+    confidence: float = 1.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "type": self.type.value,
+            "value": self.value,
+            "confidence": self.confidence,
+            "metadata": self.metadata,
+        }
 
 
 @dataclass
@@ -142,6 +171,7 @@ class EnhancedPrompt:
             "detected_task_type": self.intent.task_type.value,
             "detected_language": self.intent.primary_language,
             "detected_frameworks": self.intent.frameworks,
+            "extracted_entities": [e.to_dict() for e in self.intent.entities],
             "touches_security": self.intent.touches_security,
             "ambiguity_score": self.intent.ambiguity_score,
             "quality_requirements": self.quality_requirements,
