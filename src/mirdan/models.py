@@ -68,6 +68,64 @@ class ToolRecommendation:
 
 
 @dataclass
+class MCPToolInfo:
+    """Information about an MCP tool capability."""
+
+    name: str
+    description: str | None = None
+    input_schema: dict[str, Any] | None = None
+
+
+@dataclass
+class MCPResourceInfo:
+    """Information about an MCP resource capability."""
+
+    uri: str
+    name: str | None = None
+    description: str | None = None
+    mime_type: str | None = None
+
+
+@dataclass
+class MCPResourceTemplateInfo:
+    """Information about an MCP resource template capability."""
+
+    uri_template: str
+    name: str | None = None
+    description: str | None = None
+
+
+@dataclass
+class MCPPromptInfo:
+    """Information about an MCP prompt capability."""
+
+    name: str
+    description: str | None = None
+
+
+@dataclass
+class MCPCapabilities:
+    """Discovered capabilities of an MCP server."""
+
+    tools: list[MCPToolInfo] = field(default_factory=list)
+    resources: list[MCPResourceInfo] = field(default_factory=list)
+    resource_templates: list[MCPResourceTemplateInfo] = field(default_factory=list)
+    prompts: list[MCPPromptInfo] = field(default_factory=list)
+    discovered_at: str | None = None  # ISO timestamp
+
+    def has_tool(self, tool_name: str) -> bool:
+        """Check if a tool with the given name exists."""
+        return any(t.name == tool_name for t in self.tools)
+
+    def get_tool(self, tool_name: str) -> MCPToolInfo | None:
+        """Get tool info by name."""
+        for tool in self.tools:
+            if tool.name == tool_name:
+                return tool
+        return None
+
+
+@dataclass
 class EnhancedPrompt:
     """The final enhanced prompt output."""
 
