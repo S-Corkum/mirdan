@@ -132,6 +132,63 @@ class QualityStandards:
                     "concurrency": "Use channels for communication",
                 },
             },
+            "react": {
+                "principles": [
+                    "Call Hooks at the top level only - never inside conditions, loops, or nested functions",
+                    "Include all dependencies in useEffect/useMemo/useCallback dependency arrays",
+                    "Name custom hooks starting with 'use' (e.g., useAuth, useFetch)",
+                    "Keep components small and focused on a single responsibility",
+                    "Use React.memo() for expensive pure components that render often with same props",
+                ],
+                "forbidden": [
+                    "Hooks inside conditions, loops, or callbacks",
+                    "Hooks after early return statements",
+                    "Mutating state directly instead of using setState",
+                    "Using array index as key for dynamic lists",
+                ],
+                "patterns": {
+                    "hooks": "Call hooks unconditionally at top level; handle conditions inside hook body",
+                    "memoization": "useMemo for expensive calculations, useCallback for stable function references",
+                },
+            },
+            "next.js": {
+                "principles": [
+                    "Use Server Components (default) for data fetching and server-side operations",
+                    "Add 'use client' directive only for components needing interactivity or browser APIs",
+                    "Use Server Actions with 'use server' for form submissions and mutations",
+                    "Pass data from Server to Client Components via props only",
+                    "Use appropriate fetch cache options: force-cache for static, no-store for dynamic",
+                ],
+                "forbidden": [
+                    "Importing Server Components into Client Components",
+                    "Using React hooks (useState, useEffect) in Server Components",
+                    "Mixing 'use client' and 'use server' directives in the same file",
+                    "Using client-side data fetching when server-side would work",
+                ],
+                "patterns": {
+                    "data_fetching": "Fetch data in Server Components with appropriate cache/revalidate options",
+                    "mutations": "Use Server Actions for data mutations, not API routes",
+                },
+            },
+            "fastapi": {
+                "principles": [
+                    "Use Depends() with Annotated for type-safe dependency injection",
+                    "Define Pydantic models for all request bodies and response schemas",
+                    "Use async def for route handlers to enable concurrent request handling",
+                    "Apply HTTPException with appropriate status codes for error responses",
+                    "Use Security() dependencies for authentication and authorization",
+                ],
+                "forbidden": [
+                    "Synchronous blocking I/O in async route handlers",
+                    "Raw dicts instead of Pydantic models for request/response bodies",
+                    "Global mutable state instead of proper dependency injection",
+                    "Missing type hints on path and query parameters",
+                ],
+                "patterns": {
+                    "dependency_injection": "Annotated[Type, Depends(callable)] for clean, testable DI",
+                    "validation": "Pydantic Field() with constraints for detailed input validation",
+                },
+            },
             "security": {
                 "authentication": [
                     "Never store passwords in plain text - use bcrypt with cost 12+",
@@ -192,6 +249,10 @@ class QualityStandards:
         """Get standards for a specific language."""
         return self.standards.get(language, {})
 
+    def get_for_framework(self, framework: str) -> dict[str, Any]:
+        """Get standards for a specific framework."""
+        return self.standards.get(framework, {})
+
     def get_security_standards(self) -> dict[str, Any]:
         """Get security-related standards."""
         return self.standards.get("security", {})
@@ -210,6 +271,14 @@ class QualityStandards:
             if "principles" in lang_standards:
                 # Use moderate (3) for language principles - not category-specific
                 requirements.extend(lang_standards["principles"][:3])
+
+        # Add framework-specific standards
+        if intent.frameworks:
+            fw_count = self._get_stringency_count("framework")
+            for framework in intent.frameworks:
+                fw_standards = self.get_for_framework(framework)
+                if "principles" in fw_standards:
+                    requirements.extend(fw_standards["principles"][:fw_count])
 
         # Add security standards if relevant (use security stringency)
         if intent.touches_security:
@@ -231,9 +300,10 @@ class QualityStandards:
     def get_all_standards(
         self,
         language: str | None = None,
+        framework: str | None = None,
         category: str = "all",
     ) -> dict[str, Any]:
-        """Get standards filtered by language and category."""
+        """Get standards filtered by language, framework, and category."""
         result: dict[str, Any] = {}
 
         # Get language standards
@@ -241,6 +311,12 @@ class QualityStandards:
             lang_standards = self.get_for_language(language.lower())
             if lang_standards:
                 result["language_standards"] = lang_standards
+
+        # Get framework standards if requested
+        if framework:
+            fw_standards = self.get_for_framework(framework.lower())
+            if fw_standards:
+                result["framework_standards"] = fw_standards
 
         # Get security standards if requested
         if category in ["all", "security"]:

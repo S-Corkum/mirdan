@@ -116,6 +116,35 @@ class TestQualityStandardsConfigWiring:
         assert len(result) > 0
 
 
+class TestQualityStandardsFrameworkConfig:
+    """Tests for framework stringency configuration wiring."""
+
+    def test_framework_stringency_affects_count(self) -> None:
+        """Framework stringency should control number of framework standards."""
+        strict_config = QualityConfig(framework="strict")
+        permissive_config = QualityConfig(framework="permissive")
+
+        strict_standards = QualityStandards(config=strict_config)
+        permissive_standards = QualityStandards(config=permissive_config)
+
+        intent = Intent(
+            original_prompt="create a React component",
+            task_type=TaskType.GENERATION,
+            frameworks=["react"],
+        )
+
+        strict_result = strict_standards.render_for_intent(intent)
+        permissive_result = permissive_standards.render_for_intent(intent)
+
+        assert len(strict_result) > len(permissive_result)
+
+    def test_framework_default_is_moderate(self) -> None:
+        """Default framework stringency should be moderate."""
+        config = QualityConfig()
+
+        assert config.framework == "moderate"
+
+
 class TestPromptComposerConfigWiring:
     """Tests for PromptComposer configuration wiring."""
 

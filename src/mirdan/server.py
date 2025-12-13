@@ -116,7 +116,7 @@ def get_quality_standards(
     Returns:
         Quality standards for the specified language/framework
     """
-    return quality_standards.get_all_standards(language=language, category=category)
+    return quality_standards.get_all_standards(language=language, framework=framework, category=category)
 
 
 @mcp.tool()

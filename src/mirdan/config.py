@@ -14,6 +14,7 @@ class QualityConfig(BaseModel):
     architecture: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
     documentation: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
     testing: str = Field(default="strict", pattern="^(strict|moderate|permissive)$")
+    framework: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
 
 
 class MCPClientConfig(BaseModel):
