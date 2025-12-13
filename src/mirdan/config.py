@@ -16,11 +16,29 @@ class QualityConfig(BaseModel):
     testing: str = Field(default="strict", pattern="^(strict|moderate|permissive)$")
 
 
+class MCPClientConfig(BaseModel):
+    """Configuration for connecting to an external MCP server."""
+
+    type: str = Field(description="Transport type: 'stdio' or 'http'")
+    command: str | None = Field(default=None, description="Command for stdio transport")
+    args: list[str] = Field(default_factory=list, description="Arguments for stdio command")
+    url: str | None = Field(default=None, description="URL for http transport")
+    env: dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    cwd: str | None = Field(default=None, description="Working directory for stdio")
+    timeout: float = Field(default=30.0, description="Connection timeout in seconds")
+
+
 class OrchestrationConfig(BaseModel):
     """MCP orchestration preferences."""
 
     prefer_mcps: list[str] = Field(default_factory=lambda: ["context7", "filesystem"])
     auto_invoke: list[dict[str, Any]] = Field(default_factory=list)
+    mcp_clients: dict[str, MCPClientConfig] = Field(
+        default_factory=dict,
+        description="Configuration for MCP clients mirdan can connect to",
+    )
+    gather_timeout: float = Field(default=10.0, description="Total timeout for context gathering")
+    gatherer_timeout: float = Field(default=3.0, description="Timeout per gatherer")
 
 
 class EnhancementConfig(BaseModel):

@@ -4,24 +4,30 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from mirdan.config import MirdanConfig
+from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
-from mirdan.models import ContextBundle, TaskType
+from mirdan.models import TaskType
 
 # Initialize the MCP server
 mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
+
+# Load configuration
+config = MirdanConfig.find_config()
 
 # Initialize components
 intent_analyzer = IntentAnalyzer()
 quality_standards = QualityStandards()
 prompt_composer = PromptComposer(quality_standards)
 mcp_orchestrator = MCPOrchestrator()
+context_aggregator = ContextAggregator(config)
 
 
 @mcp.tool()
-def enhance_prompt(
+async def enhance_prompt(
     prompt: str,
     task_type: str = "auto",
     context_level: str = "auto",
@@ -51,8 +57,8 @@ def enhance_prompt(
     # Get tool recommendations
     tool_recommendations = mcp_orchestrator.suggest_tools(intent)
 
-    # Create context bundle (in real implementation, this would query MCPs)
-    context = ContextBundle()
+    # Gather context from configured MCPs
+    context = await context_aggregator.gather_all(intent, context_level)
 
     # Compose enhanced prompt
     enhanced = prompt_composer.compose(intent, context, tool_recommendations)
