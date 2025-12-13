@@ -9,6 +9,7 @@ from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.prompt_composer import PromptComposer
+from mirdan.core.code_validator import CodeValidator
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import TaskType
 
@@ -24,6 +25,7 @@ quality_standards = QualityStandards(config=config.quality)
 prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
 mcp_orchestrator = MCPOrchestrator(config.orchestration)
 context_aggregator = ContextAggregator(config)
+code_validator = CodeValidator(quality_standards, config=config.quality)
 
 
 @mcp.tool()
@@ -183,6 +185,40 @@ def get_verification_checklist(
         "touches_security": touches_security,
         "checklist": verification_steps,
     }
+
+
+@mcp.tool()
+def validate_code_quality(
+    code: str,
+    language: str = "auto",
+    check_security: bool = True,
+    check_architecture: bool = True,
+    check_style: bool = True,
+    severity_threshold: str = "warning",
+) -> dict[str, Any]:
+    """
+    Validate generated code against quality standards.
+
+    Args:
+        code: The code to validate
+        language: Programming language (python|typescript|javascript|rust|go|auto)
+        check_security: Validate against security standards
+        check_architecture: Validate against architecture standards
+        check_style: Validate against language-specific style standards
+        severity_threshold: Minimum severity to include in results (error|warning|info)
+
+    Returns:
+        Validation results with pass/fail, score, violations, and summary
+    """
+    result = code_validator.validate(
+        code=code,
+        language=language,
+        check_security=check_security,
+        check_architecture=check_architecture,
+        check_style=check_style,
+    )
+
+    return result.to_dict(severity_threshold=severity_threshold)
 
 
 def main() -> None:
