@@ -2,11 +2,20 @@
 
 from typing import Any
 
+from mirdan.config import OrchestrationConfig
 from mirdan.models import Intent, TaskType, ToolRecommendation
 
 
 class MCPOrchestrator:
     """Determines which MCP tools should be used for a given intent."""
+
+    def __init__(self, config: OrchestrationConfig | None = None):
+        """Initialize with optional orchestration configuration.
+
+        Args:
+            config: Orchestration config for MCP preferences
+        """
+        self._config = config
 
     # Known MCPs and their capabilities
     KNOWN_MCPS: dict[str, dict[str, Any]] = {
@@ -127,7 +136,36 @@ class MCPOrchestrator:
                 )
             )
 
-        return recommendations
+        # Sort by preference before returning
+        return self._sort_by_preference(recommendations)
+
+    def _sort_by_preference(
+        self, recommendations: list[ToolRecommendation]
+    ) -> list[ToolRecommendation]:
+        """Sort recommendations by prefer_mcps configuration.
+
+        MCPs listed in prefer_mcps appear first, in order.
+        Other MCPs appear after, sorted alphabetically for stability.
+
+        Args:
+            recommendations: List of tool recommendations
+
+        Returns:
+            Sorted list with preferred MCPs first
+        """
+        if not self._config or not self._config.prefer_mcps:
+            return recommendations
+
+        prefer_mcps = self._config.prefer_mcps
+
+        def sort_key(rec: ToolRecommendation) -> tuple[int, str]:
+            try:
+                idx = prefer_mcps.index(rec.mcp)
+            except ValueError:
+                idx = len(prefer_mcps)  # Non-preferred go after preferred
+            return (idx, rec.mcp)  # Secondary sort by name for stability
+
+        return sorted(recommendations, key=sort_key)
 
     def get_available_mcp_info(self) -> dict[str, dict[str, Any]]:
         """Return information about known MCPs."""

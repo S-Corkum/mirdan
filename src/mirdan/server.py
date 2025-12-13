@@ -18,11 +18,11 @@ mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
 # Load configuration
 config = MirdanConfig.find_config()
 
-# Initialize components
-intent_analyzer = IntentAnalyzer()
-quality_standards = QualityStandards()
-prompt_composer = PromptComposer(quality_standards)
-mcp_orchestrator = MCPOrchestrator()
+# Initialize components with configuration
+intent_analyzer = IntentAnalyzer(config.project)
+quality_standards = QualityStandards(config=config.quality)
+prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
+mcp_orchestrator = MCPOrchestrator(config.orchestration)
 context_aggregator = ContextAggregator(config)
 
 

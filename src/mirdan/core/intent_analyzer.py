@@ -2,11 +2,20 @@
 
 import re
 
+from mirdan.config import ProjectConfig
 from mirdan.models import Intent, TaskType
 
 
 class IntentAnalyzer:
     """Analyzes developer prompts to understand intent."""
+
+    def __init__(self, config: ProjectConfig | None = None):
+        """Initialize with optional project configuration.
+
+        Args:
+            config: Project config for default language/framework hints
+        """
+        self._config = config
 
     # Task type detection patterns with weights (pattern, weight)
     # Higher weight = more specific/stronger indicator
@@ -114,11 +123,15 @@ class IntentAnalyzer:
         # Detect task type
         task_type = self._detect_task_type(prompt_lower)
 
-        # Detect language
+        # Detect language (use config as fallback)
         language = self._detect_language(prompt_lower)
+        if language is None and self._config and self._config.primary_language:
+            language = self._config.primary_language
 
-        # Detect frameworks
+        # Detect frameworks (use config as fallback)
         frameworks = self._detect_frameworks(prompt_lower)
+        if not frameworks and self._config and self._config.frameworks:
+            frameworks = list(self._config.frameworks)
 
         # Check if touches security
         touches_security = any(

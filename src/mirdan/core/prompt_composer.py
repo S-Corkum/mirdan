@@ -1,5 +1,6 @@
 """Prompt Composer - Assembles enhanced prompts using proven frameworks."""
 
+from mirdan.config import EnhancementConfig
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import (
     ContextBundle,
@@ -13,9 +14,19 @@ from mirdan.models import (
 class PromptComposer:
     """Composes enhanced prompts using proven frameworks."""
 
-    def __init__(self, standards: QualityStandards):
-        """Initialize with quality standards."""
+    def __init__(
+        self,
+        standards: QualityStandards,
+        config: EnhancementConfig | None = None,
+    ):
+        """Initialize with quality standards and optional enhancement config.
+
+        Args:
+            standards: Quality standards repository
+            config: Enhancement config for verbosity and section control
+        """
         self.standards = standards
+        self._config = config
 
     def compose(
         self,
@@ -87,13 +98,23 @@ class PromptComposer:
         tool_recommendations: list[ToolRecommendation],
     ) -> str:
         """Build the final prompt text."""
+        # Determine verbosity settings
+        verbosity = "balanced"
+        include_verification = True
+        include_tool_hints = True
+
+        if self._config:
+            verbosity = self._config.verbosity
+            include_verification = self._config.include_verification
+            include_tool_hints = self._config.include_tool_hints
+
         # Determine role
         language = intent.primary_language or "software"
         frameworks = ", ".join(intent.frameworks) if intent.frameworks else "modern frameworks"
 
         sections: list[str] = []
 
-        # Role section
+        # Role section (always included)
         sections.append(f"""## Role
 Act as a senior {language} developer with expertise in {frameworks}.
 You prioritize code quality, security, and maintainability.""")
@@ -106,33 +127,38 @@ You prioritize code quality, security, and maintainability.""")
 
 Tech Stack: {tech_stack_str if context.tech_stack else 'Not detected'}""")
 
-        # Task section
+        # Task section (always included)
         sections.append(f"""## Task
 {intent.original_prompt}""")
 
-        # Quality requirements
-        if quality_requirements:
-            requirements_text = "\n".join(f"- {req}" for req in quality_requirements)
+        # Quality requirements (skip if minimal verbosity)
+        if quality_requirements and verbosity != "minimal":
+            # Comprehensive: show all, balanced: show first 5, minimal: skip
+            limit = None if verbosity == "comprehensive" else 5
+            reqs_to_show = quality_requirements[:limit] if limit else quality_requirements
+            requirements_text = "\n".join(f"- {req}" for req in reqs_to_show)
             sections.append(f"""## Quality Requirements
 {requirements_text}""")
 
-        # Constraints based on task type
+        # Constraints based on task type (skip if minimal verbosity)
         constraints = self._get_task_constraints(intent)
-        if constraints:
-            constraints_text = "\n".join(f"- {c}" for c in constraints)
+        if constraints and verbosity != "minimal":
+            limit = None if verbosity == "comprehensive" else 4
+            constraints_to_show = constraints[:limit] if limit else constraints
+            constraints_text = "\n".join(f"- {c}" for c in constraints_to_show)
             sections.append(f"""## Constraints
 {constraints_text}""")
 
-        # Verification steps
-        if verification_steps:
+        # Verification steps (conditional on include_verification)
+        if verification_steps and include_verification:
             verification_text = "\n".join(
                 f"{i + 1}. {step}" for i, step in enumerate(verification_steps)
             )
             sections.append(f"""## Before Completing
 {verification_text}""")
 
-        # Tool recommendations
-        if tool_recommendations:
+        # Tool recommendations (conditional on include_tool_hints)
+        if tool_recommendations and include_tool_hints:
             tools_text = "\n".join(
                 f"- **{rec.mcp}**: {rec.action} ({rec.reason})" for rec in tool_recommendations
             )

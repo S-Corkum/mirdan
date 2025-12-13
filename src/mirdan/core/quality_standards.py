@@ -5,18 +5,45 @@ from typing import Any
 
 import yaml
 
+from mirdan.config import QualityConfig
 from mirdan.models import Intent
 
 
 class QualityStandards:
     """Repository of quality standards by language and framework."""
 
-    def __init__(self, standards_dir: Path | None = None):
-        """Initialize with optional custom standards directory."""
+    def __init__(
+        self,
+        standards_dir: Path | None = None,
+        config: QualityConfig | None = None,
+    ):
+        """Initialize with optional custom standards directory and quality config.
+
+        Args:
+            standards_dir: Directory with custom YAML standards
+            config: Quality config for stringency levels
+        """
+        self._config = config
         self.standards_dir = standards_dir
         self.standards = self._load_default_standards()
         if standards_dir and standards_dir.exists():
             self._load_custom_standards(standards_dir)
+
+    def _get_stringency_count(self, category: str) -> int:
+        """Get the number of standards to include based on stringency level.
+
+        Args:
+            category: Category name (security, architecture, documentation, testing)
+
+        Returns:
+            Number of standards to include (5 for strict, 3 for moderate, 1 for permissive)
+        """
+        if not self._config:
+            return 3  # Default: moderate
+
+        level = getattr(self._config, category, "moderate")
+        stringency_map = {"strict": 5, "moderate": 3, "permissive": 1}
+        return stringency_map.get(level, 3)
 
     def _load_default_standards(self) -> dict[str, Any]:
         """Load built-in quality standards."""
@@ -181,20 +208,23 @@ class QualityStandards:
         if intent.primary_language:
             lang_standards = self.get_for_language(intent.primary_language)
             if "principles" in lang_standards:
+                # Use moderate (3) for language principles - not category-specific
                 requirements.extend(lang_standards["principles"][:3])
 
-        # Add security standards if relevant
+        # Add security standards if relevant (use security stringency)
         if intent.touches_security:
+            sec_count = self._get_stringency_count("security")
             sec_standards = self.get_security_standards()
             if "authentication" in sec_standards:
-                requirements.extend(sec_standards["authentication"][:2])
+                requirements.extend(sec_standards["authentication"][:sec_count])
             if "input_validation" in sec_standards:
-                requirements.extend(sec_standards["input_validation"][:2])
+                requirements.extend(sec_standards["input_validation"][:sec_count])
 
-        # Add architecture standards
+        # Add architecture standards (use architecture stringency)
+        arch_count = self._get_stringency_count("architecture")
         arch_standards = self.get_architecture_standards()
         if "general" in arch_standards:
-            requirements.extend(arch_standards["general"])
+            requirements.extend(arch_standards["general"][:arch_count])
 
         return requirements
 
