@@ -11,7 +11,7 @@ from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ContextBundle, TaskType
 
 # Initialize the MCP server
-mcp = FastMCP("Mirdan", description="AI Code Quality Orchestrator")
+mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
 
 # Initialize components
 intent_analyzer = IntentAnalyzer()
