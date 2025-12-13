@@ -37,6 +37,7 @@ class Intent:
     touches_security: bool = False
     uses_external_framework: bool = False
     ambiguity_score: float = 0.0  # 0 = clear, 1 = very ambiguous
+    clarifying_questions: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -155,6 +156,27 @@ class MCPCapabilities:
 
 
 @dataclass
+class MCPToolCall:
+    """Request to call a tool on an MCP server."""
+
+    mcp_name: str  # e.g., "context7", "enyal"
+    tool_name: str  # e.g., "resolve-library-id"
+    arguments: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class MCPToolResult:
+    """Result from an MCP tool call."""
+
+    mcp_name: str
+    tool_name: str
+    success: bool
+    data: Any = None
+    error: str | None = None
+    elapsed_ms: float = 0.0
+
+
+@dataclass
 class EnhancedPrompt:
     """The final enhanced prompt output."""
 
@@ -174,6 +196,7 @@ class EnhancedPrompt:
             "extracted_entities": [e.to_dict() for e in self.intent.entities],
             "touches_security": self.intent.touches_security,
             "ambiguity_score": self.intent.ambiguity_score,
+            "clarifying_questions": self.intent.clarifying_questions,
             "quality_requirements": self.quality_requirements,
             "verification_steps": self.verification_steps,
             "tool_recommendations": [r.to_dict() for r in self.tool_recommendations],

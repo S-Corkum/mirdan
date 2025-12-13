@@ -1,7 +1,9 @@
 """MCP Client Registry - Manages connections to external MCP servers."""
 
+import asyncio
 import logging
 import os
+import time
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
@@ -12,7 +14,9 @@ from mirdan.models import (
     MCPPromptInfo,
     MCPResourceInfo,
     MCPResourceTemplateInfo,
+    MCPToolCall,
     MCPToolInfo,
+    MCPToolResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -303,3 +307,127 @@ class MCPClientRegistry:
         self._capabilities.clear()
         self._discovery_errors.clear()
         logger.debug("All MCP clients and capabilities cleared")
+
+    async def call_tools_parallel(
+        self,
+        calls: list[MCPToolCall],
+        timeout: float | None = None,
+    ) -> list[MCPToolResult]:
+        """Execute multiple MCP tool calls concurrently.
+
+        Args:
+            calls: List of tool calls to execute
+            timeout: Global timeout in seconds (defaults to gather_timeout from config)
+
+        Returns:
+            List of MCPToolResult in same order as input calls
+        """
+        if not calls:
+            return []
+
+        if timeout is None:
+            timeout = self._config.orchestration.gather_timeout
+
+        async def _execute_call(call: MCPToolCall) -> MCPToolResult:
+            """Execute a single tool call and return result."""
+            start_time = time.perf_counter()
+
+            # Check if MCP is configured
+            if not self.is_configured(call.mcp_name):
+                return MCPToolResult(
+                    mcp_name=call.mcp_name,
+                    tool_name=call.tool_name,
+                    success=False,
+                    error=f"MCP '{call.mcp_name}' is not configured",
+                    elapsed_ms=(time.perf_counter() - start_time) * 1000,
+                )
+
+            try:
+                client = await self.get_client(call.mcp_name)
+                if client is None:
+                    return MCPToolResult(
+                        mcp_name=call.mcp_name,
+                        tool_name=call.tool_name,
+                        success=False,
+                        error=f"Failed to get client for MCP '{call.mcp_name}'",
+                        elapsed_ms=(time.perf_counter() - start_time) * 1000,
+                    )
+
+                async with client:
+                    result = await client.call_tool(call.tool_name, call.arguments)
+
+                    # Parse result content
+                    data = None
+                    if result and hasattr(result, "content"):
+                        # Extract text content from result
+                        if isinstance(result.content, list):
+                            texts = [
+                                c.text for c in result.content
+                                if hasattr(c, "text")
+                            ]
+                            data = texts[0] if len(texts) == 1 else texts
+                        else:
+                            data = result.content
+
+                    return MCPToolResult(
+                        mcp_name=call.mcp_name,
+                        tool_name=call.tool_name,
+                        success=True,
+                        data=data,
+                        elapsed_ms=(time.perf_counter() - start_time) * 1000,
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    "Tool call failed for %s.%s: %s",
+                    call.mcp_name,
+                    call.tool_name,
+                    e,
+                )
+                return MCPToolResult(
+                    mcp_name=call.mcp_name,
+                    tool_name=call.tool_name,
+                    success=False,
+                    error=str(e),
+                    elapsed_ms=(time.perf_counter() - start_time) * 1000,
+                )
+
+        # Create tasks for all calls
+        tasks = [_execute_call(call) for call in calls]
+
+        try:
+            # Execute all calls concurrently with timeout
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=timeout,
+            )
+
+            # Convert any exceptions in results to error MCPToolResult
+            final_results: list[MCPToolResult] = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    final_results.append(
+                        MCPToolResult(
+                            mcp_name=calls[i].mcp_name,
+                            tool_name=calls[i].tool_name,
+                            success=False,
+                            error=str(result),
+                        )
+                    )
+                else:
+                    final_results.append(result)
+
+            return final_results
+
+        except asyncio.TimeoutError:
+            logger.warning("call_tools_parallel timed out after %s seconds", timeout)
+            # Return timeout errors for all calls
+            return [
+                MCPToolResult(
+                    mcp_name=call.mcp_name,
+                    tool_name=call.tool_name,
+                    success=False,
+                    error=f"Global timeout after {timeout}s",
+                )
+                for call in calls
+            ]

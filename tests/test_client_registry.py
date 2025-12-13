@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.client_registry import MCPClientRegistry
+from mirdan.models import MCPToolCall, MCPToolResult
 
 
 @pytest.fixture
@@ -430,3 +431,228 @@ class TestCapabilityDiscovery:
 
         assert registry.has_tool("enyal", "tool_v2") is True
         assert registry.has_tool("enyal", "tool_v1") is False
+
+
+class TestMCPToolModels:
+    """Tests for MCPToolCall and MCPToolResult dataclasses."""
+
+    def test_mcp_tool_call_creation(self) -> None:
+        """MCPToolCall should be created with required fields."""
+        call = MCPToolCall(
+            mcp_name="context7",
+            tool_name="get-library-docs",
+            arguments={"libraryId": "/react/react", "topic": "hooks"},
+        )
+
+        assert call.mcp_name == "context7"
+        assert call.tool_name == "get-library-docs"
+        assert call.arguments == {"libraryId": "/react/react", "topic": "hooks"}
+
+    def test_mcp_tool_call_default_arguments(self) -> None:
+        """MCPToolCall should have empty dict as default arguments."""
+        call = MCPToolCall(
+            mcp_name="enyal",
+            tool_name="enyal_recall",
+        )
+
+        assert call.mcp_name == "enyal"
+        assert call.tool_name == "enyal_recall"
+        assert call.arguments == {}
+
+    def test_mcp_tool_result_success(self) -> None:
+        """MCPToolResult should represent a successful call."""
+        result = MCPToolResult(
+            mcp_name="context7",
+            tool_name="get-library-docs",
+            success=True,
+            data={"content": "React hooks documentation..."},
+            elapsed_ms=150.5,
+        )
+
+        assert result.mcp_name == "context7"
+        assert result.tool_name == "get-library-docs"
+        assert result.success is True
+        assert result.data == {"content": "React hooks documentation..."}
+        assert result.error is None
+        assert result.elapsed_ms == 150.5
+
+    def test_mcp_tool_result_failure(self) -> None:
+        """MCPToolResult should represent a failed call."""
+        result = MCPToolResult(
+            mcp_name="enyal",
+            tool_name="enyal_recall",
+            success=False,
+            error="Connection timeout",
+            elapsed_ms=5000.0,
+        )
+
+        assert result.mcp_name == "enyal"
+        assert result.tool_name == "enyal_recall"
+        assert result.success is False
+        assert result.data is None
+        assert result.error == "Connection timeout"
+        assert result.elapsed_ms == 5000.0
+
+
+class TestCallToolsParallel:
+    """Tests for MCPClientRegistry.call_tools_parallel method."""
+
+    @pytest.fixture
+    def multi_mcp_config(self) -> MirdanConfig:
+        """Create a config with multiple MCP clients."""
+        config = MirdanConfig()
+        config.orchestration = OrchestrationConfig(
+            mcp_clients={
+                "context7": MCPClientConfig(
+                    type="http",
+                    url="https://context7.com/mcp",
+                ),
+                "enyal": MCPClientConfig(
+                    type="stdio",
+                    command="uvx",
+                    args=["enyal", "serve"],
+                ),
+            },
+            gather_timeout=10.0,
+        )
+        return config
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_empty_list(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Should return empty list for empty input."""
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        results = await registry.call_tools_parallel([])
+
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_single_call(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Single tool call should work correctly."""
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        mock_result = MagicMock()
+        mock_result.content = [MagicMock(text="Test result")]
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(return_value=mock_result)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(registry, "get_client", return_value=mock_client):
+            results = await registry.call_tools_parallel([
+                MCPToolCall(mcp_name="context7", tool_name="test_tool", arguments={"key": "value"})
+            ])
+
+        assert len(results) == 1
+        assert results[0].success is True
+        assert results[0].mcp_name == "context7"
+        assert results[0].tool_name == "test_tool"
+        assert results[0].data == "Test result"
+        mock_client.call_tool.assert_called_once_with("test_tool", {"key": "value"})
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_multiple_calls(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Multiple calls should run concurrently and return in order."""
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        mock_result1 = MagicMock()
+        mock_result1.content = [MagicMock(text="Result 1")]
+
+        mock_result2 = MagicMock()
+        mock_result2.content = [MagicMock(text="Result 2")]
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(side_effect=[mock_result1, mock_result2])
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(registry, "get_client", return_value=mock_client):
+            results = await registry.call_tools_parallel([
+                MCPToolCall(mcp_name="context7", tool_name="tool1"),
+                MCPToolCall(mcp_name="enyal", tool_name="tool2"),
+            ])
+
+        assert len(results) == 2
+        assert results[0].success is True
+        assert results[0].tool_name == "tool1"
+        assert results[1].success is True
+        assert results[1].tool_name == "tool2"
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_partial_failure(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Some calls succeed while others fail, all should be returned."""
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        mock_result = MagicMock()
+        mock_result.content = [MagicMock(text="Success")]
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(
+            side_effect=[mock_result, Exception("Tool failed")]
+        )
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(registry, "get_client", return_value=mock_client):
+            results = await registry.call_tools_parallel([
+                MCPToolCall(mcp_name="context7", tool_name="good_tool"),
+                MCPToolCall(mcp_name="enyal", tool_name="bad_tool"),
+            ])
+
+        assert len(results) == 2
+        assert results[0].success is True
+        assert results[0].data == "Success"
+        assert results[1].success is False
+        assert "Tool failed" in results[1].error
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_timeout(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Global timeout should return timeout errors for all calls."""
+        import asyncio
+
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        async def slow_call(*args, **kwargs):
+            await asyncio.sleep(10)  # Much longer than timeout
+            return MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(side_effect=slow_call)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(registry, "get_client", return_value=mock_client):
+            results = await registry.call_tools_parallel(
+                [MCPToolCall(mcp_name="context7", tool_name="slow_tool")],
+                timeout=0.01,  # Very short timeout
+            )
+
+        assert len(results) == 1
+        assert results[0].success is False
+        assert "timeout" in results[0].error.lower()
+
+    @pytest.mark.asyncio
+    async def test_call_tools_parallel_unconfigured_mcp(
+        self, multi_mcp_config: MirdanConfig
+    ) -> None:
+        """Calls to unconfigured MCPs should return error results."""
+        registry = MCPClientRegistry(multi_mcp_config)
+
+        results = await registry.call_tools_parallel([
+            MCPToolCall(mcp_name="nonexistent", tool_name="test_tool")
+        ])
+
+        assert len(results) == 1
+        assert results[0].success is False
+        assert "not configured" in results[0].error

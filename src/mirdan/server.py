@@ -69,7 +69,7 @@ async def enhance_prompt(
 
 
 @mcp.tool()
-def analyze_intent(prompt: str) -> dict[str, Any]:
+async def analyze_intent(prompt: str) -> dict[str, Any]:
     """
     Analyze a prompt without enhancement, returning the detected intent,
     entities, and recommended approach.
@@ -97,11 +97,12 @@ def analyze_intent(prompt: str) -> dict[str, Any]:
         "ambiguity_score": intent.ambiguity_score,
         "ambiguity_level": ambiguity_level,
         "extracted_entities": [e.to_dict() for e in intent.entities],
+        "clarifying_questions": intent.clarifying_questions,
     }
 
 
 @mcp.tool()
-def get_quality_standards(
+async def get_quality_standards(
     language: str,
     framework: str = "",
     category: str = "all",
@@ -121,9 +122,10 @@ def get_quality_standards(
 
 
 @mcp.tool()
-def suggest_tools(
+async def suggest_tools(
     intent_description: str,
     available_mcps: str = "",
+    discover_capabilities: bool = False,
 ) -> dict[str, Any]:
     """
     Suggest which MCP tools should be used for a given intent.
@@ -131,6 +133,7 @@ def suggest_tools(
     Args:
         intent_description: Description of what you're trying to do
         available_mcps: Comma-separated list of available MCPs (optional)
+        discover_capabilities: If True, query actual MCP capabilities for recommended MCPs
 
     Returns:
         Tool recommendations with priorities and reasons
@@ -144,14 +147,25 @@ def suggest_tools(
     # Get recommendations
     recommendations = mcp_orchestrator.suggest_tools(intent, mcps)
 
+    # Optionally discover actual MCP capabilities
+    discovered_mcps: dict[str, list[str]] = {}
+    if discover_capabilities:
+        for rec in recommendations:
+            mcp_name = rec.mcp
+            if mcp_name and context_aggregator._registry.is_configured(mcp_name):
+                capabilities = await context_aggregator._registry.discover_capabilities(mcp_name)
+                if capabilities:
+                    discovered_mcps[mcp_name] = [t.name for t in capabilities.tools[:10]]
+
     return {
         "recommendations": [r.to_dict() for r in recommendations],
         "detected_intent": intent.task_type.value,
+        "discovered_tools": discovered_mcps,
     }
 
 
 @mcp.tool()
-def get_verification_checklist(
+async def get_verification_checklist(
     task_type: str,
     touches_security: bool = False,
 ) -> dict[str, Any]:
@@ -189,7 +203,7 @@ def get_verification_checklist(
 
 
 @mcp.tool()
-def validate_code_quality(
+async def validate_code_quality(
     code: str,
     language: str = "auto",
     check_security: bool = True,

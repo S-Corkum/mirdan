@@ -143,6 +143,13 @@ class IntentAnalyzer:
         # Calculate ambiguity
         ambiguity = self._calculate_ambiguity(prompt, task_type, language)
 
+        # Generate clarifying questions if ambiguity is high
+        clarifying_questions: list[str] = []
+        if ambiguity >= 0.6:
+            clarifying_questions = self._generate_clarifying_questions(
+                prompt, task_type, language
+            )
+
         # Extract entities from prompt
         extracted_entities = self._entity_extractor.extract(prompt)
 
@@ -155,6 +162,7 @@ class IntentAnalyzer:
             touches_security=touches_security,
             uses_external_framework=len(frameworks) > 0,
             ambiguity_score=ambiguity,
+            clarifying_questions=clarifying_questions,
         )
 
     def _detect_task_type(self, prompt: str) -> TaskType:
@@ -215,3 +223,48 @@ class IntentAnalyzer:
                 score += 0.1
 
         return min(score, 1.0)
+
+    def _generate_clarifying_questions(
+        self,
+        prompt: str,
+        task_type: TaskType,
+        language: str | None,
+    ) -> list[str]:
+        """Generate contextual clarifying questions when ambiguity is high.
+
+        Args:
+            prompt: The original user prompt
+            task_type: Detected task type
+            language: Detected programming language (or None)
+
+        Returns:
+            List of clarifying questions (max 4)
+        """
+        questions: list[str] = []
+        prompt_lower = prompt.lower()
+
+        # Priority 1: Unknown task type
+        if task_type == TaskType.UNKNOWN:
+            questions.append(
+                "What type of action do you want? (create, fix, refactor, test, review)"
+            )
+
+        # Priority 2: Short prompt needs more details
+        if len(prompt.split()) < 5:
+            questions.append(
+                "Could you provide more details about what you want to accomplish?"
+            )
+
+        # Priority 3: Vague words need clarification
+        vague_words = ["something", "stuff", "thing", "it", "this", "that"]
+        for word in vague_words:
+            if word in prompt_lower and len(questions) < 4:
+                questions.append(f"What does '{word}' refer to specifically?")
+
+        # Priority 4: No language detected
+        if language is None and len(questions) < 4:
+            questions.append(
+                "What programming language should this be implemented in?"
+            )
+
+        return questions[:4]
