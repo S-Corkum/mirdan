@@ -1,6 +1,6 @@
 [project]
 name = "mirdan"
-version = "0.0.1"
+version = "0.0.2"
 description = "AI Code Quality Orchestrator - Automatically transforms developer prompts into high-quality, structured requests"
 readme = "README.md"
 requires-python = ">=3.11"
