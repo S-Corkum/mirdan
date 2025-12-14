@@ -226,9 +226,7 @@ class TestContextAggregator:
 
         await aggregator.gather_all(generation_intent, context_level="comprehensive")
 
-        mock_gatherer.gather.assert_called_once_with(
-            generation_intent, "comprehensive"
-        )
+        mock_gatherer.gather.assert_called_once_with(generation_intent, "comprehensive")
 
     @pytest.mark.asyncio
     async def test_gather_all_handles_timeout(
@@ -257,21 +255,15 @@ class TestContextAggregator:
         assert isinstance(result, ContextBundle)
 
     @pytest.mark.asyncio
-    async def test_close_closes_registry(
-        self, full_config: MirdanConfig
-    ) -> None:
+    async def test_close_closes_registry(self, full_config: MirdanConfig) -> None:
         """Should close the registry on close."""
         aggregator = ContextAggregator(full_config)
 
-        with patch.object(
-            aggregator._registry, "close_all", new_callable=AsyncMock
-        ) as mock_close:
+        with patch.object(aggregator._registry, "close_all", new_callable=AsyncMock) as mock_close:
             await aggregator.close()
             mock_close.assert_called_once()
 
-    def test_merge_results_deduplicates(
-        self, full_config: MirdanConfig
-    ) -> None:
+    def test_merge_results_deduplicates(self, full_config: MirdanConfig) -> None:
         """Should deduplicate merged results."""
         aggregator = ContextAggregator(full_config)
 
@@ -303,9 +295,7 @@ class TestContextAggregator:
         assert "file1.py" in merged.relevant_files
         assert "file2.py" in merged.relevant_files
 
-    def test_merge_results_skips_failed(
-        self, full_config: MirdanConfig
-    ) -> None:
+    def test_merge_results_skips_failed(self, full_config: MirdanConfig) -> None:
         """Should skip failed gatherer results."""
         aggregator = ContextAggregator(full_config)
 

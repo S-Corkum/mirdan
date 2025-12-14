@@ -252,8 +252,7 @@ class ValidationResult:
             threshold_idx = 1  # Default to warning
 
         filtered = [
-            v for v in self.violations
-            if threshold_order.index(v.severity) <= threshold_idx
+            v for v in self.violations if threshold_order.index(v.severity) <= threshold_idx
         ]
 
         return {

@@ -85,7 +85,9 @@ async def analyze_intent(prompt: str) -> dict[str, Any]:
     ambiguity_level = (
         "low"
         if intent.ambiguity_score < 0.3
-        else "medium" if intent.ambiguity_score < 0.6 else "high"
+        else "medium"
+        if intent.ambiguity_score < 0.6
+        else "high"
     )
 
     return {

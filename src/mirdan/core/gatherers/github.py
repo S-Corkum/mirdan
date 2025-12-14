@@ -158,7 +158,7 @@ class GitHubGatherer:
 
     async def _get_recent_commits(
         self,
-        client: Client,
+        client: Client[Any],
         limit: int = 5,
     ) -> list[dict[str, Any]]:
         """Get recent commit information.
@@ -198,7 +198,7 @@ class GitHubGatherer:
 
     async def _parse_tech_stack(
         self,
-        client: Client,
+        client: Client[Any],
     ) -> dict[str, Any]:
         """Parse tech stack from manifest files.
 

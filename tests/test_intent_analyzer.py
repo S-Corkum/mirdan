@@ -130,9 +130,7 @@ class TestAmbiguityScoring:
 
     def test_detailed_prompts_are_clear(self, analyzer: IntentAnalyzer) -> None:
         """Detailed prompts should have lower ambiguity."""
-        intent = analyzer.analyze(
-            "add user authentication using JWT tokens to the FastAPI backend"
-        )
+        intent = analyzer.analyze("add user authentication using JWT tokens to the FastAPI backend")
         assert intent.ambiguity_score < 0.5
 
     def test_vague_words_increase_ambiguity(self, analyzer: IntentAnalyzer) -> None:
@@ -152,50 +150,37 @@ class TestClarifyingQuestions:
 
     def test_clear_prompts_no_questions(self, analyzer: IntentAnalyzer) -> None:
         """Clear prompts should not generate questions."""
-        intent = analyzer.analyze(
-            "add JWT authentication to the FastAPI backend in Python"
-        )
+        intent = analyzer.analyze("add JWT authentication to the FastAPI backend in Python")
         assert intent.ambiguity_score < 0.6
         assert len(intent.clarifying_questions) == 0
 
-    def test_unknown_task_type_generates_task_question(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_unknown_task_type_generates_task_question(self, analyzer: IntentAnalyzer) -> None:
         """Unknown task type should generate task clarification question."""
         intent = analyzer.analyze("something with the code")
         assert intent.task_type == TaskType.UNKNOWN
         assert any("type of action" in q for q in intent.clarifying_questions)
 
-    def test_short_prompt_generates_details_question(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_short_prompt_generates_details_question(self, analyzer: IntentAnalyzer) -> None:
         """Short prompts should ask for more details."""
         intent = analyzer.analyze("fix it")
         assert any("more details" in q for q in intent.clarifying_questions)
 
-    def test_vague_words_generate_specific_questions(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_vague_words_generate_specific_questions(self, analyzer: IntentAnalyzer) -> None:
         """Vague words should generate specific clarification questions."""
         intent = analyzer.analyze("do something with that thing")
         # Should have questions about vague words
         has_vague_word_question = any(
-            "something" in q or "that" in q or "thing" in q
-            for q in intent.clarifying_questions
+            "something" in q or "that" in q or "thing" in q for q in intent.clarifying_questions
         )
         assert has_vague_word_question
 
-    def test_no_language_generates_language_question(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_no_language_generates_language_question(self, analyzer: IntentAnalyzer) -> None:
         """Missing language should generate language question when ambiguity high."""
         # Prompt without language that triggers high ambiguity
         intent = analyzer.analyze("create something new")
         if intent.ambiguity_score >= 0.6:
             # Language question should be present (may be later in priority)
-            assert any(
-                "programming language" in q for q in intent.clarifying_questions
-            )
+            assert any("programming language" in q for q in intent.clarifying_questions)
 
     def test_question_limit_is_four(self, analyzer: IntentAnalyzer) -> None:
         """Should limit to maximum 4 questions."""

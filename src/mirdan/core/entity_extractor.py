@@ -20,22 +20,82 @@ class ExtractionPattern:
 # Known libraries for high-confidence API detection
 KNOWN_LIBRARIES = {
     # Python stdlib
-    "os", "sys", "re", "json", "pathlib", "datetime", "typing", "collections",
-    "asyncio", "functools", "itertools", "subprocess", "logging", "math",
+    "os",
+    "sys",
+    "re",
+    "json",
+    "pathlib",
+    "datetime",
+    "typing",
+    "collections",
+    "asyncio",
+    "functools",
+    "itertools",
+    "subprocess",
+    "logging",
+    "math",
     # Python frameworks
-    "requests", "fastapi", "pydantic", "sqlalchemy", "django", "flask", "pytest",
-    "numpy", "pandas", "torch", "tensorflow", "httpx", "aiohttp", "celery",
+    "requests",
+    "fastapi",
+    "pydantic",
+    "sqlalchemy",
+    "django",
+    "flask",
+    "pytest",
+    "numpy",
+    "pandas",
+    "torch",
+    "tensorflow",
+    "httpx",
+    "aiohttp",
+    "celery",
     # Node stdlib
-    "fs", "path", "http", "crypto", "util", "stream", "events",
+    "fs",
+    "path",
+    "http",
+    "crypto",
+    "util",
+    "stream",
+    "events",
     # Node frameworks/libs
-    "axios", "express", "prisma", "next", "react", "vue", "lodash", "moment",
+    "axios",
+    "express",
+    "prisma",
+    "next",
+    "react",
+    "vue",
+    "lodash",
+    "moment",
 }
 
 # Valid file extensions for code files
 VALID_EXTENSIONS = {
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".md",
-    ".css", ".html", ".go", ".rs", ".java", ".vue", ".svelte", ".toml",
-    ".cfg", ".ini", ".sh", ".rb", ".php", ".c", ".cpp", ".h", ".hpp",
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".md",
+    ".css",
+    ".html",
+    ".go",
+    ".rs",
+    ".java",
+    ".vue",
+    ".svelte",
+    ".toml",
+    ".cfg",
+    ".ini",
+    ".sh",
+    ".rb",
+    ".php",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
 }
 
 
@@ -62,9 +122,7 @@ class EntityExtractor:
             ),
             # Home directory paths - check before absolute paths
             ExtractionPattern(
-                pattern=re.compile(
-                    r"(~/(?:[a-zA-Z0-9_.-]+/)*[a-zA-Z0-9_.-]+(?:\.[a-zA-Z0-9]+)?)"
-                ),
+                pattern=re.compile(r"(~/(?:[a-zA-Z0-9_.-]+/)*[a-zA-Z0-9_.-]+(?:\.[a-zA-Z0-9]+)?)"),
                 entity_type=EntityType.FILE_PATH,
                 base_confidence=0.85,
                 context_clues=["in the file", "modify", "create", "at path", "open", "edit"],
@@ -78,7 +136,14 @@ class EntityExtractor:
                 entity_type=EntityType.FILE_PATH,
                 base_confidence=0.8,
                 context_clues=[
-                    "in the file", "modify", "create", "at path", "open", "edit", "in", "from"
+                    "in the file",
+                    "modify",
+                    "create",
+                    "at path",
+                    "open",
+                    "edit",
+                    "in",
+                    "from",
                 ],
             ),
         ]
@@ -92,7 +157,13 @@ class EntityExtractor:
                 entity_type=EntityType.FUNCTION_NAME,
                 base_confidence=0.75,
                 context_clues=[
-                    "function", "method", "call", "create", "implement", "modify", "the"
+                    "function",
+                    "method",
+                    "call",
+                    "create",
+                    "implement",
+                    "modify",
+                    "the",
                 ],
             ),
             # Method call: user.authenticate()
@@ -167,7 +238,7 @@ class EntityExtractor:
 
                 # Skip URLs - look back far enough to catch the protocol
                 url_check_start = max(0, match.start() - 50)
-                prefix = prompt[url_check_start:match.start()]
+                prefix = prompt[url_check_start : match.start()]
                 if "://" in prefix and " " not in prefix.split("://")[-1]:
                     continue
 
@@ -178,7 +249,7 @@ class EntityExtractor:
 
                 # Calculate confidence with context boost
                 confidence = pattern_def.base_confidence
-                context_window = prompt_lower[max(0, match.start() - 30):match.end() + 30]
+                context_window = prompt_lower[max(0, match.start() - 30) : match.end() + 30]
                 if any(clue in context_window for clue in pattern_def.context_clues):
                     confidence = min(1.0, confidence + pattern_def.confidence_boost)
 
@@ -220,7 +291,7 @@ class EntityExtractor:
 
                 # Calculate confidence with context boost
                 confidence = pattern_def.base_confidence
-                context_window = prompt_lower[max(0, match.start() - 30):match.end() + 30]
+                context_window = prompt_lower[max(0, match.start() - 30) : match.end() + 30]
                 if any(clue in context_window for clue in pattern_def.context_clues):
                     confidence = min(1.0, confidence + pattern_def.confidence_boost)
 
@@ -266,7 +337,7 @@ class EntityExtractor:
                     confidence = min(1.0, confidence + 0.2)
 
                 # Context boost
-                context_window = prompt_lower[max(0, match.start() - 30):match.end() + 30]
+                context_window = prompt_lower[max(0, match.start() - 30) : match.end() + 30]
                 if any(clue in context_window for clue in pattern_def.context_clues):
                     confidence = min(1.0, confidence + pattern_def.confidence_boost)
 
@@ -295,9 +366,7 @@ class EntityExtractor:
 
         # Sort by span length (descending), then start position
         # This ensures longer matches are processed first
-        sorted_entities = sorted(
-            entities, key=lambda x: (-(x[1] - x[0]), x[0])
-        )
+        sorted_entities = sorted(entities, key=lambda x: (-(x[1] - x[0]), x[0]))
 
         result: list[tuple[int, int, ExtractedEntity]] = []
         for start, end, entity in sorted_entities:

@@ -146,9 +146,7 @@ class IntentAnalyzer:
         # Generate clarifying questions if ambiguity is high
         clarifying_questions: list[str] = []
         if ambiguity >= 0.6:
-            clarifying_questions = self._generate_clarifying_questions(
-                prompt, task_type, language
-            )
+            clarifying_questions = self._generate_clarifying_questions(prompt, task_type, language)
 
         # Extract entities from prompt
         extracted_entities = self._entity_extractor.extract(prompt)
@@ -198,9 +196,7 @@ class IntentAnalyzer:
                     break
         return detected
 
-    def _calculate_ambiguity(
-        self, prompt: str, task_type: TaskType, language: str | None
-    ) -> float:
+    def _calculate_ambiguity(self, prompt: str, task_type: TaskType, language: str | None) -> float:
         """Calculate how ambiguous the prompt is."""
         score = 0.0
 
@@ -251,9 +247,7 @@ class IntentAnalyzer:
 
         # Priority 2: Short prompt needs more details
         if len(prompt.split()) < 5:
-            questions.append(
-                "Could you provide more details about what you want to accomplish?"
-            )
+            questions.append("Could you provide more details about what you want to accomplish?")
 
         # Priority 3: Vague words need clarification
         vague_words = ["something", "stuff", "thing", "it", "this", "that"]
@@ -263,8 +257,6 @@ class IntentAnalyzer:
 
         # Priority 4: No language detected
         if language is None and len(questions) < 4:
-            questions.append(
-                "What programming language should this be implemented in?"
-            )
+            questions.append("What programming language should this be implemented in?")
 
         return questions[:4]

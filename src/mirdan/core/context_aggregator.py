@@ -84,8 +84,7 @@ class ContextAggregator:
 
         # Run all concurrently with global timeout
         tasks = [
-            self._run_gatherer(gatherer, intent, context_level)
-            for gatherer in available_gatherers
+            self._run_gatherer(gatherer, intent, context_level) for gatherer in available_gatherers
         ]
 
         try:
@@ -138,22 +137,24 @@ class ContextAggregator:
             logger.debug("Running gatherer '%s'", gatherer.name)
             result = await gatherer.gather(intent, depth)
 
-            if result.success:
+            # Ensure we return a proper GathererResult type
+            gatherer_result: GathererResult = result
+            if gatherer_result.success:
                 logger.debug(
                     "Gatherer '%s' succeeded with %d patterns, %d files, %d hints",
                     gatherer.name,
-                    len(result.context.existing_patterns),
-                    len(result.context.relevant_files),
-                    len(result.context.documentation_hints),
+                    len(gatherer_result.context.existing_patterns),
+                    len(gatherer_result.context.relevant_files),
+                    len(gatherer_result.context.documentation_hints),
                 )
             else:
                 logger.warning(
                     "Gatherer '%s' failed: %s",
                     gatherer.name,
-                    result.error,
+                    gatherer_result.error,
                 )
 
-            return result
+            return gatherer_result
 
         except Exception as e:
             logger.error("Gatherer '%s' raised exception: %s", gatherer.name, e)

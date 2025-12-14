@@ -431,9 +431,7 @@ class TestYamlFileLoading:
 
         assert result == {"key": "value", "list": ["item1"]}
 
-    def test_load_yaml_file_handles_missing_file(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_load_yaml_file_handles_missing_file(self, caplog: pytest.LogCaptureFixture) -> None:
         """Should return empty dict and log warning for missing file."""
         from unittest.mock import MagicMock
 
@@ -446,9 +444,7 @@ class TestYamlFileLoading:
         assert result == {}
         assert "missing_category" in caplog.text
 
-    def test_load_yaml_file_handles_malformed_yaml(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_load_yaml_file_handles_malformed_yaml(self, caplog: pytest.LogCaptureFixture) -> None:
         """Should return empty dict and log error for invalid YAML."""
         from unittest.mock import MagicMock
 

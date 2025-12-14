@@ -1,6 +1,5 @@
 """Tests for configuration wiring to components."""
 
-
 from mirdan.config import (
     EnhancementConfig,
     MirdanConfig,
@@ -176,9 +175,7 @@ class TestPromptComposerConfigWiring:
             task_type=TaskType.GENERATION,
         )
         context = ContextBundle()
-        recommendations = [
-            ToolRecommendation(mcp="context7", action="fetch docs", reason="test")
-        ]
+        recommendations = [ToolRecommendation(mcp="context7", action="fetch docs", reason="test")]
 
         enhanced = composer.compose(intent, context, recommendations)
 

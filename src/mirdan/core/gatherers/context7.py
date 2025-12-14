@@ -143,7 +143,7 @@ class Context7Gatherer:
 
     async def _fetch_framework_docs(
         self,
-        client: Client,
+        client: Client[Any],
         framework: str,
         topic: str | None = None,
     ) -> dict[str, Any]:

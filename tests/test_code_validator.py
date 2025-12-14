@@ -125,7 +125,7 @@ class TestRustPatternDetection:
 
     def test_detects_unwrap(self, validator: CodeValidator) -> None:
         """Should detect .unwrap() usage."""
-        code = 'let value = result.unwrap();'
+        code = "let value = result.unwrap();"
         result = validator.validate(code, language="rust")
         # unwrap is warning, not error
         assert any(v.rule == "no-unwrap" for v in result.violations)
@@ -169,8 +169,7 @@ class TestSecurityPatternDetection:
         code = 'password = "mysecretpassword123"'
         result = validator.validate(code, language="python")
         assert any(
-            v.rule == "hardcoded-password" and v.category == "security"
-            for v in result.violations
+            v.rule == "hardcoded-password" and v.category == "security" for v in result.violations
         )
 
     def test_detects_sql_concatenation(self, validator: CodeValidator) -> None:
@@ -304,10 +303,7 @@ result = eval(input)
 
         # With "error" threshold, should only include errors
         dict_errors_only = result.to_dict(severity_threshold="error")
-        assert all(
-            v["severity"] == "error"
-            for v in dict_errors_only["violations"]
-        )
+        assert all(v["severity"] == "error" for v in dict_errors_only["violations"])
 
     def test_score_calculation(self, validator: CodeValidator) -> None:
         """Score should decrease with more violations."""

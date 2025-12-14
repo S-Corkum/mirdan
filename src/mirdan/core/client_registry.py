@@ -5,6 +5,7 @@ import logging
 import os
 import time
 from datetime import UTC
+from typing import Any
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
@@ -33,7 +34,7 @@ class MCPClientRegistry:
             config: Mirdan configuration containing MCP client definitions
         """
         self._config = config
-        self._clients: dict[str, Client] = {}
+        self._clients: dict[str, Client[Any]] = {}
         self._capabilities: dict[str, MCPCapabilities] = {}
         self._discovery_errors: dict[str, str] = {}
 
@@ -48,7 +49,7 @@ class MCPClientRegistry:
         """
         return mcp_name in self._config.orchestration.mcp_clients
 
-    async def get_client(self, mcp_name: str) -> Client | None:
+    async def get_client(self, mcp_name: str) -> Client[Any] | None:
         """Get a client for the named MCP, creating if needed.
 
         Args:
@@ -165,7 +166,7 @@ class MCPClientRegistry:
         """
         return self._discovery_errors.get(mcp_name)
 
-    def _create_client(self, name: str, client_config: MCPClientConfig) -> Client:
+    def _create_client(self, name: str, client_config: MCPClientConfig) -> Client[Any]:
         """Create a FastMCP Client based on configuration.
 
         Args:
@@ -190,7 +191,7 @@ class MCPClientRegistry:
             # Expand environment variables in env values
             env = {k: os.path.expandvars(v) for k, v in client_config.env.items()}
 
-            transport = StdioTransport(
+            transport: StdioTransport | StreamableHttpTransport = StdioTransport(
                 command=client_config.command,
                 args=client_config.args,
                 env=env if env else None,
@@ -210,14 +211,13 @@ class MCPClientRegistry:
 
         else:
             raise ValueError(
-                f"MCP '{name}' has invalid type '{client_config.type}'. "
-                "Must be 'stdio' or 'http'"
+                f"MCP '{name}' has invalid type '{client_config.type}'. Must be 'stdio' or 'http'"
             )
 
     async def _discover_capabilities(
         self,
         mcp_name: str,
-        client: Client,
+        client: Client[Any],
     ) -> MCPCapabilities | None:
         """Discover capabilities of an MCP server.
 
@@ -362,10 +362,7 @@ class MCPClientRegistry:
                     if result and hasattr(result, "content"):
                         # Extract text content from result
                         if isinstance(result.content, list):
-                            texts = [
-                                c.text for c in result.content
-                                if hasattr(c, "text")
-                            ]
+                            texts = [c.text for c in result.content if hasattr(c, "text")]
                             data = texts[0] if len(texts) == 1 else texts
                         else:
                             data = result.content
@@ -406,7 +403,7 @@ class MCPClientRegistry:
             # Convert any exceptions in results to error MCPToolResult
             final_results: list[MCPToolResult] = []
             for i, result in enumerate(results):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     final_results.append(
                         MCPToolResult(
                             mcp_name=calls[i].mcp_name,
@@ -415,7 +412,7 @@ class MCPClientRegistry:
                             error=str(result),
                         )
                     )
-                else:
+                elif isinstance(result, MCPToolResult):
                     final_results.append(result)
 
             return final_results

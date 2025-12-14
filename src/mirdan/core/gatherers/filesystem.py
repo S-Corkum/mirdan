@@ -1,6 +1,7 @@
 """Filesystem gatherer for codebase analysis."""
 
 import logging
+from typing import Any
 
 from fastmcp import Client
 
@@ -149,7 +150,7 @@ class FilesystemGatherer:
 
     async def _search_files(
         self,
-        client: Client,
+        client: Client[Any],
         patterns: list[str],
         limit: int = 10,
     ) -> list[str]:
@@ -214,7 +215,7 @@ class FilesystemGatherer:
 
     async def _extract_patterns(
         self,
-        client: Client,
+        client: Client[Any],
         file_path: str,
         task_type: TaskType,
     ) -> list[str]:

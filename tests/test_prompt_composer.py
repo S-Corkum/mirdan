@@ -69,9 +69,7 @@ class TestCompose:
         """Should pass through tool_recommendations."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         context = ContextBundle()
-        recommendations = [
-            ToolRecommendation(mcp="test", action="test action", priority="high")
-        ]
+        recommendations = [ToolRecommendation(mcp="test", action="test action", priority="high")]
         result = composer.compose(intent, context, recommendations)
         assert result.tool_recommendations == recommendations
 
@@ -142,9 +140,7 @@ class TestVerificationSteps:
 class TestBuildPromptText:
     """Tests for _build_prompt_text method."""
 
-    def test_minimal_verbosity_excludes_requirements(
-        self, standards: QualityStandards
-    ) -> None:
+    def test_minimal_verbosity_excludes_requirements(self, standards: QualityStandards) -> None:
         """Should skip Quality Requirements section when verbosity is minimal."""
         config = EnhancementConfig(verbosity="minimal")
         composer = PromptComposer(standards, config=config)
@@ -157,9 +153,7 @@ class TestBuildPromptText:
         result = composer.compose(intent, context, [])
         assert "## Quality Requirements" not in result.enhanced_text
 
-    def test_balanced_verbosity_limits_requirements(
-        self, standards: QualityStandards
-    ) -> None:
+    def test_balanced_verbosity_limits_requirements(self, standards: QualityStandards) -> None:
         """Should show only first 5 requirements when verbosity is balanced."""
         config = EnhancementConfig(verbosity="balanced")
         composer = PromptComposer(standards, config=config)
@@ -178,15 +172,10 @@ class TestBuildPromptText:
         if len(req_section) > 1:
             # Get text up to the next section header
             section_text = req_section[1].split("##")[0]
-            req_lines = [
-                line for line in section_text.split("\n")
-                if line.strip().startswith("- ")
-            ]
+            req_lines = [line for line in section_text.split("\n") if line.strip().startswith("- ")]
             assert len(req_lines) <= 5
 
-    def test_comprehensive_verbosity_shows_all(
-        self, standards: QualityStandards
-    ) -> None:
+    def test_comprehensive_verbosity_shows_all(self, standards: QualityStandards) -> None:
         """Should show all requirements when verbosity is comprehensive."""
         config = EnhancementConfig(verbosity="comprehensive")
         composer = PromptComposer(standards, config=config)
@@ -201,9 +190,7 @@ class TestBuildPromptText:
         result = composer.compose(intent, context, [])
         assert "## Quality Requirements" in result.enhanced_text
 
-    def test_include_verification_false_hides_section(
-        self, standards: QualityStandards
-    ) -> None:
+    def test_include_verification_false_hides_section(self, standards: QualityStandards) -> None:
         """Should hide verification section when include_verification=False."""
         config = EnhancementConfig(include_verification=False)
         composer = PromptComposer(standards, config=config)
@@ -212,23 +199,17 @@ class TestBuildPromptText:
         result = composer.compose(intent, context, [])
         assert "## Before Completing" not in result.enhanced_text
 
-    def test_include_tool_hints_false_hides_section(
-        self, standards: QualityStandards
-    ) -> None:
+    def test_include_tool_hints_false_hides_section(self, standards: QualityStandards) -> None:
         """Should hide tool recommendations when include_tool_hints=False."""
         config = EnhancementConfig(include_tool_hints=False)
         composer = PromptComposer(standards, config=config)
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         context = ContextBundle()
-        recommendations = [
-            ToolRecommendation(mcp="test", action="test action")
-        ]
+        recommendations = [ToolRecommendation(mcp="test", action="test action")]
         result = composer.compose(intent, context, recommendations)
         assert "## Recommended Tools" not in result.enhanced_text
 
-    def test_context_section_when_patterns_exist(
-        self, composer: PromptComposer
-    ) -> None:
+    def test_context_section_when_patterns_exist(self, composer: PromptComposer) -> None:
         """Should render context section when patterns exist."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         context = ContextBundle(
@@ -294,8 +275,7 @@ class TestTaskConstraints:
         constraints = composer._get_task_constraints(intent)
         assert any("root cause" in c.lower() for c in constraints)
         assert any(
-            "minimize changes" in c.lower() or "unrelated code" in c.lower()
-            for c in constraints
+            "minimize changes" in c.lower() or "unrelated code" in c.lower() for c in constraints
         )
 
     def test_generation_constraints(self, composer: PromptComposer) -> None:

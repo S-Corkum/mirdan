@@ -31,9 +31,7 @@ class TestToolSuggestions:
         mcp_names = [r.mcp for r in result]
         assert "enyal" in mcp_names
 
-    def test_default_available_mcps_when_none_provided(
-        self, orchestrator: MCPOrchestrator
-    ) -> None:
+    def test_default_available_mcps_when_none_provided(self, orchestrator: MCPOrchestrator) -> None:
         """Should use KNOWN_MCPS keys when available_mcps is None."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         result = orchestrator.suggest_tools(intent, available_mcps=None)
@@ -72,9 +70,7 @@ class TestFrameworkDocumentation:
         mcp_names = [r.mcp for r in result]
         assert "context7" in mcp_names
 
-    def test_context7_includes_framework_names(
-        self, orchestrator: MCPOrchestrator
-    ) -> None:
+    def test_context7_includes_framework_names(self, orchestrator: MCPOrchestrator) -> None:
         """Should include framework names in context7 action text."""
         intent = Intent(
             original_prompt="test",
@@ -87,9 +83,7 @@ class TestFrameworkDocumentation:
         assert context7_rec is not None
         assert "react" in context7_rec.action.lower() or "next.js" in context7_rec.action.lower()
 
-    def test_no_context7_when_not_available(
-        self, orchestrator: MCPOrchestrator
-    ) -> None:
+    def test_no_context7_when_not_available(self, orchestrator: MCPOrchestrator) -> None:
         """Should not recommend context7 when not in available_mcps."""
         intent = Intent(
             original_prompt="test",
@@ -123,9 +117,7 @@ class TestTaskTypeRecommendations:
         """Should fall back to desktop-commander when filesystem unavailable."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         # Only desktop-commander available, not filesystem
-        result = orchestrator.suggest_tools(
-            intent, available_mcps=["desktop-commander", "enyal"]
-        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["desktop-commander", "enyal"])
         mcp_names = [r.mcp for r in result]
         assert "desktop-commander" in mcp_names
         assert "filesystem" not in mcp_names
@@ -144,9 +136,7 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "github" in mcp_names
 
-    def test_security_scanner_for_security(
-        self, orchestrator: MCPOrchestrator
-    ) -> None:
+    def test_security_scanner_for_security(self, orchestrator: MCPOrchestrator) -> None:
         """Should recommend security-scanner when touches_security=True."""
         intent = Intent(
             original_prompt="test",

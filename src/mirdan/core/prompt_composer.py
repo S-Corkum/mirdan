@@ -75,17 +75,21 @@ class PromptComposer:
             base_steps.append("Add tests to prevent regression")
 
         if intent.task_type == TaskType.TEST:
-            base_steps.extend([
-                "Ensure tests cover both happy path and edge cases",
-                "Verify test isolation - no shared state between tests",
-            ])
+            base_steps.extend(
+                [
+                    "Ensure tests cover both happy path and edge cases",
+                    "Verify test isolation - no shared state between tests",
+                ]
+            )
 
         if intent.touches_security:
-            base_steps.extend([
-                "Verify password handling uses proper hashing",
-                "Check that sensitive data is never logged",
-                "Validate input sanitization is in place",
-            ])
+            base_steps.extend(
+                [
+                    "Verify password handling uses proper hashing",
+                    "Check that sensitive data is never logged",
+                    "Validate input sanitization is in place",
+                ]
+            )
 
         return base_steps
 
@@ -125,7 +129,7 @@ You prioritize code quality, security, and maintainability.""")
             sections.append(f"""## Codebase Context
 {context.summarize_patterns()}
 
-Tech Stack: {tech_stack_str if context.tech_stack else 'Not detected'}""")
+Tech Stack: {tech_stack_str if context.tech_stack else "Not detected"}""")
 
         # Task section (always included)
         sections.append(f"""## Task
@@ -175,29 +179,37 @@ Tech Stack: {tech_stack_str if context.tech_stack else 'Not detected'}""")
         ]
 
         if intent.task_type == TaskType.REFACTOR:
-            constraints.extend([
-                "Preserve all existing functionality",
-                "Maintain backward compatibility",
-                "Do not change public API signatures without approval",
-            ])
+            constraints.extend(
+                [
+                    "Preserve all existing functionality",
+                    "Maintain backward compatibility",
+                    "Do not change public API signatures without approval",
+                ]
+            )
 
         if intent.task_type == TaskType.DEBUG:
-            constraints.extend([
-                "Focus on the root cause, not just symptoms",
-                "Minimize changes to unrelated code",
-            ])
+            constraints.extend(
+                [
+                    "Focus on the root cause, not just symptoms",
+                    "Minimize changes to unrelated code",
+                ]
+            )
 
         if intent.task_type == TaskType.GENERATION:
-            constraints.extend([
-                "Follow the single responsibility principle",
-                "Write code that is easy to test",
-            ])
+            constraints.extend(
+                [
+                    "Follow the single responsibility principle",
+                    "Write code that is easy to test",
+                ]
+            )
 
         if intent.touches_security:
-            constraints.extend([
-                "Never hardcode credentials or API keys",
-                "Use parameterized queries for all database operations",
-                "Validate and sanitize all user inputs",
-            ])
+            constraints.extend(
+                [
+                    "Never hardcode credentials or API keys",
+                    "Use parameterized queries for all database operations",
+                    "Validate and sanitize all user inputs",
+                ]
+            )
 
         return constraints

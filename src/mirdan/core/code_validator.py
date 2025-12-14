@@ -28,88 +28,187 @@ class CodeValidator:
     # Rule definitions: Maps language -> list of (id, rule, pattern, severity, message, suggestion)
     LANGUAGE_RULES: dict[str, list[tuple[str, str, str, str, str, str]]] = {
         "python": [
-            ("PY001", "no-eval", r"\beval\s*\(", "error",
-             "eval() usage detected - potential code injection risk",
-             "Use ast.literal_eval() for safe evaluation or avoid dynamic code execution"),
-            ("PY002", "no-exec", r"\bexec\s*\(", "error",
-             "exec() usage detected - potential code injection risk",
-             "Avoid exec() - use safer alternatives like importlib or direct function calls"),
-            ("PY003", "no-bare-except", r"\bexcept\s*:", "error",
-             "Bare except clause catches all exceptions including SystemExit and KeyboardInterrupt",
-             "Use 'except Exception:' or catch specific exceptions"),
             (
-                "PY004", "no-mutable-default",
-                r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\}|set\s*\(\s*\))", "error",
+                "PY001",
+                "no-eval",
+                r"\beval\s*\(",
+                "error",
+                "eval() usage detected - potential code injection risk",
+                "Use ast.literal_eval() for safe evaluation or avoid dynamic code execution",
+            ),
+            (
+                "PY002",
+                "no-exec",
+                r"\bexec\s*\(",
+                "error",
+                "exec() usage detected - potential code injection risk",
+                "Avoid exec() - use safer alternatives like importlib or direct function calls",
+            ),
+            (
+                "PY003",
+                "no-bare-except",
+                r"\bexcept\s*:",
+                "error",
+                "Bare except catches all exceptions including SystemExit/KeyboardInterrupt",
+                "Use 'except Exception:' or catch specific exceptions",
+            ),
+            (
+                "PY004",
+                "no-mutable-default",
+                r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\}|set\s*\(\s*\))",
+                "error",
                 "Mutable default argument - shared between all calls",
-                "Use None as default and initialize in function body: 'if arg is None: arg = []'"
+                "Use None as default and initialize in function body: 'if arg is None: arg = []'",
             ),
         ],
         "typescript": [
-            ("TS001", "no-eval", r"\beval\s*\(", "error",
-             "eval() usage detected - potential code injection risk",
-             "Avoid eval() - use JSON.parse() for data or proper parsing libraries"),
-            ("TS002", "no-function-constructor", r"\bnew\s+Function\s*\(", "error",
-             "Function constructor usage detected - similar risks to eval()",
-             "Avoid dynamic function creation - define functions statically"),
-            ("TS003", "no-ts-ignore", r"//\s*@ts-ignore(?![:\-]\s*\S)", "warning",
-             "@ts-ignore without explanation suppresses type checking",
-             "Add explanation: '// @ts-ignore: reason for ignoring'"),
-            ("TS004", "no-any-cast", r"\s+as\s+any\b", "error",
-             "'as any' type assertion defeats TypeScript's type safety",
-             "Use proper type annotations or type guards instead"),
+            (
+                "TS001",
+                "no-eval",
+                r"\beval\s*\(",
+                "error",
+                "eval() usage detected - potential code injection risk",
+                "Avoid eval() - use JSON.parse() for data or proper parsing libraries",
+            ),
+            (
+                "TS002",
+                "no-function-constructor",
+                r"\bnew\s+Function\s*\(",
+                "error",
+                "Function constructor usage detected - similar risks to eval()",
+                "Avoid dynamic function creation - define functions statically",
+            ),
+            (
+                "TS003",
+                "no-ts-ignore",
+                r"//\s*@ts-ignore(?![:\-]\s*\S)",
+                "warning",
+                "@ts-ignore without explanation suppresses type checking",
+                "Add explanation: '// @ts-ignore: reason for ignoring'",
+            ),
+            (
+                "TS004",
+                "no-any-cast",
+                r"\s+as\s+any\b",
+                "error",
+                "'as any' type assertion defeats TypeScript's type safety",
+                "Use proper type annotations or type guards instead",
+            ),
         ],
         "javascript": [
-            ("JS001", "no-var", r"\bvar\s+\w+", "error",
-             "var declarations have function scope and can cause bugs",
-             "Use 'const' for constants or 'let' for variables that change"),
-            ("JS002", "no-eval", r"\beval\s*\(", "error",
-             "eval() usage detected - potential code injection risk",
-             "Avoid eval() - use JSON.parse() for data or proper parsing libraries"),
-            ("JS003", "no-document-write", r"\bdocument\.write\s*\(", "error",
-             "document.write() can overwrite the entire document and is a security risk",
-             "Use DOM manipulation methods like createElement() and appendChild()"),
+            (
+                "JS001",
+                "no-var",
+                r"\bvar\s+\w+",
+                "error",
+                "var declarations have function scope and can cause bugs",
+                "Use 'const' for constants or 'let' for variables that change",
+            ),
+            (
+                "JS002",
+                "no-eval",
+                r"\beval\s*\(",
+                "error",
+                "eval() usage detected - potential code injection risk",
+                "Avoid eval() - use JSON.parse() for data or proper parsing libraries",
+            ),
+            (
+                "JS003",
+                "no-document-write",
+                r"\bdocument\.write\s*\(",
+                "error",
+                "document.write() can overwrite the entire document and is a security risk",
+                "Use DOM manipulation methods like createElement() and appendChild()",
+            ),
         ],
         "rust": [
-            ("RS001", "no-unwrap", r"\.unwrap\s*\(\s*\)", "warning",
-             ".unwrap() will panic on None/Err - risky in library code",
-             "Use pattern matching, .expect() with message, or ? operator"),
-            ("RS002", "no-empty-expect", r'\.expect\s*\(\s*""\s*\)', "warning",
-             ".expect() with empty message provides no context on panic",
-             "Provide a meaningful error message: .expect(\"description of failure\")"),
+            (
+                "RS001",
+                "no-unwrap",
+                r"\.unwrap\s*\(\s*\)",
+                "warning",
+                ".unwrap() will panic on None/Err - risky in library code",
+                "Use pattern matching, .expect() with message, or ? operator",
+            ),
+            (
+                "RS002",
+                "no-empty-expect",
+                r'\.expect\s*\(\s*""\s*\)',
+                "warning",
+                ".expect() with empty message provides no context on panic",
+                'Provide a meaningful error message: .expect("description of failure")',
+            ),
         ],
         "go": [
-            ("GO001", "no-ignored-error", r"_\s*,?\s*=\s*\w+\s*\([^)]*\)", "warning",
-             "Error return value ignored with underscore",
-             "Handle the error: 'if err != nil { return err }'"),
-            ("GO002", "no-panic", r"\bpanic\s*\(", "warning",
-             "panic() should be avoided for recoverable errors",
-             "Return an error instead: 'return fmt.Errorf(\"description: %w\", err)'"),
+            (
+                "GO001",
+                "no-ignored-error",
+                r"_\s*,?\s*=\s*\w+\s*\([^)]*\)",
+                "warning",
+                "Error return value ignored with underscore",
+                "Handle the error: 'if err != nil { return err }'",
+            ),
+            (
+                "GO002",
+                "no-panic",
+                r"\bpanic\s*\(",
+                "warning",
+                "panic() should be avoided for recoverable errors",
+                "Return an error instead: 'return fmt.Errorf(\"description: %w\", err)'",
+            ),
         ],
     }
 
     # Security rules apply to all languages
     SECURITY_RULES: list[tuple[str, str, str, str, str, str]] = [
         (
-            "SEC001", "hardcoded-api-key",
+            "SEC001",
+            "hardcoded-api-key",
             r'(?:api[_-]?key|apikey)\s*[:=]\s*["\'][a-zA-Z0-9_\-]{20,}["\']',
-            "error", "Possible hardcoded API key detected",
-            "Use environment variables: os.environ.get('API_KEY') or process.env.API_KEY"
+            "error",
+            "Possible hardcoded API key detected",
+            "Use environment variables: os.environ.get('API_KEY') or process.env.API_KEY",
         ),
-        ("SEC002", "hardcoded-password", r'(?:password|passwd|pwd)\s*[=:]\s*["\'][^"\']{4,}["\']',
-         "error", "Possible hardcoded password detected",
-         "Use environment variables or a secrets manager"),
-        ("SEC003", "aws-access-key", r"AKIA[0-9A-Z]{16}",
-         "error", "AWS access key ID pattern detected",
-         "Use AWS IAM roles or store credentials securely"),
-        ("SEC004", "sql-concat-python", r'["\'].*?(SELECT|INSERT|UPDATE|DELETE).*?["\']\s*\+\s*\w+',
-         "error", "SQL string concatenation detected - potential SQL injection",
-         "Use parameterized queries: cursor.execute('SELECT * FROM t WHERE id = ?', (id,))"),
-        ("SEC005", "sql-fstring-python", r'f["\'].*?(SELECT|INSERT|UPDATE|DELETE).*?\{',
-         "error", "SQL f-string interpolation detected - potential SQL injection",
-         "Use parameterized queries instead of f-strings for SQL"),
-        ("SEC006", "sql-template-js", r'`.*?(SELECT|INSERT|UPDATE|DELETE).*?\$\{',
-         "error", "SQL template literal interpolation detected - potential SQL injection",
-         "Use parameterized queries with your database driver"),
+        (
+            "SEC002",
+            "hardcoded-password",
+            r'(?:password|passwd|pwd)\s*[=:]\s*["\'][^"\']{4,}["\']',
+            "error",
+            "Possible hardcoded password detected",
+            "Use environment variables or a secrets manager",
+        ),
+        (
+            "SEC003",
+            "aws-access-key",
+            r"AKIA[0-9A-Z]{16}",
+            "error",
+            "AWS access key ID pattern detected",
+            "Use AWS IAM roles or store credentials securely",
+        ),
+        (
+            "SEC004",
+            "sql-concat-python",
+            r'["\'].*?(SELECT|INSERT|UPDATE|DELETE).*?["\']\s*\+\s*\w+',
+            "error",
+            "SQL string concatenation detected - potential SQL injection",
+            "Use parameterized queries: cursor.execute('SELECT * FROM t WHERE id = ?', (id,))",
+        ),
+        (
+            "SEC005",
+            "sql-fstring-python",
+            r'f["\'].*?(SELECT|INSERT|UPDATE|DELETE).*?\{',
+            "error",
+            "SQL f-string interpolation detected - potential SQL injection",
+            "Use parameterized queries instead of f-strings for SQL",
+        ),
+        (
+            "SEC006",
+            "sql-template-js",
+            r"`.*?(SELECT|INSERT|UPDATE|DELETE).*?\$\{",
+            "error",
+            "SQL template literal interpolation detected - potential SQL injection",
+            "Use parameterized queries with your database driver",
+        ),
     ]
 
     def __init__(
@@ -279,24 +378,26 @@ class CodeValidator:
 
             for match in rule.pattern.finditer(code):
                 # Calculate line number
-                line_num = code[:match.start()].count("\n") + 1
+                line_num = code[: match.start()].count("\n") + 1
                 line_content = lines[line_num - 1] if line_num <= len(lines) else ""
 
                 # Calculate column
                 line_start = code.rfind("\n", 0, match.start()) + 1
                 column = match.start() - line_start + 1
 
-                violations.append(Violation(
-                    id=rule.id,
-                    rule=rule.rule,
-                    category=rule.category,
-                    severity=rule.severity,
-                    message=rule.message,
-                    line=line_num,
-                    column=column,
-                    code_snippet=line_content.strip(),
-                    suggestion=rule.suggestion,
-                ))
+                violations.append(
+                    Violation(
+                        id=rule.id,
+                        rule=rule.rule,
+                        category=rule.category,
+                        severity=rule.severity,
+                        message=rule.message,
+                        line=line_num,
+                        column=column,
+                        code_snippet=line_content.strip(),
+                        suggestion=rule.suggestion,
+                    )
+                )
 
         return violations
 

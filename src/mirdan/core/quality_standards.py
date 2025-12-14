@@ -45,9 +45,7 @@ class QualityStandards:
         stringency_map = {"strict": 5, "moderate": 3, "permissive": 1}
         return stringency_map.get(level, 3)
 
-    def _load_yaml_file(
-        self, file_traversable: Any, category: str
-    ) -> dict[str, Any]:
+    def _load_yaml_file(self, file_traversable: Any, category: str) -> dict[str, Any]:
         """Load a single YAML file with error handling.
 
         Args:
@@ -126,19 +124,23 @@ class QualityStandards:
 
     def get_for_language(self, language: str) -> dict[str, Any]:
         """Get standards for a specific language."""
-        return self.standards.get(language, {})
+        result: dict[str, Any] = self.standards.get(language, {})
+        return result
 
     def get_for_framework(self, framework: str) -> dict[str, Any]:
         """Get standards for a specific framework."""
-        return self.standards.get(framework, {})
+        result: dict[str, Any] = self.standards.get(framework, {})
+        return result
 
     def get_security_standards(self) -> dict[str, Any]:
         """Get security-related standards."""
-        return self.standards.get("security", {})
+        result: dict[str, Any] = self.standards.get("security", {})
+        return result
 
     def get_architecture_standards(self) -> dict[str, Any]:
         """Get architecture standards."""
-        return self.standards.get("architecture", {})
+        result: dict[str, Any] = self.standards.get("architecture", {})
+        return result
 
     def render_for_intent(self, intent: Intent) -> list[str]:
         """Render relevant standards for a given intent."""

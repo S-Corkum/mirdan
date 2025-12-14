@@ -76,17 +76,14 @@ class TestMCPClientRegistry:
         assert client is None
 
     @pytest.mark.asyncio
-    async def test_get_client_creates_stdio_client(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    async def test_get_client_creates_stdio_client(self, stdio_config: MirdanConfig) -> None:
         """Should create StdioTransport client for type='stdio'."""
         registry = MCPClientRegistry(stdio_config)
 
-        with patch(
-            "mirdan.core.client_registry.StdioTransport"
-        ) as mock_transport, patch(
-            "mirdan.core.client_registry.Client"
-        ) as mock_client:
+        with (
+            patch("mirdan.core.client_registry.StdioTransport") as mock_transport,
+            patch("mirdan.core.client_registry.Client") as mock_client,
+        ):
             mock_transport_instance = MagicMock()
             mock_transport.return_value = mock_transport_instance
 
@@ -105,17 +102,14 @@ class TestMCPClientRegistry:
             mock_client.assert_called_once_with(mock_transport_instance)
 
     @pytest.mark.asyncio
-    async def test_get_client_creates_http_client(
-        self, http_config: MirdanConfig
-    ) -> None:
+    async def test_get_client_creates_http_client(self, http_config: MirdanConfig) -> None:
         """Should create StreamableHttpTransport client for type='http'."""
         registry = MCPClientRegistry(http_config)
 
-        with patch(
-            "mirdan.core.client_registry.StreamableHttpTransport"
-        ) as mock_transport, patch(
-            "mirdan.core.client_registry.Client"
-        ) as mock_client:
+        with (
+            patch("mirdan.core.client_registry.StreamableHttpTransport") as mock_transport,
+            patch("mirdan.core.client_registry.Client") as mock_client,
+        ):
             mock_transport_instance = MagicMock()
             mock_transport.return_value = mock_transport_instance
 
@@ -129,17 +123,14 @@ class TestMCPClientRegistry:
             mock_client.assert_called_once_with(mock_transport_instance)
 
     @pytest.mark.asyncio
-    async def test_get_client_caches_clients(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    async def test_get_client_caches_clients(self, stdio_config: MirdanConfig) -> None:
         """Same client should be returned on subsequent calls."""
         registry = MCPClientRegistry(stdio_config)
 
-        with patch(
-            "mirdan.core.client_registry.StdioTransport"
-        ), patch(
-            "mirdan.core.client_registry.Client"
-        ) as mock_client:
+        with (
+            patch("mirdan.core.client_registry.StdioTransport"),
+            patch("mirdan.core.client_registry.Client") as mock_client,
+        ):
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
 
@@ -151,15 +142,14 @@ class TestMCPClientRegistry:
             assert mock_client.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_close_all_clears_clients(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    async def test_close_all_clears_clients(self, stdio_config: MirdanConfig) -> None:
         """close_all should clear all cached clients."""
         registry = MCPClientRegistry(stdio_config)
 
-        with patch(
-            "mirdan.core.client_registry.StdioTransport"
-        ), patch("mirdan.core.client_registry.Client") as mock_client:
+        with (
+            patch("mirdan.core.client_registry.StdioTransport"),
+            patch("mirdan.core.client_registry.Client") as mock_client,
+        ):
             mock_client_instance = MagicMock()
             mock_client.return_value = mock_client_instance
 
@@ -169,9 +159,7 @@ class TestMCPClientRegistry:
             await registry.close_all()
             assert len(registry._clients) == 0
 
-    def test_create_client_raises_for_invalid_type(
-        self, empty_config: MirdanConfig
-    ) -> None:
+    def test_create_client_raises_for_invalid_type(self, empty_config: MirdanConfig) -> None:
         """Should raise ValueError for invalid transport type."""
         registry = MCPClientRegistry(empty_config)
         invalid_config = MCPClientConfig(type="invalid")
@@ -189,9 +177,7 @@ class TestMCPClientRegistry:
         with pytest.raises(ValueError, match="no command specified"):
             registry._create_client("test", invalid_config)
 
-    def test_create_client_raises_for_http_without_url(
-        self, empty_config: MirdanConfig
-    ) -> None:
+    def test_create_client_raises_for_http_without_url(self, empty_config: MirdanConfig) -> None:
         """Should raise ValueError for http without url."""
         registry = MCPClientRegistry(empty_config)
         invalid_config = MCPClientConfig(type="http")
@@ -251,18 +237,12 @@ class TestCapabilityDiscovery:
         registry = MCPClientRegistry(stdio_config)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(
-            return_value=mock_capabilities_response["tools"]
-        )
-        mock_client.list_resources = AsyncMock(
-            return_value=mock_capabilities_response["resources"]
-        )
+        mock_client.list_tools = AsyncMock(return_value=mock_capabilities_response["tools"])
+        mock_client.list_resources = AsyncMock(return_value=mock_capabilities_response["resources"])
         mock_client.list_resource_templates = AsyncMock(
             return_value=mock_capabilities_response["templates"]
         )
-        mock_client.list_prompts = AsyncMock(
-            return_value=mock_capabilities_response["prompts"]
-        )
+        mock_client.list_prompts = AsyncMock(return_value=mock_capabilities_response["prompts"])
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
@@ -276,9 +256,7 @@ class TestCapabilityDiscovery:
         assert capabilities.has_tool("nonexistent") is False
 
     @pytest.mark.asyncio
-    async def test_discover_capabilities_handles_failure(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    async def test_discover_capabilities_handles_failure(self, stdio_config: MirdanConfig) -> None:
         """Should handle discovery failures gracefully."""
         registry = MCPClientRegistry(stdio_config)
 
@@ -301,25 +279,18 @@ class TestCapabilityDiscovery:
         registry = MCPClientRegistry(stdio_config)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(
-            return_value=mock_capabilities_response["tools"]
-        )
-        mock_client.list_resources = AsyncMock(
-            return_value=mock_capabilities_response["resources"]
-        )
+        mock_client.list_tools = AsyncMock(return_value=mock_capabilities_response["tools"])
+        mock_client.list_resources = AsyncMock(return_value=mock_capabilities_response["resources"])
         mock_client.list_resource_templates = AsyncMock(
             return_value=mock_capabilities_response["templates"]
         )
-        mock_client.list_prompts = AsyncMock(
-            return_value=mock_capabilities_response["prompts"]
-        )
+        mock_client.list_prompts = AsyncMock(return_value=mock_capabilities_response["prompts"])
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        with patch(
-            "mirdan.core.client_registry.StdioTransport"
-        ), patch(
-            "mirdan.core.client_registry.Client", return_value=mock_client
+        with (
+            patch("mirdan.core.client_registry.StdioTransport"),
+            patch("mirdan.core.client_registry.Client", return_value=mock_client),
         ):
             client = await registry.get_client("enyal")
 
@@ -352,9 +323,7 @@ class TestCapabilityDiscovery:
         # list_tools should only be called once (during discovery)
         assert mock_client.list_tools.call_count == 1
 
-    def test_has_tool_returns_true_when_unknown(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    def test_has_tool_returns_true_when_unknown(self, stdio_config: MirdanConfig) -> None:
         """has_tool should return True when capabilities unknown (permissive)."""
         registry = MCPClientRegistry(stdio_config)
 
@@ -411,9 +380,7 @@ class TestCapabilityDiscovery:
         assert len(registry._capabilities) == 0
 
     @pytest.mark.asyncio
-    async def test_discover_capabilities_force_refresh(
-        self, stdio_config: MirdanConfig
-    ) -> None:
+    async def test_discover_capabilities_force_refresh(self, stdio_config: MirdanConfig) -> None:
         """force=True should re-discover even if cached."""
         registry = MCPClientRegistry(stdio_config)
 
@@ -535,9 +502,7 @@ class TestCallToolsParallel:
         return config
 
     @pytest.mark.asyncio
-    async def test_call_tools_parallel_empty_list(
-        self, multi_mcp_config: MirdanConfig
-    ) -> None:
+    async def test_call_tools_parallel_empty_list(self, multi_mcp_config: MirdanConfig) -> None:
         """Should return empty list for empty input."""
         registry = MCPClientRegistry(multi_mcp_config)
 
@@ -546,9 +511,7 @@ class TestCallToolsParallel:
         assert results == []
 
     @pytest.mark.asyncio
-    async def test_call_tools_parallel_single_call(
-        self, multi_mcp_config: MirdanConfig
-    ) -> None:
+    async def test_call_tools_parallel_single_call(self, multi_mcp_config: MirdanConfig) -> None:
         """Single tool call should work correctly."""
         registry = MCPClientRegistry(multi_mcp_config)
 
@@ -561,9 +524,13 @@ class TestCallToolsParallel:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch.object(registry, "get_client", return_value=mock_client):
-            results = await registry.call_tools_parallel([
-                MCPToolCall(mcp_name="context7", tool_name="test_tool", arguments={"key": "value"})
-            ])
+            results = await registry.call_tools_parallel(
+                [
+                    MCPToolCall(
+                        mcp_name="context7", tool_name="test_tool", arguments={"key": "value"}
+                    )
+                ]
+            )
 
         assert len(results) == 1
         assert results[0].success is True
@@ -573,9 +540,7 @@ class TestCallToolsParallel:
         mock_client.call_tool.assert_called_once_with("test_tool", {"key": "value"})
 
     @pytest.mark.asyncio
-    async def test_call_tools_parallel_multiple_calls(
-        self, multi_mcp_config: MirdanConfig
-    ) -> None:
+    async def test_call_tools_parallel_multiple_calls(self, multi_mcp_config: MirdanConfig) -> None:
         """Multiple calls should run concurrently and return in order."""
         registry = MCPClientRegistry(multi_mcp_config)
 
@@ -591,10 +556,12 @@ class TestCallToolsParallel:
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch.object(registry, "get_client", return_value=mock_client):
-            results = await registry.call_tools_parallel([
-                MCPToolCall(mcp_name="context7", tool_name="tool1"),
-                MCPToolCall(mcp_name="enyal", tool_name="tool2"),
-            ])
+            results = await registry.call_tools_parallel(
+                [
+                    MCPToolCall(mcp_name="context7", tool_name="tool1"),
+                    MCPToolCall(mcp_name="enyal", tool_name="tool2"),
+                ]
+            )
 
         assert len(results) == 2
         assert results[0].success is True
@@ -613,17 +580,17 @@ class TestCallToolsParallel:
         mock_result.content = [MagicMock(text="Success")]
 
         mock_client = AsyncMock()
-        mock_client.call_tool = AsyncMock(
-            side_effect=[mock_result, Exception("Tool failed")]
-        )
+        mock_client.call_tool = AsyncMock(side_effect=[mock_result, Exception("Tool failed")])
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
         with patch.object(registry, "get_client", return_value=mock_client):
-            results = await registry.call_tools_parallel([
-                MCPToolCall(mcp_name="context7", tool_name="good_tool"),
-                MCPToolCall(mcp_name="enyal", tool_name="bad_tool"),
-            ])
+            results = await registry.call_tools_parallel(
+                [
+                    MCPToolCall(mcp_name="context7", tool_name="good_tool"),
+                    MCPToolCall(mcp_name="enyal", tool_name="bad_tool"),
+                ]
+            )
 
         assert len(results) == 2
         assert results[0].success is True
@@ -632,9 +599,7 @@ class TestCallToolsParallel:
         assert "Tool failed" in results[1].error
 
     @pytest.mark.asyncio
-    async def test_call_tools_parallel_timeout(
-        self, multi_mcp_config: MirdanConfig
-    ) -> None:
+    async def test_call_tools_parallel_timeout(self, multi_mcp_config: MirdanConfig) -> None:
         """Global timeout should return timeout errors for all calls."""
         import asyncio
 
@@ -666,9 +631,9 @@ class TestCallToolsParallel:
         """Calls to unconfigured MCPs should return error results."""
         registry = MCPClientRegistry(multi_mcp_config)
 
-        results = await registry.call_tools_parallel([
-            MCPToolCall(mcp_name="nonexistent", tool_name="test_tool")
-        ])
+        results = await registry.call_tools_parallel(
+            [MCPToolCall(mcp_name="nonexistent", tool_name="test_tool")]
+        )
 
         assert len(results) == 1
         assert results[0].success is False

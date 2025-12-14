@@ -47,7 +47,7 @@ class LanguageDetector:
             (r":=", 2),  # short variable declaration
             (r"\btype\s+\w+\s+struct", 3),  # struct type
             (r"\btype\s+\w+\s+interface", 3),  # interface type
-            (r'\bfmt\.(Print|Sprintf)', 1),  # fmt package
+            (r"\bfmt\.(Print|Sprintf)", 1),  # fmt package
         ],
     }
 
