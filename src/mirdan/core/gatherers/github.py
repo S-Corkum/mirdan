@@ -123,7 +123,10 @@ class GitHubGatherer:
                         for commit in commits:
                             files = commit.get("files", [])
                             for file_info in files:
-                                filename = file_info if isinstance(file_info, str) else file_info.get("filename", "")
+                                if isinstance(file_info, str):
+                                    filename = file_info
+                                else:
+                                    filename = file_info.get("filename", "")
                                 if filename and filename not in relevant_files:
                                     relevant_files.append(filename)
                     except Exception as e:

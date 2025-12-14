@@ -2,13 +2,13 @@
 
 import asyncio
 import logging
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.client_registry import MCPClientRegistry
 from mirdan.core.gatherers import (
     Context7Gatherer,
-    ContextGatherer,
     EnyalGatherer,
     FilesystemGatherer,
     GathererResult,
@@ -93,7 +93,7 @@ class ContextAggregator:
                 asyncio.gather(*tasks, return_exceptions=True),
                 timeout=self._config.orchestration.gather_timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Global context gathering timeout (%.1fs) exceeded",
                 self._config.orchestration.gather_timeout,

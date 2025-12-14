@@ -112,7 +112,7 @@ class Context7Gatherer:
                                 documentation_hints.append(hint)
                             if docs.get("version"):
                                 tech_stack[framework] = docs["version"]
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning("Timeout fetching docs for framework '%s'", framework)
                         errors.append(f"Timeout: {framework}")
                     except Exception as e:

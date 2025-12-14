@@ -1,7 +1,6 @@
 """Filesystem gatherer for codebase analysis."""
 
 import logging
-from typing import Any
 
 from fastmcp import Client
 

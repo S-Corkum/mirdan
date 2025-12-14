@@ -1,9 +1,9 @@
 """Tests for ContextAggregator."""
 
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.context_aggregator import ContextAggregator

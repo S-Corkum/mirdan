@@ -293,7 +293,10 @@ class TestTaskConstraints:
         intent = Intent(original_prompt="test", task_type=TaskType.DEBUG)
         constraints = composer._get_task_constraints(intent)
         assert any("root cause" in c.lower() for c in constraints)
-        assert any("minimize changes" in c.lower() or "unrelated code" in c.lower() for c in constraints)
+        assert any(
+            "minimize changes" in c.lower() or "unrelated code" in c.lower()
+            for c in constraints
+        )
 
     def test_generation_constraints(self, composer: PromptComposer) -> None:
         """Should add 2 additional constraints for GENERATION."""

@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 from mirdan.models import EntityType, ExtractedEntity
 
@@ -78,7 +77,9 @@ class EntityExtractor:
                 ),
                 entity_type=EntityType.FILE_PATH,
                 base_confidence=0.8,
-                context_clues=["in the file", "modify", "create", "at path", "open", "edit", "in", "from"],
+                context_clues=[
+                    "in the file", "modify", "create", "at path", "open", "edit", "in", "from"
+                ],
             ),
         ]
 
@@ -90,7 +91,9 @@ class EntityExtractor:
                 pattern=re.compile(r"\b([a-z_][a-zA-Z0-9_]*)\s*\(\)"),
                 entity_type=EntityType.FUNCTION_NAME,
                 base_confidence=0.75,
-                context_clues=["function", "method", "call", "create", "implement", "modify", "the"],
+                context_clues=[
+                    "function", "method", "call", "create", "implement", "modify", "the"
+                ],
             ),
             # Method call: user.authenticate()
             ExtractionPattern(

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import time
+from datetime import UTC
 
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport, StreamableHttpTransport
@@ -227,7 +228,7 @@ class MCPClientRegistry:
         Returns:
             MCPCapabilities if discovery succeeds, None otherwise
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         try:
             async with client:
@@ -269,7 +270,7 @@ class MCPClientRegistry:
                         )
                         for p in prompts_list
                     ],
-                    discovered_at=datetime.now(timezone.utc).isoformat(),
+                    discovered_at=datetime.now(UTC).isoformat(),
                 )
 
                 logger.info(
@@ -419,7 +420,7 @@ class MCPClientRegistry:
 
             return final_results
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("call_tools_parallel timed out after %s seconds", timeout)
             # Return timeout errors for all calls
             return [

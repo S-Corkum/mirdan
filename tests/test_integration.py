@@ -1,15 +1,16 @@
 """Integration tests for mirdan."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.context_aggregator import ContextAggregator
+from mirdan.core.gatherers.base import GathererResult
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
-from mirdan.core.gatherers.base import GathererResult
 from mirdan.models import ContextBundle
 
 

@@ -1,9 +1,6 @@
 """Enyal gatherer for project memory and conventions."""
 
 import logging
-from typing import Any
-
-from fastmcp import Client
 
 from mirdan.core.client_registry import MCPClientRegistry
 from mirdan.core.gatherers.base import GathererResult

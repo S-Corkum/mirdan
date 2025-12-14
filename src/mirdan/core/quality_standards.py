@@ -73,8 +73,8 @@ class QualityStandards:
 
     def _load_default_standards(self) -> dict[str, Any]:
         """Load built-in quality standards from YAML files."""
-        from importlib.resources import files
         import logging
+        from importlib.resources import files
 
         logger = logging.getLogger(__name__)
         standards: dict[str, Any] = {}

@@ -2,7 +2,6 @@
 
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from mirdan.config import QualityConfig
 from mirdan.core.language_detector import LanguageDetector
@@ -38,9 +37,12 @@ class CodeValidator:
             ("PY003", "no-bare-except", r"\bexcept\s*:", "error",
              "Bare except clause catches all exceptions including SystemExit and KeyboardInterrupt",
              "Use 'except Exception:' or catch specific exceptions"),
-            ("PY004", "no-mutable-default", r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\}|set\s*\(\s*\))", "error",
-             "Mutable default argument - shared between all calls",
-             "Use None as default and initialize in function body: 'if arg is None: arg = []'"),
+            (
+                "PY004", "no-mutable-default",
+                r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\}|set\s*\(\s*\))", "error",
+                "Mutable default argument - shared between all calls",
+                "Use None as default and initialize in function body: 'if arg is None: arg = []'"
+            ),
         ],
         "typescript": [
             ("TS001", "no-eval", r"\beval\s*\(", "error",
@@ -87,9 +89,12 @@ class CodeValidator:
 
     # Security rules apply to all languages
     SECURITY_RULES: list[tuple[str, str, str, str, str, str]] = [
-        ("SEC001", "hardcoded-api-key", r'(?:api[_-]?key|apikey)\s*[:=]\s*["\'][a-zA-Z0-9_\-]{20,}["\']',
-         "error", "Possible hardcoded API key detected",
-         "Use environment variables: os.environ.get('API_KEY') or process.env.API_KEY"),
+        (
+            "SEC001", "hardcoded-api-key",
+            r'(?:api[_-]?key|apikey)\s*[:=]\s*["\'][a-zA-Z0-9_\-]{20,}["\']',
+            "error", "Possible hardcoded API key detected",
+            "Use environment variables: os.environ.get('API_KEY') or process.env.API_KEY"
+        ),
         ("SEC002", "hardcoded-password", r'(?:password|passwd|pwd)\s*[=:]\s*["\'][^"\']{4,}["\']',
          "error", "Possible hardcoded password detected",
          "Use environment variables or a secrets manager"),
@@ -197,11 +202,15 @@ class CodeValidator:
         if language == "auto":
             detected_lang, confidence = self._language_detector.detect(code)
             if confidence == "low":
-                limitations.append(f"Language detection confidence is low - detected '{detected_lang}'")
+                limitations.append(
+                    f"Language detection confidence is low - detected '{detected_lang}'"
+                )
         else:
             detected_lang = language.lower()
             if detected_lang not in self.LANGUAGE_RULES:
-                limitations.append(f"Language '{language}' not fully supported - only security checks applied")
+                limitations.append(
+                    f"Language '{language}' not fully supported - only security checks applied"
+                )
 
         # Check for minified code
         if self._language_detector.is_likely_minified(code):
@@ -236,7 +245,9 @@ class CodeValidator:
             # Architecture validation would require AST analysis
             # For MVP, we note this limitation
             if check_architecture:
-                limitations.append("Architecture validation requires AST analysis (not yet implemented)")
+                limitations.append(
+                    "Architecture validation requires AST analysis (not yet implemented)"
+                )
 
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)

@@ -1,7 +1,8 @@
 """Tests for MCPClientRegistry."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.client_registry import MCPClientRegistry
@@ -136,7 +137,7 @@ class TestMCPClientRegistry:
 
         with patch(
             "mirdan.core.client_registry.StdioTransport"
-        ) as mock_transport, patch(
+        ), patch(
             "mirdan.core.client_registry.Client"
         ) as mock_client:
             mock_client_instance = MagicMock()
@@ -250,10 +251,18 @@ class TestCapabilityDiscovery:
         registry = MCPClientRegistry(stdio_config)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=mock_capabilities_response["tools"])
-        mock_client.list_resources = AsyncMock(return_value=mock_capabilities_response["resources"])
-        mock_client.list_resource_templates = AsyncMock(return_value=mock_capabilities_response["templates"])
-        mock_client.list_prompts = AsyncMock(return_value=mock_capabilities_response["prompts"])
+        mock_client.list_tools = AsyncMock(
+            return_value=mock_capabilities_response["tools"]
+        )
+        mock_client.list_resources = AsyncMock(
+            return_value=mock_capabilities_response["resources"]
+        )
+        mock_client.list_resource_templates = AsyncMock(
+            return_value=mock_capabilities_response["templates"]
+        )
+        mock_client.list_prompts = AsyncMock(
+            return_value=mock_capabilities_response["prompts"]
+        )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 
@@ -292,10 +301,18 @@ class TestCapabilityDiscovery:
         registry = MCPClientRegistry(stdio_config)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=mock_capabilities_response["tools"])
-        mock_client.list_resources = AsyncMock(return_value=mock_capabilities_response["resources"])
-        mock_client.list_resource_templates = AsyncMock(return_value=mock_capabilities_response["templates"])
-        mock_client.list_prompts = AsyncMock(return_value=mock_capabilities_response["prompts"])
+        mock_client.list_tools = AsyncMock(
+            return_value=mock_capabilities_response["tools"]
+        )
+        mock_client.list_resources = AsyncMock(
+            return_value=mock_capabilities_response["resources"]
+        )
+        mock_client.list_resource_templates = AsyncMock(
+            return_value=mock_capabilities_response["templates"]
+        )
+        mock_client.list_prompts = AsyncMock(
+            return_value=mock_capabilities_response["prompts"]
+        )
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
 

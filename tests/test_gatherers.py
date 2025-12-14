@@ -1,7 +1,8 @@
 """Tests for context gatherers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.client_registry import MCPClientRegistry

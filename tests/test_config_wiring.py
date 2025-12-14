@@ -1,6 +1,5 @@
 """Tests for configuration wiring to components."""
 
-import pytest
 
 from mirdan.config import (
     EnhancementConfig,
@@ -301,7 +300,7 @@ class TestServerIntegration:
 
         intent_analyzer = IntentAnalyzer(config.project)
         quality_standards = QualityStandards(config=config.quality)
-        prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
+        PromptComposer(quality_standards, config=config.enhancement)
         mcp_orchestrator = MCPOrchestrator(config.orchestration)
 
         # Analyze a generic prompt - should get python/fastapi from config

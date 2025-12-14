@@ -5,11 +5,11 @@ from typing import Any
 from fastmcp import FastMCP
 
 from mirdan.config import MirdanConfig
+from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.prompt_composer import PromptComposer
-from mirdan.core.code_validator import CodeValidator
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import TaskType
 
@@ -118,7 +118,9 @@ async def get_quality_standards(
     Returns:
         Quality standards for the specified language/framework
     """
-    return quality_standards.get_all_standards(language=language, framework=framework, category=category)
+    return quality_standards.get_all_standards(
+        language=language, framework=framework, category=category
+    )
 
 
 @mcp.tool()
