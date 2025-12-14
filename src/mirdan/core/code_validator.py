@@ -157,6 +157,40 @@ class CodeValidator:
                 "Return an error instead: 'return fmt.Errorf(\"description: %w\", err)'",
             ),
         ],
+        "java": [
+            (
+                "JV001",
+                "string-equals",
+                r'"[^"]*"\s*==\s*\w+|\w+\s*==\s*"[^"]*"',
+                "error",
+                "String comparison with == instead of .equals()",
+                "Use .equals() method for String comparison: str1.equals(str2)",
+            ),
+            (
+                "JV002",
+                "catch-generic-exception",
+                r"\bcatch\s*\(\s*Exception\s+",
+                "warning",
+                "Catching generic Exception may hide specific errors",
+                "Catch specific exceptions or use multi-catch: catch (IOException e)",
+            ),
+            (
+                "JV003",
+                "system-exit",
+                r"\bSystem\.exit\s*\(",
+                "warning",
+                "System.exit() terminates the JVM - avoid in library code",
+                "Throw an exception or return an error code instead",
+            ),
+            (
+                "JV004",
+                "empty-catch",
+                r"\bcatch\s*\([^)]+\)\s*\{\s*\}",
+                "warning",
+                "Empty catch block silently swallows exceptions",
+                "Log the exception or rethrow: catch (Exception e) { logger.error(e); }",
+            ),
+        ],
     }
 
     # Security rules apply to all languages

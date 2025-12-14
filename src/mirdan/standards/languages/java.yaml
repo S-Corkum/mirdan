@@ -1,0 +1,17 @@
+principles:
+  - Use constructor injection and mark dependencies final
+  - Prefer interfaces over concrete implementations
+  - Use try-with-resources for AutoCloseable resources
+  - Follow Java naming conventions (camelCase methods, PascalCase classes)
+  - Use @Override annotation consistently
+  - Prefer specific exceptions over generic Exception
+
+forbidden:
+  - String comparison with == instead of .equals()
+  - Catching generic Exception or Throwable in production code
+  - System.exit() in library code
+  - Raw types without generics
+
+patterns:
+  error_handling: "Use specific exception types with meaningful messages"
+  dependency_injection: "Constructor injection with final fields"

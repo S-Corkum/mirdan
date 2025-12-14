@@ -154,6 +154,61 @@ class TestGoPatternDetection:
         assert any(v.rule == "no-panic" for v in result.violations)
 
 
+class TestJavaPatternDetection:
+    """Tests for Java forbidden pattern detection."""
+
+    def test_detects_string_equals(self, validator: CodeValidator) -> None:
+        """Should detect string comparison with ==."""
+        code = 'if (name == "test") { return true; }'
+        result = validator.validate(code, language="java")
+        assert not result.passed
+        assert any(v.rule == "string-equals" and v.id == "JV001" for v in result.violations)
+
+    def test_detects_generic_exception(self, validator: CodeValidator) -> None:
+        """Should detect catching generic Exception."""
+        code = """
+try {
+    doSomething();
+} catch (Exception e) {
+    log(e);
+}
+"""
+        result = validator.validate(code, language="java")
+        assert any(v.rule == "catch-generic-exception" for v in result.violations)
+
+    def test_detects_system_exit(self, validator: CodeValidator) -> None:
+        """Should detect System.exit() usage."""
+        code = "System.exit(1);"
+        result = validator.validate(code, language="java")
+        assert any(v.rule == "system-exit" for v in result.violations)
+
+    def test_detects_empty_catch(self, validator: CodeValidator) -> None:
+        """Should detect empty catch blocks."""
+        code = "try { work(); } catch (Exception e) { }"
+        result = validator.validate(code, language="java")
+        assert any(v.rule == "empty-catch" for v in result.violations)
+
+    def test_clean_java_passes(self, validator: CodeValidator) -> None:
+        """Clean Java code should pass validation."""
+        code = """
+public class UserService {
+    private final UserRepository repository;
+
+    public UserService(UserRepository repository) {
+        this.repository = repository;
+    }
+
+    public User findById(Long id) {
+        return repository.findById(id)
+            .orElseThrow(() -> new UserNotFoundException(id));
+    }
+}
+"""
+        result = validator.validate(code, language="java")
+        assert result.passed
+        assert result.score > 0.8
+
+
 class TestSecurityPatternDetection:
     """Tests for security pattern detection across languages."""
 
@@ -258,6 +313,22 @@ func main() {
 """
         lang, confidence = language_detector.detect(code)
         assert lang == "go"
+
+    def test_detects_java(self, language_detector: LanguageDetector) -> None:
+        """Should detect Java code."""
+        code = """
+import java.util.List;
+import java.util.ArrayList;
+
+public class HelloWorld {
+    public static void main(String[] args) {
+        List<String> items = new ArrayList<>();
+        System.out.println("Hello, World!");
+    }
+}
+"""
+        lang, confidence = language_detector.detect(code)
+        assert lang == "java"
 
 
 class TestEdgeCases:

@@ -1,0 +1,16 @@
+principles:
+  - Use constructor injection with final fields for dependencies
+  - Use @RestController for REST APIs instead of @Controller + @ResponseBody
+  - Use @Service, @Repository, @Component stereotypes appropriately
+  - Externalize configuration with @ConfigurationProperties
+  - Use @Transactional for database operations requiring atomicity
+
+forbidden:
+  - Field injection with @Autowired on fields
+  - Catching generic Exception in @ExceptionHandler
+  - Blocking calls in reactive WebFlux handlers
+  - Hardcoded configuration values instead of externalized properties
+
+patterns:
+  dependency_injection: "Constructor injection with final fields, @Autowired only for multiple constructors"
+  rest_api: "@RestController with @RequestMapping/@GetMapping/@PostMapping"

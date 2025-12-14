@@ -49,6 +49,15 @@ class LanguageDetector:
             (r"\btype\s+\w+\s+interface", 3),  # interface type
             (r"\bfmt\.(Print|Sprintf)", 1),  # fmt package
         ],
+        "java": [
+            (r"\bpublic\s+class\s+\w+", 3),  # class declaration
+            (r"\bimport\s+java\.", 3),  # java imports
+            (r"\bpublic\s+static\s+void\s+main", 4),  # main method
+            (r"@Override\b", 2),  # override annotation
+            (r"\b(private|protected|public)\s+\w+\s+\w+\s*;", 2),  # field declaration
+            (r"\bthrows\s+\w+Exception", 2),  # throws clause
+            (r"@(Service|Component|Repository|Controller|RestController)\b", 3),  # Spring
+        ],
     }
 
     def detect(self, code: str) -> tuple[str, str]:

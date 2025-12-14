@@ -84,7 +84,7 @@ class QualityStandards:
             return {}
 
         # Load language standards
-        languages = ["typescript", "python", "javascript", "rust", "go"]
+        languages = ["typescript", "python", "javascript", "rust", "go", "java"]
         for lang in languages:
             lang_file = standards_pkg.joinpath("languages", f"{lang}.yaml")
             standards[lang] = self._load_yaml_file(lang_file, lang)
@@ -94,6 +94,7 @@ class QualityStandards:
             "react": "react.yaml",
             "next.js": "nextjs.yaml",
             "fastapi": "fastapi.yaml",
+            "spring-boot": "springboot.yaml",
         }
         for framework, filename in framework_files.items():
             fw_file = standards_pkg.joinpath("frameworks", filename)

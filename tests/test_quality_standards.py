@@ -30,6 +30,16 @@ class TestFrameworkStandards:
 
         assert result == {}
 
+    def test_get_for_framework_spring_boot(self) -> None:
+        """Should return Spring Boot standards."""
+        standards = QualityStandards()
+
+        spring_standards = standards.get_for_framework("spring-boot")
+
+        assert "principles" in spring_standards
+        assert "forbidden" in spring_standards
+        assert len(spring_standards["principles"]) > 0
+
     def test_render_includes_framework_standards(self) -> None:
         """Should include framework standards when frameworks detected."""
         standards = QualityStandards()
@@ -186,6 +196,14 @@ class TestLanguageStandards:
         standards = QualityStandards()
         result = standards.get_for_language("go")
         assert "principles" in result
+        assert len(result["principles"]) > 0
+
+    def test_get_for_language_java(self) -> None:
+        """Should return Java standards."""
+        standards = QualityStandards()
+        result = standards.get_for_language("java")
+        assert "principles" in result
+        assert "forbidden" in result
         assert len(result["principles"]) > 0
 
     def test_get_for_language_unknown_returns_empty(self) -> None:
@@ -473,15 +491,17 @@ class TestYamlFileLoading:
         """Should load all standard categories from YAML files."""
         standards = QualityStandards()
 
-        # Verify all 10 categories are loaded
+        # Verify all 12 categories are loaded (was 10, now 12 with java and spring-boot)
         assert "python" in standards.standards
         assert "typescript" in standards.standards
         assert "javascript" in standards.standards
         assert "rust" in standards.standards
         assert "go" in standards.standards
+        assert "java" in standards.standards
         assert "react" in standards.standards
         assert "next.js" in standards.standards
         assert "fastapi" in standards.standards
+        assert "spring-boot" in standards.standards
         assert "security" in standards.standards
         assert "architecture" in standards.standards
 
