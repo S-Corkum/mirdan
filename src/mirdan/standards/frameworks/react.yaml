@@ -1,0 +1,16 @@
+principles:
+  - "Call Hooks at the top level only - never inside conditions, loops, or nested functions"
+  - Include all dependencies in useEffect/useMemo/useCallback dependency arrays
+  - "Name custom hooks starting with 'use' (e.g., useAuth, useFetch)"
+  - Keep components small and focused on a single responsibility
+  - Use React.memo() for expensive pure components that render often with same props
+
+forbidden:
+  - "Hooks inside conditions, loops, or callbacks"
+  - Hooks after early return statements
+  - Mutating state directly instead of using setState
+  - Using array index as key for dynamic lists
+
+patterns:
+  hooks: "Call hooks unconditionally at top level; handle conditions inside hook body"
+  memoization: "useMemo for expensive calculations, useCallback for stable function references"

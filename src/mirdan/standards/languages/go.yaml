@@ -1,0 +1,13 @@
+principles:
+  - Check errors immediately after function calls
+  - Use meaningful variable names
+  - Keep functions focused and short
+  - Use interfaces for abstraction
+
+forbidden:
+  - Ignoring errors with _
+  - panic() for recoverable errors
+
+patterns:
+  error_handling: "Return errors, don't panic"
+  concurrency: Use channels for communication

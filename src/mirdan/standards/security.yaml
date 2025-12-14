@@ -1,0 +1,21 @@
+authentication:
+  - Never store passwords in plain text - use bcrypt with cost 12+
+  - Use constant-time comparison for secret verification
+  - Implement rate limiting on authentication endpoints
+  - "Use HTTP-only, secure cookies for session tokens"
+
+input_validation:
+  - Validate all user inputs at API boundaries
+  - Use allowlists over denylists for input validation
+  - Sanitize data before database operations
+
+data_handling:
+  - "Never log sensitive data (passwords, tokens, PII)"
+  - Use parameterized queries exclusively - never string concatenation
+  - Encrypt sensitive data at rest
+
+common_vulnerabilities:
+  CWE-79: Escape output before rendering in HTML (XSS)
+  CWE-89: Use parameterized queries (SQL Injection)
+  CWE-94: Never execute user-provided code (Code Injection)
+  CWE-306: Require authentication for sensitive operations

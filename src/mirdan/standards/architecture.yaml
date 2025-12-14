@@ -1,0 +1,14 @@
+clean_architecture:
+  - Dependencies point inward only
+  - Inner layers never import from outer layers
+  - Domain logic has no external dependencies
+
+solid:
+  - "Single Responsibility: Each module has one reason to change"
+  - "Open/Closed: Open for extension, closed for modification"
+  - "Dependency Inversion: Depend on abstractions, not concretions"
+
+general:
+  - "Maximum function length: 30 lines"
+  - "Maximum file length: 300 lines"
+  - Prefer composition over inheritance

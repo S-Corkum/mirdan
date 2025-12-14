@@ -1,0 +1,16 @@
+principles:
+  - Use Depends() with Annotated for type-safe dependency injection
+  - Define Pydantic models for all request bodies and response schemas
+  - Use async def for route handlers to enable concurrent request handling
+  - Apply HTTPException with appropriate status codes for error responses
+  - Use Security() dependencies for authentication and authorization
+
+forbidden:
+  - Synchronous blocking I/O in async route handlers
+  - Raw dicts instead of Pydantic models for request/response bodies
+  - Global mutable state instead of proper dependency injection
+  - Missing type hints on path and query parameters
+
+patterns:
+  dependency_injection: "Annotated[Type, Depends(callable)] for clean, testable DI"
+  validation: Pydantic Field() with constraints for detailed input validation

@@ -1,0 +1,1 @@
+"""Quality standards YAML resources."""

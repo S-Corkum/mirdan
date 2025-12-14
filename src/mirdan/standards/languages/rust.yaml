@@ -1,0 +1,13 @@
+principles:
+  - "Prefer Result<T, E> over panicking"
+  - Use meaningful error types with thiserror
+  - Leverage the type system for correctness
+  - Minimize unsafe code blocks
+
+forbidden:
+  - unwrap() in library code
+  - expect() without meaningful messages
+
+patterns:
+  error_handling: Propagate errors with ? operator
+  ownership: Prefer borrowing over cloning

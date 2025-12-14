@@ -1,0 +1,14 @@
+principles:
+  - Follow PEP 8 style guidelines
+  - Use type hints for function signatures
+  - Prefer dataclasses or Pydantic models over raw dicts
+  - Use context managers for resource handling
+
+forbidden:
+  - eval() or exec() on user input
+  - "Bare except: clauses"
+  - Mutable default arguments
+
+patterns:
+  error_handling: "Use specific exception types, not generic Exception"
+  async: "Use asyncio consistently, don't mix sync/async"

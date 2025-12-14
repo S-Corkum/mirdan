@@ -1,0 +1,15 @@
+principles:
+  - "Use strict TypeScript - no `any` without explicit documentation"
+  - "Prefer type inference; explicit types only when necessary"
+  - Use discriminated unions over type assertions
+  - Export types separately from implementations
+
+forbidden:
+  - eval()
+  - Function() constructor
+  - "// @ts-ignore without explanation"
+  - as any casts
+
+patterns:
+  error_handling: Wrap async operations in try-catch with typed errors
+  null_handling: Use optional chaining (?.) and nullish coalescing (??)

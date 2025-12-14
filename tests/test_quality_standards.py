@@ -414,3 +414,94 @@ class TestRenderForIntent:
         assert "pydantic" in result_text or "depends" in result_text
         # Architecture standards
         assert "function length" in result_text or "composition" in result_text
+
+
+class TestYamlFileLoading:
+    """Tests for YAML-based standards loading."""
+
+    def test_load_yaml_file_returns_parsed_content(self) -> None:
+        """Should parse valid YAML content."""
+        from unittest.mock import MagicMock
+
+        standards = QualityStandards()
+        mock_file = MagicMock()
+        mock_file.read_text.return_value = "key: value\nlist:\n  - item1"
+
+        result = standards._load_yaml_file(mock_file, "test")
+
+        assert result == {"key": "value", "list": ["item1"]}
+
+    def test_load_yaml_file_handles_missing_file(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should return empty dict and log warning for missing file."""
+        from unittest.mock import MagicMock
+
+        standards = QualityStandards()
+        mock_file = MagicMock()
+        mock_file.read_text.side_effect = FileNotFoundError("not found")
+
+        result = standards._load_yaml_file(mock_file, "missing_category")
+
+        assert result == {}
+        assert "missing_category" in caplog.text
+
+    def test_load_yaml_file_handles_malformed_yaml(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Should return empty dict and log error for invalid YAML."""
+        from unittest.mock import MagicMock
+
+        standards = QualityStandards()
+        mock_file = MagicMock()
+        mock_file.read_text.return_value = "invalid: yaml: content: [unclosed"
+
+        result = standards._load_yaml_file(mock_file, "malformed_category")
+
+        assert result == {}
+        assert "malformed_category" in caplog.text
+
+    def test_load_yaml_file_handles_empty_file(self) -> None:
+        """Should return empty dict for empty YAML file."""
+        from unittest.mock import MagicMock
+
+        standards = QualityStandards()
+        mock_file = MagicMock()
+        mock_file.read_text.return_value = ""
+
+        result = standards._load_yaml_file(mock_file, "empty")
+
+        assert result == {}
+
+    def test_default_standards_loads_all_categories(self) -> None:
+        """Should load all standard categories from YAML files."""
+        standards = QualityStandards()
+
+        # Verify all 10 categories are loaded
+        assert "python" in standards.standards
+        assert "typescript" in standards.standards
+        assert "javascript" in standards.standards
+        assert "rust" in standards.standards
+        assert "go" in standards.standards
+        assert "react" in standards.standards
+        assert "next.js" in standards.standards
+        assert "fastapi" in standards.standards
+        assert "security" in standards.standards
+        assert "architecture" in standards.standards
+
+    def test_yaml_content_matches_expected_structure(self) -> None:
+        """Should have correct structure in loaded standards."""
+        standards = QualityStandards()
+
+        # Language standards should have principles, forbidden, patterns
+        python_standards = standards.get_for_language("python")
+        assert "principles" in python_standards
+        assert "forbidden" in python_standards
+        assert "patterns" in python_standards
+        assert len(python_standards["principles"]) == 4
+
+        # Security should have expected sections
+        security = standards.get_security_standards()
+        assert "authentication" in security
+        assert "input_validation" in security
+        assert "common_vulnerabilities" in security

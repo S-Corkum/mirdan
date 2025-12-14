@@ -1,0 +1,14 @@
+principles:
+  - "Use const by default, let when reassignment is needed"
+  - Prefer arrow functions for callbacks
+  - Use async/await over raw Promises
+  - Destructure objects and arrays when appropriate
+
+forbidden:
+  - var declarations
+  - eval()
+  - document.write()
+
+patterns:
+  error_handling: Always catch Promise rejections
+  null_handling: Use optional chaining and nullish coalescing
