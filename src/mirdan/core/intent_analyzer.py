@@ -54,6 +54,19 @@ class IntentAnalyzer:
             (r"\b(spec|coverage|testing)\b", 3),
             (r"\b(jest|pytest|mocha|vitest)\b", 4),
         ],
+        TaskType.PLANNING: [
+            (r"\b(create|make|write)\s+(a\s+)?plan\b", 5),  # Strong: "create a plan"
+            (r"\bplan\s+(for|to|out)\b", 5),  # Strong: "plan to implement"
+            (r"\bplanning\b", 4),
+            (r"\bimplementation\s+plan\b", 5),
+            (r"\bdesign\s+(the\s+)?implementation\b", 4),
+            (r"\barchitect\b", 3),
+            (r"\bbreak\s*down\b", 3),
+            (r"\bstrategy\s+for\b", 3),
+            (r"\broadmap\b", 3),
+            (r"\bsteps\s+to\b", 2),
+            (r"\bhow\s+should\s+(I|we)\s+implement\b", 4),
+        ],
     }
 
     # Language detection patterns

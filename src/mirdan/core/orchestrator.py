@@ -51,6 +51,10 @@ class MCPOrchestrator:
         available_mcps: list[str] | None = None,
     ) -> list[ToolRecommendation]:
         """Suggest which MCP tools should be used for a given intent."""
+        # Dispatch to planning-specific for PLANNING tasks
+        if intent.task_type == TaskType.PLANNING:
+            return self.suggest_tools_for_planning(intent, available_mcps)
+
         recommendations: list[ToolRecommendation] = []
 
         # If no MCPs specified, assume common ones are available
@@ -166,6 +170,81 @@ class MCPOrchestrator:
             return (idx, rec.mcp)  # Secondary sort by name for stability
 
         return sorted(recommendations, key=sort_key)
+
+    def suggest_tools_for_planning(
+        self,
+        intent: Intent,
+        available_mcps: list[str] | None = None,
+    ) -> list[ToolRecommendation]:
+        """Suggest tools specifically for PLANNING tasks.
+
+        Planning requires more aggressive tool usage to verify all facts
+        BEFORE writing plan steps.
+        """
+        recommendations: list[ToolRecommendation] = []
+
+        if available_mcps is None:
+            available_mcps = list(self.KNOWN_MCPS.keys())
+
+        # MANDATORY: enyal for conventions FIRST (critical priority)
+        if "enyal" in available_mcps:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action="Recall ALL project conventions, patterns, and past decisions",
+                    priority="critical",
+                    params={"query": "conventions patterns decisions architecture"},
+                    reason="Plans MUST follow project conventions - verify BEFORE planning",
+                )
+            )
+
+        # MANDATORY: Filesystem for structure verification
+        if "filesystem" in available_mcps:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="filesystem",
+                    action="Glob project structure and Read ALL files to be modified",
+                    priority="critical",
+                    reason="You CANNOT plan changes to files you haven't Read",
+                )
+            )
+        elif "desktop-commander" in available_mcps:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="desktop-commander",
+                    action="Read ALL files that will be modified",
+                    priority="critical",
+                    reason="You CANNOT plan changes to files you haven't Read",
+                )
+            )
+
+        # MANDATORY: context7 for any framework APIs
+        if intent.uses_external_framework and "context7" in available_mcps:
+            frameworks_str = (
+                ", ".join(intent.frameworks) if intent.frameworks else "detected frameworks"
+            )
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="context7",
+                    action=f"Query documentation for ALL APIs from {frameworks_str}",
+                    priority="critical",
+                    params={"libraries": intent.frameworks},
+                    reason="You CANNOT reference APIs without verification",
+                )
+            )
+
+        # HIGH: GitHub for recent context
+        if "github" in available_mcps:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="github",
+                    action="Check recent commits and open PRs for context",
+                    priority="high",
+                    reason="Recent changes may affect plan",
+                )
+            )
+
+        return self._sort_by_preference(recommendations)
 
     def get_available_mcp_info(self) -> dict[str, dict[str, Any]]:
         """Return information about known MCPs."""

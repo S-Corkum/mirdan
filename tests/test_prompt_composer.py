@@ -296,3 +296,78 @@ class TestTaskConstraints:
         assert any("credentials" in c.lower() or "api keys" in c.lower() for c in constraints)
         assert any("parameterized queries" in c.lower() for c in constraints)
         assert any("sanitize" in c.lower() for c in constraints)
+
+
+class TestPlanningComposition:
+    """Test PLANNING-specific prompt composition."""
+
+    @pytest.fixture
+    def composer(self, standards: QualityStandards) -> PromptComposer:
+        return PromptComposer(standards)
+
+    @pytest.fixture
+    def planning_intent(self) -> Intent:
+        return Intent(
+            original_prompt="Create a plan to implement caching",
+            task_type=TaskType.PLANNING,
+            primary_language="python",
+            frameworks=["fastapi"],
+        )
+
+    @pytest.fixture
+    def context(self) -> ContextBundle:
+        return ContextBundle()
+
+    def test_planning_includes_research_phase(
+        self, composer: PromptComposer, planning_intent: Intent, context: ContextBundle
+    ) -> None:
+        """PLANNING prompt includes research phase requirements."""
+        result = composer.compose(planning_intent, context, [])
+        assert "Research" in result.enhanced_text
+        assert "BEFORE" in result.enhanced_text
+        assert "Read" in result.enhanced_text
+
+    def test_planning_includes_step_format(
+        self, composer: PromptComposer, planning_intent: Intent, context: ContextBundle
+    ) -> None:
+        """PLANNING prompt includes step format template."""
+        result = composer.compose(planning_intent, context, [])
+        assert "**File:**" in result.enhanced_text
+        assert "**Grounding:**" in result.enhanced_text
+        assert "**Verify:**" in result.enhanced_text
+
+    def test_planning_includes_anti_slop(
+        self, composer: PromptComposer, planning_intent: Intent, context: ContextBundle
+    ) -> None:
+        """PLANNING prompt includes anti-slop rules."""
+        result = composer.compose(planning_intent, context, [])
+        assert "FORBIDDEN" in result.enhanced_text
+        assert "should" in result.enhanced_text.lower()
+        assert "probably" in result.enhanced_text.lower()
+
+    def test_planning_mentions_less_capable(
+        self, composer: PromptComposer, planning_intent: Intent, context: ContextBundle
+    ) -> None:
+        """PLANNING prompt explains target is less capable model."""
+        result = composer.compose(planning_intent, context, [])
+        assert (
+            "less capable" in result.enhanced_text.lower()
+            or "LESS CAPABLE" in result.enhanced_text
+        )
+
+    def test_planning_has_different_verification_steps(
+        self, composer: PromptComposer, planning_intent: Intent, context: ContextBundle
+    ) -> None:
+        """PLANNING verification steps are plan-focused, not code-focused."""
+        result = composer.compose(planning_intent, context, [])
+        # Planning verification is about plan quality, not code quality
+        assert any("Grounding" in step for step in result.verification_steps)
+        assert any("line number" in step.lower() for step in result.verification_steps)
+
+    def test_planning_constraints_include_research(
+        self, composer: PromptComposer, planning_intent: Intent
+    ) -> None:
+        """PLANNING constraints include research requirements."""
+        constraints = composer._get_task_constraints(planning_intent)
+        assert any("research" in c.lower() for c in constraints)
+        assert any("atomic" in c.lower() for c in constraints)

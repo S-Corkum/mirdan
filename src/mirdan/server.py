@@ -9,6 +9,7 @@ from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
+from mirdan.core.plan_validator import PlanValidator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import TaskType
@@ -26,6 +27,7 @@ prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
 mcp_orchestrator = MCPOrchestrator(config.orchestration)
 context_aggregator = ContextAggregator(config)
 code_validator = CodeValidator(quality_standards, config=config.quality)
+plan_validator = PlanValidator(config.planning)
 
 
 @mcp.tool()
@@ -40,7 +42,7 @@ async def enhance_prompt(
 
     Args:
         prompt: The original developer prompt
-        task_type: Override auto-detection (generation|refactor|debug|review|test|auto)
+        task_type: Override auto-detection (generation|refactor|debug|review|test|planning|auto)
         context_level: How much context to gather (minimal|auto|comprehensive)
 
     Returns:
@@ -238,6 +240,27 @@ async def validate_code_quality(
     )
 
     return result.to_dict(severity_threshold=severity_threshold)
+
+
+@mcp.tool()
+async def validate_plan_quality(
+    plan: str,
+    target_model: str = "haiku",
+) -> dict[str, Any]:
+    """
+    Validate a plan for implementation by a less capable model.
+    Returns a quality score and list of issues that need fixing.
+
+    Args:
+        plan: The plan text to validate
+        target_model: Model that will implement (haiku|flash|cheap|capable)
+                     Cheaper models require stricter plan quality.
+
+    Returns:
+        Quality scores, issues list, and ready_for_cheap_model flag
+    """
+    result = plan_validator.validate(plan, target_model)
+    return result.to_dict()
 
 
 def main() -> None:

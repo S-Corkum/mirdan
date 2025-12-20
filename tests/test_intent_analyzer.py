@@ -228,3 +228,42 @@ class TestEntityExtraction:
             assert "type" in d
             assert "value" in d
             assert "confidence" in d
+
+
+class TestPlanningDetection:
+    """Test PLANNING task type detection."""
+
+    def test_detect_planning_explicit_create_plan(self, analyzer: IntentAnalyzer) -> None:
+        """'Create a plan to...' -> PLANNING"""
+        intent = analyzer.analyze("Create a plan to implement user authentication")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_detect_planning_explicit_make_plan(self, analyzer: IntentAnalyzer) -> None:
+        """'Make a plan for...' -> PLANNING"""
+        intent = analyzer.analyze("Make a plan for the new caching layer")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_detect_planning_implementation_plan(self, analyzer: IntentAnalyzer) -> None:
+        """'Implementation plan' -> PLANNING"""
+        intent = analyzer.analyze("Write an implementation plan for the API")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_detect_planning_how_should(self, analyzer: IntentAnalyzer) -> None:
+        """'How should I implement' -> PLANNING"""
+        intent = analyzer.analyze("How should I implement the payment system?")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_detect_planning_break_down(self, analyzer: IntentAnalyzer) -> None:
+        """'Break down' -> PLANNING"""
+        intent = analyzer.analyze("Break down the feature into steps")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_planning_beats_generation(self, analyzer: IntentAnalyzer) -> None:
+        """Planning words should beat generation words."""
+        intent = analyzer.analyze("Plan to implement the login feature")
+        assert intent.task_type == TaskType.PLANNING
+
+    def test_generation_without_plan_words(self, analyzer: IntentAnalyzer) -> None:
+        """'Add a feature' without plan words -> GENERATION not PLANNING"""
+        intent = analyzer.analyze("Add a login feature to the app")
+        assert intent.task_type == TaskType.GENERATION

@@ -82,6 +82,19 @@ class PromptComposer:
                 ]
             )
 
+        if intent.task_type == TaskType.PLANNING:
+            # Planning has different verification - focused on plan quality
+            return [
+                "Verify every file path was confirmed with Read or Glob",
+                "Verify every line number is exact (not approximated)",
+                "Verify every API reference was confirmed with context7",
+                "Verify every step has a Grounding field citing verification",
+                "Verify no steps use vague language (should, probably, around)",
+                "Verify no steps combine multiple actions",
+                "Verify dependencies between steps are explicit",
+                "Verify all imports, exports, tests, types are included",
+            ]
+
         if intent.touches_security:
             base_steps.extend(
                 [
@@ -102,6 +115,12 @@ class PromptComposer:
         tool_recommendations: list[ToolRecommendation],
     ) -> str:
         """Build the final prompt text."""
+        # Dispatch to planning-specific method for PLANNING tasks
+        if intent.task_type == TaskType.PLANNING:
+            return self._build_planning_prompt_text(
+                intent, context, quality_requirements, verification_steps, tool_recommendations
+            )
+
         # Determine verbosity settings
         verbosity = "balanced"
         include_verification = True
@@ -203,6 +222,20 @@ Tech Stack: {tech_stack_str if context.tech_stack else "Not detected"}""")
                 ]
             )
 
+        if intent.task_type == TaskType.PLANNING:
+            constraints.extend(
+                [
+                    "Complete ALL research BEFORE writing any plan steps",
+                    "Every file path must be verified with Read or Glob",
+                    "Every line number must be exact after Reading the file",
+                    "Every API must be verified with context7 documentation",
+                    "Each step must be atomic - one action only",
+                    "Each step must have File, Action, Details, Verify, Grounding fields",
+                    "Do NOT use vague language: should, probably, around, somewhere",
+                    "Include ALL implicit requirements: imports, exports, tests, types",
+                ]
+            )
+
         if intent.touches_security:
             constraints.extend(
                 [
@@ -213,3 +246,170 @@ Tech Stack: {tech_stack_str if context.tech_stack else "Not detected"}""")
             )
 
         return constraints
+
+    def _build_planning_prompt_text(
+        self,
+        intent: Intent,
+        context: ContextBundle,
+        quality_requirements: list[str],
+        verification_steps: list[str],
+        tool_recommendations: list[ToolRecommendation],
+    ) -> str:
+        """Build specialized prompt text for PLANNING tasks.
+
+        This produces a prompt designed to generate plans that can be
+        implemented by less capable models (Haiku, Flash).
+        """
+        sections: list[str] = []
+
+        # Role section - Planning specialist
+        language = intent.primary_language or "software"
+        frameworks = ", ".join(intent.frameworks) if intent.frameworks else "modern frameworks"
+
+        sections.append(f"""## Role
+You are a senior software architect creating an implementation plan.
+Your plans will be executed by a LESS CAPABLE AI model (like Claude Haiku or Gemini Flash).
+Therefore, your plan MUST be:
+- EXPLICIT: Assume NO implicit knowledge - the implementing model knows nothing
+- GROUNDED: Every fact must be verified with tools before including
+- ATOMIC: Each step is a single tool action
+- COMPLETE: No gaps - include imports, exports, tests, configs
+- LITERAL: Written so it can be executed EXACTLY as written
+
+You are an expert in {language} with experience in {frameworks}.""")
+
+        # Mandatory Research Phase
+        sections.append("""## MANDATORY: Pre-Planning Research Phase
+
+Before writing ANY plan steps, you MUST complete ALL of the following:
+
+1. **Glob**: Verify the actual project structure (don't assume directories exist)
+2. **Read**: Read ALL files that will be modified (not mentioned - actually READ them)
+3. **Read**: Read pyproject.toml/package.json for dependencies
+4. **Read**: Read existing similar implementations to understand patterns
+5. **context7**: Query for EVERY external library API you will reference
+6. **enyal_recall**: Get project conventions and past decisions
+
+**CRITICAL**: You CANNOT write plan steps for files you haven't Read.
+**CRITICAL**: You CANNOT reference APIs you haven't verified with context7.
+**CRITICAL**: If you skip research, the plan WILL fail when implemented.""")
+
+        # Research Notes Template
+        sections.append("""## MANDATORY: Document Your Research
+
+After completing research, BEFORE any plan steps, write a Research Notes section:
+
+```markdown
+## Research Notes (Pre-Plan Verification)
+
+### Files Verified
+- `path/to/file.py`: line 45 contains function X, line 78 contains class Y
+
+### Project Structure
+- Discovered via Glob: [actual directory tree relevant to task]
+
+### Dependencies Confirmed
+- `library-name`: version X.Y.Z (from pyproject.toml line N)
+
+### API Documentation (context7)
+- `library.method()`: takes args (a: str, b: int) -> Result
+
+### Conventions (enyal)
+- naming: uses snake_case for functions
+- testing: pytest with fixtures in conftest.py
+```""")
+
+        # Step Format Template
+        sections.append("""## Step Format (REQUIRED for every step)
+
+```markdown
+### Step N: [Brief descriptive title]
+
+**File:** `exact/path/verified/via/Read.py`
+  OR `NEW: path/to/new/file.py` (parent dir verified via Glob)
+
+**Action:** Edit (or Read, Write, Bash, etc.)
+
+**Details:**
+- Line 45: Add import statement `from x import y`
+- Line 78: Add function with exact signature
+- [Be SPECIFIC - line numbers, function names, exact code]
+
+**Depends On:** Steps X, Y (must complete first)
+
+**Verify:** [How to confirm success]
+- Read file after edit, confirm function exists at line 78
+- Run test, confirm it passes
+
+**Grounding:** [Which tool verified this step's facts]
+- File exists: Read at research phase
+- API signature: context7 query for library.method
+- Convention: enyal_recall for naming pattern
+```""")
+
+        # Anti-Slop Rules
+        sections.append("""## Anti-Slop Rules (VIOLATIONS WILL CAUSE IMPLEMENTATION FAILURE)
+
+### FORBIDDEN language - the implementing model cannot interpret these:
+- "should" -> Use definitive: "WILL", "DOES", "IS"
+- "probably" -> Verify first, then state as fact
+- "around line X" -> Read file, give EXACT line number
+- "somewhere in" -> Glob/Grep, give exact path
+- "I think" -> Verify with tools, then state as fact
+- "similar to" -> Be specific, don't reference vague similarities
+- "standard practice" -> Verify it's THIS project's practice
+
+### FORBIDDEN assumptions - the implementing model WILL fail if you assume:
+- That a file exists -> Read or Glob to verify FIRST
+- That a function is at line X -> Read the file FIRST
+- That an API works this way -> context7 FIRST
+- That an import is available -> Read dependency file FIRST
+- That the project follows pattern X -> Read existing code FIRST
+
+### FORBIDDEN step structures:
+BAD: "Update the file to add the function and fix the imports"
+GOOD: Step 1: Add import at line 1, Step 2: Add function at line 45
+
+### REQUIRED inclusions (the implementing model will NOT add these):
+- Import statements for any new dependencies used
+- Export statements if adding public API
+- Type hints if the project uses them (check existing code)
+- Test files if adding functionality
+- Documentation updates if the project has docs""")
+
+        # Tool Recommendations
+        if tool_recommendations:
+            tools_text = "\n".join(
+                f"- **{rec.mcp}** ({rec.priority}): {rec.action}\n  Reason: {rec.reason}"
+                for rec in tool_recommendations
+            )
+            sections.append(f"""## Use These Tools BEFORE Planning
+
+{tools_text}
+
+These are NOT optional. Complete ALL of these BEFORE writing any plan steps.""")
+
+        # Task
+        sections.append(f"""## Task
+
+{intent.original_prompt}
+
+Remember: Your plan will be executed by a less capable model.
+Be explicit, be complete, be grounded in verified facts.""")
+
+        # Quality Gate
+        sections.append("""## Before Submitting Your Plan
+
+Self-verify against these criteria:
+- [ ] Every file path was verified with Read or Glob
+- [ ] Every line number is accurate (not approximated)
+- [ ] Every API reference was verified with context7
+- [ ] Every step has a Grounding field citing verification source
+- [ ] No steps use vague language (should, probably, around, etc.)
+- [ ] No steps combine multiple actions
+- [ ] Dependencies between steps are explicit
+- [ ] All imports, exports, tests, types are included
+
+If ANY check fails, fix BEFORE presenting the plan.""")
+
+        return "\n\n".join(sections)

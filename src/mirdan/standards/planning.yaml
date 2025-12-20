@@ -1,0 +1,46 @@
+# Planning Quality Standards
+# Standards for creating implementation plans executable by less capable models
+
+principles:
+  - Every file reference must be verified with Read or Glob
+  - Every line number must be exact after reading the file
+  - Every API reference must be verified with context7
+  - Each step must be atomic - one tool action only
+  - All implicit requirements must be explicit (imports, exports, tests, types)
+
+research_requirements:
+  - Glob project structure before referencing directories
+  - Read all files that will be modified
+  - Read dependency manifest (pyproject.toml, package.json)
+  - Query context7 for all external library APIs
+  - Query enyal for project conventions and patterns
+
+step_format:
+  required_fields:
+    - "File: exact path verified via Read"
+    - "Action: specific tool name"
+    - "Details: line numbers and exact changes"
+    - "Depends On: prerequisite step numbers"
+    - "Verify: how to confirm success"
+    - "Grounding: which tool verified the facts"
+
+anti_slop:
+  forbidden_words:
+    - should
+    - probably
+    - likely
+    - maybe
+    - around
+    - somewhere
+    - assume
+    - might
+    - possibly
+  forbidden_patterns:
+    - "around line"
+    - "I think"
+    - "I believe"
+    - "standard practice"
+  compound_step_indicators:
+    - "and then"
+    - "then also"
+    - "first...then"

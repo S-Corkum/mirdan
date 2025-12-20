@@ -51,6 +51,31 @@ class EnhancementConfig(BaseModel):
     include_tool_hints: bool = True
 
 
+class PlanningConfig(BaseModel):
+    """Planning behavior configuration for cheap model handoff."""
+
+    # Target model that will implement the plan
+    target_model: str = Field(
+        default="haiku",
+        pattern="^(haiku|flash|cheap|capable)$",
+        description="Model that will implement the plan",
+    )
+
+    # Quality thresholds (stricter for cheaper models)
+    min_grounding_score: float = Field(default=0.9)
+    min_completeness_score: float = Field(default=0.9)
+    min_clarity_score: float = Field(default=0.95)
+
+    # Required sections
+    require_research_notes: bool = True
+    require_step_grounding: bool = True
+    require_verification_per_step: bool = True
+
+    # Anti-slop enforcement
+    reject_vague_language: bool = True
+    max_words_per_step_detail: int = Field(default=100, description="Force atomic steps")
+
+
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
 
@@ -68,6 +93,7 @@ class MirdanConfig(BaseModel):
     quality: QualityConfig = Field(default_factory=QualityConfig)
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
+    planning: PlanningConfig = Field(default_factory=PlanningConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

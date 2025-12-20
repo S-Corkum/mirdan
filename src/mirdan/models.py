@@ -14,6 +14,7 @@ class TaskType(Enum):
     REVIEW = "review"
     DOCUMENTATION = "documentation"
     TEST = "test"
+    PLANNING = "planning"
     UNKNOWN = "unknown"
 
 
@@ -58,6 +59,60 @@ class ExtractedEntity:
             "value": self.value,
             "confidence": self.confidence,
             "metadata": self.metadata,
+        }
+
+
+@dataclass
+class PlanStep:
+    """A single step in an implementation plan."""
+
+    number: int
+    title: str
+    file_path: str | None = None
+    action: str = ""  # Read, Edit, Write, Bash, etc.
+    details: list[str] = field(default_factory=list)
+    depends_on: list[int] = field(default_factory=list)
+    verification: str = ""
+    grounding: str = ""  # Which tool verified this step's facts
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "number": self.number,
+            "title": self.title,
+            "file_path": self.file_path,
+            "action": self.action,
+            "details": self.details,
+            "depends_on": self.depends_on,
+            "verification": self.verification,
+            "grounding": self.grounding,
+        }
+
+
+@dataclass
+class PlanQualityScore:
+    """Quality assessment of a plan for cheap model implementation."""
+
+    overall_score: float  # 0.0-1.0
+    grounding_score: float  # Are all facts tool-verified?
+    completeness_score: float  # Are there gaps?
+    atomicity_score: float  # Is each step single-action?
+    clarity_score: float  # Is language unambiguous?
+    issues: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    ready_for_cheap_model: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "overall_score": self.overall_score,
+            "grounding_score": self.grounding_score,
+            "completeness_score": self.completeness_score,
+            "atomicity_score": self.atomicity_score,
+            "clarity_score": self.clarity_score,
+            "issues": self.issues,
+            "recommendations": self.recommendations,
+            "ready_for_cheap_model": self.ready_for_cheap_model,
         }
 
 
