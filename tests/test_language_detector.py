@@ -1,7 +1,5 @@
 """Tests for language detection."""
 
-import pytest
-
 from mirdan.config import ThresholdsConfig
 from mirdan.core.language_detector import LanguageDetector
 

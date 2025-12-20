@@ -4,8 +4,6 @@ Tests the underlying components that power the server tools.
 The @mcp.tool() decorator wraps functions, so we test the core logic directly.
 """
 
-import pytest
-
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.intent_analyzer import IntentAnalyzer
@@ -364,7 +362,11 @@ The function should be somewhere in the auth module.
 
     def test_validate_plan_quality_target_model(self) -> None:
         """Should respect target model strictness."""
-        plan = "## Research Notes\n\n### Files Verified\n- file.py\n\n### Step 1: Do something\n\n**File:** path.py\n**Action:** Edit\n**Details:** stuff\n**Verify:** check\n**Grounding:** read"
+        plan = (
+            "## Research Notes\n\n### Files Verified\n- file.py\n\n"
+            "### Step 1: Do something\n\n**File:** path.py\n**Action:** Edit\n"
+            "**Details:** stuff\n**Verify:** check\n**Grounding:** read"
+        )
 
         result_haiku = self.plan_validator.validate(plan, target_model="haiku")
         result_capable = self.plan_validator.validate(plan, target_model="capable")

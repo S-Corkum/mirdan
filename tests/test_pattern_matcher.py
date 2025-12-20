@@ -2,7 +2,7 @@
 
 import pytest
 
-from mirdan.core.pattern_matcher import CompiledPattern, PatternMatcher, PatternResult
+from mirdan.core.pattern_matcher import PatternMatcher, PatternResult
 
 
 class TestPatternResult:
