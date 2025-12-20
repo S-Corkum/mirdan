@@ -139,17 +139,13 @@ class TestGetQualityStandardsLogic:
 
     def test_get_quality_standards_with_framework(self) -> None:
         """Should return framework-specific standards."""
-        result = self.quality_standards.get_all_standards(
-            language="python", framework="fastapi"
-        )
+        result = self.quality_standards.get_all_standards(language="python", framework="fastapi")
 
         assert "framework_standards" in result
 
     def test_get_quality_standards_security_category(self) -> None:
         """Should filter to security category."""
-        result = self.quality_standards.get_all_standards(
-            language="python", category="security"
-        )
+        result = self.quality_standards.get_all_standards(language="python", category="security")
 
         assert "security_standards" in result
 
@@ -274,14 +270,14 @@ def add(a: int, b: int) -> int:
 
     def test_validate_code_quality_with_violations(self) -> None:
         """Should detect code violations."""
-        code = '''
+        code = """
 def process(data):
     try:
         result = eval(data)
     except:
         pass
     return result
-'''
+"""
         result = self.code_validator.validate(code, language="python")
 
         # Should detect eval and bare except
@@ -290,12 +286,12 @@ def process(data):
 
     def test_validate_code_quality_auto_detect_language(self) -> None:
         """Should auto-detect language."""
-        code = '''
+        code = """
 fn main() {
     let x = 5;
     println!("{}", x);
 }
-'''
+"""
         result = self.code_validator.validate(code, language="auto")
 
         assert result.language_detected == "rust"
@@ -318,7 +314,7 @@ class TestValidatePlanQualityLogic:
 
     def test_validate_plan_quality_good_plan(self) -> None:
         """Should score a well-structured plan highly."""
-        plan = '''
+        plan = """
 ## Research Notes (Pre-Plan Verification)
 
 ### Files Verified
@@ -332,7 +328,7 @@ class TestValidatePlanQualityLogic:
 - Line 1: Add `import bcrypt`
 **Verify:** Read file, confirm import exists
 **Grounding:** Read of src/auth.py confirmed file structure
-'''
+"""
         result = self.plan_validator.validate(plan)
 
         assert 0.0 <= result.overall_score <= 1.0
@@ -341,10 +337,10 @@ class TestValidatePlanQualityLogic:
 
     def test_validate_plan_quality_vague_plan(self) -> None:
         """Should detect vague language in plans."""
-        plan = '''
+        plan = """
 I think we should probably add some code around line 50.
 The function should be somewhere in the auth module.
-'''
+"""
         result = self.plan_validator.validate(plan)
 
         # Should have low clarity score due to vague language

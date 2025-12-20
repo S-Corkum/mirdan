@@ -351,8 +351,7 @@ class TestPlanningComposition:
         """PLANNING prompt explains target is less capable model."""
         result = composer.compose(planning_intent, context, [])
         assert (
-            "less capable" in result.enhanced_text.lower()
-            or "LESS CAPABLE" in result.enhanced_text
+            "less capable" in result.enhanced_text.lower() or "LESS CAPABLE" in result.enhanced_text
         )
 
     def test_planning_has_different_verification_steps(

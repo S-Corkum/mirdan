@@ -231,10 +231,12 @@ class TestMultilinePatterns:
 
     def test_multiline_pattern(self) -> None:
         """Should handle patterns starting with ^ correctly."""
-        matcher = PatternMatcher({
-            "line_start": [(r"^def\s+\w+", 3)],
-            "anywhere": [(r"function", 2)],
-        })
+        matcher = PatternMatcher(
+            {
+                "line_start": [(r"^def\s+\w+", 3)],
+                "anywhere": [(r"function", 2)],
+            }
+        )
         code = """
 def hello():
     pass
@@ -260,10 +262,12 @@ class TestGenericTypeParameter:
 
     def test_with_string_keys(self) -> None:
         """Should work with string category keys."""
-        matcher: PatternMatcher[str] = PatternMatcher({
-            "alpha": [(r"a", 1)],
-            "beta": [(r"b", 1)],
-        })
+        matcher: PatternMatcher[str] = PatternMatcher(
+            {
+                "alpha": [(r"a", 1)],
+                "beta": [(r"b", 1)],
+            }
+        )
         assert matcher.best_match("aaa") == "alpha"
 
     def test_with_enum_keys(self) -> None:
@@ -274,10 +278,12 @@ class TestGenericTypeParameter:
             CREATE = "create"
             DELETE = "delete"
 
-        matcher: PatternMatcher[TaskType] = PatternMatcher({
-            TaskType.CREATE: [(r"\bcreate\b", 2), (r"\badd\b", 1)],
-            TaskType.DELETE: [(r"\bdelete\b", 2), (r"\bremove\b", 1)],
-        })
+        matcher: PatternMatcher[TaskType] = PatternMatcher(
+            {
+                TaskType.CREATE: [(r"\bcreate\b", 2), (r"\badd\b", 1)],
+                TaskType.DELETE: [(r"\bdelete\b", 2), (r"\bremove\b", 1)],
+            }
+        )
 
         result = matcher.match("please create a new file")
         assert result.best_match == TaskType.CREATE
@@ -304,20 +310,24 @@ class TestEdgeCases:
 
     def test_special_regex_characters(self) -> None:
         """Should handle special regex characters correctly."""
-        matcher = PatternMatcher({
-            "parens": [(r"\(.*\)", 1)],
-            "brackets": [(r"\[.*\]", 1)],
-        })
+        matcher = PatternMatcher(
+            {
+                "parens": [(r"\(.*\)", 1)],
+                "brackets": [(r"\[.*\]", 1)],
+            }
+        )
         assert matcher.best_match("call(arg)") == "parens"
         assert matcher.best_match("array[0]") == "brackets"
 
     def test_unicode_text(self) -> None:
         """Should handle unicode text."""
-        matcher = PatternMatcher({
-            "emoji": [(r"[\U0001F600-\U0001F64F]", 1)],
-            "chinese": [(r"[\u4e00-\u9fff]", 1)],
-        })
-        result = matcher.match("Hello \U0001F600")
+        matcher = PatternMatcher(
+            {
+                "emoji": [(r"[\U0001F600-\U0001F64F]", 1)],
+                "chinese": [(r"[\u4e00-\u9fff]", 1)],
+            }
+        )
+        result = matcher.match("Hello \U0001f600")
         assert result.scores["emoji"] == 1
 
     def test_very_long_text(self) -> None:

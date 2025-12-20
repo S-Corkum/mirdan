@@ -361,10 +361,10 @@ class CodeValidator:
                 i += 2
                 continue
             # Check for triple quotes (already handled above for multi-line)
-            if prefix[i:i+3] == '"""' and not in_single:
+            if prefix[i : i + 3] == '"""' and not in_single:
                 i += 3
                 continue
-            if prefix[i:i+3] == "'''" and not in_double:
+            if prefix[i : i + 3] == "'''" and not in_double:
                 i += 3
                 continue
             # Toggle quote state
