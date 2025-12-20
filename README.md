@@ -54,41 +54,43 @@ uv run mirdan
 
 ## Quick Start
 
-### 1. Configure Your MCP Client
-
-Add mirdan to your Claude Code configuration (`.mcp.json` in project root or `~/.claude.json` for global):
-
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "command": "uvx",
-      "args": ["mirdan"]
-    }
-  }
-}
-```
-
-**Or via CLI:**
 ```bash
+# 1. Add mirdan to Claude Code
 claude mcp add mirdan -- uvx mirdan
+
+# 2. Verify connection
+# In Claude Code, run: /mcp
+# Mirdan should appear in the connected servers list
 ```
 
-### 2. Verify It's Working
+**Next steps:** See the [Claude Code Integration](#claude-code-integration) section below for automatic orchestration setup.
 
-In Claude Code, run `/mcp` to see connected servers. Mirdan should appear in the list.
+For other MCP clients (Cursor, Claude Desktop), see [MCP Configuration Reference](#mcp-configuration-reference).
 
-### 3. Start Using
+---
 
-Mirdan tools are now available. See the next section for how to make mirdan automatically orchestrate your coding tasks.
+## Claude Code Integration
 
-## Automatic Orchestration
+Claude Code provides multiple integration points for maximizing mirdan's effectiveness. This section covers all available methods from simple to advanced.
 
-Mirdan works best when it automatically enhances every coding task. There are two ways to achieve this:
+### Automatic Orchestration
 
-### Option 1: CLAUDE.md Instructions (Recommended)
+Mirdan works best when it automatically enhances every coding task. Claude Code offers several integration levels:
 
-Add these instructions to your project's `CLAUDE.md` file (or `~/.claude/CLAUDE.md` for global). Claude will automatically follow them for all coding tasks.
+| Level | Method | Effort | Enforcement |
+|-------|--------|--------|-------------|
+| **Basic** | CLAUDE.md | Copy-paste | Soft (instructions) |
+| **Standard** | CLAUDE.md + Slash Commands | Copy-paste | Medium (explicit trigger) |
+| **Advanced** | CLAUDE.md + Hooks | Configuration | Hard (automatic checks) |
+| **Enterprise** | Managed Settings + Hooks | IT deployment | Mandatory |
+
+---
+
+### Level 1: CLAUDE.md Instructions (Recommended Start)
+
+Add these instructions to your project's `CLAUDE.md` file. Claude will automatically follow them for all coding tasks.
+
+**File location:** `./CLAUDE.md` (project) or `~/.claude/CLAUDE.md` (global)
 
 ```markdown
 ## Mirdan Code Quality Orchestration
@@ -117,30 +119,39 @@ Before marking any coding task complete, call `mcp__mirdan__validate_code_qualit
 Call `mcp__mirdan__get_verification_checklist` for the task type and execute each item.
 ```
 
-### Option 2: Custom Slash Command
+---
 
-Create a slash command that enforces the mirdan workflow. Create this file:
+### Level 2: Slash Commands (Explicit Control)
 
-**`.claude/commands/code.md`**
+Create custom slash commands for different workflows. Slash commands provide explicit triggers with full context.
+
+#### `/code` - General Coding Tasks
+
+**File:** `.claude/commands/code.md`
+
 ```markdown
 ---
 description: Execute coding task with mirdan quality orchestration
+allowed-tools: Read, Edit, Write, Bash(*), Grep, Glob
 ---
 
 Execute this coding task with full mirdan orchestration:
 
 $ARGUMENTS
 
-Follow these steps in order:
+## Workflow
 
-1. Call mcp__mirdan__enhance_prompt with the task description above
-2. Review the quality_requirements and tool_recommendations from the response
-3. If detected_frameworks lists libraries you're unfamiliar with, query context7
-4. Implement the solution following the quality_requirements
-5. Call mcp__mirdan__validate_code_quality on your completed code
-6. If validation fails, fix all violations and re-validate until it passes
-7. Call mcp__mirdan__get_verification_checklist and complete each item
-8. Only report completion after validation passes and checklist is done
+1. **Entry Gate**: Call `mcp__mirdan__enhance_prompt` with the task above
+2. **Context Gathering**:
+   - Use `detected_frameworks` to query context7 for documentation
+   - Use `tool_recommendations` for additional MCP calls
+3. **Implementation**: Follow `quality_requirements` during coding
+4. **Exit Gate**: Call `mcp__mirdan__validate_code_quality` on completed code
+   - Set `check_security=true` if `touches_security` was true
+   - Fix violations and re-validate until passed
+5. **Verification**: Call `mcp__mirdan__get_verification_checklist` and complete each item
+
+Code is NOT complete until validation passes and checklist is done.
 ```
 
 **Usage:**
@@ -148,14 +159,300 @@ Follow these steps in order:
 /code implement user authentication with JWT tokens
 ```
 
-### Which Should I Use? (Claude Code)
+#### `/debug` - Debugging Tasks
 
-| Approach | Best For |
-|----------|----------|
-| **CLAUDE.md** | Automatic orchestration for all coding tasks without extra typing |
-| **Slash command** | Explicit control over when orchestration runs |
+**File:** `.claude/commands/debug.md`
 
-**Recommended:** Start with CLAUDE.md for automatic orchestration. Add the slash command if you want an explicit trigger for complex tasks.
+```markdown
+---
+description: Debug issue with mirdan quality gates
+allowed-tools: Read, Edit, Write, Bash(*), Grep, Glob
+---
+
+Debug this issue with mirdan orchestration:
+
+$ARGUMENTS
+
+## Workflow
+
+1. **Classify**: Call `mcp__mirdan__analyze_intent` to understand security implications
+2. **Investigate**: Analyze the issue thoroughly
+3. **Fix**: Implement the fix
+4. **Validate**: Call `mcp__mirdan__validate_code_quality` with `check_security=true`
+   (bugs often have security implications)
+5. **Verify**: Call `mcp__mirdan__get_verification_checklist(task_type="debug")` and complete each item
+
+Fix is NOT complete until validation passes.
+```
+
+#### `/review` - Code Review
+
+**File:** `.claude/commands/review.md`
+
+```markdown
+---
+description: Review code with mirdan quality standards
+allowed-tools: Read, Grep, Glob
+---
+
+Review this code with mirdan quality standards:
+
+$ARGUMENTS
+
+## Workflow
+
+1. **Standards**: Call `mcp__mirdan__get_quality_standards` for the detected language
+2. **Validate**: Call `mcp__mirdan__validate_code_quality` on the code
+3. **Checklist**: Call `mcp__mirdan__get_verification_checklist(task_type="review")`
+4. **Report**: Provide findings organized by:
+   - Security issues (critical)
+   - Quality violations
+   - Improvement suggestions
+```
+
+---
+
+### Level 3: Hooks (Automatic Enforcement)
+
+Hooks provide automatic enforcement without requiring explicit commands. They run before or after specific tool calls.
+
+#### Pre-Implementation Reminder
+
+Reminds to use mirdan before writing code. Add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before modifying code, ensure you've called mcp__mirdan__enhance_prompt for the current task. Have you done this?",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Post-Implementation Validation Gate
+
+Automatically prompts for validation after code changes:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Code was just modified. Run mcp__mirdan__validate_code_quality on the changes before proceeding. If security-related code, use check_security=true.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Combined Hooks Configuration
+
+**File:** `.claude/settings.json`
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '🔷 Mirdan code quality orchestration active'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Ensure mcp__mirdan__enhance_prompt was called for this task before writing code.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Code modified. Call mcp__mirdan__validate_code_quality before proceeding.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Level 4: Project Rules (Path-Specific Enforcement)
+
+Use `.claude/rules/` for path-specific quality requirements.
+
+#### Security-Critical Paths
+
+**File:** `.claude/rules/security.md`
+
+```markdown
+---
+paths: ["**/auth/**", "**/security/**", "**/crypto/**", "**/*token*", "**/*session*"]
+---
+
+# Security-Critical Code Rules
+
+This file is in a security-sensitive path. STRICT validation required.
+
+## Mandatory Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` - task WILL be flagged as `touches_security=true`
+2. Call `mcp__mirdan__get_quality_standards` with security focus
+3. Implement with security-first mindset
+4. Call `mcp__mirdan__validate_code_quality` with:
+   - `check_security=true` (REQUIRED)
+   - Address ALL security findings before completion
+5. Complete full verification checklist
+
+NO EXCEPTIONS. Security code is not complete until validation passes with zero security findings.
+```
+
+#### API Code Rules
+
+**File:** `.claude/rules/api.md`
+
+```markdown
+---
+paths: ["**/api/**", "**/routes/**", "**/endpoints/**", "**/handlers/**"]
+---
+
+# API Code Rules
+
+API code requires input validation and error handling verification.
+
+## Workflow
+
+1. `mcp__mirdan__enhance_prompt` - include "API endpoint" in task description
+2. `mcp__mirdan__get_quality_standards` for the language
+3. Implement with:
+   - Input validation for all external data
+   - Proper error responses
+   - Authentication/authorization checks
+4. `mcp__mirdan__validate_code_quality` with `check_security=true`
+5. Complete verification checklist
+```
+
+---
+
+### Project Settings
+
+Configure mirdan-related settings in `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__mirdan__enhance_prompt",
+      "mcp__mirdan__validate_code_quality",
+      "mcp__mirdan__get_quality_standards",
+      "mcp__mirdan__analyze_intent",
+      "mcp__mirdan__suggest_tools",
+      "mcp__mirdan__get_verification_checklist"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["mirdan"]
+}
+```
+
+---
+
+### Enterprise Deployment
+
+For organization-wide mirdan enforcement, IT can deploy managed configuration.
+
+#### Managed MCP Configuration
+
+**File (macOS):** `/Library/Application Support/ClaudeCode/managed-mcp.json`
+**File (Linux):** `/etc/claude-code/managed-mcp.json`
+**File (Windows):** `C:\Program Files\ClaudeCode\managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "mirdan": {
+      "command": "uvx",
+      "args": ["mirdan"]
+    }
+  }
+}
+```
+
+#### Managed Settings (Enforcement)
+
+**File:** Same paths as above, but `managed-settings.json`
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Company policy: Use mcp__mirdan__enhance_prompt before coding and mcp__mirdan__validate_code_quality after.",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "allowManagedHooksOnly": true
+}
+```
+
+---
+
+### Which Approach Should I Use?
+
+| Scenario | Recommended Setup |
+|----------|-------------------|
+| **Individual developer, trying mirdan** | Level 1 (CLAUDE.md only) |
+| **Individual developer, daily use** | Level 1 + Level 2 (CLAUDE.md + slash commands) |
+| **Team project** | Level 1 + Level 3 (CLAUDE.md + hooks) |
+| **Security-sensitive project** | All levels including path-specific rules |
+| **Enterprise/regulated environment** | Level 4 (managed settings + hooks) |
+
+**Recommended progression:**
+1. Start with CLAUDE.md (copy-paste, immediate benefit)
+2. Add `/code` slash command for explicit control
+3. Add hooks when you want automatic enforcement
+4. Add path-specific rules for security-critical code
 
 ---
 
@@ -304,17 +601,26 @@ Get a verification checklist for a specific task type (generation, refactor, deb
 
 Validate generated code against quality standards. Checks for security issues, architecture patterns, and language-specific style violations.
 
-## MCP Integration
+## MCP Configuration Reference
 
-Mirdan works with any MCP-compatible client.
+Mirdan works with any MCP-compatible client. This section provides quick configuration for each client.
 
-### Claude Code
+> **Note:** For Claude Code users, see the comprehensive [Claude Code Integration](#claude-code-integration) section above for advanced setup including hooks, slash commands, and enterprise deployment.
 
-**File locations:**
-- Project scope: `.mcp.json` (in project root)
-- User scope: `~/.claude.json`
+### Claude Code (Quick Reference)
 
-**Configuration:**
+**CLI setup (recommended):**
+```bash
+claude mcp add mirdan -- uvx mirdan
+```
+
+**Or manual configuration:**
+
+| Scope | File |
+|-------|------|
+| Project (team-shared) | `.mcp.json` |
+| User (personal) | `~/.claude.json` |
+
 ```json
 {
   "mcpServers": {
@@ -324,11 +630,6 @@ Mirdan works with any MCP-compatible client.
     }
   }
 }
-```
-
-**CLI setup:**
-```bash
-claude mcp add mirdan -- uvx mirdan
 ```
 
 ### Claude Desktop
