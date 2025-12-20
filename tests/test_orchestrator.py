@@ -208,8 +208,8 @@ class TestAvailableMCPInfo:
         assert "test_key" not in info2
 
     def test_contains_all_known_mcps(self, orchestrator: MCPOrchestrator) -> None:
-        """Should contain all 6 known MCPs."""
+        """Should contain all 5 known MCPs."""
         info = orchestrator.get_available_mcp_info()
-        expected_mcps = ["context7", "filesystem", "desktop-commander", "github", "memory", "enyal"]
+        expected_mcps = ["context7", "filesystem", "desktop-commander", "github", "enyal"]
         for mcp in expected_mcps:
             assert mcp in info

@@ -76,6 +76,46 @@ class PlanningConfig(BaseModel):
     max_words_per_step_detail: int = Field(default=100, description="Force atomic steps")
 
 
+class ThresholdsConfig(BaseModel):
+    """Centralized threshold values for various components.
+
+    This consolidates magic numbers that were previously scattered
+    throughout the codebase.
+    """
+
+    # Entity extraction thresholds
+    entity_base_confidence: float = Field(default=0.7, description="Base confidence for entities")
+    entity_confidence_boost: float = Field(
+        default=0.15, description="Confidence boost for high-value patterns"
+    )
+
+    # Context7 gatherer
+    max_doc_length: int = Field(default=2000, description="Max chars for documentation excerpts")
+
+    # Code validator severity weights
+    severity_error_weight: float = Field(default=0.25, description="Score penalty per error")
+    severity_warning_weight: float = Field(default=0.08, description="Score penalty per warning")
+    severity_info_weight: float = Field(default=0.02, description="Score penalty per info")
+
+    # Language detection confidence thresholds
+    lang_high_confidence_score: int = Field(default=8, description="Min score for high confidence")
+    lang_high_confidence_margin: int = Field(
+        default=3, description="Min margin for high confidence"
+    )
+    lang_medium_confidence_score: int = Field(
+        default=4, description="Min score for medium confidence"
+    )
+
+    # Plan validator penalties
+    plan_clarity_penalty: float = Field(
+        default=0.1, description="Penalty per vague language instance"
+    )
+    plan_completeness_penalty: float = Field(
+        default=0.25, description="Penalty per missing section"
+    )
+    plan_grounding_penalty: float = Field(default=0.1, description="Penalty per step issue")
+
+
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
 
@@ -94,6 +134,7 @@ class MirdanConfig(BaseModel):
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
+    thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

@@ -2,8 +2,7 @@
 
 import logging
 
-from mirdan.core.client_registry import MCPClientRegistry
-from mirdan.core.gatherers.base import GathererResult
+from mirdan.core.gatherers.base import BaseGatherer, GathererResult
 from mirdan.models import ContextBundle, Intent, TaskType
 
 logger = logging.getLogger(__name__)
@@ -28,22 +27,12 @@ DEPTH_RESULT_LIMITS = {
 }
 
 
-class EnyalGatherer:
+class EnyalGatherer(BaseGatherer):
     """Gathers project conventions and decisions from enyal memory.
 
     Populates:
         - existing_patterns: Stored conventions and decisions
     """
-
-    def __init__(self, registry: MCPClientRegistry, timeout: float = 3.0) -> None:
-        """Initialize gatherer with client registry.
-
-        Args:
-            registry: MCP client registry for connections
-            timeout: Timeout for memory operations
-        """
-        self._registry = registry
-        self._timeout = timeout
 
     @property
     def name(self) -> str:
@@ -52,10 +41,6 @@ class EnyalGatherer:
     @property
     def required_mcp(self) -> str:
         return "enyal"
-
-    async def is_available(self) -> bool:
-        """Check if enyal MCP is configured."""
-        return self._registry.is_configured(self.required_mcp)
 
     async def gather(
         self,

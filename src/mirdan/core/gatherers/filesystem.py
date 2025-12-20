@@ -5,8 +5,7 @@ from typing import Any
 
 from fastmcp import Client
 
-from mirdan.core.client_registry import MCPClientRegistry
-from mirdan.core.gatherers.base import GathererResult
+from mirdan.core.gatherers.base import BaseGatherer, GathererResult
 from mirdan.models import ContextBundle, Intent, TaskType
 
 logger = logging.getLogger(__name__)
@@ -37,23 +36,13 @@ DEPTH_FILE_LIMITS = {
 }
 
 
-class FilesystemGatherer:
+class FilesystemGatherer(BaseGatherer):
     """Gathers relevant files and patterns from the codebase.
 
     Populates:
         - relevant_files: Files matching task criteria
         - existing_patterns: Code patterns found in files
     """
-
-    def __init__(self, registry: MCPClientRegistry, timeout: float = 3.0) -> None:
-        """Initialize gatherer with client registry.
-
-        Args:
-            registry: MCP client registry for connections
-            timeout: Timeout for filesystem operations
-        """
-        self._registry = registry
-        self._timeout = timeout
 
     @property
     def name(self) -> str:
@@ -62,10 +51,6 @@ class FilesystemGatherer:
     @property
     def required_mcp(self) -> str:
         return "filesystem"
-
-    async def is_available(self) -> bool:
-        """Check if filesystem MCP is configured."""
-        return self._registry.is_configured(self.required_mcp)
 
     async def gather(
         self,

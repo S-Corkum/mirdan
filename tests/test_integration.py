@@ -55,9 +55,9 @@ class TestEnhancePromptIntegration:
         # Verify result structure
         result = enhanced.to_dict()
         assert "enhanced_prompt" in result
-        assert "detected_task_type" in result
-        assert result["detected_task_type"] == "generation"
-        assert result["detected_language"] == "python"
+        assert "task_type" in result
+        assert result["task_type"] == "generation"
+        assert result["language"] == "python"
         assert "quality_requirements" in result
         assert "verification_steps" in result
         assert "tool_recommendations" in result
@@ -189,7 +189,7 @@ class TestEnhancePromptIntegration:
 
         result = enhanced.to_dict()
         assert "enhanced_prompt" in result
-        assert result["detected_task_type"] is not None
+        assert result["task_type"] is not None
 
         await context_aggregator.close()
 

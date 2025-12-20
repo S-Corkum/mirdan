@@ -63,33 +63,6 @@ class ExtractedEntity:
 
 
 @dataclass
-class PlanStep:
-    """A single step in an implementation plan."""
-
-    number: int
-    title: str
-    file_path: str | None = None
-    action: str = ""  # Read, Edit, Write, Bash, etc.
-    details: list[str] = field(default_factory=list)
-    depends_on: list[int] = field(default_factory=list)
-    verification: str = ""
-    grounding: str = ""  # Which tool verified this step's facts
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for API response."""
-        return {
-            "number": self.number,
-            "title": self.title,
-            "file_path": self.file_path,
-            "action": self.action,
-            "details": self.details,
-            "depends_on": self.depends_on,
-            "verification": self.verification,
-            "grounding": self.grounding,
-        }
-
-
-@dataclass
 class PlanQualityScore:
     """Quality assessment of a plan for cheap model implementation."""
 
@@ -245,9 +218,9 @@ class EnhancedPrompt:
         """Convert to dictionary for API response."""
         return {
             "enhanced_prompt": self.enhanced_text,
-            "detected_task_type": self.intent.task_type.value,
-            "detected_language": self.intent.primary_language,
-            "detected_frameworks": self.intent.frameworks,
+            "task_type": self.intent.task_type.value,
+            "language": self.intent.primary_language,
+            "frameworks": self.intent.frameworks,
             "extracted_entities": [e.to_dict() for e in self.intent.entities],
             "touches_security": self.intent.touches_security,
             "ambiguity_score": self.intent.ambiguity_score,

@@ -1,12 +1,18 @@
 """Code validation against quality standards."""
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mirdan.config import QualityConfig
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ValidationResult, Violation
+
+if TYPE_CHECKING:
+    from mirdan.config import ThresholdsConfig
 
 
 @dataclass
@@ -249,16 +255,19 @@ class CodeValidator:
         self,
         standards: QualityStandards,
         config: QualityConfig | None = None,
+        thresholds: ThresholdsConfig | None = None,
     ):
         """Initialize validator with quality standards.
 
         Args:
             standards: Quality standards repository to validate against
             config: Optional quality config for stringency levels
+            thresholds: Optional thresholds for score calculation
         """
         self.standards = standards
         self._config = config
-        self._language_detector = LanguageDetector()
+        self._thresholds = thresholds
+        self._language_detector = LanguageDetector(thresholds=thresholds)
         self._compiled_rules = self._compile_rules()
 
     def _compile_rules(self) -> dict[str, list[DetectionRule]]:
@@ -295,6 +304,77 @@ class CodeValidator:
         ]
 
         return rules
+
+    def _is_inside_string_or_comment(self, code: str, match_start: int) -> bool:
+        """Check if a position in code is inside a string literal or comment.
+
+        This helps avoid false positives when pattern text appears in strings
+        (e.g., error messages containing 'eval()').
+
+        Args:
+            code: The full code being validated
+            match_start: The starting position of the regex match
+
+        Returns:
+            True if the position appears to be inside a string or comment
+        """
+        # Get the line containing this match
+        line_start = code.rfind("\n", 0, match_start) + 1
+        line_end = code.find("\n", match_start)
+        if line_end == -1:
+            line_end = len(code)
+        line = code[line_start:line_end]
+        pos_in_line = match_start - line_start
+
+        # Check for line comments (# for Python, // for others)
+        # If there's a comment marker before our position, skip
+        comment_markers = ["#", "//"]
+        for marker in comment_markers:
+            marker_pos = line.find(marker)
+            if marker_pos != -1 and marker_pos < pos_in_line:
+                # Check if the marker itself is inside a string
+                prefix = line[:marker_pos]
+                if prefix.count('"') % 2 == 0 and prefix.count("'") % 2 == 0:
+                    return True
+
+        # Check for multi-line triple-quoted strings (docstrings)
+        # Count triple quotes in all code before the match position
+        code_before = code[:match_start]
+        triple_double_count = code_before.count('"""')
+        triple_single_count = code_before.count("'''")
+
+        # If we have an odd number of triple quotes, we're inside a multi-line string
+        if triple_double_count % 2 == 1 or triple_single_count % 2 == 1:
+            return True
+
+        # Check single-line strings on the current line
+        prefix = line[:pos_in_line]
+
+        # Count unescaped quotes on this line
+        in_single = False
+        in_double = False
+        i = 0
+        while i < len(prefix):
+            char = prefix[i]
+            # Skip escaped quotes
+            if char == "\\" and i + 1 < len(prefix):
+                i += 2
+                continue
+            # Check for triple quotes (already handled above for multi-line)
+            if prefix[i:i+3] == '"""' and not in_single:
+                i += 3
+                continue
+            if prefix[i:i+3] == "'''" and not in_double:
+                i += 3
+                continue
+            # Toggle quote state
+            if char == '"' and not in_single:
+                in_double = not in_double
+            elif char == "'" and not in_double:
+                in_single = not in_single
+            i += 1
+
+        return in_single or in_double
 
     def validate(
         self,
@@ -411,6 +491,10 @@ class CodeValidator:
                 continue
 
             for match in rule.pattern.finditer(code):
+                # Skip false positives inside strings or comments
+                if self._is_inside_string_or_comment(code, match.start()):
+                    continue
+
                 # Calculate line number
                 line_num = code[: match.start()].count("\n") + 1
                 line_content = lines[line_num - 1] if line_num <= len(lines) else ""
@@ -440,8 +524,16 @@ class CodeValidator:
         if not violations:
             return 1.0
 
-        # Weight penalties by severity
-        weights = {"error": 0.25, "warning": 0.08, "info": 0.02}
+        # Get weights from thresholds or use defaults
+        if self._thresholds:
+            weights = {
+                "error": self._thresholds.severity_error_weight,
+                "warning": self._thresholds.severity_warning_weight,
+                "info": self._thresholds.severity_info_weight,
+            }
+        else:
+            weights = {"error": 0.25, "warning": 0.08, "info": 0.02}
+
         total_penalty = sum(weights.get(v.severity, 0.05) for v in violations)
 
         # Clamp to 0.0-1.0

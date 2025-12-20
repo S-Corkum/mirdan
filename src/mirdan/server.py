@@ -12,7 +12,7 @@ from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.plan_validator import PlanValidator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
-from mirdan.models import TaskType
+from mirdan.models import Intent, TaskType
 
 # Initialize the MCP server
 mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
@@ -26,8 +26,10 @@ quality_standards = QualityStandards(config=config.quality)
 prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
 mcp_orchestrator = MCPOrchestrator(config.orchestration)
 context_aggregator = ContextAggregator(config)
-code_validator = CodeValidator(quality_standards, config=config.quality)
-plan_validator = PlanValidator(config.planning)
+code_validator = CodeValidator(
+    quality_standards, config=config.quality, thresholds=config.thresholds
+)
+plan_validator = PlanValidator(config.planning, thresholds=config.thresholds)
 
 
 @mcp.tool()
@@ -94,7 +96,7 @@ async def analyze_intent(prompt: str) -> dict[str, Any]:
 
     return {
         "task_type": intent.task_type.value,
-        "primary_language": intent.primary_language,
+        "language": intent.primary_language,
         "frameworks": intent.frameworks,
         "touches_security": intent.touches_security,
         "uses_external_framework": intent.uses_external_framework,
@@ -185,8 +187,6 @@ async def get_verification_checklist(
     Returns:
         Verification checklist appropriate for the task
     """
-    from mirdan.models import Intent
-
     # Create a minimal intent for checklist generation
     try:
         task = TaskType(task_type)

@@ -1,0 +1,87 @@
+{# Base template macros for prompt composition #}
+
+{% macro role_section(language, frameworks, task_type=None) -%}
+## Role
+{% if task_type == 'planning' -%}
+You are a senior software architect creating an implementation plan.
+Your plans will be executed by a LESS CAPABLE AI model (like Claude Haiku or Gemini Flash).
+Therefore, your plan MUST be:
+- EXPLICIT: Assume NO implicit knowledge - the implementing model knows nothing
+- GROUNDED: Every fact must be verified with tools before including
+- ATOMIC: Each step is a single tool action
+- COMPLETE: No gaps - include imports, exports, tests, configs
+- LITERAL: Written so it can be executed EXACTLY as written
+
+You are an expert in {{ language }} with experience in {{ frameworks }}.
+{%- else -%}
+Act as a senior {{ language }} developer with expertise in {{ frameworks }}.
+You prioritize code quality, security, and maintainability.
+{%- endif %}
+{%- endmacro %}
+
+{% macro context_section(patterns_summary, tech_stack) -%}
+{% if patterns_summary or tech_stack -%}
+## Codebase Context
+{{ patterns_summary }}
+
+Tech Stack: {{ tech_stack if tech_stack else "Not detected" }}
+{%- endif %}
+{%- endmacro %}
+
+{% macro task_section(original_prompt, planning_note=False) -%}
+## Task
+
+{{ original_prompt }}
+{% if planning_note %}
+
+Remember: Your plan will be executed by a less capable model.
+Be explicit, be complete, be grounded in verified facts.
+{%- endif %}
+{%- endmacro %}
+
+{% macro quality_requirements_section(requirements) -%}
+{% if requirements -%}
+## Quality Requirements
+{% for req in requirements -%}
+- {{ req }}
+{% endfor %}
+{%- endif %}
+{%- endmacro %}
+
+{% macro constraints_section(constraints) -%}
+{% if constraints -%}
+## Constraints
+{% for constraint in constraints -%}
+- {{ constraint }}
+{% endfor %}
+{%- endif %}
+{%- endmacro %}
+
+{% macro verification_section(steps) -%}
+{% if steps -%}
+## Before Completing
+{% for step in steps -%}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{%- endif %}
+{%- endmacro %}
+
+{% macro tools_section(recommendations, planning=False) -%}
+{% if recommendations -%}
+{% if planning -%}
+## Use These Tools BEFORE Planning
+
+{% for rec in recommendations -%}
+- **{{ rec.mcp }}** ({{ rec.priority }}): {{ rec.action }}
+  Reason: {{ rec.reason }}
+{% endfor %}
+
+These are NOT optional. Complete ALL of these BEFORE writing any plan steps.
+{%- else -%}
+## Recommended Tools to Use First
+{% for rec in recommendations -%}
+- **{{ rec.mcp }}**: {{ rec.action }} ({{ rec.reason }})
+{% endfor %}
+{%- endif %}
+{%- endif %}
+{%- endmacro %}

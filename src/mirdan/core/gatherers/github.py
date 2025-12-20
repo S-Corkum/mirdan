@@ -7,7 +7,7 @@ from typing import Any
 from fastmcp import Client
 
 from mirdan.core.client_registry import MCPClientRegistry
-from mirdan.core.gatherers.base import GathererResult
+from mirdan.core.gatherers.base import BaseGatherer, GathererResult
 from mirdan.models import ContextBundle, Intent
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ DEPTH_COMMIT_LIMITS = {
 }
 
 
-class GitHubGatherer:
+class GitHubGatherer(BaseGatherer):
     """Gathers repository context from GitHub MCP.
 
     Populates:
@@ -36,8 +36,7 @@ class GitHubGatherer:
             registry: MCP client registry for connections
             timeout: Timeout for GitHub operations
         """
-        self._registry = registry
-        self._timeout = timeout
+        super().__init__(registry, timeout)
         self._owner: str | None = None
         self._repo: str | None = None
 
@@ -58,10 +57,6 @@ class GitHubGatherer:
         """
         self._owner = owner
         self._repo = repo
-
-    async def is_available(self) -> bool:
-        """Check if github MCP is configured."""
-        return self._registry.is_configured(self.required_mcp)
 
     async def gather(
         self,

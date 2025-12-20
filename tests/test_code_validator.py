@@ -384,6 +384,90 @@ result = eval(input)
         assert clean_result.score > dirty_result.score
 
 
+class TestFalsePositivePrevention:
+    """Tests for avoiding false positives in string literals and comments."""
+
+    def test_does_not_flag_eval_in_string_literal(self, validator: CodeValidator) -> None:
+        """Should not flag eval() mentioned in a string (e.g., error message)."""
+        code = '''
+message = "eval() usage detected - potential code injection risk"
+print(message)
+'''
+        result = validator.validate(code, language="python")
+        # Should not flag the string containing "eval()"
+        assert not any(v.rule == "no-eval" for v in result.violations)
+        assert result.passed
+
+    def test_does_not_flag_eval_in_single_quoted_string(self, validator: CodeValidator) -> None:
+        """Should not flag eval() in single-quoted strings."""
+        code = "error_msg = 'Avoid using eval() in production code'"
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+    def test_does_not_flag_eval_in_comment(self, validator: CodeValidator) -> None:
+        """Should not flag eval() mentioned in a comment."""
+        code = """
+# Warning: eval() is dangerous, don't use it
+x = 1 + 2
+"""
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+        assert result.passed
+
+    def test_does_not_flag_exec_in_docstring(self, validator: CodeValidator) -> None:
+        """Should not flag exec() mentioned in a docstring."""
+        code = '''
+def safe_function():
+    """
+    This function avoids exec() for security reasons.
+    Never use exec() with user input.
+    """
+    return "safe"
+'''
+        result = validator.validate(code, language="python")
+        # Should not flag exec() in the docstring
+        assert not any(v.rule == "no-exec" for v in result.violations)
+
+    def test_still_flags_actual_eval_usage(self, validator: CodeValidator) -> None:
+        """Should still flag actual eval() calls."""
+        code = '''
+# This is the bad line:
+result = eval(user_input)
+'''
+        result = validator.validate(code, language="python")
+        # Should flag the actual eval() call
+        assert any(v.rule == "no-eval" for v in result.violations)
+        assert not result.passed
+
+    def test_flags_eval_not_in_string(self, validator: CodeValidator) -> None:
+        """Should flag eval() that is not inside a string."""
+        code = '''
+msg = "processing"
+value = eval(data)  # This should be flagged
+'''
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "no-eval" for v in result.violations)
+
+    def test_does_not_flag_in_js_comment(self, validator: CodeValidator) -> None:
+        """Should not flag patterns in JS-style comments."""
+        code = """
+// Don't use eval() here
+const x = 1;
+"""
+        result = validator.validate(code, language="javascript")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+    def test_handles_escaped_quotes(self, validator: CodeValidator) -> None:
+        """Should handle escaped quotes correctly."""
+        code = r'''
+msg = "This has \" escaped eval() quote"
+value = eval(x)  # This should still be flagged
+'''
+        result = validator.validate(code, language="python")
+        # The actual eval() call should be flagged
+        assert any(v.rule == "no-eval" for v in result.violations)
+
+
 class TestIntegrationWithQualityStandards:
     """Tests for integration with QualityStandards."""
 

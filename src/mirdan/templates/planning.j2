@@ -1,0 +1,119 @@
+{# Template for PLANNING tasks - generates plans for cheap model implementation #}
+{% from "base.j2" import role_section, task_section, tools_section %}
+
+{{ role_section(language, frameworks, task_type='planning') }}
+
+## MANDATORY: Pre-Planning Research Phase
+
+Before writing ANY plan steps, you MUST complete ALL of the following:
+
+1. **Glob**: Verify the actual project structure (don't assume directories exist)
+2. **Read**: Read ALL files that will be modified (not mentioned - actually READ them)
+3. **Read**: Read pyproject.toml/package.json for dependencies
+4. **Read**: Read existing similar implementations to understand patterns
+5. **context7**: Query for EVERY external library API you will reference
+6. **enyal_recall**: Get project conventions and past decisions
+
+**CRITICAL**: You CANNOT write plan steps for files you haven't Read.
+**CRITICAL**: You CANNOT reference APIs you haven't verified with context7.
+**CRITICAL**: If you skip research, the plan WILL fail when implemented.
+
+## MANDATORY: Document Your Research
+
+After completing research, BEFORE any plan steps, write a Research Notes section:
+
+```markdown
+## Research Notes (Pre-Plan Verification)
+
+### Files Verified
+- `path/to/file.py`: line 45 contains function X, line 78 contains class Y
+
+### Project Structure
+- Discovered via Glob: [actual directory tree relevant to task]
+
+### Dependencies Confirmed
+- `library-name`: version X.Y.Z (from pyproject.toml line N)
+
+### API Documentation (context7)
+- `library.method()`: takes args (a: str, b: int) -> Result
+
+### Conventions (enyal)
+- naming: uses snake_case for functions
+- testing: pytest with fixtures in conftest.py
+```
+
+## Step Format (REQUIRED for every step)
+
+```markdown
+### Step N: [Brief descriptive title]
+
+**File:** `exact/path/verified/via/Read.py`
+  OR `NEW: path/to/new/file.py` (parent dir verified via Glob)
+
+**Action:** Edit (or Read, Write, Bash, etc.)
+
+**Details:**
+- Line 45: Add import statement `from x import y`
+- Line 78: Add function with exact signature
+- [Be SPECIFIC - line numbers, function names, exact code]
+
+**Depends On:** Steps X, Y (must complete first)
+
+**Verify:** [How to confirm success]
+- Read file after edit, confirm function exists at line 78
+- Run test, confirm it passes
+
+**Grounding:** [Which tool verified this step's facts]
+- File exists: Read at research phase
+- API signature: context7 query for library.method
+- Convention: enyal_recall for naming pattern
+```
+
+## Anti-Slop Rules (VIOLATIONS WILL CAUSE IMPLEMENTATION FAILURE)
+
+### FORBIDDEN language - the implementing model cannot interpret these:
+- "should" -> Use definitive: "WILL", "DOES", "IS"
+- "probably" -> Verify first, then state as fact
+- "around line X" -> Read file, give EXACT line number
+- "somewhere in" -> Glob/Grep, give exact path
+- "I think" -> Verify with tools, then state as fact
+- "similar to" -> Be specific, don't reference vague similarities
+- "standard practice" -> Verify it's THIS project's practice
+
+### FORBIDDEN assumptions - the implementing model WILL fail if you assume:
+- That a file exists -> Read or Glob to verify FIRST
+- That a function is at line X -> Read the file FIRST
+- That an API works this way -> context7 FIRST
+- That an import is available -> Read dependency file FIRST
+- That the project follows pattern X -> Read existing code FIRST
+
+### FORBIDDEN step structures:
+BAD: "Update the file to add the function and fix the imports"
+GOOD: Step 1: Add import at line 1, Step 2: Add function at line 45
+
+### REQUIRED inclusions (the implementing model will NOT add these):
+- Import statements for any new dependencies used
+- Export statements if adding public API
+- Type hints if the project uses them (check existing code)
+- Test files if adding functionality
+- Documentation updates if the project has docs
+
+{% if tool_recommendations -%}
+{{ tools_section(tool_recommendations, planning=True) }}
+{% endif %}
+
+{{ task_section(original_prompt, planning_note=True) }}
+
+## Before Submitting Your Plan
+
+Self-verify against these criteria:
+- [ ] Every file path was verified with Read or Glob
+- [ ] Every line number is accurate (not approximated)
+- [ ] Every API reference was verified with context7
+- [ ] Every step has a Grounding field citing verification source
+- [ ] No steps use vague language (should, probably, around, etc.)
+- [ ] No steps combine multiple actions
+- [ ] Dependencies between steps are explicit
+- [ ] All imports, exports, tests, types are included
+
+If ANY check fails, fix BEFORE presenting the plan.

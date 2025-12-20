@@ -1,10 +1,43 @@
 """Language detection for code snippets."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
+
+from mirdan.core.pattern_matcher import PatternMatcher
+
+if TYPE_CHECKING:
+    from mirdan.config import ThresholdsConfig
 
 
 class LanguageDetector:
     """Detects programming language from code snippets using heuristics."""
+
+    def __init__(self, thresholds: ThresholdsConfig | None = None) -> None:
+        """Initialize the language detector with pattern matcher.
+
+        Args:
+            thresholds: Optional centralized threshold values
+        """
+        # Use configured thresholds or defaults
+        if thresholds:
+            high_score = thresholds.lang_high_confidence_score
+            high_margin = thresholds.lang_high_confidence_margin
+            medium_score = thresholds.lang_medium_confidence_score
+        else:
+            high_score = 8
+            high_margin = 3
+            medium_score = 4
+
+        self._matcher: PatternMatcher[str] = PatternMatcher(
+            self.PATTERNS,
+            count_all_matches=True,  # Count all occurrences
+            case_insensitive=False,  # Code patterns are case-sensitive
+            high_score_threshold=high_score,
+            high_margin_threshold=high_margin,
+            medium_score_threshold=medium_score,
+        )
 
     # Pattern weights: (regex, weight)
     PATTERNS: dict[str, list[tuple[str, int]]] = {
@@ -67,36 +100,12 @@ class LanguageDetector:
         Returns:
             Tuple of (language, confidence) where confidence is "high", "medium", or "low"
         """
-        if not code or not code.strip():
+        result = self._matcher.match(code)
+
+        if result.best_match is None:
             return ("unknown", "low")
 
-        scores: dict[str, int] = {lang: 0 for lang in self.PATTERNS}
-
-        for lang, patterns in self.PATTERNS.items():
-            for pattern, weight in patterns:
-                flags = re.MULTILINE if pattern.startswith("^") else 0
-                matches = len(re.findall(pattern, code, flags))
-                scores[lang] += matches * weight
-
-        # Find the best match
-        best_lang = max(scores, key=lambda k: scores[k])
-        best_score = scores[best_lang]
-
-        if best_score == 0:
-            return ("unknown", "low")
-
-        # Determine confidence based on score and margin
-        sorted_scores = sorted(scores.values(), reverse=True)
-        margin = sorted_scores[0] - sorted_scores[1] if len(sorted_scores) > 1 else sorted_scores[0]
-
-        if best_score >= 8 and margin >= 3:
-            confidence = "high"
-        elif best_score >= 4:
-            confidence = "medium"
-        else:
-            confidence = "low"
-
-        return (best_lang, confidence)
+        return (result.best_match, result.confidence)
 
     def is_likely_minified(self, code: str) -> bool:
         """Check if code appears to be minified."""

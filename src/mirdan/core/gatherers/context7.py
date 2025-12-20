@@ -6,8 +6,7 @@ from typing import Any
 
 from fastmcp import Client
 
-from mirdan.core.client_registry import MCPClientRegistry
-from mirdan.core.gatherers.base import GathererResult
+from mirdan.core.gatherers.base import BaseGatherer, GathererResult
 from mirdan.models import ContextBundle, Intent
 
 logger = logging.getLogger(__name__)
@@ -21,23 +20,13 @@ DEPTH_FRAMEWORK_LIMITS = {
 }
 
 
-class Context7Gatherer:
+class Context7Gatherer(BaseGatherer):
     """Gathers library documentation from context7 MCP.
 
     Populates:
         - documentation_hints: API docs and code examples
         - tech_stack: Library versions (if available)
     """
-
-    def __init__(self, registry: MCPClientRegistry, timeout: float = 3.0) -> None:
-        """Initialize gatherer with client registry.
-
-        Args:
-            registry: MCP client registry for connections
-            timeout: Timeout per framework lookup
-        """
-        self._registry = registry
-        self._timeout = timeout
 
     @property
     def name(self) -> str:
@@ -46,10 +35,6 @@ class Context7Gatherer:
     @property
     def required_mcp(self) -> str:
         return "context7"
-
-    async def is_available(self) -> bool:
-        """Check if context7 MCP is configured."""
-        return self._registry.is_configured(self.required_mcp)
 
     async def gather(
         self,

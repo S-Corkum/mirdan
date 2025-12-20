@@ -21,27 +21,18 @@ class MCPOrchestrator:
     KNOWN_MCPS: dict[str, dict[str, Any]] = {
         "context7": {
             "capabilities": ["documentation", "framework_docs", "api_reference"],
-            "actions": ["fetch_docs", "search_docs"],
         },
         "filesystem": {
             "capabilities": ["file_read", "file_search", "codebase_analysis"],
-            "actions": ["read_file", "search_files", "list_directory"],
         },
         "desktop-commander": {
             "capabilities": ["file_read", "file_write", "command_execution"],
-            "actions": ["read_file", "write_file", "execute_command"],
         },
         "github": {
             "capabilities": ["repository", "issues", "pull_requests", "commits"],
-            "actions": ["get_repo", "list_issues", "get_pr", "search_code"],
-        },
-        "memory": {
-            "capabilities": ["conversation_history", "user_preferences"],
-            "actions": ["search_memory", "get_recent"],
         },
         "enyal": {
             "capabilities": ["project_context", "decisions", "conventions"],
-            "actions": ["recall", "remember"],
         },
     }
 

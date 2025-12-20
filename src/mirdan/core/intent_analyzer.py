@@ -4,6 +4,7 @@ import re
 
 from mirdan.config import ProjectConfig
 from mirdan.core.entity_extractor import EntityExtractor
+from mirdan.core.pattern_matcher import PatternMatcher
 from mirdan.models import Intent, TaskType
 
 
@@ -18,6 +19,11 @@ class IntentAnalyzer:
         """
         self._config = config
         self._entity_extractor = EntityExtractor()
+        self._task_matcher: PatternMatcher[TaskType] = PatternMatcher(
+            self.TASK_PATTERNS,
+            count_all_matches=False,
+            case_insensitive=True,
+        )
 
     # Task type detection patterns with weights (pattern, weight)
     # Higher weight = more specific/stronger indicator
@@ -178,18 +184,8 @@ class IntentAnalyzer:
 
     def _detect_task_type(self, prompt: str) -> TaskType:
         """Detect the type of task from the prompt."""
-        scores: dict[TaskType, int] = {task: 0 for task in TaskType}
-
-        for task_type, patterns in self.TASK_PATTERNS.items():
-            for pattern, weight in patterns:
-                if re.search(pattern, prompt, re.IGNORECASE):
-                    scores[task_type] += weight
-
-        max_score = max(scores.values())
-        if max_score == 0:
-            return TaskType.UNKNOWN
-
-        return max(scores, key=lambda k: scores[k])
+        result = self._task_matcher.best_match(prompt, default=TaskType.UNKNOWN)
+        return result if result is not None else TaskType.UNKNOWN
 
     def _detect_language(self, prompt: str) -> str | None:
         """Detect the programming language from the prompt."""

@@ -1,9 +1,15 @@
 """Plan Validator - Validates plans for cheap model implementation."""
 
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING
 
 from mirdan.config import PlanningConfig
 from mirdan.models import PlanQualityScore
+
+if TYPE_CHECKING:
+    from mirdan.config import ThresholdsConfig
 
 
 class PlanValidator:
@@ -40,9 +46,19 @@ class PlanValidator:
         (r"\*\*Grounding:\*\*", "Step missing 'Grounding:' field"),
     ]
 
-    def __init__(self, config: PlanningConfig | None = None):
-        """Initialize with optional planning configuration."""
+    def __init__(
+        self,
+        config: PlanningConfig | None = None,
+        thresholds: ThresholdsConfig | None = None,
+    ):
+        """Initialize with optional planning configuration.
+
+        Args:
+            config: Planning configuration for strictness levels
+            thresholds: Centralized threshold values
+        """
         self._config = config or PlanningConfig()
+        self._thresholds = thresholds
 
     def validate(self, plan_text: str, target_model: str = "haiku") -> PlanQualityScore:
         """Validate a plan and return quality score.
@@ -92,10 +108,19 @@ class PlanValidator:
                 issues.append("Contains compound steps - split into atomic actions")
                 step_issues += 1
 
-        # Calculate scores
-        clarity_score = max(0.0, 1.0 - (vague_count * 0.1))
-        completeness_score = max(0.0, 1.0 - (missing_sections * 0.25))
-        grounding_score = max(0.0, 1.0 - (step_issues * 0.1))
+        # Calculate scores using configured thresholds
+        if self._thresholds:
+            clarity_penalty = self._thresholds.plan_clarity_penalty
+            completeness_penalty = self._thresholds.plan_completeness_penalty
+            grounding_penalty = self._thresholds.plan_grounding_penalty
+        else:
+            clarity_penalty = 0.1
+            completeness_penalty = 0.25
+            grounding_penalty = 0.1
+
+        clarity_score = max(0.0, 1.0 - (vague_count * clarity_penalty))
+        completeness_score = max(0.0, 1.0 - (missing_sections * completeness_penalty))
+        grounding_score = max(0.0, 1.0 - (step_issues * grounding_penalty))
         atomicity_score = 1.0 if not any("compound" in i.lower() for i in issues) else 0.7
 
         # Weighted overall score

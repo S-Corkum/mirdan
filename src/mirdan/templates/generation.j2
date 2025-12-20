@@ -1,0 +1,24 @@
+{# Template for standard code generation/refactor/debug/review tasks #}
+{% from "base.j2" import role_section, context_section, task_section, quality_requirements_section, constraints_section, verification_section, tools_section %}
+
+{{ role_section(language, frameworks) }}
+
+{{ context_section(patterns_summary, tech_stack) }}
+
+{{ task_section(original_prompt) }}
+
+{% if quality_requirements and verbosity != 'minimal' -%}
+{{ quality_requirements_section(quality_requirements) }}
+{% endif %}
+
+{% if constraints and verbosity != 'minimal' -%}
+{{ constraints_section(constraints) }}
+{% endif %}
+
+{% if verification_steps and include_verification -%}
+{{ verification_section(verification_steps) }}
+{% endif %}
+
+{% if tool_recommendations and include_tool_hints -%}
+{{ tools_section(tool_recommendations) }}
+{% endif %}
