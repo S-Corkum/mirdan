@@ -271,7 +271,6 @@ class CodeValidator:
         ],
     }
 
-
     # Category overrides for rules that differ from default language category
     # Python security-related rules that should be categorized as "security"
     RULE_CATEGORIES: dict[str, str] = {
@@ -358,7 +357,7 @@ class CodeValidator:
         (
             "SEC010",
             "jwt-no-verify",
-            r'jwt\.decode\s*\([^)]*options[^)]*verify[^)]*False',
+            r"jwt\.decode\s*\([^)]*options[^)]*verify[^)]*False",
             "error",
             "JWT signature verification disabled - tokens can be forged",
             "Always verify JWT signatures: jwt.decode(token, key, algorithms=['HS256'])",

@@ -85,8 +85,7 @@ def greet(name: str) -> str:
         result = validator.validate(code, language="python")
         assert not result.passed
         assert any(
-            v.rule == "unsafe-pickle" and v.category == "security"
-            for v in result.violations
+            v.rule == "unsafe-pickle" and v.category == "security" for v in result.violations
         )
 
     def test_detects_subprocess_shell(self, validator: CodeValidator) -> None:
@@ -95,8 +94,7 @@ def greet(name: str) -> str:
         result = validator.validate(code, language="python")
         assert not result.passed
         assert any(
-            v.rule == "subprocess-shell" and v.category == "security"
-            for v in result.violations
+            v.rule == "subprocess-shell" and v.category == "security" for v in result.violations
         )
 
     def test_detects_unsafe_yaml(self, validator: CodeValidator) -> None:
@@ -130,7 +128,6 @@ def greet(name: str) -> str:
         code = "response = requests.get('https://example.com')"
         result = validator.validate(code, language="python")
         assert any(v.rule == "requests-no-timeout" for v in result.violations)
-
 
 
 class TestTypeScriptPatternDetection:
@@ -328,7 +325,6 @@ class TestSecurityPatternDetection:
         code = "jwt.decode(token, options={'verify': False})"
         result = validator.validate(code, language="python")
         assert any(v.rule == "jwt-no-verify" for v in result.violations)
-
 
 
 class TestLanguageDetection:
@@ -583,8 +579,6 @@ value = eval(x)  # This should still be flagged
         assert not any(v.rule == "deprecated-typing-import" for v in result.violations)
 
 
-
-
 class TestModernPythonPatterns:
     """Tests to verify modern Python patterns pass validation."""
 
@@ -630,7 +624,6 @@ def run_command(args: list[str]) -> str:
         code = "x: int = 'string'  # type: ignore[assignment]"
         result = validator.validate(code, language="python")
         assert not any(v.rule == "unexplained-type-ignore" for v in result.violations)
-
 
 
 class TestIntegrationWithQualityStandards:
