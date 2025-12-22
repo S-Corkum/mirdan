@@ -67,6 +67,65 @@ def greet(name: str) -> str:
         assert result.passed
         assert result.score > 0.8
 
+    def test_detects_deprecated_typing_import(self, validator: CodeValidator) -> None:
+        """Should detect deprecated typing imports."""
+        code = "from typing import List, Optional"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "deprecated-typing-import" for v in result.violations)
+
+    def test_detects_unexplained_type_ignore(self, validator: CodeValidator) -> None:
+        """Should detect type: ignore without explanation."""
+        code = "x: int = 'string'  # type: ignore"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "unexplained-type-ignore" for v in result.violations)
+
+    def test_detects_unsafe_pickle(self, validator: CodeValidator) -> None:
+        """Should detect pickle.load() usage."""
+        code = "data = pickle.load(file)"
+        result = validator.validate(code, language="python")
+        assert not result.passed
+        assert any(v.rule == "unsafe-pickle" and v.category == "security" for v in result.violations)
+
+    def test_detects_subprocess_shell(self, validator: CodeValidator) -> None:
+        """Should detect subprocess with shell=True."""
+        code = "subprocess.run(cmd, shell=True)"
+        result = validator.validate(code, language="python")
+        assert not result.passed
+        assert any(v.rule == "subprocess-shell" and v.category == "security" for v in result.violations)
+
+    def test_detects_unsafe_yaml(self, validator: CodeValidator) -> None:
+        """Should detect yaml.load without Loader."""
+        code = "data = yaml.load(file)"
+        result = validator.validate(code, language="python")
+        assert not result.passed
+        assert any(v.rule == "unsafe-yaml-load" for v in result.violations)
+
+    def test_detects_os_system(self, validator: CodeValidator) -> None:
+        """Should detect os.system() usage."""
+        code = "os.system('rm -rf /')"
+        result = validator.validate(code, language="python")
+        assert not result.passed
+        assert any(v.rule == "os-system" and v.category == "security" for v in result.violations)
+
+    def test_detects_os_path_usage(self, validator: CodeValidator) -> None:
+        """Should detect os.path function usage."""
+        code = "path = os.path.join('a', 'b')"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "use-pathlib" for v in result.violations)
+
+    def test_detects_wildcard_import(self, validator: CodeValidator) -> None:
+        """Should detect wildcard imports."""
+        code = "from os import *"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "wildcard-import" for v in result.violations)
+
+    def test_detects_requests_no_timeout(self, validator: CodeValidator) -> None:
+        """Should detect requests calls without timeout."""
+        code = "response = requests.get('https://example.com')"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "requests-no-timeout" for v in result.violations)
+
+
 
 class TestTypeScriptPatternDetection:
     """Tests for TypeScript forbidden pattern detection."""
@@ -238,6 +297,32 @@ class TestSecurityPatternDetection:
         code = 'query = f"SELECT * FROM users WHERE id = {user_id}"'
         result = validator.validate(code, language="python")
         assert any(v.category == "security" for v in result.violations)
+
+    def test_detects_ssl_verify_disabled(self, validator: CodeValidator) -> None:
+        """Should detect SSL verification disabled."""
+        code = "requests.get(url, verify=False)"
+        result = validator.validate(code, language="python")
+        assert not result.passed
+        assert any(v.rule == "ssl-verify-disabled" for v in result.violations)
+
+    def test_detects_shell_format_injection(self, validator: CodeValidator) -> None:
+        """Should detect string formatting in subprocess commands."""
+        code = "subprocess.run('echo {}'.format(user_input))"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "shell-format-injection" for v in result.violations)
+
+    def test_detects_shell_fstring_injection(self, validator: CodeValidator) -> None:
+        """Should detect f-strings in subprocess commands."""
+        code = "subprocess.run(f'echo {user_input}')"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "shell-fstring-injection" for v in result.violations)
+
+    def test_detects_jwt_no_verify(self, validator: CodeValidator) -> None:
+        """Should detect JWT decode without verification."""
+        code = "jwt.decode(token, options={'verify': False})"
+        result = validator.validate(code, language="python")
+        assert any(v.rule == "jwt-no-verify" for v in result.violations)
+
 
 
 class TestLanguageDetection:
@@ -466,6 +551,80 @@ value = eval(x)  # This should still be flagged
         result = validator.validate(code, language="python")
         # The actual eval() call should be flagged
         assert any(v.rule == "no-eval" for v in result.violations)
+
+    def test_does_not_flag_safe_yaml(self, validator: CodeValidator) -> None:
+        """Should not flag yaml.safe_load()."""
+        code = "data = yaml.safe_load(file)"
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "unsafe-yaml-load" for v in result.violations)
+
+    def test_does_not_flag_subprocess_list_args(self, validator: CodeValidator) -> None:
+        """Should not flag subprocess with list arguments."""
+        code = "subprocess.run(['echo', 'hello'])"
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "subprocess-shell" for v in result.violations)
+
+    def test_does_not_flag_requests_with_timeout(self, validator: CodeValidator) -> None:
+        """Should not flag requests with explicit timeout."""
+        code = "requests.get('https://example.com', timeout=30)"
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "requests-no-timeout" for v in result.violations)
+
+    def test_does_not_flag_modern_typing(self, validator: CodeValidator) -> None:
+        """Should not flag modern typing syntax."""
+        code = "def foo(items: list[str]) -> dict[str, int]: ..."
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "deprecated-typing-import" for v in result.violations)
+
+
+
+
+class TestModernPythonPatterns:
+    """Tests to verify modern Python patterns pass validation."""
+
+    def test_modern_typing_passes(self, validator: CodeValidator) -> None:
+        """Modern typing syntax should pass."""
+        code = """
+from collections.abc import Sequence
+
+def process(items: list[str], mapping: dict[str, int]) -> tuple[str, ...]:
+    result: set[int] = set()
+    optional_value: str | None = None
+    return tuple(items)
+"""
+        result = validator.validate(code, language="python")
+        assert result.passed
+        assert result.score > 0.9
+
+    def test_pathlib_usage_passes(self, validator: CodeValidator) -> None:
+        """Pathlib usage should pass."""
+        code = """
+from pathlib import Path
+
+def read_file(path: Path) -> str:
+    return path.read_text()
+"""
+        result = validator.validate(code, language="python")
+        assert result.passed
+
+    def test_safe_subprocess_passes(self, validator: CodeValidator) -> None:
+        """Safe subprocess usage should pass."""
+        code = """
+import subprocess
+
+def run_command(args: list[str]) -> str:
+    result = subprocess.run(args, capture_output=True, text=True)
+    return result.stdout
+"""
+        result = validator.validate(code, language="python")
+        assert result.passed
+
+    def test_explicit_type_ignore_passes(self, validator: CodeValidator) -> None:
+        """type: ignore with error code should pass."""
+        code = "x: int = 'string'  # type: ignore[assignment]"
+        result = validator.validate(code, language="python")
+        assert not any(v.rule == "unexplained-type-ignore" for v in result.violations)
+
 
 
 class TestIntegrationWithQualityStandards:

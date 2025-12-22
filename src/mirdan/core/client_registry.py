@@ -296,7 +296,7 @@ class MCPClientRegistry:
 
         Should be called during server shutdown.
         """
-        for name, client in self._clients.items():
+        for name in self._clients:
             try:
                 # FastMCP Client doesn't have a close method directly on Client
                 # but we clear our references
@@ -357,15 +357,11 @@ class MCPClientRegistry:
                 async with client:
                     result = await client.call_tool(call.tool_name, call.arguments)
 
-                    # Parse result content
+                    # Parse result content - extract text from content list
                     data = None
-                    if result and hasattr(result, "content"):
-                        # Extract text content from result
-                        if isinstance(result.content, list):
-                            texts = [c.text for c in result.content if hasattr(c, "text")]
-                            data = texts[0] if len(texts) == 1 else texts
-                        else:
-                            data = result.content
+                    if hasattr(result, "content") and result.content:
+                        texts = [c.text for c in result.content if hasattr(c, "text")]
+                        data = texts[0] if len(texts) == 1 else texts
 
                     return MCPToolResult(
                         mcp_name=call.mcp_name,

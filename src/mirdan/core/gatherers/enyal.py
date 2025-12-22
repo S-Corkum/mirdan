@@ -91,7 +91,7 @@ class EnyalGatherer(BaseGatherer):
                     },
                 )
 
-                if result and result.content:
+                if result.content:
                     for content in result.content:
                         if hasattr(content, "text"):
                             # Parse the recall results

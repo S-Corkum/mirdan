@@ -113,7 +113,7 @@ class QualityStandards:
     def _load_custom_standards(self, standards_dir: Path) -> None:
         """Load custom standards from YAML files."""
         for yaml_file in standards_dir.rglob("*.yaml"):
-            with open(yaml_file) as f:
+            with yaml_file.open() as f:
                 custom = yaml.safe_load(f)
                 if custom:
                     # Merge custom standards

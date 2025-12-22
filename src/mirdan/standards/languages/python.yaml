@@ -1,14 +1,43 @@
 principles:
-  - Follow PEP 8 style guidelines
-  - Use type hints for function signatures
-  - Prefer dataclasses or Pydantic models over raw dicts
-  - Use context managers for resource handling
+  - Follow PEP 8 style guidelines with 100 character line length
+  - Use type hints for ALL function signatures (parameters and returns)
+  - Use Python 3.12+ native generics (list[str] not List[str])
+  - Use X | None union syntax instead of Optional[X]
+  - Prefer dataclasses (simple) or Pydantic (validation) over raw dicts
+  - Use context managers for ALL resource handling
+  - Use pathlib.Path for ALL file system operations
+  - Use structured logging over print() for production code
+  - Apply single responsibility principle to functions (one purpose each)
+  - Use descriptive variable names over abbreviations
+  - Prefer comprehensions over map/filter for simple transformations
+  - Use asyncio.TaskGroup for structured concurrency (Python 3.11+)
+  - Prefer asyncio.to_thread() over run_in_executor
+  - Use typing.Self for methods returning same type
+  - Use typing.Never for functions that never return
+  - Use @typing.overload for complex function signatures
+  - Document complex logic with docstrings following Google style
+  - Use __all__ to control module exports explicitly
 
 forbidden:
-  - eval() or exec() on user input
-  - "Bare except: clauses"
-  - Mutable default arguments
+  - eval() or exec() with ANY external input
+  - "Bare except: clauses (always specify exception type)"
+  - Mutable default arguments (lists, dicts, sets)
+  - from typing import List, Dict, Optional, Union (use native syntax)
+  - "# type: ignore without explanation comment"
+  - pickle.load() on untrusted data
+  - subprocess with shell=True and string commands
+  - yaml.load() without Loader argument
+  - os.system() for command execution
+  - Wildcard imports (from module import *)
+  - requests/httpx calls without explicit timeout
+  - SSL verification disabled (verify=False)
 
 patterns:
-  error_handling: "Use specific exception types, not generic Exception"
-  async: "Use asyncio consistently, don't mix sync/async"
+  error_handling: "Use specific exception types with context; re-raise with 'from' for chaining"
+  async: "Use asyncio.TaskGroup for concurrent operations; prefer to_thread() for blocking I/O"
+  configuration: "Use Pydantic Settings with environment variable support"
+  validation: "Use Pydantic models with Field() constraints for input validation"
+  file_io: "Use pathlib.Path with context managers; async file I/O with aiofiles"
+  http_clients: "Use httpx for async HTTP; always set timeouts; use context managers"
+  testing: "Use pytest fixtures; parametrize for multiple inputs; async tests with pytest-asyncio"
+  dependencies: "Use dependency injection; avoid global state; prefer protocols over ABCs"

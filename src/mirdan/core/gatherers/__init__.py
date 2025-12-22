@@ -7,10 +7,10 @@ from mirdan.core.gatherers.filesystem import FilesystemGatherer
 from mirdan.core.gatherers.github import GitHubGatherer
 
 __all__ = [
-    "ContextGatherer",
-    "GathererResult",
     "Context7Gatherer",
+    "ContextGatherer",
     "EnyalGatherer",
     "FilesystemGatherer",
+    "GathererResult",
     "GitHubGatherer",
 ]

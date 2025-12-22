@@ -160,7 +160,7 @@ class FilesystemGatherer(BaseGatherer):
                     {"query": pattern, "include": patterns[:1]},
                 )
 
-                if result and result.content:
+                if result.content:
                     for content in result.content:
                         if hasattr(content, "text"):
                             # Parse file paths from result
@@ -180,7 +180,7 @@ class FilesystemGatherer(BaseGatherer):
                         "list_directory",
                         {"path": ".", "recursive": True},
                     )
-                    if result and result.content:
+                    if result.content:
                         for content in result.content:
                             if hasattr(content, "text"):
                                 lines = content.text.strip().split("\n")
@@ -222,7 +222,7 @@ class FilesystemGatherer(BaseGatherer):
                 {"path": file_path},
             )
 
-            if not result or not result.content:
+            if not result.content:
                 return patterns
 
             content_text = ""

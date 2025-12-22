@@ -143,7 +143,7 @@ class MirdanConfig(BaseModel):
         if not config_path.exists():
             return cls()
 
-        with open(config_path) as f:
+        with config_path.open() as f:
             data = yaml.safe_load(f) or {}
 
         return cls(**data)
@@ -172,7 +172,7 @@ class MirdanConfig(BaseModel):
     def save(self, config_path: Path) -> None:
         """Save configuration to a YAML file."""
         config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(config_path, "w") as f:
+        with config_path.open("w") as f:
             yaml.dump(self.model_dump(), f, default_flow_style=False, sort_keys=False)
 
 

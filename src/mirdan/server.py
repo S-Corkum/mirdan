@@ -1,5 +1,6 @@
 """Mirdan MCP Server - AI Code Quality Orchestrator."""
 
+import contextlib
 from typing import Any
 
 from fastmcp import FastMCP
@@ -55,10 +56,8 @@ async def enhance_prompt(
 
     # Override task type if specified
     if task_type != "auto":
-        try:
+        with contextlib.suppress(ValueError):
             intent.task_type = TaskType(task_type)
-        except ValueError:
-            pass  # Keep auto-detected type
 
     # Get tool recommendations
     tool_recommendations = mcp_orchestrator.suggest_tools(intent)

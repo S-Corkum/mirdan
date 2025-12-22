@@ -153,7 +153,7 @@ class Context7Gatherer(BaseGatherer):
 
             # Extract library ID from result
             library_id = None
-            if resolve_result and resolve_result.content:
+            if resolve_result.content:
                 # Parse the text content to find a library ID
                 for content in resolve_result.content:
                     if hasattr(content, "text"):
@@ -198,7 +198,7 @@ class Context7Gatherer(BaseGatherer):
 
             docs_result = await client.call_tool("get-library-docs", params)
 
-            if docs_result and docs_result.content:
+            if docs_result.content:
                 # Extract documentation text
                 docs_text = ""
                 for content in docs_result.content:

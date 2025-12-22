@@ -110,7 +110,7 @@ class PatternMatcher(Generic[T]):
         if not text or not text.strip():
             return PatternResult(
                 best_match=None,
-                scores={cat: 0 for cat in self._categories},
+                scores=dict.fromkeys(self._categories, 0),
                 best_score=0,
                 confidence="low",
             )
@@ -154,7 +154,7 @@ class PatternMatcher(Generic[T]):
         Returns:
             Dict mapping each category to its score
         """
-        scores: dict[T, int] = {cat: 0 for cat in self._categories}
+        scores: dict[T, int] = dict.fromkeys(self._categories, 0)
 
         for category, patterns in self._compiled.items():
             for compiled in patterns:
@@ -195,7 +195,4 @@ class PatternMatcher(Generic[T]):
         if category not in self._compiled:
             return False
 
-        for compiled in self._compiled[category]:
-            if compiled.pattern.search(text):
-                return True
-        return False
+        return any(compiled.pattern.search(text) for compiled in self._compiled[category])

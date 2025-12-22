@@ -176,7 +176,7 @@ class GitHubGatherer(BaseGatherer):
             },
         )
 
-        if result and result.content:
+        if result.content:
             for content in result.content:
                 if hasattr(content, "text"):
                     try:
@@ -216,7 +216,7 @@ class GitHubGatherer(BaseGatherer):
                 },
             )
 
-            if result and result.content:
+            if result.content:
                 for content in result.content:
                     if hasattr(content, "text"):
                         try:
@@ -243,7 +243,7 @@ class GitHubGatherer(BaseGatherer):
                     },
                 )
 
-                if result and result.content:
+                if result.content:
                     for content in result.content:
                         if hasattr(content, "text"):
                             # Simple TOML parsing for dependencies

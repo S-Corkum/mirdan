@@ -66,6 +66,78 @@ class CodeValidator:
                 "Mutable default argument - shared between all calls",
                 "Use None as default and initialize in function body: 'if arg is None: arg = []'",
             ),
+            (
+                "PY005",
+                "deprecated-typing-import",
+                r"from\s+typing\s+import\s+(?:[^#\n]*\b(?:List|Dict|Set|Tuple|Optional|Union)\b)",
+                "warning",
+                "Importing deprecated typing constructs - use native Python 3.9+ syntax",
+                "Use list[T], dict[K,V], set[T], tuple[T,...], T | None, X | Y instead",
+            ),
+            (
+                "PY006",
+                "unexplained-type-ignore",
+                r"#\s*type:\s*ignore(?!\s*\[)",
+                "warning",
+                "type: ignore without error code specification",
+                "Add specific error code: # type: ignore[error-code]",
+            ),
+            (
+                "PY007",
+                "unsafe-pickle",
+                r"\bpickle\.loads?\s*\(",
+                "error",
+                "pickle.load()/loads() can execute arbitrary code - dangerous with untrusted data",
+                "Use json, msgpack, or other safe serialization formats for untrusted data",
+            ),
+            (
+                "PY008",
+                "subprocess-shell",
+                r"subprocess\.\w+\s*\([^)]*shell\s*=\s*True",
+                "error",
+                "subprocess with shell=True is vulnerable to shell injection",
+                "Use subprocess.run(['cmd', 'arg1', 'arg2']) with list of arguments",
+            ),
+            (
+                "PY009",
+                "unsafe-yaml-load",
+                r"yaml\.load\s*\([^)]*\)(?!.*Loader)",
+                "error",
+                "yaml.load() without explicit Loader can execute arbitrary code",
+                "Use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader)",
+            ),
+            (
+                "PY010",
+                "os-system",
+                r"\bos\.system\s*\(",
+                "error",
+                "os.system() is vulnerable to shell injection",
+                "Use subprocess.run() with list of arguments instead",
+            ),
+            (
+                "PY011",
+                "use-pathlib",
+                r"\bos\.path\.(?:join|exists|isfile|isdir|dirname|basename)\s*\(",
+                "warning",
+                "os.path functions are deprecated in favor of pathlib",
+                "Use pathlib.Path methods: Path.exists(), Path.is_file(), etc.",
+            ),
+            (
+                "PY012",
+                "wildcard-import",
+                r"from\s+\w+(?:\.\w+)*\s+import\s+\*",
+                "warning",
+                "Wildcard imports pollute namespace and make dependencies unclear",
+                "Import specific names: from module import name1, name2",
+            ),
+            (
+                "PY013",
+                "requests-no-timeout",
+                r"requests\.(?:get|post|put|delete|patch|head|options)\s*\((?![^)]*timeout)[^)]*\)",
+                "warning",
+                "HTTP request without timeout can hang indefinitely",
+                "Always specify timeout: requests.get(url, timeout=30)",
+            ),
         ],
         "typescript": [
             (
@@ -199,6 +271,16 @@ class CodeValidator:
         ],
     }
 
+
+    # Category overrides for rules that differ from default language category
+    # Python security-related rules that should be categorized as "security"
+    RULE_CATEGORIES: dict[str, str] = {
+        "PY007": "security",  # unsafe-pickle
+        "PY008": "security",  # subprocess-shell
+        "PY009": "security",  # unsafe-yaml-load
+        "PY010": "security",  # os-system
+    }
+
     # Security rules apply to all languages
     SECURITY_RULES: list[tuple[str, str, str, str, str, str]] = [
         (
@@ -249,6 +331,38 @@ class CodeValidator:
             "SQL template literal interpolation detected - potential SQL injection",
             "Use parameterized queries with your database driver",
         ),
+        (
+            "SEC007",
+            "ssl-verify-disabled",
+            r"verify\s*=\s*False",
+            "error",
+            "SSL/TLS certificate verification disabled - vulnerable to MITM attacks",
+            "Remove verify=False or use proper certificate handling",
+        ),
+        (
+            "SEC008",
+            "shell-format-injection",
+            r"subprocess\.\w+\s*\([^)]*(?:format\s*\(|%\s*\()",
+            "error",
+            "String formatting in subprocess command - potential shell injection",
+            "Use list of arguments: subprocess.run(['cmd', variable])",
+        ),
+        (
+            "SEC009",
+            "shell-fstring-injection",
+            r'subprocess\.\w+\s*\([^)]*f["\'"]',
+            "error",
+            "f-string in subprocess command - potential shell injection",
+            "Use list of arguments: subprocess.run(['cmd', variable])",
+        ),
+        (
+            "SEC010",
+            "jwt-no-verify",
+            r'jwt\.decode\s*\([^)]*options[^)]*verify[^)]*False',
+            "error",
+            "JWT signature verification disabled - tokens can be forged",
+            "Always verify JWT signatures: jwt.decode(token, key, algorithms=['HS256'])",
+        ),
     ]
 
     def __init__(
@@ -281,7 +395,7 @@ class CodeValidator:
                     id=rule_id,
                     rule=rule_name,
                     pattern=re.compile(pattern, re.IGNORECASE if "sql" in rule_name.lower() else 0),
-                    category="style",
+                    category=self.RULE_CATEGORIES.get(rule_id, "style"),
                     severity=severity,
                     message=message,
                     suggestion=suggestion,

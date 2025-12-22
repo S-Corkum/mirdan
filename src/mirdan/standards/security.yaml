@@ -19,3 +19,8 @@ common_vulnerabilities:
   CWE-89: Use parameterized queries (SQL Injection)
   CWE-94: Never execute user-provided code (Code Injection)
   CWE-306: Require authentication for sensitive operations
+  CWE-502: Never deserialize untrusted data with pickle/marshal
+  CWE-78: Use subprocess with list args, never shell=True with user input
+  CWE-295: Never disable SSL/TLS certificate verification
+  CWE-347: Verify JWT signatures, never use algorithms=None
+  CWE-400: Set timeouts on all network operations
