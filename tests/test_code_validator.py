@@ -84,14 +84,20 @@ def greet(name: str) -> str:
         code = "data = pickle.load(file)"
         result = validator.validate(code, language="python")
         assert not result.passed
-        assert any(v.rule == "unsafe-pickle" and v.category == "security" for v in result.violations)
+        assert any(
+            v.rule == "unsafe-pickle" and v.category == "security"
+            for v in result.violations
+        )
 
     def test_detects_subprocess_shell(self, validator: CodeValidator) -> None:
         """Should detect subprocess with shell=True."""
         code = "subprocess.run(cmd, shell=True)"
         result = validator.validate(code, language="python")
         assert not result.passed
-        assert any(v.rule == "subprocess-shell" and v.category == "security" for v in result.violations)
+        assert any(
+            v.rule == "subprocess-shell" and v.category == "security"
+            for v in result.violations
+        )
 
     def test_detects_unsafe_yaml(self, validator: CodeValidator) -> None:
         """Should detect yaml.load without Loader."""
@@ -336,7 +342,7 @@ def hello():
 
 import os
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "python"
 
     def test_detects_typescript(self, language_detector: LanguageDetector) -> None:
@@ -351,7 +357,7 @@ function greet(user: User): void {
     console.log(user.name);
 }
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "typescript"
 
     def test_detects_javascript(self, language_detector: LanguageDetector) -> None:
@@ -364,7 +370,7 @@ app.get('/', (req, res) => {
     res.send('Hello');
 });
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "javascript"
 
     def test_detects_rust(self, language_detector: LanguageDetector) -> None:
@@ -381,7 +387,7 @@ impl Display for MyStruct {
     }
 }
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "rust"
 
     def test_detects_go(self, language_detector: LanguageDetector) -> None:
@@ -396,7 +402,7 @@ func main() {
     fmt.Printf("Hello, %s!", name)
 }
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "go"
 
     def test_detects_java(self, language_detector: LanguageDetector) -> None:
@@ -412,7 +418,7 @@ public class HelloWorld {
     }
 }
 """
-        lang, confidence = language_detector.detect(code)
+        lang, _confidence = language_detector.detect(code)
         assert lang == "java"
 
 

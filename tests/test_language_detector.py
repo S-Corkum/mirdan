@@ -53,7 +53,7 @@ function handleRequest(req, res) {
 module.exports = { handleRequest };
 """
         detector = LanguageDetector()
-        lang, confidence = detector.detect(code)
+        lang, _ = detector.detect(code)
         assert lang == "javascript"
 
     def test_detect_rust(self) -> None:
@@ -75,7 +75,7 @@ fn main() {
 }
 """
         detector = LanguageDetector()
-        lang, confidence = detector.detect(code)
+        lang, _ = detector.detect(code)
         assert lang == "rust"
 
     def test_detect_go(self) -> None:
@@ -96,7 +96,7 @@ func (s *Server) Start() {
 }
 """
         detector = LanguageDetector()
-        lang, confidence = detector.detect(code)
+        lang, _ = detector.detect(code)
         assert lang == "go"
 
     def test_detect_java(self) -> None:
@@ -116,7 +116,7 @@ public class UserService {
 }
 """
         detector = LanguageDetector()
-        lang, confidence = detector.detect(code)
+        lang, _ = detector.detect(code)
         assert lang == "java"
 
     def test_detect_unknown(self) -> None:
@@ -286,7 +286,7 @@ class TestThresholdsConfig:
 def hello():
     print("hi")
 """
-        _, confidence = detector.detect(code)
+        _, _ = detector.detect(code)
         # The code should still be detected as Python
         # but confidence level might differ with stricter thresholds
 
