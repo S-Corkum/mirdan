@@ -1,0 +1,19 @@
+principles:
+  - Use async views with async def for I/O-bound operations under ASGI
+  - Use Django REST Framework or Django Ninja for API development
+  - Apply select_related() and prefetch_related() to avoid N+1 query problems
+  - Use Django's built-in security features (CSRF, XSS, SQL injection protection)
+  - Externalize settings with environment variables using django-environ or python-decouple
+  - Use class-based views for complex logic, function-based for simple endpoints
+
+forbidden:
+  - Raw SQL without parameterization (use ORM or cursor.execute with params)
+  - Storing secrets in settings.py or version control
+  - Synchronous database operations in async views without sync_to_async
+  - Using deprecated MIDDLEWARE_CLASSES instead of MIDDLEWARE
+  - Disabling CSRF protection without explicit security justification
+
+patterns:
+  orm_optimization: "Model.objects.select_related('fk').prefetch_related('m2m').only('field1', 'field2')"
+  async_views: "async def view(request): data = await sync_to_async(Model.objects.get)(pk=1)"
+  api_viewset: "class ModelViewSet(viewsets.ModelViewSet): queryset, serializer_class"

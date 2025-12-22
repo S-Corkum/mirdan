@@ -1,0 +1,19 @@
+principles:
+  - Use utility classes directly in HTML/JSX for styling (utility-first approach)
+  - Define design tokens in @theme for consistent, reusable theming
+  - Apply @layer directives for base, components, and utilities organization
+  - Use arbitrary values sparingly [property:value] only when utilities don't exist
+  - Leverage container queries (@container) for component-responsive design
+  - Configure content paths correctly for production CSS purging
+
+forbidden:
+  - Overusing @apply directive (defeats utility-first purpose, increases bundle)
+  - Inline styles when equivalent utilities exist
+  - Custom CSS that duplicates existing Tailwind utilities
+  - Forgetting content config paths (causes missing styles in production)
+  - Using deprecated JIT mode config (now default in v3+)
+
+patterns:
+  responsive: "sm:flex md:grid lg:grid-cols-3 for mobile-first responsive breakpoints"
+  state_variants: "hover:bg-blue-600 focus:ring-2 active:scale-95 disabled:opacity-50"
+  dark_mode: "dark:bg-gray-900 dark:text-white with class or media strategy"

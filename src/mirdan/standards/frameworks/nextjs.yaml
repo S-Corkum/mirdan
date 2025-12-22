@@ -4,13 +4,17 @@ principles:
   - "Use Server Actions with 'use server' for form submissions and mutations"
   - Pass data from Server to Client Components via props only
   - "Use appropriate fetch cache options: force-cache for static, no-store for dynamic"
+  - Use metadata API (generateMetadata) for dynamic SEO instead of Head component
+  - Use Route Handlers in app/api for API endpoints with typed Request/Response
 
 forbidden:
   - Importing Server Components into Client Components
   - "Using React hooks (useState, useEffect) in Server Components"
   - "Mixing 'use client' and 'use server' directives in the same file"
   - Using client-side data fetching when server-side would work
+  - Using getServerSideProps/getStaticProps in App Router (use async components)
 
 patterns:
-  data_fetching: Fetch data in Server Components with appropriate cache/revalidate options
+  data_fetching: "Fetch data in Server Components with appropriate cache/revalidate options"
   mutations: "Use Server Actions for data mutations, not API routes"
+  metadata: "export async function generateMetadata({ params }): Promise<Metadata>"

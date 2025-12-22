@@ -1,0 +1,19 @@
+principles:
+  - Use CDI for dependency injection (@Inject, @ApplicationScoped, @RequestScoped)
+  - Design for GraalVM native compilation (avoid reflection where possible)
+  - Use Panache for simplified ORM (PanacheEntity or PanacheRepository patterns)
+  - Apply SmallRye Mutiny for reactive programming (Uni<T>, Multi<T>)
+  - Configure with application.properties or @ConfigProperty for type-safe config
+  - Use RESTEasy Reactive for non-blocking REST endpoints
+
+forbidden:
+  - Runtime reflection without @RegisterForReflection annotation
+  - Using javax.* imports (use jakarta.* for Jakarta EE 10+)
+  - Blocking operations in reactive endpoints (use Uni.runBlocking if necessary)
+  - Using @Singleton for beans with mutable state (use @ApplicationScoped)
+  - Ignoring build-time initialization warnings for native compilation
+
+patterns:
+  rest_endpoint: "@Path(\"/api\") @ApplicationScoped class Resource { @GET @Produces(JSON) Uni<List<Entity>> list() }"
+  panache_entity: "public class User extends PanacheEntity { public String name; public static User findByName(String n) { return find(\"name\", n).firstResult(); } }"
+  native_hints: "@RegisterForReflection(targets = {MyDto.class}) for classes accessed via reflection"

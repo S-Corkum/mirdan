@@ -1,0 +1,19 @@
+principles:
+  - Use auto-imports for Vue APIs, composables, and components
+  - Leverage file-based routing with pages/ directory structure
+  - Use useFetch/useAsyncData for data fetching with built-in caching
+  - Apply server routes in server/api/ for backend API logic
+  - Use Nuxt modules (@nuxtjs/*) for common integrations
+  - Configure with nuxt.config.ts for type-safe module configuration
+
+forbidden:
+  - Importing Vue APIs manually (they are auto-imported)
+  - Using raw axios/fetch instead of useFetch/useAsyncData composables
+  - Server-only code in pages/ without proper server middleware
+  - Mutating Nuxt runtime config at runtime
+  - Using require() syntax (use ESM imports)
+
+patterns:
+  data_fetching: "const { data, pending, error } = await useFetch('/api/users', { key: 'users' })"
+  server_routes: "export default defineEventHandler(async (event) => { const body = await readBody(event); return { success: true } })"
+  composables: "export const useAuth = () => { const user = useState('user', () => null); return { user } }"

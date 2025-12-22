@@ -1,0 +1,19 @@
+principles:
+  - Use +page.server.js for server-only data loading (database access, secrets)
+  - Use +page.js for universal load functions that run on server and client
+  - Apply form actions in +page.server.js for mutations with progressive enhancement
+  - Use $app/stores for page, navigating, and updated stores
+  - Leverage SvelteKit's built-in error() and redirect() helpers for control flow
+  - Use the provided fetch function in load for proper credential handling
+
+forbidden:
+  - Importing server-only code (+server.js) in +page.js or client components
+  - Using browser fetch instead of the provided fetch in load functions
+  - Storing secrets in +page.js (runs on client after hydration)
+  - Mutating load function return data directly (breaks reactivity)
+  - Using document/window in load functions without browser check
+
+patterns:
+  server_load: "export async function load({ params, locals }) { return { data: await db.query(params.id) } }"
+  form_actions: "export const actions = { default: async ({ request, locals }) => { const data = await request.formData(); return { success: true } } }"
+  error_handling: "import { error } from '@sveltejs/kit'; if (!found) error(404, 'Not found')"

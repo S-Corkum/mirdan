@@ -1,0 +1,19 @@
+principles:
+  - Use Helmet middleware for security headers (CSP, HSTS, X-Frame-Options)
+  - Apply express-rate-limit for brute-force and DDoS protection
+  - Validate all input with express-validator, Joi, or Zod schemas
+  - Use async/await with proper error handling middleware for async routes
+  - Set secure cookie options (httpOnly, secure, sameSite) for session cookies
+  - Use environment variables for all secrets and configuration
+
+forbidden:
+  - Exposing stack traces in production error responses
+  - Using default session cookie names (fingerprinting risk)
+  - Storing secrets or API keys in source code
+  - Accepting file uploads without size and type validation
+  - Using synchronous file operations in request handlers
+
+patterns:
+  middleware_order: "app.use(helmet()); app.use(cors()); app.use(express.json()); app.use(authMiddleware); app.use(routes); app.use(errorHandler)"
+  error_handler: "app.use((err, req, res, next) => { logger.error(err); res.status(err.status || 500).json({ error: 'Internal error' }) })"
+  async_wrapper: "const asyncHandler = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next)"

@@ -1,0 +1,19 @@
+principles:
+  - Use compile-time dependency injection (@Singleton, @Inject, @Factory)
+  - Leverage @Controller with @Get/@Post for HTTP endpoints
+  - Apply @Client for declarative, type-safe HTTP clients
+  - Use @ConfigurationProperties for type-safe configuration binding
+  - Design for GraalVM native with reflection-free patterns using @Introspected
+  - Use reactive types (Mono/Flux or Publisher) for non-blocking I/O
+
+forbidden:
+  - Runtime reflection without @Introspected annotation on beans
+  - Field injection in production code (use constructor injection)
+  - Blocking calls in reactive flows without proper scheduling
+  - Using Spring annotations (Micronaut has its own annotation set)
+  - Ignoring @Nullable annotations for optional dependencies
+
+patterns:
+  http_client: "@Client('https://api.example.com') interface ApiClient { @Get('/users/{id}') Mono<User> getUser(String id); }"
+  configuration: "@ConfigurationProperties('app.feature') record FeatureConfig(@Nullable String apiKey, boolean enabled) {}"
+  controller: "@Controller('/api') class UserController { @Get('/users') List<User> list() { return userService.findAll(); } }"

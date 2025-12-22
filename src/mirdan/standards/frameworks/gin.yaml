@@ -1,0 +1,19 @@
+principles:
+  - Use middleware groups for route-specific middleware chains
+  - Bind request data with ShouldBindJSON/ShouldBindQuery for validation with error handling
+  - Return structured errors with gin.H or custom error types for consistent API responses
+  - Use gin.Context methods (Set/Get) for request-scoped values across middleware
+  - Apply Recovery middleware to prevent panics from crashing the server
+  - Use router groups with common prefixes and middleware for API versioning
+
+forbidden:
+  - Using c.Abort() without returning from the handler function
+  - Storing gin.Context beyond request lifetime (causes memory leaks)
+  - Using global mutable state without proper synchronization (race conditions)
+  - Ignoring binding errors from ShouldBind methods
+  - Using c.JSON after c.Abort (response already committed)
+
+patterns:
+  middleware: "func AuthMiddleware() gin.HandlerFunc { return func(c *gin.Context) { /* validate */ c.Next() } }"
+  error_handling: "if err := c.ShouldBindJSON(&req); err != nil { c.AbortWithStatusJSON(400, gin.H{\"error\": err.Error()}); return }"
+  router_groups: "v1 := r.Group(\"/api/v1\"); v1.Use(AuthMiddleware()); v1.GET(\"/users\", handler)"

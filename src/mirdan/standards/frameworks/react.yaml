@@ -4,13 +4,17 @@ principles:
   - "Name custom hooks starting with 'use' (e.g., useAuth, useFetch)"
   - Keep components small and focused on a single responsibility
   - Use React.memo() for expensive pure components that render often with same props
+  - Prefer Server Components for data fetching when using React 19+ frameworks
+  - Use Suspense boundaries to handle loading states for async components
 
 forbidden:
   - "Hooks inside conditions, loops, or callbacks"
   - Hooks after early return statements
   - Mutating state directly instead of using setState
   - Using array index as key for dynamic lists
+  - Using useEffect for data fetching when Server Components are available
 
 patterns:
   hooks: "Call hooks unconditionally at top level; handle conditions inside hook body"
   memoization: "useMemo for expensive calculations, useCallback for stable function references"
+  suspense: "<Suspense fallback={<Loading />}><AsyncComponent /></Suspense>"

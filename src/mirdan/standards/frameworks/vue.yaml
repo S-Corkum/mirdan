@@ -1,0 +1,19 @@
+principles:
+  - Use Composition API with <script setup> for all new components
+  - Define reactive state with ref() for primitives, reactive() for objects
+  - Use computed() for derived state without side effects
+  - Apply provide/inject for dependency injection in deep component hierarchies
+  - Use defineProps() and defineEmits() for type-safe component APIs
+  - Prefer Pinia over Vuex for state management (official recommendation)
+
+forbidden:
+  - Mixing Options API and Composition API in the same component
+  - Mutating props directly (use emit to request parent updates)
+  - Using this.$refs in Composition API (use template refs with ref())
+  - Reactive objects in v-for without unique key attribute
+  - Using Vue 2 syntax (Vue.component, Vue.use) in Vue 3 projects
+
+patterns:
+  composables: "export function useFeature() { const state = ref(initialValue); return { state, actions } }"
+  state_management: "export const useStore = defineStore('id', () => { const count = ref(0); return { count } })"
+  props_emits: "<script setup> const props = defineProps<{ title: string }>(); const emit = defineEmits<{ update: [value: string] }>()</script>"

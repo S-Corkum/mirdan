@@ -1,0 +1,19 @@
+principles:
+  - Use echo.Context for all request/response handling operations
+  - Apply middleware groups for modular, route-specific middleware chains
+  - Use echo.Validator with go-playground/validator for struct validation
+  - Leverage echo.Binder for automatic request binding to structs
+  - Return structured errors with echo.HTTPError for consistent API responses
+  - Use echo.Logger or structured logging middleware for observability
+
+forbidden:
+  - Storing echo.Context beyond request scope (causes memory issues)
+  - Using panic for error handling (return errors instead)
+  - Ignoring context cancellation in long-running operations
+  - Raw string responses for APIs (use JSON with proper content types)
+  - Blocking the event loop with synchronous I/O
+
+patterns:
+  middleware: "func AuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc { return func(c echo.Context) error { /* validate */ return next(c) } }"
+  validation: "type CustomValidator struct { validator *validator.Validate }; e.Validator = &CustomValidator{validator: validator.New()}"
+  error_handling: "if err := c.Bind(&req); err != nil { return echo.NewHTTPError(http.StatusBadRequest, err.Error()) }"

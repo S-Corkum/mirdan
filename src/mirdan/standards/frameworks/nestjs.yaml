@@ -1,0 +1,19 @@
+principles:
+  - Use constructor injection with private readonly for all dependencies
+  - Organize code into feature modules with single responsibility
+  - Use Guards for authentication/authorization implementing CanActivate
+  - Apply DTOs with class-validator decorators for input validation
+  - Use Interceptors for cross-cutting concerns (logging, caching, transformation)
+  - Configure global pipes, filters, and guards in module providers with APP_* tokens
+
+forbidden:
+  - Field injection with @Inject() on properties (use constructor injection)
+  - Circular dependencies without forwardRef() wrapper
+  - Global mutable state in services (services are singletons by default)
+  - Catching all exceptions without proper error transformation in filters
+  - Using any type in DTOs (defeats validation purpose)
+
+patterns:
+  dependency_injection: "constructor(private readonly userService: UserService) {}"
+  guards: "@Injectable() class AuthGuard implements CanActivate { canActivate(context: ExecutionContext): boolean }"
+  dto_validation: "class CreateUserDto { @IsEmail() email: string; @MinLength(8) password: string; }"

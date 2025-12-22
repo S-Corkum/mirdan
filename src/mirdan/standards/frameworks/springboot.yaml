@@ -4,13 +4,17 @@ principles:
   - Use @Service, @Repository, @Component stereotypes appropriately
   - Externalize configuration with @ConfigurationProperties
   - Use @Transactional for database operations requiring atomicity
+  - Use Java records for DTOs and value objects (Java 17+)
+  - Use virtual threads for I/O-bound operations (Java 21+ with spring.threads.virtual.enabled)
 
 forbidden:
   - Field injection with @Autowired on fields
   - Catching generic Exception in @ExceptionHandler
   - Blocking calls in reactive WebFlux handlers
   - Hardcoded configuration values instead of externalized properties
+  - Using deprecated WebSecurityConfigurerAdapter (use SecurityFilterChain bean)
 
 patterns:
   dependency_injection: "Constructor injection with final fields, @Autowired only for multiple constructors"
   rest_api: "@RestController with @RequestMapping/@GetMapping/@PostMapping"
+  records_dto: "public record CreateUserRequest(String name, @Email String email) {}"

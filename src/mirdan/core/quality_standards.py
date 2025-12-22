@@ -89,16 +89,23 @@ class QualityStandards:
             lang_file = standards_pkg.joinpath("languages", f"{lang}.yaml")
             standards[lang] = self._load_yaml_file(lang_file, lang)
 
-        # Load framework standards (next.js -> nextjs.yaml for filename compatibility)
-        framework_files = {
-            "react": "react.yaml",
-            "next.js": "nextjs.yaml",
-            "fastapi": "fastapi.yaml",
-            "spring-boot": "springboot.yaml",
+        # Load all framework standards dynamically from the frameworks directory
+        # Map filename to standard name (e.g., nextjs.yaml -> next.js, springboot.yaml -> spring-boot)
+        filename_to_name = {
+            "nextjs": "next.js",
+            "springboot": "spring-boot",
         }
-        for framework, filename in framework_files.items():
-            fw_file = standards_pkg.joinpath("frameworks", filename)
-            standards[framework] = self._load_yaml_file(fw_file, framework)
+        frameworks_dir = standards_pkg.joinpath("frameworks")
+        try:
+            for item in frameworks_dir.iterdir():
+                if item.name.endswith(".yaml"):
+                    # Remove .yaml extension to get base name
+                    base_name = item.name[:-5]
+                    # Apply name mapping for backwards compatibility
+                    framework_name = filename_to_name.get(base_name, base_name)
+                    standards[framework_name] = self._load_yaml_file(item, framework_name)
+        except (FileNotFoundError, TypeError):
+            logger.warning("frameworks directory not found or not iterable")
 
         # Load security standards (root level)
         security_file = standards_pkg.joinpath("security.yaml")
