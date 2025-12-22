@@ -1,17 +1,43 @@
 principles:
-  - Use constructor injection and mark dependencies final
-  - Prefer interfaces over concrete implementations
-  - Use try-with-resources for AutoCloseable resources
-  - Follow Java naming conventions (camelCase methods, PascalCase classes)
-  - Use @Override annotation consistently
-  - Prefer specific exceptions over generic Exception
+  - "Use constructor injection and mark all dependencies final"
+  - "Prefer interfaces over concrete implementations for dependencies"
+  - "Use try-with-resources for all AutoCloseable resources"
+  - "Follow Java naming conventions (camelCase methods, PascalCase classes)"
+  - "Use @Override annotation on all overridden methods"
+  - "Prefer specific exception types over generic Exception"
+  - "Use virtual threads for I/O-bound workloads (finalized Java 21+)"
+  - "Use record classes for immutable data carriers"
+  - "Use sealed classes for controlled inheritance hierarchies"
+  - "Use pattern matching in switch for type-safe branching"
+  - "Use Stream Gatherers for custom stream operations (finalized Java 24)"
+  - "Use Scoped Values instead of ThreadLocal with virtual threads (JEP 506, finalized Java 25)"
+  - "Use Optional for nullable return values, never for parameters"
+  - "Use var for local variables with obvious types"
+  - "Use module imports for cleaner import statements (JEP 511, finalized Java 25)"
+  - "Prefer immutable collections (List.of, Set.of, Map.of)"
+  - "Use text blocks for multi-line strings"
+  - "Use Flexible Constructor Bodies for input validation before super() (JEP 513, Java 25)"
 
 forbidden:
-  - String comparison with == instead of .equals()
+  - "String comparison with == instead of .equals()"
   - Catching generic Exception or Throwable in production code
   - System.exit() in library code
-  - Raw types without generics
+  - "Raw types without generics (List instead of List<String>)"
+  - "ObjectInputStream.readObject() on untrusted data"
+  - XMLDecoder for untrusted input
+  - Runtime.exec() with unsanitized user input
+  - "ThreadLocal with virtual threads (use ScopedValue - JEP 506)"
+  - synchronized blocks on virtual thread blocking operations
+  - "Mutable public fields (use proper encapsulation)"
+  - Returning null for collection types (return empty collection)
+  - Using checked exceptions for control flow
 
 patterns:
-  error_handling: "Use specific exception types with meaningful messages"
-  dependency_injection: "Constructor injection with final fields"
+  error_handling: "Use specific exception types with context; multi-catch where appropriate; try-with-resources for cleanup"
+  dependency_injection: "Constructor injection with final fields; prefer Spring or CDI; code to interfaces not implementations"
+  concurrency: "Virtual threads for I/O-bound work; StructuredTaskScope for structured concurrency (preview); ScopedValues over ThreadLocal"
+  records: "Use records for DTOs and value objects; compact constructors for validation; records are implicitly final"
+  pattern_matching: "Switch expressions with pattern matching; sealed class hierarchies for exhaustive matching; primitive patterns (preview JEP 507)"
+  streams: "Use Stream Gatherers for custom operations (Java 24+); prefer method references; use parallel() only after profiling"
+  validation: "Bean Validation annotations (@NotNull, @Size); Flexible Constructor Bodies for pre-super validation (Java 25); fail fast"
+  testing: "JUnit 5 with @Nested; Mockito for mocking; test virtual thread code with timeouts; use JFR for profiling"

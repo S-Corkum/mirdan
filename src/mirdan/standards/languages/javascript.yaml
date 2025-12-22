@@ -1,14 +1,43 @@
 principles:
-  - "Use const by default, let when reassignment is needed"
-  - Prefer arrow functions for callbacks
-  - Use async/await over raw Promises
-  - Destructure objects and arrays when appropriate
+  - "Use const by default, let only when reassignment is needed"
+  - "Prefer arrow functions for callbacks and short functions"
+  - "Use async/await over raw Promises for readability"
+  - "Destructure objects and arrays where it improves clarity"
+  - "Use ES modules (import/export) not CommonJS require()"
+  - "Use Promise.withResolvers() for deferred promise patterns"
+  - "Use Iterator helpers (.map(), .filter(), .take(), .drop(), .toArray()) for lazy evaluation"
+  - "Use Object.groupBy() and Map.groupBy() for data grouping"
+  - "Use Array.fromAsync() for creating arrays from async iterables"
+  - "Use JSON module imports with import attributes syntax"
+  - "Use Set methods (union, intersection, difference, symmetricDifference)"
+  - "Prefer immutable array methods (toSorted, toReversed, toSpliced, with)"
+  - "Use private class fields (#field) for encapsulation"
+  - "Use optional chaining (?.) and nullish coalescing (??)"
+  - "Use Object.hasOwn() instead of hasOwnProperty"
+  - "Use structuredClone() for deep object cloning"
+  - "Use AbortController for cancellation patterns"
+  - "Leverage Node.js 22 LTS native TypeScript execution where appropriate"
 
 forbidden:
-  - var declarations
-  - eval()
+  - var declarations (use const or let)
+  - eval() and Function() constructor
   - document.write()
+  - with statement
+  - "__proto__ property access (prototype pollution risk)"
+  - arguments object (use rest parameters ...args)
+  - Synchronous XMLHttpRequest
+  - "Object.assign() for deep cloning (use structuredClone)"
+  - for...in on arrays (use for...of or array methods)
+  - Implicit global variables (missing const/let/var)
+  - Direct Object.prototype modification
+  - innerHTML without sanitization (use DOMPurify)
 
 patterns:
-  error_handling: Always catch Promise rejections
-  null_handling: Use optional chaining and nullish coalescing
+  error_handling: "Use try-catch with specific error types; always handle Promise rejections; use Error.isError() for validation"
+  null_handling: "Use optional chaining (?.) and nullish coalescing (??); prefer explicit null checks over truthy checks"
+  async: "Use async/await for readability; AbortController for cancellation; Promise.withResolvers() for deferred patterns"
+  iteration: "Use Iterator helpers for lazy evaluation; prefer for...of over for...in for arrays; use .toArray() to materialize"
+  data_transformation: "Use Object.groupBy/Map.groupBy for grouping; immutable array methods for transformations"
+  modules: "Use ES modules with named exports; dynamic import() for code splitting; JSON imports with type attribute"
+  security: "Freeze Object.prototype in sensitive contexts; sanitize all user input; use Map/Set for dynamic keys to avoid prototype pollution"
+  collections: "Use Map/Set over plain objects for dynamic keys; WeakMap for private metadata; use Set methods for set operations"

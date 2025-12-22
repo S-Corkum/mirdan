@@ -1,15 +1,43 @@
 principles:
-  - "Use strict TypeScript - no `any` without explicit documentation"
-  - "Prefer type inference; explicit types only when necessary"
-  - Use discriminated unions over type assertions
-  - Export types separately from implementations
+  - "Enable strict mode in tsconfig.json (strictNullChecks, noImplicitAny, noUncheckedIndexedAccess)"
+  - "Use strict TypeScript - no any without explicit documentation"
+  - "Prefer unknown over any for truly unknown types"
+  - "Use the satisfies operator for config objects to preserve literal types"
+  - "Prefer type inference; add explicit types only when inference fails"
+  - "Use discriminated unions over type assertions"
+  - "Export types separately from implementations"
+  - "Use const type parameters for immutable generic functions"
+  - "Prefer ES modules (import/export) - ESM is default in 2025"
+  - "Use branded types for type-safe IDs and domain primitives"
+  - "Prefer as const for literal type inference"
+  - "Use template literal types for string manipulation"
+  - "Use Zod or Valibot for runtime validation at API boundaries"
+  - "Use using keyword with Disposable for resource cleanup"
+  - "Prefer readonly arrays and objects where mutation is not needed"
+  - "Use NoInfer<T> to prevent inference in specific type positions"
+  - "Use import defer for lazy module loading when supported (TS 5.9+)"
+  - "Document complex types with JSDoc-style comments"
 
 forbidden:
-  - eval()
-  - Function() constructor
-  - "// @ts-ignore without explanation"
-  - as any casts
+  - "any type without explicit documentation comment"
+  - "// @ts-ignore without explanation comment"
+  - "as any type assertions"
+  - "Non-null assertion (!) without proven null safety"
+  - eval() and Function() constructor
+  - dangerouslySetInnerHTML without DOMPurify sanitization
+  - Disabling strict mode compiler options
+  - Type assertions that hide errors (as Type on unknown)
+  - Implicit any in function parameters
+  - Module-level side effects in library code
+  - Prototype pollution via Object.prototype modification
+  - innerHTML assignment without sanitization
 
 patterns:
-  error_handling: Wrap async operations in try-catch with typed errors
-  null_handling: Use optional chaining (?.) and nullish coalescing (??)
+  error_handling: "Use discriminated unions for Result types; custom error classes extending Error; typed catch with instanceof"
+  null_handling: "Use optional chaining (?.) and nullish coalescing (??); enable strictNullChecks; avoid non-null assertions"
+  validation: "Runtime validation with Zod at API boundaries; infer TypeScript types from schemas; validate environment variables"
+  async: "Use async/await; prefer AbortController for cancellation; properly type async errors; use import defer for lazy loading"
+  configuration: "Use satisfies for config objects; typed environment variables with validation; --module node20 for stable Node.js behavior"
+  testing: "Use vitest or jest with ts-jest; type test fixtures and mocks; use expectTypeOf for compile-time type testing"
+  http_clients: "Use fetch with proper response typing; AbortController for timeouts; validate responses with Zod"
+  dependency_injection: "Use typed DI containers; constructor injection with readonly fields; prefer interfaces over classes"

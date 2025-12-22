@@ -1,13 +1,43 @@
 principles:
-  - Check errors immediately after function calls
-  - Use meaningful variable names
-  - Keep functions focused and short
-  - Use interfaces for abstraction
+  - "Check errors immediately after function calls - never ignore"
+  - "Use meaningful variable names (single letters only in short scopes)"
+  - "Keep functions focused and short (prefer under 50 lines)"
+  - "Use interfaces for abstraction - accept interfaces, return structs"
+  - "Use generic type aliases for reusable data structures (Go 1.24+)"
+  - "Use range-over-func iterators for custom container types"
+  - "Use context.Context for cancellation, timeouts, and request-scoped values"
+  - "Use defer for cleanup operations immediately after acquiring resources"
+  - "Return errors, don't panic (except truly unrecoverable situations)"
+  - "Use the blank identifier _ only with explicit comment explaining why"
+  - "Prefer table-driven tests; use testing/synctest for deterministic concurrency tests (Go 1.25)"
+  - "Use go generate for code generation with clear documentation"
+  - "Use tool directives in go.mod for project tooling (Go 1.24+)"
+  - "Use structured logging with slog package"
+  - "Prefer slices package functions over manual slice manipulation"
+  - "Use maps package functions for map operations"
+  - "Use iterators (iter package) for lazy evaluation patterns"
+  - "Use ignore directive in go.mod to exclude directories from builds (Go 1.25)"
 
 forbidden:
-  - Ignoring errors with _
+  - "Ignoring errors with _ without explicit comment explaining why"
   - panic() for recoverable errors
+  - "Naked returns in functions longer than 10 lines"
+  - init() functions with side effects
+  - Global mutable state
+  - "Race conditions (always use go test -race)"
+  - "String concatenation in loops (use strings.Builder)"
+  - Goroutines without cancellation mechanism
+  - "text/template for HTML output (use html/template)"
+  - "SQL string concatenation (use parameterized queries)"
+  - Ignoring context cancellation in long-running operations
+  - Using unsafe package without clear justification and documentation
 
 patterns:
-  error_handling: "Return errors, don't panic"
-  concurrency: Use channels for communication
+  error_handling: "Return errors and wrap with fmt.Errorf using %w; use errors.Is/As for type checking; add context to errors"
+  concurrency: "Use channels for goroutine communication; context for cancellation; errgroup for parallel operations; testing/synctest for tests"
+  http: "Use http.ServeMux for routing; middleware pattern for cross-cutting concerns; set timeouts on both clients and servers"
+  testing: "Table-driven tests with clear names; t.Parallel() for independent tests; testing/synctest for deterministic concurrency (Go 1.25)"
+  configuration: "Use environment variables; struct tags for parsing; validate all config at startup"
+  logging: "Use slog for structured logging; include request context; use appropriate log levels"
+  iteration: "Use range-over-func for custom iterators; slices/maps packages for standard operations; bytes.Lines/strings.Lines for line iteration"
+  generics: "Use generic type aliases (Go 1.24+); use constraints for type safety; Core Types removed in Go 1.25"

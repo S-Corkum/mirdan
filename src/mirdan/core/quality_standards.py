@@ -90,7 +90,7 @@ class QualityStandards:
             standards[lang] = self._load_yaml_file(lang_file, lang)
 
         # Load all framework standards dynamically from the frameworks directory
-        # Map filename to standard name (e.g., nextjs.yaml -> next.js, springboot.yaml -> spring-boot)
+        # Map filename to standard name (e.g., nextjs.yaml -> next.js)
         filename_to_name = {
             "nextjs": "next.js",
             "springboot": "spring-boot",

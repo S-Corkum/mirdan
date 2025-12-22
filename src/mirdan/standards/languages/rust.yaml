@@ -1,13 +1,42 @@
 principles:
-  - "Prefer Result<T, E> over panicking"
-  - Use meaningful error types with thiserror
-  - Leverage the type system for correctness
-  - Minimize unsafe code blocks
+  - "Prefer Result<T, E> over panicking for recoverable errors"
+  - "Use meaningful error types with thiserror for libraries, anyhow for applications"
+  - "Leverage the type system for correctness - make illegal states unrepresentable"
+  - "Minimize unsafe code blocks and isolate in dedicated modules"
+  - "Use async fn in traits (RPITIT) for async trait abstractions (stable since 1.85)"
+  - "Use async closures for callback patterns in async contexts (stable since 1.85)"
+  - "Use ? operator consistently for error propagation"
+  - "Prefer borrowing over cloning - clone only when ownership is needed"
+  - "Use impl Trait for return types where concrete type is internal detail"
+  - "Use const generics for compile-time sized types and arrays"
+  - "Use derive macros (Debug, Clone, PartialEq) consistently for types"
+  - "Document all unsafe blocks with SAFETY comments explaining invariants"
+  - "Use #[must_use] for functions returning important values"
+  - "Prefer iterators over explicit loops for transformations"
+  - "Use Cow<T> when ownership is conditional (owned or borrowed)"
+  - "Use newtype pattern for type safety and domain modeling"
+  - "Use #[diagnostic::do_not_recommend] to improve error messages (stable since 1.85)"
 
 forbidden:
-  - unwrap() in library code
-  - expect() without meaningful messages
+  - ".unwrap() in library code (use ? or expect with context)"
+  - ".expect() without meaningful error messages"
+  - "Unsafe blocks without SAFETY documentation comment"
+  - "#[allow(unsafe_code)] at crate level"
+  - panic!() for recoverable errors
+  - "Unbounded recursion without consideration"
+  - "mem::transmute without SAFETY documentation and review"
+  - "Raw pointer dereferencing without bounds checking"
+  - "std::mem::forget for types with important Drop implementations"
+  - "Ignoring #[must_use] return values"
+  - "Using .clone() to satisfy borrow checker without analysis"
+  - "Unchecked arithmetic in release builds for user-controlled values"
 
 patterns:
-  error_handling: Propagate errors with ? operator
-  ownership: Prefer borrowing over cloning
+  error_handling: "Use thiserror for library errors with #[from] for conversions; anyhow for applications; propagate with ?"
+  ownership: "Prefer borrowing over cloning; use Cow<T> for conditional ownership; Arc<T> only for shared state"
+  async: "Use async fn in traits (stable 1.85); async closures; tokio::spawn with JoinHandle; structured concurrency patterns"
+  concurrency: "Use channels (mpsc/broadcast) for communication; Arc<Mutex<T>> only when truly needed; prefer message passing"
+  testing: "Use #[cfg(test)] modules; property-based testing with proptest; use assert! variants; cargo-nextest for speed"
+  unsafe: "Isolate in dedicated modules with safe wrappers; document all invariants with SAFETY comments; minimize scope"
+  performance: "Use iterators over explicit loops; zero-copy parsing where possible; profile before optimizing; lld linker on Linux"
+  dependencies: "Use cargo-audit in CI; pin versions in Cargo.lock; audit transitive unsafe deps with cargo-geiger; never type lints are deny-by-default (1.92)"
