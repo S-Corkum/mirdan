@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-01-24
+
+### Added
+
+- **LangChain 1.x Framework Support**: Quality standards for the modern LangChain agent API
+  - `create_agent()` patterns, middleware lifecycle hooks, structured output strategies
+  - Tool design with `@tool` decorator and Pydantic `args_schema`
+  - 7 principles, 7 forbidden patterns, 4 code patterns
+
+- **LangGraph 1.x Framework Support**: Quality standards for stateful graph workflows
+  - `StateGraph` with TypedDict state, Annotated reducers, and `.compile()` patterns
+  - Checkpointing (PostgresSaver/SqliteSaver), human-in-the-loop with `interrupt()`
+  - 9 principles, 7 forbidden patterns, 5 code patterns
+
+- **LangChain Deprecated-API Detection Rules** (LC001–LC004):
+  - `LC001`: Catches deprecated `initialize_agent()` (use `create_agent()`)
+  - `LC002`: Catches deprecated `langgraph.prebuilt` imports (moved to `langchain.agents`)
+  - `LC003`: Catches legacy chain patterns (`LLMChain`, `SequentialChain`)
+  - `LC004`: Catches `MemorySaver()` usage (in-memory only, not production-safe)
+
+- **Expanded Framework Standards** (4 → 17 frameworks):
+  - Django, Express, NestJS, Vue, Nuxt, SvelteKit, Tailwind CSS
+  - Gin, Echo (Go), Micronaut, Quarkus (Java)
+  - LangChain, LangGraph (Python AI/agents)
+  - Dynamic framework loading from `standards/frameworks/` directory
+
+- **Updated Language Standards to 2025/2026**:
+  - Go, Java, JavaScript, Rust, TypeScript standards expanded with modern patterns
+  - Python standards expanded with security rules (PY007–PY013): unsafe pickle, subprocess shell, yaml.load, os.system, os.path, wildcard imports, requests without timeout
+
+- **LangChain Ecosystem Entity Detection**: Added `langchain`, `langgraph`, `langchain_core`, `langchain_openai`, `langchain_anthropic`, `langchain_community`, `langsmith` to known libraries
+
+- **LangChain/LangGraph Intent Detection**: Framework and Python language detection from prompts mentioning `langchain`, `langgraph`, `StateGraph`, `create_agent`, `AgentExecutor`, `add_conditional_edges`
+
+### Testing
+
+- **New Test Coverage**: 36 new tests (395 → 431 total)
+  - `TestLangChainPatternDetection`: 7 tests for LC001–LC004 rules with false-positive checks
+  - `TestLangChainDetection`: 6 tests for framework and language detection
+  - Framework loading assertions for langchain/langgraph in quality standards tests
+  - Python security rule tests (PY007–PY013)
+
 ## [0.0.4] - 2025-12-20
 
 ### Added
@@ -95,5 +137,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality standards for 6 languages
 - Integration guides for Claude Desktop, VS Code, Cursor
 
+[0.0.5]: https://github.com/S-Corkum/mirdan/compare/0.0.4...0.0.5
 [0.0.4]: https://github.com/S-Corkum/mirdan/compare/0.0.2...0.0.4
 [0.0.2]: https://github.com/S-Corkum/mirdan/releases/tag/0.0.2
