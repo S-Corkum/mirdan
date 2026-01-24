@@ -1,0 +1,23 @@
+principles:
+  - Use create_agent() with model, tools, and middleware for agent creation - it runs on LangGraph runtime for durability
+  - Define tools with @tool decorator and comprehensive docstrings describing purpose, when to use, parameters, return format, and examples
+  - Use TypedDict extending AgentState for custom state schemas - Pydantic models and dataclasses are not supported in 1.0+
+  - Use middleware (wrap_model_call, wrap_tool_call, before_model, after_model) for cross-cutting concerns instead of ad-hoc hooks
+  - Use ProviderStrategy for structured output when the model provider supports native structured output - fall back to ToolStrategy otherwise
+  - Use Pydantic BaseModel with Field() constraints for tool input schemas (args_schema) to ensure agents provide correct arguments
+  - Use streaming (stream_mode values/updates/messages) for multi-step agent tasks to provide real-time progress feedback
+
+forbidden:
+  - Using deprecated initialize_agent() or AgentExecutor - use create_agent() instead
+  - Using deprecated LLMChain, SequentialChain, or other legacy chain patterns - use create_agent() with middleware
+  - Using langgraph.prebuilt module (deprecated in 1.0) - use langchain.agents instead
+  - Using bind_tools() on models when also using response_format structured output (incompatible)
+  - Using Pydantic models or dataclasses for AgentState schemas (TypedDict only in 1.0+)
+  - Defining tools without docstrings - agents use docstrings to decide when to invoke tools
+  - Registering dynamic tools at runtime without implementing wrap_tool_call middleware
+
+patterns:
+  agent_creation: "create_agent(model, tools=[...], middleware=[...], response_format=ProviderStrategy(Schema))"
+  tool_design: "@tool with verb-noun name, comprehensive docstring, and Pydantic args_schema for complex inputs"
+  middleware: "AgentMiddleware class with before_model, after_model, wrap_model_call, wrap_tool_call lifecycle hooks"
+  structured_output: "ProviderStrategy(Schema) for native provider output; ToolStrategy(Schema) as fallback for any model"

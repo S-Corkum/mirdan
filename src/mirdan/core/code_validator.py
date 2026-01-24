@@ -138,6 +138,38 @@ class CodeValidator:
                 "HTTP request without timeout can hang indefinitely",
                 "Always specify timeout: requests.get(url, timeout=30)",
             ),
+            (
+                "LC001",
+                "deprecated-initialize-agent",
+                r"\binitialize_agent\s*\(",
+                "error",
+                "initialize_agent() is deprecated in LangChain 1.0+ - use create_agent() instead",
+                "Use create_agent(model, tools=tools) for the modern agent API with LangGraph runtime",
+            ),
+            (
+                "LC002",
+                "deprecated-langgraph-prebuilt",
+                r"from\s+langgraph\.prebuilt\s+import",
+                "error",
+                "langgraph.prebuilt is deprecated in LangGraph 1.0 - functionality moved to langchain.agents",
+                "Import from langchain.agents instead: from langchain.agents import create_agent",
+            ),
+            (
+                "LC003",
+                "deprecated-legacy-chains",
+                r"from\s+langchain\.chains\s+import\s+(?:[^#\n]*\b(?:LLMChain|SequentialChain|SimpleSequentialChain)\b)",
+                "warning",
+                "Legacy chain patterns (LLMChain, SequentialChain) are deprecated - use create_agent() with middleware",
+                "Use create_agent() with middleware for modern agent workflows",
+            ),
+            (
+                "LC004",
+                "memory-saver-production",
+                r"\bMemorySaver\s*\(\s*\)",
+                "warning",
+                "MemorySaver is in-memory only - state is lost on restart. Not suitable for production",
+                "Use PostgresSaver(conn_string) or SqliteSaver for persistent checkpointing in production",
+            ),
         ],
         "typescript": [
             (

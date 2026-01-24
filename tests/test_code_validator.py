@@ -271,6 +271,52 @@ public class UserService {
         assert result.score > 0.8
 
 
+class TestLangChainPatternDetection:
+    """Tests for LangChain deprecated pattern detection."""
+
+    def test_lc001_catches_initialize_agent(self, validator: CodeValidator) -> None:
+        """Should catch deprecated initialize_agent usage."""
+        code = 'agent = initialize_agent(tools, llm, agent="zero-shot-react")'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "LC001" for v in result.violations)
+
+    def test_lc002_catches_langgraph_prebuilt(self, validator: CodeValidator) -> None:
+        """Should catch deprecated langgraph.prebuilt import."""
+        code = "from langgraph.prebuilt import create_react_agent"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "LC002" for v in result.violations)
+
+    def test_lc003_catches_legacy_chains(self, validator: CodeValidator) -> None:
+        """Should catch deprecated LLMChain import."""
+        code = "from langchain.chains import LLMChain"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "LC003" for v in result.violations)
+
+    def test_lc003_catches_sequential_chain(self, validator: CodeValidator) -> None:
+        """Should catch deprecated SequentialChain import."""
+        code = "from langchain.chains import SequentialChain"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "LC003" for v in result.violations)
+
+    def test_lc004_catches_memory_saver(self, validator: CodeValidator) -> None:
+        """Should catch MemorySaver usage."""
+        code = "checkpointer = MemorySaver()"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "LC004" for v in result.violations)
+
+    def test_lc001_does_not_flag_create_agent(self, validator: CodeValidator) -> None:
+        """Should not flag modern create_agent usage."""
+        code = "agent = create_agent(model, tools=tools)"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "LC001" for v in result.violations)
+
+    def test_lc004_does_not_flag_postgres_saver(self, validator: CodeValidator) -> None:
+        """Should not flag PostgresSaver usage."""
+        code = 'checkpointer = PostgresSaver(conn_string="postgresql://...")'
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "LC004" for v in result.violations)
+
+
 class TestSecurityPatternDetection:
     """Tests for security pattern detection across languages."""
 
