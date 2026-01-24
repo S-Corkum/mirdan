@@ -143,8 +143,7 @@ class CodeValidator:
                 "deprecated-initialize-agent",
                 r"\binitialize_agent\s*\(",
                 "error",
-                "initialize_agent() is deprecated in LangChain 1.0+"
-                " - use create_agent() instead",
+                "initialize_agent() is deprecated in LangChain 1.0+ - use create_agent() instead",
                 "Use create_agent(model, tools=tools) for the modern"
                 " agent API with LangGraph runtime",
             ),
@@ -155,8 +154,7 @@ class CodeValidator:
                 "error",
                 "langgraph.prebuilt is deprecated in LangGraph 1.0"
                 " - functionality moved to langchain.agents",
-                "Import from langchain.agents instead:"
-                " from langchain.agents import create_agent",
+                "Import from langchain.agents instead: from langchain.agents import create_agent",
             ),
             (
                 "LC003",
@@ -166,8 +164,7 @@ class CodeValidator:
                 "warning",
                 "Legacy chain patterns (LLMChain, SequentialChain)"
                 " are deprecated - use create_agent() with middleware",
-                "Use create_agent() with middleware for modern"
-                " agent workflows",
+                "Use create_agent() with middleware for modern agent workflows",
             ),
             (
                 "LC004",
