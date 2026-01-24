@@ -96,6 +96,40 @@ class TestFrameworkDetection:
         assert "tailwind" in intent.frameworks
 
 
+class TestLangChainDetection:
+    """Tests for LangChain/LangGraph framework detection."""
+
+    def test_detect_langchain_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect langchain framework from prompt."""
+        intent = analyzer.analyze("build a langchain agent with tools")
+        assert "langchain" in intent.frameworks
+
+    def test_detect_langgraph_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect langgraph framework from prompt."""
+        intent = analyzer.analyze("create a StateGraph workflow")
+        assert "langgraph" in intent.frameworks
+
+    def test_langchain_triggers_python_detection(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect Python language when langchain mentioned."""
+        intent = analyzer.analyze("build a langchain agent")
+        assert intent.primary_language == "python"
+
+    def test_langgraph_triggers_python_detection(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect Python language when langgraph mentioned."""
+        intent = analyzer.analyze("create a langgraph workflow")
+        assert intent.primary_language == "python"
+
+    def test_detect_langchain_via_create_agent(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect langchain framework from create_agent pattern."""
+        intent = analyzer.analyze("use create_agent to build a tool-using agent")
+        assert "langchain" in intent.frameworks
+
+    def test_detect_langgraph_via_add_conditional_edges(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect langgraph from add_conditional_edges pattern."""
+        intent = analyzer.analyze("add add_conditional_edges for routing")
+        assert "langgraph" in intent.frameworks
+
+
 class TestSecurityDetection:
     """Tests for security-related detection."""
 

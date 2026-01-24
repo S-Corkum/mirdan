@@ -49,6 +49,13 @@ KNOWN_LIBRARIES = {
     "httpx",
     "aiohttp",
     "celery",
+    "langchain",
+    "langgraph",
+    "langchain_core",
+    "langchain_openai",
+    "langchain_anthropic",
+    "langchain_community",
+    "langsmith",
     # Node stdlib
     "fs",
     "path",

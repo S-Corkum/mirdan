@@ -90,6 +90,8 @@ class IntentAnalyzer:
             r"\bdjango\b",
             r"\bfastapi\b",
             r"\bflask\b",
+            r"\blangchain\b",
+            r"\blanggraph\b",
         ],
         "javascript": [
             r"\.jsx?$",
@@ -114,6 +116,8 @@ class IntentAnalyzer:
         "express": [r"\bexpress\b", r"\bexpress\.js\b"],
         "prisma": [r"\bprisma\b"],
         "tailwind": [r"\btailwind\b", r"\btailwindcss\b"],
+        "langchain": [r"\blangchain\b", r"\bcreate_agent\b", r"\bAgentExecutor\b"],
+        "langgraph": [r"\blanggraph\b", r"\bStateGraph\b", r"\badd_conditional_edges\b"],
     }
 
     # Security-related keywords

@@ -40,6 +40,24 @@ class TestFrameworkStandards:
         assert "forbidden" in spring_standards
         assert len(spring_standards["principles"]) > 0
 
+    def test_get_for_framework_langchain(self) -> None:
+        """Should return LangChain standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("langchain")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert "patterns" in result
+        assert len(result["principles"]) >= 5
+
+    def test_get_for_framework_langgraph(self) -> None:
+        """Should return LangGraph standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("langgraph")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert "patterns" in result
+        assert len(result["principles"]) >= 5
+
     def test_render_includes_framework_standards(self) -> None:
         """Should include framework standards when frameworks detected."""
         standards = QualityStandards()
@@ -502,6 +520,8 @@ class TestYamlFileLoading:
         assert "next.js" in standards.standards
         assert "fastapi" in standards.standards
         assert "spring-boot" in standards.standards
+        assert "langchain" in standards.standards
+        assert "langgraph" in standards.standards
         assert "security" in standards.standards
         assert "architecture" in standards.standards
 
