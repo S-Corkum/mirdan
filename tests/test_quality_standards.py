@@ -509,21 +509,34 @@ class TestYamlFileLoading:
         """Should load all standard categories from YAML files."""
         standards = QualityStandards()
 
-        # Verify all 12 categories are loaded (was 10, now 12 with java and spring-boot)
+        # Verify language standards
         assert "python" in standards.standards
         assert "typescript" in standards.standards
         assert "javascript" in standards.standards
         assert "rust" in standards.standards
         assert "go" in standards.standards
         assert "java" in standards.standards
+        # Verify framework standards
         assert "react" in standards.standards
         assert "next.js" in standards.standards
         assert "fastapi" in standards.standards
         assert "spring-boot" in standards.standards
         assert "langchain" in standards.standards
         assert "langgraph" in standards.standards
+        # Vector DB / Graph DB frameworks
+        assert "chromadb" in standards.standards
+        assert "pinecone" in standards.standards
+        assert "faiss" in standards.standards
+        assert "neo4j" in standards.standards
+        assert "weaviate" in standards.standards
+        assert "milvus" in standards.standards
+        assert "qdrant" in standards.standards
+        # Cross-cutting standards
         assert "security" in standards.standards
         assert "architecture" in standards.standards
+        # Domain standards
+        assert "rag_pipelines" in standards.standards
+        assert "knowledge_graphs" in standards.standards
 
     def test_yaml_content_matches_expected_structure(self) -> None:
         """Should have correct structure in loaded standards."""
@@ -541,3 +554,126 @@ class TestYamlFileLoading:
         assert "authentication" in security
         assert "input_validation" in security
         assert "common_vulnerabilities" in security
+
+
+class TestRAGStandards:
+    """Tests for RAG pipeline and knowledge graph standards."""
+
+    def test_rag_pipelines_standards_loaded(self) -> None:
+        """Should load rag_pipelines standards."""
+        standards = QualityStandards()
+        rag = standards.standards.get("rag_pipelines", {})
+        assert "principles" in rag
+        assert "forbidden" in rag
+        assert "patterns" in rag
+        assert len(rag["principles"]) >= 10
+
+    def test_knowledge_graphs_standards_loaded(self) -> None:
+        """Should load knowledge_graphs standards."""
+        standards = QualityStandards()
+        kg = standards.standards.get("knowledge_graphs", {})
+        assert "principles" in kg
+        assert "forbidden" in kg
+        assert "patterns" in kg
+        assert len(kg["principles"]) >= 8
+
+    def test_render_includes_rag_standards_when_touches_rag(self) -> None:
+        """Should include RAG standards when touches_rag=True."""
+        standards = QualityStandards()
+        intent_no_rag = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+            touches_rag=False,
+        )
+        intent_with_rag = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+            touches_rag=True,
+        )
+        result_no_rag = standards.render_for_intent(intent_no_rag)
+        result_with_rag = standards.render_for_intent(intent_with_rag)
+        assert len(result_with_rag) > len(result_no_rag)
+
+    def test_render_includes_kg_standards_when_neo4j(self) -> None:
+        """Should include knowledge graph standards when neo4j in frameworks."""
+        standards = QualityStandards()
+        intent_rag_only = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+            touches_rag=True,
+            frameworks=[],
+        )
+        intent_rag_neo4j = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+            touches_rag=True,
+            frameworks=["neo4j"],
+        )
+        result_rag_only = standards.render_for_intent(intent_rag_only)
+        result_rag_neo4j = standards.render_for_intent(intent_rag_neo4j)
+        # neo4j intent should have more standards (KG + neo4j framework)
+        assert len(result_rag_neo4j) > len(result_rag_only)
+
+    def test_get_all_standards_category_rag(self) -> None:
+        """Should return RAG and KG standards for category='rag'."""
+        standards = QualityStandards()
+        result = standards.get_all_standards(category="rag")
+        assert "rag_standards" in result
+        assert "knowledge_graph_standards" in result
+        assert "principles" in result["rag_standards"]
+        assert "principles" in result["knowledge_graph_standards"]
+
+    def test_chromadb_framework_standards_loaded(self) -> None:
+        """Should load chromadb framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("chromadb")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert "patterns" in result
+
+    def test_pinecone_framework_standards_loaded(self) -> None:
+        """Should load pinecone framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("pinecone")
+        assert "principles" in result
+        assert "forbidden" in result
+
+    def test_faiss_framework_standards_loaded(self) -> None:
+        """Should load faiss framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("faiss")
+        assert "principles" in result
+        assert "forbidden" in result
+
+    def test_neo4j_framework_standards_loaded(self) -> None:
+        """Should load neo4j framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("neo4j")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert "patterns" in result
+
+    def test_weaviate_framework_standards_loaded(self) -> None:
+        """Should load weaviate framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("weaviate")
+        assert "principles" in result
+        assert "forbidden" in result
+
+    def test_milvus_framework_standards_loaded(self) -> None:
+        """Should load milvus framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("milvus")
+        assert "principles" in result
+        assert "forbidden" in result
+
+    def test_qdrant_framework_standards_loaded(self) -> None:
+        """Should load qdrant framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("qdrant")
+        assert "principles" in result
+        assert "forbidden" in result

@@ -1,0 +1,19 @@
+principles:
+  - Use MilvusClient as the primary interface (portable across Lite, Docker, and Kubernetes deployments)
+  - Choose appropriate index type for scale (HNSW for under 1M vectors, IVF_FLAT for 1-10M, DiskANN for over 10M)
+  - Use partition keys for logical data isolation and efficient query routing in multi-tenant scenarios
+  - Implement hot/cold storage tiering for cost optimization on large collections with infrequent access patterns
+  - Batch insert with appropriate batch sizes (1000-5000 vectors per call) for optimal throughput
+  - Use metadata filtering with scalar indexes for pre-filtering before vector similarity search
+
+forbidden:
+  - Using Milvus Lite (in-process mode) for production multi-user deployments (not designed for concurrent access)
+  - Creating collections without specifying vector dimension and index type (uses suboptimal defaults)
+  - Single-vector inserts in loops instead of batch operations (orders of magnitude slower)
+  - Ignoring connection timeouts and retry logic for distributed Milvus deployments
+
+patterns:
+  client_setup: "MilvusClient(uri='http://localhost:19530') for distributed or MilvusClient('./local.db') for development"
+  collection_create: "client.create_collection(collection_name='docs', dimension=768, metric_type='COSINE', index_type='HNSW')"
+  batch_insert: "client.insert(collection_name='docs', data=[{'id': i, 'vector': vec, 'text': t, 'source': s} for ...])"
+  search: "client.search(collection_name='docs', data=[query_vec], limit=k, output_fields=['text'], filter='category == \"tech\"')"

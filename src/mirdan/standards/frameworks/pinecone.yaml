@@ -1,0 +1,18 @@
+principles:
+  - Use namespaces for logical data isolation (multi-tenancy, environment separation, domain partitioning)
+  - Batch upserts in chunks of 100 vectors maximum per request to avoid API limits and timeouts
+  - Use metadata filtering (filter={}) to narrow search space before vector similarity computation
+  - Configure appropriate pod type and replicas for production workload requirements
+  - Store embedding model version in vector metadata for migration and version tracking support
+  - Use gRPC client for high-throughput production deployments requiring low-latency operations
+
+forbidden:
+  - Single-vector upserts in loops (use batch of 100 max per request for performance)
+  - Hardcoding API keys in source code (use environment variables or secrets manager)
+  - Creating indexes without specifying dimension matching your embedding model output
+  - Querying without namespace when data is namespaced (silently returns empty or wrong results)
+
+patterns:
+  client_setup: "Pinecone(api_key=os.environ['PINECONE_API_KEY']) with index = pc.Index('index-name')"
+  batch_upsert: "index.upsert(vectors=[(id, vec, meta), ...], namespace='ns') in chunks of 100"
+  query: "index.query(vector=query_vec, top_k=k, namespace='ns', filter={'key': 'val'}, include_metadata=True)"

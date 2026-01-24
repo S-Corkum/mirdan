@@ -118,6 +118,40 @@ class IntentAnalyzer:
         "tailwind": [r"\btailwind\b", r"\btailwindcss\b"],
         "langchain": [r"\blangchain\b", r"\bcreate_agent\b", r"\bAgentExecutor\b"],
         "langgraph": [r"\blanggraph\b", r"\bStateGraph\b", r"\badd_conditional_edges\b"],
+        "chromadb": [r"\bchroma(?:db)?\b", r"\bchroma_client\b", r"\bPersistentClient\b"],
+        "pinecone": [r"\bpinecone\b", r"\bPinecone\b"],
+        "faiss": [r"\bfaiss\b", r"\bFAISS\b", r"\bIndexFlat\b"],
+        "neo4j": [r"\bneo4j\b", r"\bcypher\b", r"\bNeo4jVector\b"],
+        "weaviate": [r"\bweaviate\b", r"\bWeaviateClient\b"],
+        "milvus": [r"\bmilvus\b", r"\bMilvusClient\b", r"\bpymilvus\b"],
+        "qdrant": [r"\bqdrant\b", r"\bQdrantClient\b"],
+    }
+
+    # RAG-related keywords
+    RAG_KEYWORDS: list[str] = [
+        r"\brag\b",
+        r"\bretrieval.augmented\b",
+        r"\bvector\s*(store|db|database)\b",
+        r"\bembedding[s]?\b",
+        r"\bknowledge\s*graph\b",
+        r"\bgraphrag\b",
+        r"\bchunking\b",
+        r"\bsimilarity.search\b",
+        r"\bsemantic.search\b",
+        r"\bretriever\b",
+        r"\breranking\b",
+        r"\bvector.index\b",
+    ]
+
+    # Frameworks that indicate RAG usage
+    RAG_FRAMEWORKS: set[str] = {
+        "chromadb",
+        "pinecone",
+        "faiss",
+        "neo4j",
+        "weaviate",
+        "milvus",
+        "qdrant",
     }
 
     # Security-related keywords
@@ -163,6 +197,11 @@ class IntentAnalyzer:
             re.search(pattern, prompt_lower) for pattern in self.SECURITY_KEYWORDS
         )
 
+        # Check if touches RAG
+        touches_rag = any(
+            re.search(pattern, prompt_lower) for pattern in self.RAG_KEYWORDS
+        ) or bool(set(frameworks) & self.RAG_FRAMEWORKS)
+
         # Calculate ambiguity
         ambiguity = self._calculate_ambiguity(prompt, task_type, language)
 
@@ -181,6 +220,7 @@ class IntentAnalyzer:
             frameworks=frameworks,
             entities=extracted_entities,
             touches_security=touches_security,
+            touches_rag=touches_rag,
             uses_external_framework=len(frameworks) > 0,
             ambiguity_score=ambiguity,
             clarifying_questions=clarifying_questions,

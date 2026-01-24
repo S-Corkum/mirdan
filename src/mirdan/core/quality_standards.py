@@ -115,6 +115,14 @@ class QualityStandards:
         arch_file = standards_pkg.joinpath("architecture.yaml")
         standards["architecture"] = self._load_yaml_file(arch_file, "architecture")
 
+        # Load RAG pipeline standards (domain-level, cross-cutting)
+        rag_file = standards_pkg.joinpath("rag_pipelines.yaml")
+        standards["rag_pipelines"] = self._load_yaml_file(rag_file, "rag_pipelines")
+
+        # Load knowledge graph standards (domain-level, cross-cutting)
+        kg_file = standards_pkg.joinpath("knowledge_graphs.yaml")
+        standards["knowledge_graphs"] = self._load_yaml_file(kg_file, "knowledge_graphs")
+
         return standards
 
     def _load_custom_standards(self, standards_dir: Path) -> None:
@@ -178,6 +186,19 @@ class QualityStandards:
             if "input_validation" in sec_standards:
                 requirements.extend(sec_standards["input_validation"][:sec_count])
 
+        # Add RAG pipeline standards if relevant
+        if intent.touches_rag:
+            rag_count = self._get_stringency_count("framework")
+            rag_standards = self.standards.get("rag_pipelines", {})
+            if "principles" in rag_standards:
+                requirements.extend(rag_standards["principles"][:rag_count])
+
+            # Add knowledge graph standards if neo4j is detected
+            if "neo4j" in intent.frameworks:
+                kg_standards = self.standards.get("knowledge_graphs", {})
+                if "principles" in kg_standards:
+                    requirements.extend(kg_standards["principles"][:rag_count])
+
         # Add architecture standards (use architecture stringency)
         arch_count = self._get_stringency_count("architecture")
         arch_standards = self.get_architecture_standards()
@@ -214,5 +235,14 @@ class QualityStandards:
         # Get architecture standards if requested
         if category in ["all", "architecture"]:
             result["architecture_standards"] = self.get_architecture_standards()
+
+        # Get RAG and knowledge graph standards if requested
+        if category in ["all", "rag"]:
+            rag_standards = self.standards.get("rag_pipelines", {})
+            if rag_standards:
+                result["rag_standards"] = rag_standards
+            kg_standards = self.standards.get("knowledge_graphs", {})
+            if kg_standards:
+                result["knowledge_graph_standards"] = kg_standards
 
         return result

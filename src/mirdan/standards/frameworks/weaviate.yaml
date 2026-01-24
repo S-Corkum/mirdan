@@ -1,0 +1,19 @@
+principles:
+  - Use weaviate.connect_to_local() or connect_to_weaviate_cloud() with v4 client API (not deprecated Client() constructor)
+  - Configure vector_config with explicit vectorizer and distance metric per collection matching your embedding model
+  - Use batch.rate_limit() for third-party embedding API rate limiting during bulk ingestion
+  - Implement hybrid search combining vector similarity with BM25 keyword matching via alpha parameter
+  - Use multi-tenancy for data isolation between users or organizations in shared deployments
+  - Handle batch failures by checking failed_objects and failed_references after ingestion completes
+
+forbidden:
+  - Using deprecated Python client v3 API (use weaviate-client v4.16+ with connect_to_* methods)
+  - Configuring collections without explicit distance metric (defaults may not match your embedding model)
+  - Single-object inserts in loops without batching (severe performance degradation)
+  - Ignoring batch failure responses (causes silent data loss during ingestion)
+
+patterns:
+  client_setup: "with weaviate.connect_to_local() as client: ... (context manager ensures cleanup)"
+  collection_create: "client.collections.create(name='MyCollection', vectorizer_config=Configure.Vectorizer.text2vec_openai())"
+  hybrid_query: "collection.query.hybrid(query=text, alpha=0.6, limit=k, return_metadata=MetadataQuery(score=True))"
+  batch_import: "with client.batch.rate_limit(requests_per_minute=600) as batch: batch.add_object(collection='Name', properties=props)"

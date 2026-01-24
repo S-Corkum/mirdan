@@ -108,6 +108,28 @@ class PromptComposer:
                 "Verify all imports, exports, tests, types are included",
             ]
 
+        if intent.touches_rag:
+            base_steps.extend(
+                [
+                    "Verify embedding model is consistent between indexing and querying",
+                    "Verify chunk overlap is non-zero (10-20% of chunk_size)",
+                    "Verify metadata is stored with vectors (source, page, model_version)",
+                    "Verify similarity threshold is configured (not just top-k)",
+                    "Verify error handling for embedding generation failures",
+                    "Verify vector DB connection has timeout and retry logic",
+                    "Verify retrieved context is validated before LLM prompt injection",
+                ]
+            )
+            # Additional KG-specific checks
+            if "neo4j" in intent.frameworks:
+                base_steps.extend(
+                    [
+                        "Verify all Cypher queries are parameterized (no string interpolation)",
+                        "Verify graph traversals have depth/node limits",
+                        "Verify entity deduplication is implemented before insertion",
+                    ]
+                )
+
         if intent.touches_security:
             base_steps.extend(
                 [

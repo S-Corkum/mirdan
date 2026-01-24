@@ -18,9 +18,26 @@ forbidden:
   - Invoking StateGraph directly without calling .compile() - only compiled graphs support invoke/stream
   - Using add_conditional_edges with routing function return strings that do not match the mapping dictionary keys
 
+principles_rag:
+  - Implement CRAG pattern (Corrective RAG) with evaluate-context node that grades relevance and triggers re-retrieval on weak results
+  - Use Self-RAG with reflection tokens for adaptive retrieval decisions (retrieve, generate, or critique at each step)
+  - Implement Adaptive RAG with query complexity routing (simple queries skip retrieval, complex queries use multi-step)
+  - Add evaluation-in-the-loop nodes using RAGAS grading for faithfulness and relevancy after generation
+  - Include max_retrieval_attempts counter in state to prevent infinite re-retrieval loops
+  - Separate grading nodes from retrieval nodes for clear responsibility and testable graph components
+
+forbidden_rag:
+  - Agentic retrieval loops without max_attempts counter in graph state (can loop indefinitely on unanswerable queries)
+  - Grading retrieved context without structured output schema (inconsistent grade formats break routing)
+  - Mixing retrieval logic and generation logic in a single graph node (untestable, undebuggable)
+
 patterns:
   state_definition: "TypedDict with Annotated[list, add_messages] for messages; keep other fields minimal with Optional types"
   graph_construction: "StateGraph(State) -> add_node('name', fn) -> add_edge/add_conditional_edges -> .compile(checkpointer=saver)"
   conditional_routing: "def route(state: State) -> str: return 'next_node_name' based on state examination"
   checkpointing: "PostgresSaver(conn_string) with thread_id in config for durable, thread-scoped execution persistence"
   human_in_loop: "interrupt({'action': proposed, 'risk': level}) within node; resume with Command(resume={'approved': True})"
+  crag_graph: "retrieve -> grade_documents -> [relevant: generate, not_relevant: rewrite_query -> retrieve] -> grade_answer"
+  self_rag_graph: "route_question -> [retrieve | generate_direct] -> grade_documents -> generate -> grade_generation -> [useful: END, not_useful: retry]"
+  adaptive_rag_graph: "classify_query -> [simple: generate_direct, moderate: single_retrieve, complex: multi_step_retrieve] -> generate"
+  evaluation_loop: "generate -> evaluate(faithfulness, relevancy) -> [pass: END, fail: retry_with_feedback] with max_attempts in state"
