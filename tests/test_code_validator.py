@@ -373,7 +373,7 @@ class TestGraphInjectionDetection:
 
     def test_sec013_catches_gremlin_fstring(self, validator: CodeValidator) -> None:
         """Should catch Gremlin f-string injection."""
-        code = 'query = f"g.V().has(\'name\', {name})"'
+        code = "query = f\"g.V().has('name', {name})\""
         result = validator.validate(code, language="python")
         assert any(v.id == "SEC013" for v in result.violations)
         assert not result.passed

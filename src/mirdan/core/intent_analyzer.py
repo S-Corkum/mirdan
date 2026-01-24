@@ -145,7 +145,13 @@ class IntentAnalyzer:
 
     # Frameworks that indicate RAG usage
     RAG_FRAMEWORKS: set[str] = {
-        "chromadb", "pinecone", "faiss", "neo4j", "weaviate", "milvus", "qdrant",
+        "chromadb",
+        "pinecone",
+        "faiss",
+        "neo4j",
+        "weaviate",
+        "milvus",
+        "qdrant",
     }
 
     # Security-related keywords
@@ -192,10 +198,9 @@ class IntentAnalyzer:
         )
 
         # Check if touches RAG
-        touches_rag = (
-            any(re.search(pattern, prompt_lower) for pattern in self.RAG_KEYWORDS)
-            or bool(set(frameworks) & self.RAG_FRAMEWORKS)
-        )
+        touches_rag = any(
+            re.search(pattern, prompt_lower) for pattern in self.RAG_KEYWORDS
+        ) or bool(set(frameworks) & self.RAG_FRAMEWORKS)
 
         # Calculate ambiguity
         ambiguity = self._calculate_ambiguity(prompt, task_type, language)
