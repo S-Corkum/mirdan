@@ -176,6 +176,24 @@ class CodeValidator:
                 "Use PostgresSaver(conn_string) or SqliteSaver for"
                 " persistent checkpointing in production",
             ),
+            (
+                "RAG001",
+                "chunk-overlap-zero",
+                r"chunk_overlap\s*=\s*0\b",
+                "warning",
+                "Chunk overlap set to 0 - context lost at chunk boundaries",
+                "Use chunk_overlap of 10-20% of chunk_size"
+                " (e.g., chunk_overlap=200 for chunk_size=1000)",
+            ),
+            (
+                "RAG002",
+                "deprecated-langchain-loader",
+                r"from\s+langchain\.document_loaders\s+import",
+                "warning",
+                "Deprecated langchain.document_loaders import path",
+                "Use langchain_community.document_loaders or"
+                " langchain-specific integration packages",
+            ),
         ],
         "typescript": [
             (
@@ -316,6 +334,8 @@ class CodeValidator:
         "PY008": "security",  # subprocess-shell
         "PY009": "security",  # unsafe-yaml-load
         "PY010": "security",  # os-system
+        "RAG001": "style",  # chunk-overlap-zero
+        "RAG002": "style",  # deprecated-langchain-loader
     }
 
     # Security rules apply to all languages
@@ -399,6 +419,30 @@ class CodeValidator:
             "error",
             "JWT signature verification disabled - tokens can be forged",
             "Always verify JWT signatures: jwt.decode(token, key, algorithms=['HS256'])",
+        ),
+        (
+            "SEC011",
+            "cypher-fstring-injection",
+            r'f["\'].*?(MATCH|CREATE|MERGE|DELETE|SET|RETURN).*?\{',
+            "error",
+            "Cypher query f-string interpolation - potential graph injection",
+            "Use parameterized queries: session.run('MATCH (n {id: $id})', id=user_id)",
+        ),
+        (
+            "SEC012",
+            "cypher-concat-injection",
+            r'["\'].*?(MATCH|CREATE|MERGE|DELETE|SET|RETURN).*?["\']\s*\+\s*\w+',
+            "error",
+            "Cypher string concatenation - potential graph injection",
+            "Use parameterized queries with $param syntax",
+        ),
+        (
+            "SEC013",
+            "gremlin-fstring-injection",
+            r'f["\'].*?(g\.V|g\.E|addV|addE|has\().*?\{',
+            "error",
+            "Gremlin query f-string interpolation - potential graph injection",
+            "Use parameterized traversals with Bindings",
         ),
     ]
 

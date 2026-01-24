@@ -36,6 +36,7 @@ class Intent:
     frameworks: list[str] = field(default_factory=list)
     entities: list["ExtractedEntity"] = field(default_factory=list)
     touches_security: bool = False
+    touches_rag: bool = False
     uses_external_framework: bool = False
     ambiguity_score: float = 0.0  # 0 = clear, 1 = very ambiguous
     clarifying_questions: list[str] = field(default_factory=list)
@@ -223,6 +224,7 @@ class EnhancedPrompt:
             "frameworks": self.intent.frameworks,
             "extracted_entities": [e.to_dict() for e in self.intent.entities],
             "touches_security": self.intent.touches_security,
+            "touches_rag": self.intent.touches_rag,
             "ambiguity_score": self.intent.ambiguity_score,
             "clarifying_questions": self.intent.clarifying_questions,
             "quality_requirements": self.quality_requirements,

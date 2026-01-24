@@ -1,0 +1,18 @@
+principles:
+  - Use IndexIVFPQ or IndexIVFFlat for datasets over 100K vectors (not brute-force IndexFlatL2)
+  - Normalize vectors before adding to index when using cosine similarity (use IndexFlatIP after normalization)
+  - Train IVF indexes with a representative sample before adding vectors (untrained index produces poor results)
+  - Tune nprobe parameter for recall vs latency tradeoff (higher nprobe = better recall but slower search)
+  - Save and load indexes with faiss.write_index/read_index for persistence across application restarts
+  - Validate vector dimensions match index dimension before add or search operations
+
+forbidden:
+  - Using IndexFlatL2 for production-scale datasets over 100K vectors without benchmarking alternatives
+  - Adding vectors to IVF index before training with representative sample (produces incorrect clusters)
+  - Using cosine similarity with non-normalized vectors in IndexFlatIP (produces incorrect rankings)
+  - Ignoring dimension mismatch errors between vectors and index (silently corrupts index data)
+
+patterns:
+  index_creation: "quantizer = faiss.IndexFlatL2(dim); index = faiss.IndexIVFFlat(quantizer, dim, nlist); index.train(samples); index.add(vectors)"
+  cosine_similarity: "faiss.normalize_L2(vectors); index = faiss.IndexFlatIP(dim); index.add(vectors)"
+  search: "index.nprobe = 10; distances, indices = index.search(query_vectors, k)"

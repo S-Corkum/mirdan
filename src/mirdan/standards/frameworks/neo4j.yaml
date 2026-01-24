@@ -1,0 +1,22 @@
+principles:
+  - Use parameterized Cypher queries with $param syntax for all user-provided values (never string interpolation)
+  - Create uniqueness constraints on node properties used for MERGE operations to prevent duplicates under concurrent load
+  - Add LIMIT clause to all queries returning collections to prevent unbounded result sets
+  - Use MERGE instead of CREATE for idempotent node and relationship creation
+  - Create indexes on frequently-filtered node properties for query performance
+  - Use explicit descriptive relationship types as edge labels (not generic RELATES_TO for everything)
+  - Bound variable-length path patterns with [*1..N] depth limit (never unbounded [*])
+  - Use vector indexes (db.index.vector.create) for embedding-based similarity search on node properties
+
+forbidden:
+  - String interpolation or f-strings in Cypher queries (graph injection vulnerability)
+  - Unbounded variable-length paths [*] without depth limit (memory explosion on dense graphs)
+  - MERGE without uniqueness constraints on merge properties (creates duplicates under concurrent load)
+  - CREATE without checking existence first (produces duplicate nodes in the graph)
+  - Queries returning large result sets without LIMIT clause (can exhaust memory)
+
+patterns:
+  parameterized_query: "session.run('MATCH (n:Entity {id: $id}) RETURN n', id=entity_id)"
+  merge_pattern: "MERGE (n:Entity {id: $id}) ON CREATE SET n.created = timestamp() ON MATCH SET n.updated = timestamp()"
+  vector_search: "CALL db.index.vector.queryNodes('index_name', $k, $embedding) YIELD node, score WHERE score > $threshold"
+  bounded_traversal: "MATCH path = (start)-[*1..3]-(end) WHERE start.id = $id RETURN path LIMIT 50"

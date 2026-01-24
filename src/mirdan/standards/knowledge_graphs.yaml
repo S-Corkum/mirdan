@@ -1,0 +1,28 @@
+principles:
+  - Store provenance (source document, character spans, extraction timestamp) with every node and edge for traceability
+  - Implement entity deduplication and resolution before graph insertion - merge equivalent entities using embeddings or string similarity
+  - Generate embeddings on both entity nodes AND relationship edges for hybrid vector+graph retrieval
+  - Bound all graph traversals with explicit max_depth and max_nodes limits to prevent memory explosion
+  - Separate Named Entity Recognition (NER) from Relationship Extraction (RE) as distinct pipeline stages with validation between them
+  - Assign confidence scores to all extracted triples and filter below threshold (0.7) before graph insertion
+  - Design explicit schema or ontology before graph construction - validate extracted entities against allowed types
+  - Implement incremental graph updates with conflict detection - never rebuild entire graph for partial updates
+  - Use parameterized graph queries with $param syntax (Cypher) or Bindings (Gremlin) - never string interpolation
+  - Combine graph traversal results with vector similarity search using Reciprocal Rank Fusion for hybrid GraphRAG retrieval
+
+forbidden:
+  - Unbounded graph traversals without max_depth or max_nodes limits (causes memory explosion on dense graphs)
+  - Inserting entities without deduplication check (creates duplicate nodes, corrupts graph structure)
+  - Storing extracted triples without confidence scores or provenance metadata (no way to filter low-quality extractions)
+  - Using LLM for entity/relationship extraction without structured output schemas (produces inconsistent formats)
+  - Running graph queries without timeout limits (single expensive query can block entire database)
+  - String interpolation or concatenation in Cypher or Gremlin queries (graph injection vulnerability)
+  - Storing extracted entities without validating against defined schema or ontology (inconsistent node types)
+
+patterns:
+  entity_extraction: "LLM with structured output schema defining entity types from ontology + post-extraction validation against allowed types"
+  relationship_extraction: "Two-pass pipeline: NER extracts entities -> RE extracts relationships between entity pairs -> filter confidence > 0.7"
+  hybrid_retrieval: "Vector similarity on node/edge embeddings for initial candidates + 1-2 hop graph traversal for context, merged via RRF"
+  graph_construction: "Extract entities/relations -> Deduplicate nodes (embedding similarity > 0.95) -> Validate against schema -> Insert -> Embed nodes"
+  incremental_update: "Diff new extractions against existing graph -> Merge matching nodes -> Add new edges -> Flag confidence conflicts for review"
+  graphrag_query: "Classify query type -> Vector search on node embeddings | Graph traversal from anchor nodes | Hybrid RRF merge -> Return with provenance"

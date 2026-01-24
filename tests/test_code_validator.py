@@ -317,6 +317,89 @@ class TestLangChainPatternDetection:
         assert not any(v.id == "LC004" for v in result.violations)
 
 
+class TestRAGPatternDetection:
+    """Tests for RAG pipeline pattern detection."""
+
+    def test_rag001_catches_chunk_overlap_zero(self, validator: CodeValidator) -> None:
+        """Should catch chunk_overlap=0."""
+        code = "splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=0)"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "RAG001" for v in result.violations)
+
+    def test_rag001_does_not_flag_nonzero_overlap(self, validator: CodeValidator) -> None:
+        """Should not flag chunk_overlap=200."""
+        code = "splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "RAG001" for v in result.violations)
+
+    def test_rag002_catches_deprecated_loader_import(self, validator: CodeValidator) -> None:
+        """Should catch deprecated langchain.document_loaders import."""
+        code = "from langchain.document_loaders import PyPDFLoader"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "RAG002" for v in result.violations)
+
+    def test_rag002_does_not_flag_community_loader(self, validator: CodeValidator) -> None:
+        """Should not flag langchain_community.document_loaders."""
+        code = "from langchain_community.document_loaders import PyPDFLoader"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "RAG002" for v in result.violations)
+
+    def test_rag001_is_warning_not_error(self, validator: CodeValidator) -> None:
+        """RAG001 should be a warning, not an error."""
+        code = "splitter = TextSplitter(chunk_overlap=0)"
+        result = validator.validate(code, language="python")
+        rag_violations = [v for v in result.violations if v.id == "RAG001"]
+        if rag_violations:
+            assert rag_violations[0].severity == "warning"
+            assert result.passed  # warnings don't fail
+
+
+class TestGraphInjectionDetection:
+    """Tests for graph query injection detection."""
+
+    def test_sec011_catches_cypher_fstring(self, validator: CodeValidator) -> None:
+        """Should catch Cypher f-string injection."""
+        code = 'query = f"MATCH (n:User {{id: {user_id}}}) RETURN n"'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "SEC011" for v in result.violations)
+        assert not result.passed
+
+    def test_sec012_catches_cypher_concatenation(self, validator: CodeValidator) -> None:
+        """Should catch Cypher string concatenation."""
+        code = 'query = "MATCH (n:User) WHERE n.id = " + user_id'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "SEC012" for v in result.violations)
+        assert not result.passed
+
+    def test_sec013_catches_gremlin_fstring(self, validator: CodeValidator) -> None:
+        """Should catch Gremlin f-string injection."""
+        code = 'query = f"g.V().has(\'name\', {name})"'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "SEC013" for v in result.violations)
+        assert not result.passed
+
+    def test_sec011_does_not_flag_parameterized_query(self, validator: CodeValidator) -> None:
+        """Should not flag parameterized Cypher queries."""
+        code = "session.run('MATCH (n:User {id: $id}) RETURN n', id=user_id)"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "SEC011" for v in result.violations)
+
+    def test_sec012_does_not_flag_safe_cypher(self, validator: CodeValidator) -> None:
+        """Should not flag Cypher without concatenation."""
+        code = "query = 'MATCH (n:User {id: $id}) RETURN n'"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "SEC012" for v in result.violations)
+
+    def test_graph_injection_rules_are_errors(self, validator: CodeValidator) -> None:
+        """Graph injection rules should be errors, not warnings."""
+        code = 'query = f"MATCH (n) WHERE n.name = {name} RETURN n"'
+        result = validator.validate(code, language="python")
+        graph_violations = [v for v in result.violations if v.id == "SEC011"]
+        if graph_violations:
+            assert graph_violations[0].severity == "error"
+            assert graph_violations[0].category == "security"
+
+
 class TestSecurityPatternDetection:
     """Tests for security pattern detection across languages."""
 

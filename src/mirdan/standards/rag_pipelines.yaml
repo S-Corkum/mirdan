@@ -1,0 +1,35 @@
+principles:
+  - Use the SAME embedding model for both indexing and querying - mismatched models produce meaningless similarity scores
+  - Implement hybrid retrieval combining vector similarity (60%) with BM25 keyword matching (40%) using Reciprocal Rank Fusion
+  - Use semantic or structure-aware chunking with 10-20% overlap - never fixed-size chunking without overlap on structured documents
+  - Apply cross-encoder reranking on initial retrieval results (top-20) before selecting final context (top-5) for the LLM
+  - Validate retrieved context relevance before injecting into LLM prompt (CRAG pattern) - filter irrelevant chunks
+  - Sanitize and validate documents before adding to corpus to prevent corpus poisoning attacks
+  - Track embedding model name and version as metadata with every stored vector for migration support
+  - Use batch processing with concurrency limits for embedding generation - never synchronous single-document calls in async contexts
+  - Implement evaluation metrics (faithfulness, context precision, answer relevancy) using RAGAS or equivalent framework
+  - Process multi-modal documents with vision embeddings for tables and diagrams - do not rely solely on text extraction
+  - Use parent-child document retrieval (store full documents, retrieve relevant chunks, return parent context) for context-rich generation
+  - Configure minimum similarity threshold filtering in addition to top-k - reject chunks below threshold regardless of rank
+
+forbidden:
+  - Using different embedding models for indexing versus querying (produces meaningless similarity scores)
+  - Fixed-size character chunking without overlap on structured documents (splits sentences, loses context at boundaries)
+  - Passing all retrieved text directly to LLM without relevance filtering or scoring (wastes context window, adds noise)
+  - Hardcoding chunk sizes without per-document-type configurability (code, prose, tables need different sizes)
+  - Using wrong distance metric for embedding normalization (cosine vs L2 vs inner product must match model output)
+  - Storing embeddings without source, position, and model version metadata (prevents updates and debugging)
+  - Making synchronous embedding API calls in async/concurrent contexts (blocks event loop, kills throughput)
+  - Using only top-k retrieval without minimum similarity threshold (returns irrelevant results when corpus lacks relevant content)
+  - Deploying RAG pipelines without evaluation metrics in production (no visibility into answer quality degradation)
+  - Processing multi-modal documents with text-only extraction ignoring tables, diagrams, and images
+
+patterns:
+  chunking: "RecursiveCharacterTextSplitter with structure-aware separators [\"\\n\\n\", \"\\n\", \". \", \" \"] and chunk_overlap=10-20% of chunk_size"
+  hybrid_retrieval: "EnsembleRetriever combining vector retriever (weight=0.6) + BM25 retriever (weight=0.4) with Reciprocal Rank Fusion"
+  reranking: "CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2') scoring top-20 results, returning top-5 to context window"
+  evaluation: "RAGAS metrics pipeline measuring faithfulness, context_precision, context_recall, and answer_relevancy per query"
+  embedding_versioning: "Store {model_name, model_version, embedding_dim, created_at} as metadata with each vector for migration support"
+  crag_pattern: "Retrieve -> Grade relevance (binary) -> IF relevant: Generate -> Grade answer | IF irrelevant: Re-retrieve or web-search -> Generate"
+  self_rag: "Adaptive retrieval with reflection tokens - decide whether to retrieve, generate, or critique at each step"
+  multimodal_ingestion: "Vision model embeddings for images/tables + OCR fallback for scanned docs + structure detection for tables"

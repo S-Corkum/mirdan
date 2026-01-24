@@ -1,0 +1,18 @@
+principles:
+  - Use PersistentClient with persist_directory for production deployments (not ephemeral Client which loses data on restart)
+  - Add metadata (source, page, timestamp, embedding_model) to every document for filtering and provenance tracking
+  - Use get_or_create_collection() to prevent duplicate collection creation errors in concurrent environments
+  - Specify distance function explicitly (cosine, l2, ip) matching your embedding model's normalization output
+  - Use batch operations with add() for bulk ingestion instead of single-document inserts in loops
+  - Use where/where_document metadata filters to narrow search scope before vector similarity computation
+
+forbidden:
+  - Using ephemeral Client() in production code (all data lost on process restart)
+  - Adding documents without unique IDs (prevents deduplication, updates, and deletion)
+  - Mixing distance functions between collections that share the same embedding space
+  - Storing embeddings without document metadata (source, chunk_index, model_version)
+
+patterns:
+  client_setup: "chromadb.PersistentClient(path='./chroma_db') with collection-per-domain separation"
+  ingestion: "collection.add(ids=ids, documents=texts, embeddings=vectors, metadatas=metas) in batches"
+  query: "collection.query(query_embeddings=[vec], n_results=k, where={'source': doc_id}, include=['documents', 'metadatas', 'distances'])"

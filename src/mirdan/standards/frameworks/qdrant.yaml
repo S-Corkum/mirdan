@@ -1,0 +1,20 @@
+principles:
+  - Use QdrantClient(url=...) for production deployments (not in-memory ':memory:' or local disk path mode)
+  - Batch upsert points using upload_points() or upsert() with point lists (not single-point operations in loops)
+  - Configure collection with correct vector size matching your embedding model's output dimensions exactly
+  - Use payload filtering with indexed fields to narrow search before vector similarity computation
+  - Use AsyncQdrantClient for high-concurrency production applications with async/await patterns
+  - Enable API key authentication for all production-exposed Qdrant instances
+  - Use gRPC interface (prefer=True) for production-tier search performance over REST
+
+forbidden:
+  - Using ':memory:' or local disk-path mode in production multi-user deployments (no persistence guarantees)
+  - Single-point upserts in loops instead of batch upload methods (orders of magnitude slower)
+  - Creating collections with vector size mismatching embedding model dimensions (search returns garbage)
+  - Exposing Qdrant instances without API key authentication in production environments
+
+patterns:
+  client_setup: "QdrantClient(url='http://localhost:6333', api_key=os.environ.get('QDRANT_API_KEY'), prefer_grpc=True)"
+  batch_upsert: "client.upsert(collection_name='docs', points=[PointStruct(id=i, vector=v, payload=p) for ...])"
+  filtered_search: "client.query_points(collection_name='docs', query=query_vec, limit=k, query_filter=Filter(must=[...]))"
+  hybrid_search: "Use named vectors {'dense': dense_vec, 'sparse': sparse_vec} in same collection for hybrid retrieval"

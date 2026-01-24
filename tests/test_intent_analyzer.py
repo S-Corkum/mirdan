@@ -301,3 +301,94 @@ class TestPlanningDetection:
         """'Add a feature' without plan words -> GENERATION not PLANNING"""
         intent = analyzer.analyze("Add a login feature to the app")
         assert intent.task_type == TaskType.GENERATION
+
+
+class TestRAGDetection:
+    """Tests for RAG-related detection."""
+
+    def test_detects_vector_store_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'vector store' as RAG-related."""
+        intent = analyzer.analyze("build a vector store for document search")
+        assert intent.touches_rag is True
+
+    def test_detects_rag_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'RAG pipeline' as RAG-related."""
+        intent = analyzer.analyze("create a RAG pipeline for question answering")
+        assert intent.touches_rag is True
+
+    def test_detects_embeddings_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'embeddings' as RAG-related."""
+        intent = analyzer.analyze("generate embeddings for the document corpus")
+        assert intent.touches_rag is True
+
+    def test_detects_knowledge_graph_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'knowledge graph' as RAG-related."""
+        intent = analyzer.analyze("build a knowledge graph from documents")
+        assert intent.touches_rag is True
+
+    def test_detects_chunking_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'chunking' as RAG-related."""
+        intent = analyzer.analyze("implement chunking for large documents")
+        assert intent.touches_rag is True
+
+    def test_detects_retriever_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'retriever' as RAG-related."""
+        intent = analyzer.analyze("create a retriever for semantic search")
+        assert intent.touches_rag is True
+
+    def test_detects_chromadb_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect chromadb framework and touches_rag."""
+        intent = analyzer.analyze("add documents to chromadb collection")
+        assert "chromadb" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_pinecone_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect pinecone framework."""
+        intent = analyzer.analyze("upsert vectors to pinecone index")
+        assert "pinecone" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_faiss_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect faiss framework."""
+        intent = analyzer.analyze("create a faiss index for similarity search")
+        assert "faiss" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_neo4j_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect neo4j framework."""
+        intent = analyzer.analyze("query the neo4j graph database")
+        assert "neo4j" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_weaviate_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect weaviate framework."""
+        intent = analyzer.analyze("search documents in weaviate")
+        assert "weaviate" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_milvus_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect milvus framework."""
+        intent = analyzer.analyze("insert vectors into milvus collection")
+        assert "milvus" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_detects_qdrant_framework(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect qdrant framework."""
+        intent = analyzer.analyze("search points in qdrant")
+        assert "qdrant" in intent.frameworks
+        assert intent.touches_rag is True
+
+    def test_non_rag_task_not_flagged(self, analyzer: IntentAnalyzer) -> None:
+        """Should not flag non-RAG tasks."""
+        intent = analyzer.analyze("add a button to the header")
+        assert intent.touches_rag is False
+
+    def test_detects_cypher_as_neo4j(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect cypher keyword as neo4j framework."""
+        intent = analyzer.analyze("write a cypher query for the graph")
+        assert "neo4j" in intent.frameworks
+
+    def test_detects_graphrag_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'graphrag' as RAG-related."""
+        intent = analyzer.analyze("implement graphrag for hybrid retrieval")
+        assert intent.touches_rag is True
