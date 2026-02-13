@@ -54,7 +54,7 @@ _components: _Components | None = None
 
 def _get_components() -> _Components:
     """Get or create the singleton component set."""
-    global _components  # noqa: PLW0603
+    global _components
     if _components is not None:
         return _components
 

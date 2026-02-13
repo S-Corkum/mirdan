@@ -136,7 +136,9 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "github" in mcp_names
 
-    def test_security_scanner_when_explicitly_available(self, orchestrator: MCPOrchestrator) -> None:
+    def test_security_scanner_when_explicitly_available(
+        self, orchestrator: MCPOrchestrator
+    ) -> None:
         """Should recommend security-scanner when explicitly in available_mcps."""
         intent = Intent(
             original_prompt="test",
@@ -158,7 +160,9 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "security-scanner" not in mcp_names
 
-    def test_security_scanner_excluded_when_not_in_list(self, orchestrator: MCPOrchestrator) -> None:
+    def test_security_scanner_excluded_when_not_in_list(
+        self, orchestrator: MCPOrchestrator
+    ) -> None:
         """Should NOT recommend security-scanner when not in available_mcps."""
         intent = Intent(
             original_prompt="test",

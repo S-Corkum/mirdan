@@ -771,28 +771,30 @@ class CodeValidator:
 
         # ARCH001: function-too-long
         for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.end_lineno is not None:
-                    func_length = node.end_lineno - node.lineno + 1
-                    if func_length > max_func_length:
-                        violations.append(
-                            Violation(
-                                id="ARCH001",
-                                rule="function-too-long",
-                                category="architecture",
-                                severity="warning",
-                                message=(
-                                    f"Function '{node.name}' is {func_length} lines"
-                                    f" (max {max_func_length})"
-                                ),
-                                line=node.lineno,
-                                column=node.col_offset + 1,
-                                code_snippet=lines[node.lineno - 1].strip()
-                                if node.lineno <= len(lines)
-                                else "",
-                                suggestion="Break this function into smaller, focused functions",
-                            )
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.end_lineno is not None
+            ):
+                func_length = node.end_lineno - node.lineno + 1
+                if func_length > max_func_length:
+                    violations.append(
+                        Violation(
+                            id="ARCH001",
+                            rule="function-too-long",
+                            category="architecture",
+                            severity="warning",
+                            message=(
+                                f"Function '{node.name}' is {func_length} lines"
+                                f" (max {max_func_length})"
+                            ),
+                            line=node.lineno,
+                            column=node.col_offset + 1,
+                            code_snippet=lines[node.lineno - 1].strip()
+                            if node.lineno <= len(lines)
+                            else "",
+                            suggestion="Break this function into smaller, focused functions",
                         )
+                    )
 
         # ARCH002: file-too-long (non-empty, non-comment lines)
         non_empty_lines = sum(
@@ -844,7 +846,10 @@ class CodeValidator:
                             rule="missing-return-type",
                             category="architecture",
                             severity="info",
-                            message=f"Public function '{node.name}' is missing a return type annotation",
+                            message=(
+                                f"Public function '{node.name}' is missing"
+                                " a return type annotation"
+                            ),
                             line=node.lineno,
                             column=node.col_offset + 1,
                             code_snippet=lines[node.lineno - 1].strip()
@@ -896,7 +901,10 @@ class CodeValidator:
                             code_snippet=lines[node.lineno - 1].strip()
                             if node.lineno <= len(lines)
                             else "",
-                            suggestion="Reduce nesting by extracting conditions or using early returns",
+                            suggestion=(
+                                "Reduce nesting by extracting conditions"
+                                " or using early returns"
+                            ),
                         )
                     )
 
