@@ -166,8 +166,8 @@ class QualityStandards:
         if intent.primary_language:
             lang_standards = self.get_for_language(intent.primary_language)
             if "principles" in lang_standards:
-                # Use moderate (3) for language principles - not category-specific
-                requirements.extend(lang_standards["principles"][:3])
+                lang_count = self._get_stringency_count("language")
+                requirements.extend(lang_standards["principles"][:lang_count])
 
         # Add framework-specific standards
         if intent.frameworks:

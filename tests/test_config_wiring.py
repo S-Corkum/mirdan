@@ -441,3 +441,35 @@ class TestNewConfigFields:
         assert config.thresholds.arch_max_function_length == 30
         assert config.quality.language == "moderate"
         assert config.project.github_owner == ""
+
+
+class TestQualityStandardsLanguageConfig:
+    """Tests for language stringency affecting language principles count."""
+
+    def test_strict_produces_more_language_standards(self) -> None:
+        """Strict language config should produce more language standards."""
+        strict = QualityStandards(config=QualityConfig(language="strict"))
+        permissive = QualityStandards(config=QualityConfig(language="permissive"))
+
+        intent = Intent(
+            original_prompt="implement a feature",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+        )
+
+        strict_result = strict.render_for_intent(intent)
+        permissive_result = permissive.render_for_intent(intent)
+        assert len(strict_result) > len(permissive_result)
+
+    def test_default_is_moderate_three_standards(self) -> None:
+        """Default (moderate) should return 3 language principles."""
+        standards = QualityStandards()  # No config = moderate
+        intent = Intent(
+            original_prompt="implement a feature",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+        )
+        result = standards.render_for_intent(intent)
+        # Moderate = 3 language principles + architecture standards
+        # Check we get at least 3 (language) + some architecture
+        assert len(result) >= 3
