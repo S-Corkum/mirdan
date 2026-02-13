@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -710,14 +711,14 @@ class CodeValidator:
             )
             violations.extend(security_violations)
 
-        # Architecture checks placeholder
+        # Architecture checks (AST-based for Python)
         if check_architecture:
             standards_checked.append("architecture")
-            # Architecture validation would require AST analysis
-            # For MVP, we note this limitation
-            limitations.append(
-                "Architecture validation requires AST analysis (not yet implemented)"
+            arch_violations, arch_limitations = self._check_architecture_ast(
+                code, detected_lang
             )
+            violations.extend(arch_violations)
+            limitations.extend(arch_limitations)
 
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
@@ -731,6 +732,203 @@ class CodeValidator:
             standards_checked=standards_checked,
             limitations=limitations,
         )
+
+    def _check_architecture_ast(
+        self, code: str, detected_lang: str
+    ) -> tuple[list[Violation], list[str]]:
+        """Run AST-based architecture checks on Python code.
+
+        Args:
+            code: The code to validate
+            detected_lang: Detected programming language
+
+        Returns:
+            Tuple of (violations, limitations)
+        """
+        if detected_lang != "python":
+            return ([], ["Architecture AST validation currently supports Python only"])
+
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return ([], ["Code has syntax errors - AST validation skipped"])
+
+        violations: list[Violation] = []
+
+        # Get thresholds from config or use defaults
+        if self._thresholds:
+            max_func_length = self._thresholds.arch_max_function_length
+            max_file_length = self._thresholds.arch_max_file_length
+            max_nesting = self._thresholds.arch_max_nesting_depth
+            max_class_methods = self._thresholds.arch_max_class_methods
+        else:
+            max_func_length = 30
+            max_file_length = 300
+            max_nesting = 4
+            max_class_methods = 10
+
+        lines = code.split("\n")
+
+        # ARCH001: function-too-long
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.end_lineno is not None:
+                    func_length = node.end_lineno - node.lineno + 1
+                    if func_length > max_func_length:
+                        violations.append(
+                            Violation(
+                                id="ARCH001",
+                                rule="function-too-long",
+                                category="architecture",
+                                severity="warning",
+                                message=(
+                                    f"Function '{node.name}' is {func_length} lines"
+                                    f" (max {max_func_length})"
+                                ),
+                                line=node.lineno,
+                                column=node.col_offset + 1,
+                                code_snippet=lines[node.lineno - 1].strip()
+                                if node.lineno <= len(lines)
+                                else "",
+                                suggestion="Break this function into smaller, focused functions",
+                            )
+                        )
+
+        # ARCH002: file-too-long (non-empty, non-comment lines)
+        non_empty_lines = sum(
+            1 for line in lines if line.strip() and not line.strip().startswith("#")
+        )
+        if non_empty_lines > max_file_length:
+            violations.append(
+                Violation(
+                    id="ARCH002",
+                    rule="file-too-long",
+                    category="architecture",
+                    severity="warning",
+                    message=(
+                        f"File has {non_empty_lines} non-empty lines"
+                        f" (max {max_file_length})"
+                    ),
+                    line=1,
+                    column=1,
+                    code_snippet="",
+                    suggestion="Split this file into smaller, focused modules",
+                )
+            )
+
+        # ARCH003: missing-return-type (public functions without return annotation)
+        _exempt_decorators = {"property", "abstractmethod"}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                # Skip private and dunder methods
+                if node.name.startswith("_"):
+                    continue
+                # Skip functions with exempt decorators
+                has_exempt_decorator = False
+                for dec in node.decorator_list:
+                    dec_name = ""
+                    if isinstance(dec, ast.Name):
+                        dec_name = dec.id
+                    elif isinstance(dec, ast.Attribute):
+                        dec_name = dec.attr
+                    if dec_name in _exempt_decorators:
+                        has_exempt_decorator = True
+                        break
+                if has_exempt_decorator:
+                    continue
+                # Check for missing return annotation
+                if node.returns is None:
+                    violations.append(
+                        Violation(
+                            id="ARCH003",
+                            rule="missing-return-type",
+                            category="architecture",
+                            severity="info",
+                            message=f"Public function '{node.name}' is missing a return type annotation",
+                            line=node.lineno,
+                            column=node.col_offset + 1,
+                            code_snippet=lines[node.lineno - 1].strip()
+                            if node.lineno <= len(lines)
+                            else "",
+                            suggestion="Add return type annotation: def func() -> ReturnType:",
+                        )
+                    )
+
+        # ARCH004: excessive-nesting (recursive depth walk)
+        nesting_nodes = (
+            ast.If,
+            ast.For,
+            ast.While,
+            ast.With,
+            ast.Try,
+            ast.ExceptHandler,
+            ast.AsyncFor,
+            ast.AsyncWith,
+        )
+
+        def _max_nesting_depth(node: ast.AST, current_depth: int = 0) -> int:
+            """Walk AST recursively, tracking nesting depth."""
+            max_depth = current_depth
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, nesting_nodes):
+                    child_depth = _max_nesting_depth(child, current_depth + 1)
+                else:
+                    child_depth = _max_nesting_depth(child, current_depth)
+                max_depth = max(max_depth, child_depth)
+            return max_depth
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                depth = _max_nesting_depth(node)
+                if depth > max_nesting:
+                    violations.append(
+                        Violation(
+                            id="ARCH004",
+                            rule="excessive-nesting",
+                            category="architecture",
+                            severity="warning",
+                            message=(
+                                f"Function '{node.name}' has nesting depth {depth}"
+                                f" (max {max_nesting})"
+                            ),
+                            line=node.lineno,
+                            column=node.col_offset + 1,
+                            code_snippet=lines[node.lineno - 1].strip()
+                            if node.lineno <= len(lines)
+                            else "",
+                            suggestion="Reduce nesting by extracting conditions or using early returns",
+                        )
+                    )
+
+        # ARCH005: god-class (too many methods in a class)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                method_count = sum(
+                    1
+                    for child in node.body
+                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                )
+                if method_count > max_class_methods:
+                    violations.append(
+                        Violation(
+                            id="ARCH005",
+                            rule="god-class",
+                            category="architecture",
+                            severity="warning",
+                            message=(
+                                f"Class '{node.name}' has {method_count} methods"
+                                f" (max {max_class_methods})"
+                            ),
+                            line=node.lineno,
+                            column=node.col_offset + 1,
+                            code_snippet=lines[node.lineno - 1].strip()
+                            if node.lineno <= len(lines)
+                            else "",
+                            suggestion="Split this class into smaller, focused classes",
+                        )
+                    )
+
+        return (violations, [])
 
     def _check_rules(
         self,

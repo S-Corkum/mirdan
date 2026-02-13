@@ -2,6 +2,7 @@
 
 import pytest
 
+from mirdan.config import ThresholdsConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
@@ -763,10 +764,10 @@ class TestArchitectureCheckFlag:
         result = validator.validate("x = 1", language="python", check_architecture=True)
         assert "architecture" in result.standards_checked
 
-    def test_architecture_enabled_adds_limitation(self, validator: CodeValidator) -> None:
-        """check_architecture=True should note the AST limitation."""
+    def test_architecture_enabled_no_limitation_for_python(self, validator: CodeValidator) -> None:
+        """check_architecture=True should NOT add limitation for Python code."""
         result = validator.validate("x = 1", language="python", check_architecture=True)
-        assert any("not yet implemented" in lim for lim in result.limitations)
+        assert not any("not yet implemented" in lim for lim in result.limitations)
 
     def test_architecture_disabled_not_in_standards_checked(
         self, validator: CodeValidator
@@ -1045,3 +1046,170 @@ class TestNewRulesCaseSensitivity:
         )
         result = validator.validate(code, language="go")
         assert any(v.id == "GO003" for v in result.violations)
+
+
+class TestArchitectureAST:
+    """Tests for AST-based architecture validation (ARCH001-ARCH005)."""
+
+    def test_arch001_function_too_long(self, validator: CodeValidator) -> None:
+        """Function exceeding max length should trigger ARCH001."""
+        # 35-line function body (> default 30)
+        lines = ["def long_function() -> None:"] + ["    x = 1"] * 34
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH001" for v in result.violations)
+
+    def test_arch001_function_within_limit(self, validator: CodeValidator) -> None:
+        """Function within limit should not trigger ARCH001."""
+        lines = ["def short_function() -> None:"] + ["    x = 1"] * 10
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH001" for v in result.violations)
+
+    def test_arch002_file_too_long(self) -> None:
+        """File exceeding max non-empty lines should trigger ARCH002."""
+        thresholds = ThresholdsConfig(arch_max_file_length=10)
+        standards = QualityStandards()
+        validator = CodeValidator(standards, thresholds=thresholds)
+        lines = [f"x_{i} = {i}" for i in range(15)]
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH002" for v in result.violations)
+
+    def test_arch002_file_within_limit(self, validator: CodeValidator) -> None:
+        """File within limit should not trigger ARCH002."""
+        code = "x = 1\ny = 2\nz = 3\n"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH002" for v in result.violations)
+
+    def test_arch003_missing_return_type(self, validator: CodeValidator) -> None:
+        """Public function missing return type should trigger ARCH003."""
+        code = "def my_func(x):\n    return x"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH003" for v in result.violations)
+
+    def test_arch003_private_exempt(self, validator: CodeValidator) -> None:
+        """Private functions should be exempt from ARCH003."""
+        code = "def _helper(x):\n    return x"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH003" for v in result.violations)
+
+    def test_arch003_dunder_exempt(self, validator: CodeValidator) -> None:
+        """Dunder methods should be exempt from ARCH003."""
+        code = "class Foo:\n    def __init__(self):\n        pass"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH003" for v in result.violations)
+
+    def test_arch003_property_exempt(self, validator: CodeValidator) -> None:
+        """Property-decorated functions should be exempt from ARCH003."""
+        code = "class Foo:\n    @property\n    def name(self):\n        return self._name"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH003" for v in result.violations)
+
+    def test_arch003_with_return_type_passes(self, validator: CodeValidator) -> None:
+        """Public function with return type should not trigger ARCH003."""
+        code = "def my_func(x: int) -> int:\n    return x"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH003" for v in result.violations)
+
+    def test_arch004_excessive_nesting(self, validator: CodeValidator) -> None:
+        """Deeply nested code should trigger ARCH004."""
+        code = (
+            "def deep() -> None:\n"
+            "    if True:\n"
+            "        for i in range(10):\n"
+            "            while True:\n"
+            "                with open('f'):\n"
+            "                    try:\n"
+            "                        pass\n"
+            "                    except Exception:\n"
+            "                        pass\n"
+        )
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH004" for v in result.violations)
+
+    def test_arch004_within_limit(self, validator: CodeValidator) -> None:
+        """Moderately nested code should not trigger ARCH004."""
+        code = (
+            "def shallow() -> None:\n"
+            "    if True:\n"
+            "        for i in range(10):\n"
+            "            x = i\n"
+        )
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH004" for v in result.violations)
+
+    def test_arch005_god_class(self) -> None:
+        """Class with too many methods should trigger ARCH005."""
+        thresholds = ThresholdsConfig(arch_max_class_methods=3)
+        standards = QualityStandards()
+        validator = CodeValidator(standards, thresholds=thresholds)
+        methods = "\n".join(
+            f"    def method_{i}(self) -> None:\n        pass" for i in range(5)
+        )
+        code = f"class BigClass:\n{methods}"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH005" for v in result.violations)
+
+    def test_arch005_within_limit(self, validator: CodeValidator) -> None:
+        """Class with few methods should not trigger ARCH005."""
+        code = (
+            "class SmallClass:\n"
+            "    def method_a(self) -> None:\n"
+            "        pass\n"
+            "    def method_b(self) -> None:\n"
+            "        pass\n"
+        )
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH005" for v in result.violations)
+
+    def test_syntax_error_handled_gracefully(self, validator: CodeValidator) -> None:
+        """Syntax errors should be handled gracefully."""
+        code = "def broken(\n    x\n"  # Intentionally broken
+        result = validator.validate(code, language="python")
+        assert any("syntax errors" in lim.lower() for lim in result.limitations)
+
+    def test_non_python_gets_limitation(self, validator: CodeValidator) -> None:
+        """Non-Python code should get Python-only limitation."""
+        code = "const x = 1;"
+        result = validator.validate(code, language="javascript")
+        assert any("python only" in lim.lower() for lim in result.limitations)
+
+    def test_custom_thresholds_override_defaults(self) -> None:
+        """Custom ThresholdsConfig should override default values."""
+        thresholds = ThresholdsConfig(arch_max_function_length=50)
+        standards = QualityStandards()
+        validator = CodeValidator(standards, thresholds=thresholds)
+        # 40-line function: should pass with threshold=50 but fail with default=30
+        lines = ["def func() -> None:"] + ["    x = 1"] * 39
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ARCH001" for v in result.violations)
+
+    def test_no_thresholds_uses_defaults(self) -> None:
+        """No ThresholdsConfig should use hardcoded defaults (30, 300, 4, 10)."""
+        standards = QualityStandards()
+        validator = CodeValidator(standards, thresholds=None)
+        # 35-line function: should trigger ARCH001 with default=30
+        lines = ["def func() -> None:"] + ["    x = 1"] * 34
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ARCH001" for v in result.violations)
+
+    def test_arch_violations_are_warnings_not_errors(self, validator: CodeValidator) -> None:
+        """ARCH violations should be warnings, not failing passed."""
+        lines = ["def long_function() -> int:"] + ["    x = 1"] * 34 + ["    return x"]
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        arch_violations = [v for v in result.violations if v.id.startswith("ARCH")]
+        assert len(arch_violations) > 0
+        assert all(v.severity in ("warning", "info") for v in arch_violations)
+        # Warnings don't fail passed
+        assert result.passed
+
+    def test_arch_violations_affect_score(self, validator: CodeValidator) -> None:
+        """ARCH violations should reduce score below 1.0."""
+        lines = ["def long_function() -> int:"] + ["    x = 1"] * 34 + ["    return x"]
+        code = "\n".join(lines)
+        result = validator.validate(code, language="python")
+        assert result.score < 1.0
