@@ -120,8 +120,8 @@ class MCPOrchestrator:
                     )
                 )
 
-        # Security scanning recommendations
-        if intent.touches_security:
+        # Security scanning recommendations (only when explicitly available)
+        if intent.touches_security and "security-scanner" in available_mcps:
             recommendations.append(
                 ToolRecommendation(
                     mcp="security-scanner",

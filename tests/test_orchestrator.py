@@ -136,16 +136,38 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "github" in mcp_names
 
-    def test_security_scanner_for_security(self, orchestrator: MCPOrchestrator) -> None:
-        """Should recommend security-scanner when touches_security=True."""
+    def test_security_scanner_when_explicitly_available(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend security-scanner when explicitly in available_mcps."""
         intent = Intent(
             original_prompt="test",
             task_type=TaskType.GENERATION,
             touches_security=True,
         )
-        result = orchestrator.suggest_tools(intent)
+        result = orchestrator.suggest_tools(intent, available_mcps=["security-scanner"])
         mcp_names = [r.mcp for r in result]
         assert "security-scanner" in mcp_names
+
+    def test_security_scanner_excluded_by_default(self, orchestrator: MCPOrchestrator) -> None:
+        """Should NOT recommend security-scanner when available_mcps is None."""
+        intent = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_security=True,
+        )
+        result = orchestrator.suggest_tools(intent, available_mcps=None)
+        mcp_names = [r.mcp for r in result]
+        assert "security-scanner" not in mcp_names
+
+    def test_security_scanner_excluded_when_not_in_list(self, orchestrator: MCPOrchestrator) -> None:
+        """Should NOT recommend security-scanner when not in available_mcps."""
+        intent = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_security=True,
+        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["github"])
+        mcp_names = [r.mcp for r in result]
+        assert "security-scanner" not in mcp_names
 
 
 class TestMCPPreferences:

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
+from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig, ProjectConfig
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.gatherers.base import GathererResult
 from mirdan.models import ContextBundle, Intent, TaskType
@@ -391,3 +391,32 @@ class TestPublicRegistryMethods:
         ) as mock_discover:
             await aggregator.discover_mcp_capabilities("context7", force=True)
             mock_discover.assert_called_once_with("context7", force=True)
+
+
+class TestGitHubGathererConfigWiring:
+    """Tests for GitHubGatherer wired from ProjectConfig."""
+
+    def test_github_wired_when_config_has_owner_repo(self) -> None:
+        """GitHubGatherer should have repo context when config provides it."""
+        config = MirdanConfig()
+        config.project = ProjectConfig(github_owner="myorg", github_repo="myrepo")
+        aggregator = ContextAggregator(config)
+
+        # Find the GitHub gatherer
+        from mirdan.core.gatherers.github import GitHubGatherer
+
+        github_gatherers = [g for g in aggregator._gatherers if isinstance(g, GitHubGatherer)]
+        assert len(github_gatherers) == 1
+        assert github_gatherers[0]._owner == "myorg"
+        assert github_gatherers[0]._repo == "myrepo"
+
+    def test_github_unwired_when_config_empty(self, empty_config: MirdanConfig) -> None:
+        """GitHubGatherer should have no repo context when config is empty."""
+        aggregator = ContextAggregator(empty_config)
+
+        from mirdan.core.gatherers.github import GitHubGatherer
+
+        github_gatherers = [g for g in aggregator._gatherers if isinstance(g, GitHubGatherer)]
+        assert len(github_gatherers) == 1
+        assert github_gatherers[0]._owner is None
+        assert github_gatherers[0]._repo is None

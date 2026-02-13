@@ -19,6 +19,7 @@ from mirdan.core.gatherers import (
     GathererResult,
     GitHubGatherer,
 )
+from mirdan.core.gatherers.base import BaseGatherer
 from mirdan.models import ContextBundle, Intent
 
 logger = logging.getLogger(__name__)
@@ -41,18 +42,27 @@ class ContextAggregator:
         self._registry = MCPClientRegistry(config)
         self._gatherers = self._create_gatherers()
 
-    def _create_gatherers(self) -> list[Any]:
+    def _create_gatherers(self) -> list[BaseGatherer]:
         """Create all available gatherers.
 
         Returns:
             List of gatherer instances
         """
         timeout = self._config.orchestration.gatherer_timeout
+        github_gatherer = GitHubGatherer(self._registry, timeout)
+
+        # Wire GitHub gatherer to project config if available
+        if self._config.project.github_owner and self._config.project.github_repo:
+            github_gatherer.set_repo_context(
+                self._config.project.github_owner,
+                self._config.project.github_repo,
+            )
+
         return [
             Context7Gatherer(self._registry, timeout),
             FilesystemGatherer(self._registry, timeout),
             EnyalGatherer(self._registry, timeout),
-            GitHubGatherer(self._registry, timeout),
+            github_gatherer,
         ]
 
     async def gather_all(
@@ -72,7 +82,7 @@ class ContextAggregator:
             Merged ContextBundle with all gathered context
         """
         # Filter to available gatherers
-        available_gatherers: list[Any] = []
+        available_gatherers: list[BaseGatherer] = []
         for gatherer in self._gatherers:
             try:
                 if await gatherer.is_available():
@@ -124,7 +134,7 @@ class ContextAggregator:
 
     async def _run_gatherer(
         self,
-        gatherer: Any,
+        gatherer: BaseGatherer,
         intent: Intent,
         depth: str,
     ) -> GathererResult:
