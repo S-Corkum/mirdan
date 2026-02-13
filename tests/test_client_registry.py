@@ -380,6 +380,30 @@ class TestCapabilityDiscovery:
         assert len(registry._capabilities) == 0
 
     @pytest.mark.asyncio
+    async def test_close_all_clears_discovery_errors(self, stdio_config: MirdanConfig) -> None:
+        """close_all should clear discovery errors along with clients and capabilities."""
+        registry = MCPClientRegistry(stdio_config)
+
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(side_effect=Exception("Discovery failed"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch.object(registry, "_create_client", return_value=mock_client):
+            await registry.get_client("enyal")
+
+        # Discovery error should be recorded
+        assert registry.get_discovery_error("enyal") == "Discovery failed"
+
+        await registry.close_all()
+
+        # Everything should be cleared
+        assert len(registry._clients) == 0
+        assert len(registry._capabilities) == 0
+        assert len(registry._discovery_errors) == 0
+        assert registry.get_discovery_error("enyal") is None
+
+    @pytest.mark.asyncio
     async def test_discover_capabilities_force_refresh(self, stdio_config: MirdanConfig) -> None:
         """force=True should re-discover even if cached."""
         registry = MCPClientRegistry(stdio_config)

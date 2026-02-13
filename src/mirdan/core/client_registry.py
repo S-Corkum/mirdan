@@ -292,22 +292,24 @@ class MCPClientRegistry:
             return None
 
     async def close_all(self) -> None:
-        """Close all client connections.
+        """Clear all cached client references and discovered capabilities.
+
+        FastMCP Clients are used as context managers per-request
+        (``async with client:``), so connections are opened and closed
+        within each operation. This method clears the cached client
+        objects and discovery state.
 
         Should be called during server shutdown.
         """
-        for name in self._clients:
-            try:
-                # FastMCP Client doesn't have a close method directly on Client
-                # but we clear our references
-                logger.debug("Closing client for MCP '%s'", name)
-            except Exception as e:
-                logger.error("Error closing client for MCP '%s': %s", name, e)
-
+        client_names = list(self._clients.keys())
         self._clients.clear()
         self._capabilities.clear()
         self._discovery_errors.clear()
-        logger.debug("All MCP clients and capabilities cleared")
+        logger.debug(
+            "Cleared %d cached MCP client(s): %s",
+            len(client_names),
+            ", ".join(client_names) if client_names else "none",
+        )
 
     async def call_tools_parallel(
         self,

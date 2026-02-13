@@ -1,5 +1,7 @@
 """Tests for configuration wiring to components."""
 
+from pathlib import Path
+
 from mirdan.config import (
     EnhancementConfig,
     MirdanConfig,
@@ -12,6 +14,27 @@ from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ContextBundle, Intent, TaskType
+
+
+class TestVersionConsistency:
+    """Tests that version metadata is consistent across the project."""
+
+    def test_version_matches_pyproject(self) -> None:
+        """mirdan.__version__ must match the version in pyproject.toml."""
+        import tomllib
+
+        import mirdan
+
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with pyproject_path.open("rb") as f:
+            pyproject = tomllib.load(f)
+
+        pyproject_version = pyproject["project"]["version"]
+        assert mirdan.__version__ == pyproject_version, (
+            f"mirdan.__version__ ({mirdan.__version__!r}) does not match "
+            f"pyproject.toml version ({pyproject_version!r}). "
+            f"Update src/mirdan/__init__.py to match."
+        )
 
 
 class TestIntentAnalyzerConfigWiring:
@@ -141,6 +164,53 @@ class TestQualityStandardsFrameworkConfig:
         config = QualityConfig()
 
         assert config.framework == "moderate"
+
+
+class TestKnowledgeGraphStandardsTrigger:
+    """Tests for knowledge graph standards triggered by touches_knowledge_graph."""
+
+    def test_kg_flag_triggers_kg_standards(self) -> None:
+        """touches_knowledge_graph=True should include KG standards."""
+        standards = QualityStandards()
+        intent = Intent(
+            original_prompt="build a knowledge graph",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+        )
+        result = standards.render_for_intent(intent)
+        result_text = " ".join(result).lower()
+        assert "graph" in result_text or "entity" in result_text or "provenance" in result_text
+
+    def test_kg_flag_false_skips_kg_standards(self) -> None:
+        """touches_knowledge_graph=False should not include KG standards."""
+        standards = QualityStandards()
+        intent_with_kg = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+        )
+        intent_without_kg = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=False,
+        )
+        with_kg = standards.render_for_intent(intent_with_kg)
+        without_kg = standards.render_for_intent(intent_without_kg)
+        assert len(with_kg) > len(without_kg)
+
+    def test_kg_independent_of_neo4j_framework(self) -> None:
+        """KG standards should trigger on flag, not framework name."""
+        standards = QualityStandards()
+        # KG flag set but no neo4j framework
+        intent = Intent(
+            original_prompt="build a weaviate knowledge graph",
+            task_type=TaskType.GENERATION,
+            frameworks=["weaviate"],
+            touches_knowledge_graph=True,
+        )
+        result = standards.render_for_intent(intent)
+        result_text = " ".join(result).lower()
+        assert "graph" in result_text or "entity" in result_text or "provenance" in result_text
 
 
 class TestPromptComposerConfigWiring:

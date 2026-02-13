@@ -193,11 +193,12 @@ class QualityStandards:
             if "principles" in rag_standards:
                 requirements.extend(rag_standards["principles"][:rag_count])
 
-            # Add knowledge graph standards if neo4j is detected
-            if "neo4j" in intent.frameworks:
-                kg_standards = self.standards.get("knowledge_graphs", {})
-                if "principles" in kg_standards:
-                    requirements.extend(kg_standards["principles"][:rag_count])
+        # Add knowledge graph standards if KG usage detected
+        if intent.touches_knowledge_graph:
+            kg_count = self._get_stringency_count("framework")
+            kg_standards = self.standards.get("knowledge_graphs", {})
+            if "principles" in kg_standards:
+                requirements.extend(kg_standards["principles"][:kg_count])
 
         # Add architecture standards (use architecture stringency)
         arch_count = self._get_stringency_count("architecture")

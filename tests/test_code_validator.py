@@ -755,6 +755,47 @@ def run_command(args: list[str]) -> str:
         assert not any(v.rule == "unexplained-type-ignore" for v in result.violations)
 
 
+class TestArchitectureCheckFlag:
+    """Tests for the check_architecture parameter behavior."""
+
+    def test_architecture_enabled_adds_to_standards_checked(self, validator: CodeValidator) -> None:
+        """check_architecture=True should add 'architecture' to standards_checked."""
+        result = validator.validate("x = 1", language="python", check_architecture=True)
+        assert "architecture" in result.standards_checked
+
+    def test_architecture_enabled_adds_limitation(self, validator: CodeValidator) -> None:
+        """check_architecture=True should note the AST limitation."""
+        result = validator.validate("x = 1", language="python", check_architecture=True)
+        assert any("not yet implemented" in lim for lim in result.limitations)
+
+    def test_architecture_disabled_not_in_standards_checked(
+        self, validator: CodeValidator
+    ) -> None:
+        """check_architecture=False should not add 'architecture' to standards_checked."""
+        result = validator.validate("x = 1", language="python", check_architecture=False)
+        assert "architecture" not in result.standards_checked
+
+    def test_architecture_disabled_no_limitation(self, validator: CodeValidator) -> None:
+        """check_architecture=False should not add the architecture limitation."""
+        result = validator.validate("x = 1", language="python", check_architecture=False)
+        assert not any("Architecture validation" in lim for lim in result.limitations)
+
+    def test_architecture_flag_does_not_affect_violations(
+        self, validator: CodeValidator
+    ) -> None:
+        """Architecture flag should not change violation detection (style/security still run)."""
+        code = "result = eval(user_input)"
+        result_with = validator.validate(code, language="python", check_architecture=True)
+        result_without = validator.validate(code, language="python", check_architecture=False)
+
+        # Both should detect the eval() violation
+        assert any(v.rule == "no-eval" for v in result_with.violations)
+        assert any(v.rule == "no-eval" for v in result_without.violations)
+        # Both should fail (eval is an error)
+        assert not result_with.passed
+        assert not result_without.passed
+
+
 class TestIntegrationWithQualityStandards:
     """Tests for integration with QualityStandards."""
 
@@ -771,3 +812,236 @@ class TestIntegrationWithQualityStandards:
         code = "result = eval(x)"
         result = validator.validate(code, language="python")
         assert any(v.rule == "no-eval" for v in result.violations)
+
+
+class TestTypeScriptNewRules:
+    """Tests for new TypeScript validation rules."""
+
+    def test_detects_inner_html(self, validator: CodeValidator) -> None:
+        """Should detect innerHTML assignment (XSS risk)."""
+        code = 'element.innerHTML = userInput;'
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS005" and v.rule == "no-inner-html" for v in result.violations)
+
+    def test_inner_html_category_is_security(self, validator: CodeValidator) -> None:
+        """TS005 should be categorized as security."""
+        code = 'el.innerHTML = "<div>test</div>";'
+        result = validator.validate(code, language="typescript")
+        violations = [v for v in result.violations if v.id == "TS005"]
+        assert len(violations) == 1
+        assert violations[0].category == "security"
+
+
+class TestJavaScriptNewRules:
+    """Tests for new JavaScript validation rules."""
+
+    def test_detects_inner_html(self, validator: CodeValidator) -> None:
+        """Should detect innerHTML assignment (XSS risk)."""
+        code = 'element.innerHTML = userInput;'
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS004" and v.rule == "no-inner-html" for v in result.violations)
+
+    def test_detects_child_process_exec(self, validator: CodeValidator) -> None:
+        """Should detect child_process.exec() (command injection risk)."""
+        code = 'child_process.exec("rm -rf " + userInput);'
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS005" and v.rule == "no-child-process-exec" for v in result.violations)
+
+    def test_child_process_exec_category_is_security(self, validator: CodeValidator) -> None:
+        """JS005 should be categorized as security."""
+        code = 'child_process.exec("ls");'
+        result = validator.validate(code, language="javascript")
+        violations = [v for v in result.violations if v.id == "JS005"]
+        assert len(violations) == 1
+        assert violations[0].category == "security"
+
+
+class TestGoNewRules:
+    """Tests for new Go validation rules."""
+
+    def test_detects_sql_sprintf(self, validator: CodeValidator) -> None:
+        """Should detect SQL query built with fmt.Sprintf (SQL injection risk)."""
+        code = 'query := fmt.Sprintf("SELECT * FROM users WHERE id = %s", userID)'
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO003" and v.rule == "sql-string-format-go" for v in result.violations)
+
+    def test_sql_sprintf_category_is_security(self, validator: CodeValidator) -> None:
+        """GO003 should be categorized as security."""
+        code = 'q := fmt.Sprintf("DELETE FROM t WHERE id = %d", id)'
+        result = validator.validate(code, language="go")
+        violations = [v for v in result.violations if v.id == "GO003"]
+        assert len(violations) == 1
+        assert violations[0].category == "security"
+
+    def test_non_sql_sprintf_not_flagged(self, validator: CodeValidator) -> None:
+        """fmt.Sprintf for non-SQL strings should not be flagged by GO003."""
+        code = 'msg := fmt.Sprintf("Hello %s", name)'
+        result = validator.validate(code, language="go")
+        assert not any(v.id == "GO003" for v in result.violations)
+
+
+class TestJavaNewRules:
+    """Tests for new Java validation rules."""
+
+    def test_detects_runtime_exec(self, validator: CodeValidator) -> None:
+        """Should detect Runtime.exec() (command injection risk)."""
+        code = 'Runtime.getRuntime().exec("ls -la");'
+        result = validator.validate(code, language="java")
+        assert any(v.id == "JV005" and v.rule == "runtime-exec" for v in result.violations)
+
+    def test_detects_unsafe_deserialization(self, validator: CodeValidator) -> None:
+        """Should detect ObjectInputStream.readObject() (deserialization risk)."""
+        code = 'Object obj = ois.readObject();'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV006"]
+        assert len(violations) == 1
+        assert violations[0].rule == "unsafe-deserialization"
+
+    def test_detects_xml_decoder(self, validator: CodeValidator) -> None:
+        """Should detect XMLDecoder (deserialization risk)."""
+        code = 'XMLDecoder decoder = new XMLDecoder(is);'
+        result = validator.validate(code, language="java")
+        assert any(v.id == "JV007" and v.rule == "unsafe-xml-decoder" for v in result.violations)
+
+    def test_runtime_exec_category_is_security(self, validator: CodeValidator) -> None:
+        """JV005 should be categorized as security."""
+        code = 'Runtime.getRuntime().exec(cmd);'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV005"]
+        assert len(violations) == 1
+        assert violations[0].category == "security"
+
+    def test_xml_decoder_category_is_security(self, validator: CodeValidator) -> None:
+        """JV007 should be categorized as security."""
+        code = 'new XMLDecoder(inputStream);'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV007"]
+        assert len(violations) == 1
+        assert violations[0].category == "security"
+
+    def test_deserialization_severity_is_warning(self, validator: CodeValidator) -> None:
+        """JV006 should be warning severity (not error)."""
+        code = 'Object obj = ois.readObject();'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV006"]
+        assert len(violations) == 1
+        assert violations[0].severity == "warning"
+
+
+class TestNewRulesSeverityLevels:
+    """Tests verifying correct severity for all new rules."""
+
+    def test_ts005_is_warning(self, validator: CodeValidator) -> None:
+        """TS005 no-inner-html should be warning severity."""
+        code = 'el.innerHTML = x;'
+        result = validator.validate(code, language="typescript")
+        violations = [v for v in result.violations if v.id == "TS005"]
+        assert violations[0].severity == "warning"
+
+    def test_js004_is_warning(self, validator: CodeValidator) -> None:
+        """JS004 no-inner-html should be warning severity."""
+        code = 'el.innerHTML = x;'
+        result = validator.validate(code, language="javascript")
+        violations = [v for v in result.violations if v.id == "JS004"]
+        assert violations[0].severity == "warning"
+
+    def test_js005_is_warning(self, validator: CodeValidator) -> None:
+        """JS005 no-child-process-exec should be warning severity."""
+        code = 'child_process.exec("cmd");'
+        result = validator.validate(code, language="javascript")
+        violations = [v for v in result.violations if v.id == "JS005"]
+        assert violations[0].severity == "warning"
+
+    def test_go003_is_error(self, validator: CodeValidator) -> None:
+        """GO003 sql-string-format-go should be error severity."""
+        code = 'q := fmt.Sprintf("SELECT * FROM t WHERE id=%d", id)'
+        result = validator.validate(code, language="go")
+        violations = [v for v in result.violations if v.id == "GO003"]
+        assert violations[0].severity == "error"
+
+    def test_jv005_is_error(self, validator: CodeValidator) -> None:
+        """JV005 runtime-exec should be error severity."""
+        code = 'Runtime.getRuntime().exec(cmd);'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV005"]
+        assert violations[0].severity == "error"
+
+    def test_jv007_is_error(self, validator: CodeValidator) -> None:
+        """JV007 unsafe-xml-decoder should be error severity."""
+        code = 'new XMLDecoder(is);'
+        result = validator.validate(code, language="java")
+        violations = [v for v in result.violations if v.id == "JV007"]
+        assert violations[0].severity == "error"
+
+
+class TestNewRulesFalsePositivePrevention:
+    """Tests that new rules don't fire inside strings or comments."""
+
+    def test_ts_inner_html_in_comment_not_flagged(
+        self, validator: CodeValidator
+    ) -> None:
+        """TS005 should not flag innerHTML in a comment."""
+        code = '// element.innerHTML = userInput;'
+        result = validator.validate(code, language="typescript")
+        assert not any(v.id == "TS005" for v in result.violations)
+
+    def test_js_child_process_in_string_not_flagged(
+        self, validator: CodeValidator
+    ) -> None:
+        """JS005 should not flag child_process.exec in a string literal."""
+        code = (
+            'const msg = "Do not use child_process.exec() directly";'
+        )
+        result = validator.validate(code, language="javascript")
+        assert not any(v.id == "JS005" for v in result.violations)
+
+    def test_go_sql_sprintf_in_comment_not_flagged(
+        self, validator: CodeValidator
+    ) -> None:
+        """GO003 should not flag fmt.Sprintf SQL in a comment."""
+        code = '// q := fmt.Sprintf("SELECT * FROM t WHERE id=%d", id)'
+        result = validator.validate(code, language="go")
+        assert not any(v.id == "GO003" for v in result.violations)
+
+    def test_java_runtime_exec_in_string_not_flagged(
+        self, validator: CodeValidator
+    ) -> None:
+        """JV005 should not flag Runtime.exec in a string literal."""
+        code = (
+            'String warning = "Never call '
+            'Runtime.getRuntime().exec(cmd)";'
+        )
+        result = validator.validate(code, language="java")
+        assert not any(v.id == "JV005" for v in result.violations)
+
+    def test_java_read_object_in_comment_not_flagged(
+        self, validator: CodeValidator
+    ) -> None:
+        """JV006 should not flag readObject in a comment."""
+        code = '// obj.readObject() is dangerous'
+        result = validator.validate(code, language="java")
+        assert not any(v.id == "JV006" for v in result.violations)
+
+
+class TestNewRulesCaseSensitivity:
+    """Tests for case-sensitivity behavior of new rules."""
+
+    def test_go003_detects_lowercase_sql(self, validator: CodeValidator) -> None:
+        """GO003 should detect lowercase SQL keywords (IGNORECASE)."""
+        code = (
+            'q := fmt.Sprintf("select * from users '
+            'where id=%d", id)'
+        )
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO003" for v in result.violations)
+
+    def test_go003_detects_mixed_case_sql(
+        self, validator: CodeValidator
+    ) -> None:
+        """GO003 should detect mixed-case SQL keywords."""
+        code = (
+            'q := fmt.Sprintf("Select * From users '
+            'Where id=%d", id)'
+        )
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO003" for v in result.violations)

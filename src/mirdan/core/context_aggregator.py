@@ -1,11 +1,16 @@
 """Context Aggregator - Orchestrates context gathering from multiple MCPs."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import MirdanConfig
+
+if TYPE_CHECKING:
+    from mirdan.models import MCPCapabilities
 from mirdan.core.client_registry import MCPClientRegistry
 from mirdan.core.gatherers import (
     Context7Gatherer,
@@ -204,6 +209,33 @@ class ContextAggregator:
                     merged.documentation_hints.append(hint)
 
         return merged
+
+    def is_mcp_configured(self, mcp_name: str) -> bool:
+        """Check if an MCP is configured in the registry.
+
+        Args:
+            mcp_name: Name of the MCP (e.g., 'context7', 'enyal')
+
+        Returns:
+            True if the MCP is configured, False otherwise
+        """
+        return self._registry.is_configured(mcp_name)
+
+    async def discover_mcp_capabilities(
+        self,
+        mcp_name: str,
+        force: bool = False,
+    ) -> MCPCapabilities | None:
+        """Discover capabilities of a configured MCP server.
+
+        Args:
+            mcp_name: Name of the MCP to discover
+            force: If True, re-discover even if already cached
+
+        Returns:
+            MCPCapabilities if discovery succeeds, None otherwise
+        """
+        return await self._registry.discover_capabilities(mcp_name, force=force)
 
     async def close(self) -> None:
         """Close all MCP client connections."""

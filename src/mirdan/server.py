@@ -15,6 +15,23 @@ from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import Intent, TaskType
 
+# Input size limits to prevent abuse and resource exhaustion
+_MAX_PROMPT_LENGTH = 50_000  # ~12k tokens
+_MAX_CODE_LENGTH = 500_000  # ~125k tokens
+_MAX_PLAN_LENGTH = 200_000  # ~50k tokens
+
+
+def _check_input_size(value: str, name: str, max_length: int) -> dict[str, Any] | None:
+    """Return an error dict if value exceeds max_length, else None."""
+    if len(value) > max_length:
+        return {
+            "error": f"{name} exceeds maximum length ({len(value):,} > {max_length:,} characters)",
+            "max_length": max_length,
+            "actual_length": len(value),
+        }
+    return None
+
+
 # Initialize the MCP server
 mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
 
@@ -51,6 +68,10 @@ async def enhance_prompt(
     Returns:
         Enhanced prompt with quality requirements and tool recommendations
     """
+    # Validate input size
+    if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
+        return error
+
     # Analyze intent
     intent = intent_analyzer.analyze(prompt)
 
@@ -83,6 +104,10 @@ async def analyze_intent(prompt: str) -> dict[str, Any]:
     Returns:
         Structured intent analysis
     """
+    # Validate input size
+    if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
+        return error
+
     intent = intent_analyzer.analyze(prompt)
 
     ambiguity_level = (
@@ -98,6 +123,8 @@ async def analyze_intent(prompt: str) -> dict[str, Any]:
         "language": intent.primary_language,
         "frameworks": intent.frameworks,
         "touches_security": intent.touches_security,
+        "touches_rag": intent.touches_rag,
+        "touches_knowledge_graph": intent.touches_knowledge_graph,
         "uses_external_framework": intent.uses_external_framework,
         "ambiguity_score": intent.ambiguity_score,
         "ambiguity_level": ambiguity_level,
@@ -145,6 +172,10 @@ async def suggest_tools(
     Returns:
         Tool recommendations with priorities and reasons
     """
+    # Validate input size
+    if error := _check_input_size(intent_description, "intent_description", _MAX_PROMPT_LENGTH):
+        return error
+
     # Parse available MCPs
     mcps = [m.strip() for m in available_mcps.split(",")] if available_mcps else None
 
@@ -159,8 +190,8 @@ async def suggest_tools(
     if discover_capabilities:
         for rec in recommendations:
             mcp_name = rec.mcp
-            if mcp_name and context_aggregator._registry.is_configured(mcp_name):
-                capabilities = await context_aggregator._registry.discover_capabilities(mcp_name)
+            if mcp_name and context_aggregator.is_mcp_configured(mcp_name):
+                capabilities = await context_aggregator.discover_mcp_capabilities(mcp_name)
                 if capabilities:
                     discovered_mcps[mcp_name] = [t.name for t in capabilities.tools[:10]]
 
@@ -198,7 +229,7 @@ async def get_verification_checklist(
         touches_security=touches_security,
     )
 
-    verification_steps = prompt_composer._generate_verification_steps(intent)
+    verification_steps = prompt_composer.generate_verification_steps(intent)
 
     return {
         "task_type": task.value,
@@ -230,6 +261,10 @@ async def validate_code_quality(
     Returns:
         Validation results with pass/fail, score, violations, and summary
     """
+    # Validate input size
+    if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
+        return error
+
     result = code_validator.validate(
         code=code,
         language=language,
@@ -258,6 +293,10 @@ async def validate_plan_quality(
     Returns:
         Quality scores, issues list, and ready_for_cheap_model flag
     """
+    # Validate input size
+    if error := _check_input_size(plan, "plan", _MAX_PLAN_LENGTH):
+        return error
+
     result = plan_validator.validate(plan, target_model)
     return result.to_dict()
 

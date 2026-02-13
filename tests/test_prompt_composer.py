@@ -75,12 +75,12 @@ class TestCompose:
 
 
 class TestVerificationSteps:
-    """Tests for _generate_verification_steps method."""
+    """Tests for generate_verification_steps method."""
 
     def test_base_steps_always_included(self, composer: PromptComposer) -> None:
         """Should include 4 base verification steps."""
         intent = Intent(original_prompt="test", task_type=TaskType.UNKNOWN)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert len(steps) >= 4
         assert any("imports" in s.lower() for s in steps)
         assert any("error handling" in s.lower() for s in steps)
@@ -90,37 +90,37 @@ class TestVerificationSteps:
     def test_generation_task_adds_integration_step(self, composer: PromptComposer) -> None:
         """Should add integration validation step for GENERATION tasks."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert any("integrates with existing patterns" in s.lower() for s in steps)
 
     def test_refactor_task_adds_preservation_step(self, composer: PromptComposer) -> None:
         """Should insert functionality preservation step at position 0 for REFACTOR."""
         intent = Intent(original_prompt="test", task_type=TaskType.REFACTOR)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert "functionality is preserved" in steps[0].lower()
 
     def test_refactor_task_adds_api_signature_step(self, composer: PromptComposer) -> None:
         """Should append API signature step for REFACTOR."""
         intent = Intent(original_prompt="test", task_type=TaskType.REFACTOR)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert any("api signatures" in s.lower() for s in steps)
 
     def test_debug_task_adds_root_cause_step(self, composer: PromptComposer) -> None:
         """Should insert root cause step at position 0 for DEBUG."""
         intent = Intent(original_prompt="test", task_type=TaskType.DEBUG)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert "root cause" in steps[0].lower()
 
     def test_debug_task_adds_regression_test_step(self, composer: PromptComposer) -> None:
         """Should append regression test step for DEBUG."""
         intent = Intent(original_prompt="test", task_type=TaskType.DEBUG)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert any("regression" in s.lower() for s in steps)
 
     def test_test_task_adds_coverage_steps(self, composer: PromptComposer) -> None:
         """Should add test coverage steps for TEST tasks."""
         intent = Intent(original_prompt="test", task_type=TaskType.TEST)
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert any("edge cases" in s.lower() for s in steps)
         assert any("isolation" in s.lower() or "shared state" in s.lower() for s in steps)
 
@@ -131,10 +131,44 @@ class TestVerificationSteps:
             task_type=TaskType.GENERATION,
             touches_security=True,
         )
-        steps = composer._generate_verification_steps(intent)
+        steps = composer.generate_verification_steps(intent)
         assert any("password" in s.lower() for s in steps)
         assert any("sensitive data" in s.lower() or "logged" in s.lower() for s in steps)
         assert any("sanitiz" in s.lower() for s in steps)
+
+    def test_kg_task_adds_graph_verification_steps(self, composer: PromptComposer) -> None:
+        """Should add KG-specific steps when touches_knowledge_graph=True."""
+        intent = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+        )
+        steps = composer.generate_verification_steps(intent)
+        assert any("graph queries" in s.lower() or "parameterized" in s.lower() for s in steps)
+        assert any("traversal" in s.lower() or "depth" in s.lower() for s in steps)
+        assert any("deduplication" in s.lower() for s in steps)
+
+    def test_kg_without_rag_still_adds_kg_steps(self, composer: PromptComposer) -> None:
+        """KG steps should be added even without touches_rag."""
+        intent = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+            touches_rag=False,
+        )
+        steps = composer.generate_verification_steps(intent)
+        assert any("graph queries" in s.lower() for s in steps)
+
+    def test_no_kg_flag_skips_kg_steps(self, composer: PromptComposer) -> None:
+        """Should not add KG steps when touches_knowledge_graph is False."""
+        intent = Intent(
+            original_prompt="test",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=False,
+        )
+        steps = composer.generate_verification_steps(intent)
+        assert not any("graph queries" in s.lower() for s in steps)
+        assert not any("deduplication" in s.lower() for s in steps)
 
 
 class TestBuildPromptText:

@@ -154,6 +154,29 @@ class IntentAnalyzer:
         "qdrant",
     }
 
+    # Knowledge-graph-specific keywords (beyond general RAG)
+    KG_KEYWORDS: list[str] = [
+        r"\bknowledge\s*graph\b",
+        r"\bgraphrag\b",
+        r"\bgraph\s*database\b",
+        r"\bgraph\s*traversal\b",
+        r"\bentity\s*relation\b",
+        r"\bentity\s*extraction\b",
+        r"\bontology\b",
+        r"\bcypher\b",
+        r"\bgremlin\b",
+        r"\btriple\s*store\b",
+        r"\brdf\b",
+        r"\bsparql\b",
+        r"\bproperty\s*graph\b",
+    ]
+
+    # Frameworks that indicate knowledge graph usage
+    KG_FRAMEWORKS: set[str] = {
+        "neo4j",
+        "weaviate",
+    }
+
     # Security-related keywords
     SECURITY_KEYWORDS: list[str] = [
         r"\bauth\b",
@@ -202,6 +225,11 @@ class IntentAnalyzer:
             re.search(pattern, prompt_lower) for pattern in self.RAG_KEYWORDS
         ) or bool(set(frameworks) & self.RAG_FRAMEWORKS)
 
+        # Check if touches knowledge graph
+        touches_knowledge_graph = any(
+            re.search(pattern, prompt_lower) for pattern in self.KG_KEYWORDS
+        ) or bool(set(frameworks) & self.KG_FRAMEWORKS)
+
         # Calculate ambiguity
         ambiguity = self._calculate_ambiguity(prompt, task_type, language)
 
@@ -221,6 +249,7 @@ class IntentAnalyzer:
             entities=extracted_entities,
             touches_security=touches_security,
             touches_rag=touches_rag,
+            touches_knowledge_graph=touches_knowledge_graph,
             uses_external_framework=len(frameworks) > 0,
             ambiguity_score=ambiguity,
             clarifying_questions=clarifying_questions,

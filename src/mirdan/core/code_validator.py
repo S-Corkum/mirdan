@@ -228,6 +228,14 @@ class CodeValidator:
                 "'as any' type assertion defeats TypeScript's type safety",
                 "Use proper type annotations or type guards instead",
             ),
+            (
+                "TS005",
+                "no-inner-html",
+                r"\.innerHTML\s*=",
+                "warning",
+                "innerHTML assignment is an XSS risk with untrusted content",
+                "Use textContent for text or DOM APIs (createElement, appendChild) for HTML",
+            ),
         ],
         "javascript": [
             (
@@ -253,6 +261,22 @@ class CodeValidator:
                 "error",
                 "document.write() can overwrite the entire document and is a security risk",
                 "Use DOM manipulation methods like createElement() and appendChild()",
+            ),
+            (
+                "JS004",
+                "no-inner-html",
+                r"\.innerHTML\s*=",
+                "warning",
+                "innerHTML assignment is an XSS risk with untrusted content",
+                "Use textContent for text or DOM APIs (createElement, appendChild) for HTML",
+            ),
+            (
+                "JS005",
+                "no-child-process-exec",
+                r"child_process\.exec\s*\(",
+                "warning",
+                "child_process.exec() uses shell and is vulnerable to command injection",
+                "Use child_process.execFile() or child_process.spawn() with argument arrays",
             ),
         ],
         "rust": [
@@ -290,6 +314,14 @@ class CodeValidator:
                 "panic() should be avoided for recoverable errors",
                 "Return an error instead: 'return fmt.Errorf(\"description: %w\", err)'",
             ),
+            (
+                "GO003",
+                "sql-string-format-go",
+                r"fmt\.Sprintf\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)",
+                "error",
+                "SQL query built with fmt.Sprintf - potential SQL injection",
+                "Use parameterized queries: db.Query(\"SELECT * FROM t WHERE id = $1\", id)",
+            ),
         ],
         "java": [
             (
@@ -324,6 +356,30 @@ class CodeValidator:
                 "Empty catch block silently swallows exceptions",
                 "Log the exception or rethrow: catch (Exception e) { logger.error(e); }",
             ),
+            (
+                "JV005",
+                "runtime-exec",
+                r"Runtime\s*\.\s*getRuntime\s*\(\s*\)\s*\.\s*exec\s*\(",
+                "error",
+                "Runtime.exec() is vulnerable to command injection",
+                "Use ProcessBuilder with explicit argument list instead",
+            ),
+            (
+                "JV006",
+                "unsafe-deserialization",
+                r"\.readObject\s*\(\s*\)",
+                "warning",
+                "ObjectInputStream.readObject() can execute arbitrary code with untrusted data",
+                "Use safe serialization (JSON, Protocol Buffers) or implement ObjectInputFilter",
+            ),
+            (
+                "JV007",
+                "unsafe-xml-decoder",
+                r"new\s+XMLDecoder\s*\(",
+                "error",
+                "XMLDecoder can execute arbitrary code during deserialization",
+                "Use JAXB or other safe XML parsing libraries instead",
+            ),
         ],
     }
 
@@ -334,6 +390,13 @@ class CodeValidator:
         "PY008": "security",  # subprocess-shell
         "PY009": "security",  # unsafe-yaml-load
         "PY010": "security",  # os-system
+        "TS005": "security",  # no-inner-html
+        "JS004": "security",  # no-inner-html
+        "JS005": "security",  # no-child-process-exec
+        "GO003": "security",  # sql-string-format-go
+        "JV005": "security",  # runtime-exec
+        "JV006": "security",  # unsafe-deserialization
+        "JV007": "security",  # unsafe-xml-decoder
         "RAG001": "style",  # chunk-overlap-zero
         "RAG002": "style",  # deprecated-langchain-loader
     }
@@ -652,10 +715,9 @@ class CodeValidator:
             standards_checked.append("architecture")
             # Architecture validation would require AST analysis
             # For MVP, we note this limitation
-            if check_architecture:
-                limitations.append(
-                    "Architecture validation requires AST analysis (not yet implemented)"
-                )
+            limitations.append(
+                "Architecture validation requires AST analysis (not yet implemented)"
+            )
 
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)

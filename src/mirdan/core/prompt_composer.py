@@ -52,7 +52,7 @@ class PromptComposer:
         quality_requirements = self.standards.render_for_intent(intent)
 
         # Generate verification steps based on task type
-        verification_steps = self._generate_verification_steps(intent)
+        verification_steps = self.generate_verification_steps(intent)
 
         # Build the enhanced prompt text
         enhanced_text = self._build_prompt_text(
@@ -67,7 +67,7 @@ class PromptComposer:
             verification_steps=verification_steps,
         )
 
-    def _generate_verification_steps(self, intent: Intent) -> list[str]:
+    def generate_verification_steps(self, intent: Intent) -> list[str]:
         """Generate verification steps based on task type."""
         base_steps = [
             "Verify all imports reference actual modules in the project",
@@ -120,15 +120,15 @@ class PromptComposer:
                     "Verify retrieved context is validated before LLM prompt injection",
                 ]
             )
-            # Additional KG-specific checks
-            if "neo4j" in intent.frameworks:
-                base_steps.extend(
-                    [
-                        "Verify all Cypher queries are parameterized (no string interpolation)",
-                        "Verify graph traversals have depth/node limits",
-                        "Verify entity deduplication is implemented before insertion",
-                    ]
-                )
+        # Additional KG-specific checks
+        if intent.touches_knowledge_graph:
+            base_steps.extend(
+                [
+                    "Verify all graph queries are parameterized (no string interpolation)",
+                    "Verify graph traversals have depth/node limits",
+                    "Verify entity deduplication is implemented before insertion",
+                ]
+            )
 
         if intent.touches_security:
             base_steps.extend(

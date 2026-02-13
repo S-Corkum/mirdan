@@ -98,6 +98,7 @@ class TestRAGStandardsCompositionIntegration:
             primary_language="python",
             frameworks=["neo4j"],
             touches_rag=True,
+            touches_knowledge_graph=True,
         )
         result = standards.render_for_intent(intent)
         result_text = " ".join(result).lower()
@@ -234,11 +235,12 @@ class TestRAGVerificationChecklist:
             primary_language="python",
             frameworks=["neo4j"],
             touches_rag=True,
+            touches_knowledge_graph=True,
         )
         context = ContextBundle()
         result = composer.compose(intent, context, [])
         steps_text = " ".join(result.verification_steps).lower()
-        assert "cypher" in steps_text or "parameterized" in steps_text
+        assert "graph queries" in steps_text or "parameterized" in steps_text
         assert "traversal" in steps_text or "depth" in steps_text
         assert "deduplication" in steps_text
 

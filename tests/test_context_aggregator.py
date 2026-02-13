@@ -315,3 +315,79 @@ class TestContextAggregator:
 
         assert "should_not_appear" not in merged.existing_patterns
         assert "should_appear" in merged.existing_patterns
+
+
+class TestPublicRegistryMethods:
+    """Tests for public MCP registry proxy methods on ContextAggregator."""
+
+    def test_is_mcp_configured_returns_true_for_configured(
+        self, full_config: MirdanConfig
+    ) -> None:
+        """Should return True for a configured MCP."""
+        aggregator = ContextAggregator(full_config)
+        assert aggregator.is_mcp_configured("context7") is True
+
+    def test_is_mcp_configured_returns_false_for_unconfigured(
+        self, empty_config: MirdanConfig
+    ) -> None:
+        """Should return False for an unconfigured MCP."""
+        aggregator = ContextAggregator(empty_config)
+        assert aggregator.is_mcp_configured("context7") is False
+
+    def test_is_mcp_configured_with_empty_string(
+        self, full_config: MirdanConfig
+    ) -> None:
+        """Should return False for empty string MCP name."""
+        aggregator = ContextAggregator(full_config)
+        assert aggregator.is_mcp_configured("") is False
+
+    def test_is_mcp_configured_checks_all_configured_mcps(
+        self, full_config: MirdanConfig
+    ) -> None:
+        """Should return True for all MCPs in the config."""
+        aggregator = ContextAggregator(full_config)
+        for name in ["context7", "filesystem", "enyal", "github"]:
+            assert aggregator.is_mcp_configured(name) is True
+
+    @pytest.mark.asyncio
+    async def test_discover_mcp_capabilities_returns_none_for_unconfigured(
+        self, empty_config: MirdanConfig
+    ) -> None:
+        """Should return None when MCP is not configured."""
+        aggregator = ContextAggregator(empty_config)
+        result = await aggregator.discover_mcp_capabilities("nonexistent")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_discover_mcp_capabilities_delegates_to_registry(
+        self, full_config: MirdanConfig
+    ) -> None:
+        """discover_mcp_capabilities should delegate to registry."""
+        from mirdan.models import MCPCapabilities
+
+        aggregator = ContextAggregator(full_config)
+        mock_caps = MCPCapabilities(discovered_at="2025-01-01T00:00:00")
+        with patch.object(
+            aggregator._registry,
+            "discover_capabilities",
+            new_callable=AsyncMock,
+            return_value=mock_caps,
+        ) as mock_discover:
+            result = await aggregator.discover_mcp_capabilities("context7")
+            mock_discover.assert_called_once_with("context7", force=False)
+            assert result is mock_caps
+
+    @pytest.mark.asyncio
+    async def test_discover_mcp_capabilities_force_param(
+        self, full_config: MirdanConfig
+    ) -> None:
+        """discover_mcp_capabilities should pass force to registry."""
+        aggregator = ContextAggregator(full_config)
+        with patch.object(
+            aggregator._registry,
+            "discover_capabilities",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as mock_discover:
+            await aggregator.discover_mcp_capabilities("context7", force=True)
+            mock_discover.assert_called_once_with("context7", force=True)

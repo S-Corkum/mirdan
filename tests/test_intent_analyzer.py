@@ -392,3 +392,103 @@ class TestRAGDetection:
         """Should detect 'graphrag' as RAG-related."""
         intent = analyzer.analyze("implement graphrag for hybrid retrieval")
         assert intent.touches_rag is True
+
+
+class TestKnowledgeGraphDetection:
+    """Tests for touches_knowledge_graph detection."""
+
+    def test_knowledge_graph_keyword(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'knowledge graph' keyword."""
+        intent = analyzer.analyze("build a knowledge graph for the documents")
+        assert intent.touches_knowledge_graph is True
+
+    def test_graphrag_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'graphrag' as knowledge graph related."""
+        intent = analyzer.analyze("implement graphrag for hybrid retrieval")
+        assert intent.touches_knowledge_graph is True
+
+    def test_cypher_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'cypher' as knowledge graph related."""
+        intent = analyzer.analyze("write a cypher query")
+        assert intent.touches_knowledge_graph is True
+
+    def test_gremlin_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'gremlin' as knowledge graph related."""
+        intent = analyzer.analyze("traverse the graph with gremlin")
+        assert intent.touches_knowledge_graph is True
+
+    def test_ontology_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'ontology' as knowledge graph related."""
+        intent = analyzer.analyze("define the ontology for entity types")
+        assert intent.touches_knowledge_graph is True
+
+    def test_neo4j_framework_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect neo4j framework as knowledge graph related."""
+        intent = analyzer.analyze("connect to neo4j database")
+        assert intent.touches_knowledge_graph is True
+
+    def test_weaviate_framework_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect weaviate framework as knowledge graph related."""
+        intent = analyzer.analyze("use weaviate for vector storage")
+        assert intent.touches_knowledge_graph is True
+
+    def test_non_kg_task_not_flagged(self, analyzer: IntentAnalyzer) -> None:
+        """Should not flag non-KG tasks."""
+        intent = analyzer.analyze("add a button to the page")
+        assert intent.touches_knowledge_graph is False
+
+    def test_sparql_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'sparql' as knowledge graph related."""
+        intent = analyzer.analyze("run a SPARQL query against the RDF store")
+        assert intent.touches_knowledge_graph is True
+
+    def test_graph_database_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect 'graph database' as knowledge graph related."""
+        intent = analyzer.analyze("store entities in a graph database")
+        assert intent.touches_knowledge_graph is True
+
+    def test_kg_and_rag_detected_simultaneously(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """Both touches_rag and touches_knowledge_graph can be true."""
+        intent = analyzer.analyze(
+            "implement graphrag with knowledge graph and vector embeddings"
+        )
+        assert intent.touches_rag is True
+        assert intent.touches_knowledge_graph is True
+
+    def test_property_graph_triggers_kg(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """Should detect 'property graph' as KG related."""
+        intent = analyzer.analyze("model as a property graph")
+        assert intent.touches_knowledge_graph is True
+
+    def test_triple_store_triggers_kg(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """Should detect 'triple store' as KG related."""
+        intent = analyzer.analyze("store RDF triples in a triple store")
+        assert intent.touches_knowledge_graph is True
+
+    def test_entity_extraction_triggers_kg(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """Should detect 'entity extraction' as KG related."""
+        intent = analyzer.analyze("build entity extraction pipeline")
+        assert intent.touches_knowledge_graph is True
+
+    def test_non_kg_framework_does_not_trigger_kg(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """Frameworks like chromadb should not trigger touches_knowledge_graph."""
+        intent = analyzer.analyze("use chromadb for vector storage")
+        assert intent.touches_knowledge_graph is False
+
+    def test_rag_without_kg_keywords_does_not_trigger_kg(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """RAG keywords alone should not trigger touches_knowledge_graph."""
+        intent = analyzer.analyze("build a RAG pipeline with embeddings")
+        assert intent.touches_rag is True
+        assert intent.touches_knowledge_graph is False

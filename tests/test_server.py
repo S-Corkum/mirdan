@@ -201,7 +201,7 @@ class TestGetVerificationChecklistLogic:
             original_prompt="",
             task_type=TaskType.GENERATION,
         )
-        steps = self.prompt_composer._generate_verification_steps(intent)
+        steps = self.prompt_composer.generate_verification_steps(intent)
 
         assert isinstance(steps, list)
         assert len(steps) > 0
@@ -213,7 +213,7 @@ class TestGetVerificationChecklistLogic:
             task_type=TaskType.GENERATION,
             touches_security=True,
         )
-        steps = self.prompt_composer._generate_verification_steps(intent)
+        steps = self.prompt_composer.generate_verification_steps(intent)
 
         # Should have security-related verification steps
         steps_text = " ".join(steps)
@@ -228,7 +228,7 @@ class TestGetVerificationChecklistLogic:
             original_prompt="",
             task_type=TaskType.REFACTOR,
         )
-        steps = self.prompt_composer._generate_verification_steps(intent)
+        steps = self.prompt_composer.generate_verification_steps(intent)
 
         # Should include preservation checks for refactor
         steps_text = " ".join(steps)
@@ -240,7 +240,7 @@ class TestGetVerificationChecklistLogic:
             original_prompt="",
             task_type=TaskType.PLANNING,
         )
-        steps = self.prompt_composer._generate_verification_steps(intent)
+        steps = self.prompt_composer.generate_verification_steps(intent)
 
         # Planning has specific verification steps
         steps_text = " ".join(steps)
@@ -402,3 +402,284 @@ class TestServerComponentIntegration:
         assert "fastapi" in result["frameworks"]
         assert len(result["quality_requirements"]) > 0
         assert len(result["tool_recommendations"]) > 0
+
+
+class TestInputSizeLimits:
+    """Tests for input size limit validation."""
+
+    def test_check_input_size_within_limit(self) -> None:
+        """Should return None when input is within limit."""
+        from mirdan.server import _check_input_size
+
+        result = _check_input_size("short input", "prompt", 50_000)
+        assert result is None
+
+    def test_check_input_size_exceeds_limit(self) -> None:
+        """Should return error dict when input exceeds limit."""
+        from mirdan.server import _check_input_size
+
+        oversized = "x" * 100
+        result = _check_input_size(oversized, "prompt", 50)
+        assert result is not None
+        assert "error" in result
+        assert result["max_length"] == 50
+        assert result["actual_length"] == 100
+
+    def test_check_input_size_at_boundary(self) -> None:
+        """Should return None when input is exactly at the limit."""
+        from mirdan.server import _check_input_size
+
+        exact = "x" * 100
+        result = _check_input_size(exact, "prompt", 100)
+        assert result is None
+
+    def test_check_input_size_error_message_format(self) -> None:
+        """Error message should include field name and sizes."""
+        from mirdan.server import _check_input_size
+
+        result = _check_input_size("x" * 200, "code", 100)
+        assert result is not None
+        assert "code" in result["error"]
+        assert "200" in result["error"]
+        assert "100" in result["error"]
+
+    def test_constants_are_sensible(self) -> None:
+        """Size limit constants should be reasonable values."""
+        from mirdan.server import (
+            _MAX_CODE_LENGTH,
+            _MAX_PLAN_LENGTH,
+            _MAX_PROMPT_LENGTH,
+        )
+
+        assert _MAX_PROMPT_LENGTH == 50_000
+        assert _MAX_CODE_LENGTH == 500_000
+        assert _MAX_PLAN_LENGTH == 200_000
+        # Code limit should be largest (files are big)
+        assert _MAX_CODE_LENGTH > _MAX_PLAN_LENGTH > _MAX_PROMPT_LENGTH
+
+
+class TestInputSizeLimitsIntegration:
+    """Integration tests verifying tools reject oversized input."""
+
+    def setup_method(self) -> None:
+        """Set up components matching server.py initialization."""
+        self.config = MirdanConfig()
+        self.intent_analyzer = IntentAnalyzer(self.config.project)
+        self.quality_standards = QualityStandards(config=self.config.quality)
+        self.prompt_composer = PromptComposer(
+            self.quality_standards, config=self.config.enhancement
+        )
+        self.mcp_orchestrator = MCPOrchestrator(self.config.orchestration)
+        self.code_validator = CodeValidator(
+            self.quality_standards,
+            config=self.config.quality,
+            thresholds=self.config.thresholds,
+        )
+        self.plan_validator = PlanValidator(self.config.planning)
+
+    def _simulate_enhance_prompt(self, prompt: str) -> dict:
+        """Simulate enhance_prompt tool logic (sync parts only)."""
+        from mirdan.server import (
+            _MAX_PROMPT_LENGTH,
+            _check_input_size,
+        )
+
+        if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
+            return error
+        intent = self.intent_analyzer.analyze(prompt)
+        recs = self.mcp_orchestrator.suggest_tools(intent)
+        context = ContextBundle()
+        enhanced = self.prompt_composer.compose(intent, context, recs)
+        return enhanced.to_dict()
+
+    def _simulate_analyze_intent(self, prompt: str) -> dict:
+        """Simulate analyze_intent tool logic."""
+        from mirdan.server import (
+            _MAX_PROMPT_LENGTH,
+            _check_input_size,
+        )
+
+        if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
+            return error
+        intent = self.intent_analyzer.analyze(prompt)
+        return {"task_type": intent.task_type.value}
+
+    def _simulate_validate_code(self, code: str) -> dict:
+        """Simulate validate_code_quality tool logic."""
+        from mirdan.server import _MAX_CODE_LENGTH, _check_input_size
+
+        if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
+            return error
+        result = self.code_validator.validate(code=code, language="python")
+        return result.to_dict()
+
+    def _simulate_validate_plan(self, plan: str) -> dict:
+        """Simulate validate_plan_quality tool logic."""
+        from mirdan.server import _MAX_PLAN_LENGTH, _check_input_size
+
+        if error := _check_input_size(plan, "plan", _MAX_PLAN_LENGTH):
+            return error
+        result = self.plan_validator.validate(plan)
+        return result.to_dict()
+
+    def test_enhance_prompt_rejects_oversized(self) -> None:
+        """enhance_prompt should return error for oversized prompt."""
+        oversized = "x" * 50_001
+        result = self._simulate_enhance_prompt(oversized)
+        assert "error" in result
+        assert "prompt" in result["error"]
+
+    def test_enhance_prompt_accepts_normal(self) -> None:
+        """enhance_prompt should succeed with normal-sized prompt."""
+        result = self._simulate_enhance_prompt("add a login feature")
+        assert "enhanced_prompt" in result
+
+    def test_analyze_intent_rejects_oversized(self) -> None:
+        """analyze_intent should return error for oversized prompt."""
+        oversized = "x" * 50_001
+        result = self._simulate_analyze_intent(oversized)
+        assert "error" in result
+
+    def test_validate_code_rejects_oversized(self) -> None:
+        """validate_code_quality should return error for oversized code."""
+        oversized = "x" * 500_001
+        result = self._simulate_validate_code(oversized)
+        assert "error" in result
+        assert "code" in result["error"]
+
+    def test_validate_code_accepts_normal(self) -> None:
+        """validate_code_quality should succeed with normal code."""
+        result = self._simulate_validate_code("def foo(): pass")
+        assert "passed" in result
+
+    def test_validate_plan_rejects_oversized(self) -> None:
+        """validate_plan_quality should return error for oversized plan."""
+        oversized = "x" * 200_001
+        result = self._simulate_validate_plan(oversized)
+        assert "error" in result
+        assert "plan" in result["error"]
+
+    def test_validate_plan_accepts_normal(self) -> None:
+        """validate_plan_quality should succeed with normal plan."""
+        result = self._simulate_validate_plan("## Plan\nStep 1: do thing")
+        assert "overall_score" in result
+
+    def test_error_response_structure_consistent(self) -> None:
+        """All oversized errors should have same structure."""
+        from mirdan.server import _check_input_size
+
+        for name, limit in [
+            ("prompt", 10),
+            ("code", 10),
+            ("plan", 10),
+        ]:
+            result = _check_input_size("x" * 20, name, limit)
+            assert result is not None
+            assert set(result.keys()) == {"error", "max_length", "actual_length"}
+
+
+class TestAnalyzeIntentResponse:
+    """Tests for analyze_intent response fields."""
+
+    def test_analyze_intent_includes_touches_rag(self) -> None:
+        """analyze_intent response should include touches_rag."""
+        analyzer = IntentAnalyzer()
+        intent = analyzer.analyze("build a RAG pipeline")
+
+        # Simulate what server.py does
+        response = {
+            "touches_rag": intent.touches_rag,
+            "touches_knowledge_graph": intent.touches_knowledge_graph,
+        }
+        assert response["touches_rag"] is True
+
+    def test_analyze_intent_includes_touches_knowledge_graph(self) -> None:
+        """analyze_intent response should include touches_knowledge_graph."""
+        analyzer = IntentAnalyzer()
+        intent = analyzer.analyze("build a knowledge graph")
+
+        response = {
+            "touches_knowledge_graph": intent.touches_knowledge_graph,
+        }
+        assert response["touches_knowledge_graph"] is True
+
+    def test_enhanced_prompt_to_dict_includes_touches_knowledge_graph(self) -> None:
+        """EnhancedPrompt.to_dict() should include touches_knowledge_graph."""
+        from mirdan.core.prompt_composer import PromptComposer
+
+        standards = QualityStandards()
+        composer = PromptComposer(standards)
+
+        intent = Intent(
+            original_prompt="build a knowledge graph",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+        )
+        context = ContextBundle()
+        enhanced = composer.compose(intent, context, [])
+        result = enhanced.to_dict()
+        assert "touches_knowledge_graph" in result
+        assert result["touches_knowledge_graph"] is True
+
+
+class TestEndToEndKnowledgeGraphFlow:
+    """End-to-end tests for the full KG detection → standards → checklist flow."""
+
+    def test_kg_prompt_produces_kg_standards_and_verification(self) -> None:
+        """A KG-related prompt should produce KG standards and verification steps."""
+        config = MirdanConfig()
+        analyzer = IntentAnalyzer(config.project)
+        standards = QualityStandards(config=config.quality)
+        composer = PromptComposer(standards, config=config.enhancement)
+
+        intent = analyzer.analyze(
+            "Build a knowledge graph with neo4j for entity resolution"
+        )
+
+        # Intent should detect KG
+        assert intent.touches_knowledge_graph is True
+
+        # Standards should include KG-related content
+        quality_reqs = standards.render_for_intent(intent)
+        reqs_text = " ".join(quality_reqs).lower()
+        assert (
+            "graph" in reqs_text
+            or "entity" in reqs_text
+            or "provenance" in reqs_text
+        )
+
+        # Verification steps should include KG checks
+        context = ContextBundle()
+        enhanced = composer.compose(intent, context, [])
+        steps_text = " ".join(enhanced.verification_steps).lower()
+        assert "graph" in steps_text
+        assert "deduplication" in steps_text
+
+    def test_rag_and_kg_both_detected_together(self) -> None:
+        """A prompt mentioning both RAG and KG should set both flags."""
+        analyzer = IntentAnalyzer()
+        intent = analyzer.analyze(
+            "implement a GraphRAG pipeline with knowledge graph and "
+            "vector embeddings"
+        )
+        assert intent.touches_rag is True
+        assert intent.touches_knowledge_graph is True
+
+    def test_kg_standards_respect_stringency(self) -> None:
+        """KG standards count should vary with framework stringency."""
+        from mirdan.config import QualityConfig
+
+        strict = QualityStandards(config=QualityConfig(framework="strict"))
+        permissive = QualityStandards(
+            config=QualityConfig(framework="permissive")
+        )
+
+        intent = Intent(
+            original_prompt="build a knowledge graph",
+            task_type=TaskType.GENERATION,
+            touches_knowledge_graph=True,
+        )
+
+        strict_result = strict.render_for_intent(intent)
+        permissive_result = permissive.render_for_intent(intent)
+        assert len(strict_result) > len(permissive_result)
