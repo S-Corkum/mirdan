@@ -8,6 +8,7 @@ from mirdan.config import (
     OrchestrationConfig,
     ProjectConfig,
     QualityConfig,
+    ThresholdsConfig,
 )
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
@@ -385,3 +386,58 @@ class TestServerIntegration:
                 # Enyal should appear early due to preference
                 enyal_idx = mcp_names.index("enyal")
                 assert enyal_idx <= 1  # Should be first or second
+
+
+class TestNewConfigFields:
+    """Tests for new config fields added in P0/P1 fix."""
+
+    def test_thresholds_arch_defaults(self) -> None:
+        """Architecture threshold fields should have correct defaults."""
+        t = ThresholdsConfig()
+        assert t.arch_max_function_length == 30
+        assert t.arch_max_file_length == 300
+        assert t.arch_max_nesting_depth == 4
+        assert t.arch_max_class_methods == 10
+
+    def test_thresholds_arch_custom_values(self) -> None:
+        """Architecture thresholds should accept custom values."""
+        t = ThresholdsConfig(
+            arch_max_function_length=50,
+            arch_max_file_length=500,
+            arch_max_nesting_depth=6,
+            arch_max_class_methods=15,
+        )
+        assert t.arch_max_function_length == 50
+        assert t.arch_max_file_length == 500
+        assert t.arch_max_nesting_depth == 6
+        assert t.arch_max_class_methods == 15
+
+    def test_quality_config_language_default(self) -> None:
+        """QualityConfig.language should default to moderate."""
+        q = QualityConfig()
+        assert q.language == "moderate"
+
+    def test_quality_config_language_accepts_valid(self) -> None:
+        """QualityConfig.language should accept strict/moderate/permissive."""
+        for level in ("strict", "moderate", "permissive"):
+            q = QualityConfig(language=level)
+            assert q.language == level
+
+    def test_project_config_github_defaults(self) -> None:
+        """ProjectConfig github fields should default to empty."""
+        p = ProjectConfig()
+        assert p.github_owner == ""
+        assert p.github_repo == ""
+
+    def test_project_config_github_custom(self) -> None:
+        """ProjectConfig github fields should accept values."""
+        p = ProjectConfig(github_owner="myorg", github_repo="myrepo")
+        assert p.github_owner == "myorg"
+        assert p.github_repo == "myrepo"
+
+    def test_backward_compatible_mirdan_config(self) -> None:
+        """MirdanConfig with no new fields should still work."""
+        config = MirdanConfig()
+        assert config.thresholds.arch_max_function_length == 30
+        assert config.quality.language == "moderate"
+        assert config.project.github_owner == ""

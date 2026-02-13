@@ -15,6 +15,7 @@ class QualityConfig(BaseModel):
     documentation: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
     testing: str = Field(default="strict", pattern="^(strict|moderate|permissive)$")
     framework: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
+    language: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
 
 
 class MCPClientConfig(BaseModel):
@@ -115,6 +116,12 @@ class ThresholdsConfig(BaseModel):
     )
     plan_grounding_penalty: float = Field(default=0.1, description="Penalty per step issue")
 
+    # Architecture validation thresholds
+    arch_max_function_length: int = Field(default=30, description="Max lines per function")
+    arch_max_file_length: int = Field(default=300, description="Max non-empty lines per file")
+    arch_max_nesting_depth: int = Field(default=4, description="Max nesting depth")
+    arch_max_class_methods: int = Field(default=10, description="Max methods per class")
+
 
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
@@ -123,6 +130,8 @@ class ProjectConfig(BaseModel):
     type: str = "application"
     primary_language: str = ""
     frameworks: list[str] = Field(default_factory=list)
+    github_owner: str = ""
+    github_repo: str = ""
 
 
 class MirdanConfig(BaseModel):
