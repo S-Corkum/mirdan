@@ -3,7 +3,11 @@
 import pytest
 
 from mirdan.config import ThresholdsConfig
-from mirdan.core.code_validator import CodeValidator
+from mirdan.core.code_validator import (
+    CodeValidator,
+    _build_skip_regions,
+    _is_in_skip_region,
+)
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
 
@@ -769,9 +773,7 @@ class TestArchitectureCheckFlag:
         result = validator.validate("x = 1", language="python", check_architecture=True)
         assert not any("not yet implemented" in lim for lim in result.limitations)
 
-    def test_architecture_disabled_not_in_standards_checked(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_architecture_disabled_not_in_standards_checked(self, validator: CodeValidator) -> None:
         """check_architecture=False should not add 'architecture' to standards_checked."""
         result = validator.validate("x = 1", language="python", check_architecture=False)
         assert "architecture" not in result.standards_checked
@@ -781,9 +783,7 @@ class TestArchitectureCheckFlag:
         result = validator.validate("x = 1", language="python", check_architecture=False)
         assert not any("Architecture validation" in lim for lim in result.limitations)
 
-    def test_architecture_flag_does_not_affect_violations(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_architecture_flag_does_not_affect_violations(self, validator: CodeValidator) -> None:
         """Architecture flag should not change violation detection (style/security still run)."""
         code = "result = eval(user_input)"
         result_with = validator.validate(code, language="python", check_architecture=True)
@@ -820,7 +820,7 @@ class TestTypeScriptNewRules:
 
     def test_detects_inner_html(self, validator: CodeValidator) -> None:
         """Should detect innerHTML assignment (XSS risk)."""
-        code = 'element.innerHTML = userInput;'
+        code = "element.innerHTML = userInput;"
         result = validator.validate(code, language="typescript")
         assert any(v.id == "TS005" and v.rule == "no-inner-html" for v in result.violations)
 
@@ -838,7 +838,7 @@ class TestJavaScriptNewRules:
 
     def test_detects_inner_html(self, validator: CodeValidator) -> None:
         """Should detect innerHTML assignment (XSS risk)."""
-        code = 'element.innerHTML = userInput;'
+        code = "element.innerHTML = userInput;"
         result = validator.validate(code, language="javascript")
         assert any(v.id == "JS004" and v.rule == "no-inner-html" for v in result.violations)
 
@@ -892,7 +892,7 @@ class TestJavaNewRules:
 
     def test_detects_unsafe_deserialization(self, validator: CodeValidator) -> None:
         """Should detect ObjectInputStream.readObject() (deserialization risk)."""
-        code = 'Object obj = ois.readObject();'
+        code = "Object obj = ois.readObject();"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV006"]
         assert len(violations) == 1
@@ -900,13 +900,13 @@ class TestJavaNewRules:
 
     def test_detects_xml_decoder(self, validator: CodeValidator) -> None:
         """Should detect XMLDecoder (deserialization risk)."""
-        code = 'XMLDecoder decoder = new XMLDecoder(is);'
+        code = "XMLDecoder decoder = new XMLDecoder(is);"
         result = validator.validate(code, language="java")
         assert any(v.id == "JV007" and v.rule == "unsafe-xml-decoder" for v in result.violations)
 
     def test_runtime_exec_category_is_security(self, validator: CodeValidator) -> None:
         """JV005 should be categorized as security."""
-        code = 'Runtime.getRuntime().exec(cmd);'
+        code = "Runtime.getRuntime().exec(cmd);"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV005"]
         assert len(violations) == 1
@@ -914,7 +914,7 @@ class TestJavaNewRules:
 
     def test_xml_decoder_category_is_security(self, validator: CodeValidator) -> None:
         """JV007 should be categorized as security."""
-        code = 'new XMLDecoder(inputStream);'
+        code = "new XMLDecoder(inputStream);"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV007"]
         assert len(violations) == 1
@@ -922,7 +922,7 @@ class TestJavaNewRules:
 
     def test_deserialization_severity_is_warning(self, validator: CodeValidator) -> None:
         """JV006 should be warning severity (not error)."""
-        code = 'Object obj = ois.readObject();'
+        code = "Object obj = ois.readObject();"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV006"]
         assert len(violations) == 1
@@ -934,14 +934,14 @@ class TestNewRulesSeverityLevels:
 
     def test_ts005_is_warning(self, validator: CodeValidator) -> None:
         """TS005 no-inner-html should be warning severity."""
-        code = 'el.innerHTML = x;'
+        code = "el.innerHTML = x;"
         result = validator.validate(code, language="typescript")
         violations = [v for v in result.violations if v.id == "TS005"]
         assert violations[0].severity == "warning"
 
     def test_js004_is_warning(self, validator: CodeValidator) -> None:
         """JS004 no-inner-html should be warning severity."""
-        code = 'el.innerHTML = x;'
+        code = "el.innerHTML = x;"
         result = validator.validate(code, language="javascript")
         violations = [v for v in result.violations if v.id == "JS004"]
         assert violations[0].severity == "warning"
@@ -962,14 +962,14 @@ class TestNewRulesSeverityLevels:
 
     def test_jv005_is_error(self, validator: CodeValidator) -> None:
         """JV005 runtime-exec should be error severity."""
-        code = 'Runtime.getRuntime().exec(cmd);'
+        code = "Runtime.getRuntime().exec(cmd);"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV005"]
         assert violations[0].severity == "error"
 
     def test_jv007_is_error(self, validator: CodeValidator) -> None:
         """JV007 unsafe-xml-decoder should be error severity."""
-        code = 'new XMLDecoder(is);'
+        code = "new XMLDecoder(is);"
         result = validator.validate(code, language="java")
         violations = [v for v in result.violations if v.id == "JV007"]
         assert violations[0].severity == "error"
@@ -978,48 +978,33 @@ class TestNewRulesSeverityLevels:
 class TestNewRulesFalsePositivePrevention:
     """Tests that new rules don't fire inside strings or comments."""
 
-    def test_ts_inner_html_in_comment_not_flagged(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_ts_inner_html_in_comment_not_flagged(self, validator: CodeValidator) -> None:
         """TS005 should not flag innerHTML in a comment."""
-        code = '// element.innerHTML = userInput;'
+        code = "// element.innerHTML = userInput;"
         result = validator.validate(code, language="typescript")
         assert not any(v.id == "TS005" for v in result.violations)
 
-    def test_js_child_process_in_string_not_flagged(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_js_child_process_in_string_not_flagged(self, validator: CodeValidator) -> None:
         """JS005 should not flag child_process.exec in a string literal."""
-        code = (
-            'const msg = "Do not use child_process.exec() directly";'
-        )
+        code = 'const msg = "Do not use child_process.exec() directly";'
         result = validator.validate(code, language="javascript")
         assert not any(v.id == "JS005" for v in result.violations)
 
-    def test_go_sql_sprintf_in_comment_not_flagged(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_go_sql_sprintf_in_comment_not_flagged(self, validator: CodeValidator) -> None:
         """GO003 should not flag fmt.Sprintf SQL in a comment."""
         code = '// q := fmt.Sprintf("SELECT * FROM t WHERE id=%d", id)'
         result = validator.validate(code, language="go")
         assert not any(v.id == "GO003" for v in result.violations)
 
-    def test_java_runtime_exec_in_string_not_flagged(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_java_runtime_exec_in_string_not_flagged(self, validator: CodeValidator) -> None:
         """JV005 should not flag Runtime.exec in a string literal."""
-        code = (
-            'String warning = "Never call '
-            'Runtime.getRuntime().exec(cmd)";'
-        )
+        code = 'String warning = "Never call Runtime.getRuntime().exec(cmd)";'
         result = validator.validate(code, language="java")
         assert not any(v.id == "JV005" for v in result.violations)
 
-    def test_java_read_object_in_comment_not_flagged(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_java_read_object_in_comment_not_flagged(self, validator: CodeValidator) -> None:
         """JV006 should not flag readObject in a comment."""
-        code = '// obj.readObject() is dangerous'
+        code = "// obj.readObject() is dangerous"
         result = validator.validate(code, language="java")
         assert not any(v.id == "JV006" for v in result.violations)
 
@@ -1029,21 +1014,13 @@ class TestNewRulesCaseSensitivity:
 
     def test_go003_detects_lowercase_sql(self, validator: CodeValidator) -> None:
         """GO003 should detect lowercase SQL keywords (IGNORECASE)."""
-        code = (
-            'q := fmt.Sprintf("select * from users '
-            'where id=%d", id)'
-        )
+        code = 'q := fmt.Sprintf("select * from users where id=%d", id)'
         result = validator.validate(code, language="go")
         assert any(v.id == "GO003" for v in result.violations)
 
-    def test_go003_detects_mixed_case_sql(
-        self, validator: CodeValidator
-    ) -> None:
+    def test_go003_detects_mixed_case_sql(self, validator: CodeValidator) -> None:
         """GO003 should detect mixed-case SQL keywords."""
-        code = (
-            'q := fmt.Sprintf("Select * From users '
-            'Where id=%d", id)'
-        )
+        code = 'q := fmt.Sprintf("Select * From users Where id=%d", id)'
         result = validator.validate(code, language="go")
         assert any(v.id == "GO003" for v in result.violations)
 
@@ -1131,10 +1108,7 @@ class TestArchitectureAST:
     def test_arch004_within_limit(self, validator: CodeValidator) -> None:
         """Moderately nested code should not trigger ARCH004."""
         code = (
-            "def shallow() -> None:\n"
-            "    if True:\n"
-            "        for i in range(10):\n"
-            "            x = i\n"
+            "def shallow() -> None:\n    if True:\n        for i in range(10):\n            x = i\n"
         )
         result = validator.validate(code, language="python")
         assert not any(v.id == "ARCH004" for v in result.violations)
@@ -1144,9 +1118,7 @@ class TestArchitectureAST:
         thresholds = ThresholdsConfig(arch_max_class_methods=3)
         standards = QualityStandards()
         validator = CodeValidator(standards, thresholds=thresholds)
-        methods = "\n".join(
-            f"    def method_{i}(self) -> None:\n        pass" for i in range(5)
-        )
+        methods = "\n".join(f"    def method_{i}(self) -> None:\n        pass" for i in range(5))
         code = f"class BigClass:\n{methods}"
         result = validator.validate(code, language="python")
         assert any(v.id == "ARCH005" for v in result.violations)
@@ -1213,3 +1185,370 @@ class TestArchitectureAST:
         code = "\n".join(lines)
         result = validator.validate(code, language="python")
         assert result.score < 1.0
+
+
+# ---------------------------------------------------------------------------
+# Skip-region builder & lookup unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildSkipRegions:
+    """Unit tests for _build_skip_regions()."""
+
+    # -- Python comments --
+
+    def test_python_hash_comment(self) -> None:
+        code = "x = 1  # a comment\ny = 2"
+        regions = _build_skip_regions(code, "python")
+        # Region should cover from '#' to the newline
+        assert len(regions) == 2
+        assert code[regions[0]] == "#"
+        assert regions[1] <= len(code)
+
+    def test_hash_not_comment_in_javascript(self) -> None:
+        """# is NOT a comment in JavaScript — should not create a region."""
+        code = "const x = 1  # not a comment"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 0
+
+    def test_hash_not_comment_in_java(self) -> None:
+        """# is NOT a comment in Java — should not create a region."""
+        code = "int x = 1;  # not a comment"
+        regions = _build_skip_regions(code, "java")
+        assert len(regions) == 0
+
+    # -- Block comments --
+
+    def test_block_comment_in_javascript(self) -> None:
+        code = "const x = 1; /* block comment */ const y = 2;"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 2
+        comment_text = code[regions[0] : regions[1]]
+        assert comment_text == "/* block comment */"
+
+    def test_block_comment_in_java(self) -> None:
+        code = "int x = 1; /* block */ int y = 2;"
+        regions = _build_skip_regions(code, "java")
+        assert len(regions) == 2
+        assert code[regions[0] : regions[1]] == "/* block */"
+
+    def test_block_comment_in_go(self) -> None:
+        code = "x := 1 /* block */ + 2"
+        regions = _build_skip_regions(code, "go")
+        assert len(regions) == 2
+        assert code[regions[0] : regions[1]] == "/* block */"
+
+    def test_block_comment_not_in_python(self) -> None:
+        """Python does NOT support /* */ — should not create a region."""
+        code = "x = 1 /* not a comment */ + 2"
+        regions = _build_skip_regions(code, "python")
+        # The only regions should be from quote characters, not /* */
+        for i in range(0, len(regions), 2):
+            region_text = code[regions[i] : regions[i + 1]]
+            assert "/*" not in region_text or region_text.startswith(("'", '"'))
+
+    def test_multiline_block_comment(self) -> None:
+        code = "var x;\n/* line1\n   line2\n   line3 */\nvar y;"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 2
+        comment_text = code[regions[0] : regions[1]]
+        assert "line1" in comment_text
+        assert "line3" in comment_text
+
+    def test_unterminated_block_comment(self) -> None:
+        """Unterminated block comments should extend to end of code."""
+        code = "var x; /* unterminated"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 2
+        assert regions[1] == len(code)
+
+    # -- Template literals --
+
+    def test_template_literal_in_javascript(self) -> None:
+        code = "const s = `hello ${name}`;"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 2
+        assert code[regions[0]] == "`"
+
+    def test_template_literal_in_typescript(self) -> None:
+        code = "const s = `template`;"
+        regions = _build_skip_regions(code, "typescript")
+        assert len(regions) == 2
+        literal_text = code[regions[0] : regions[1]]
+        assert literal_text == "`template`"
+
+    def test_template_literal_not_in_python(self) -> None:
+        """Backtick is not a template literal in Python."""
+        code = "x = `not a template`"
+        regions = _build_skip_regions(code, "python")
+        # Should not create a template literal region
+        for i in range(0, len(regions), 2):
+            region_text = code[regions[i] : regions[i + 1]]
+            assert "`" not in region_text
+
+    def test_template_literal_not_in_java(self) -> None:
+        """Java does not support template literals."""
+        code = "String x = `not valid`;"
+        regions = _build_skip_regions(code, "java")
+        for i in range(0, len(regions), 2):
+            region_text = code[regions[i] : regions[i + 1]]
+            assert "`" not in region_text
+
+    # -- Line comments: // --
+
+    def test_double_slash_comment_in_javascript(self) -> None:
+        code = "var x = 1; // a comment\nvar y = 2;"
+        regions = _build_skip_regions(code, "javascript")
+        assert len(regions) == 2
+        comment_text = code[regions[0] : regions[1]]
+        assert comment_text.startswith("//")
+
+    def test_double_slash_comment_in_go(self) -> None:
+        code = "x := 1 // comment\ny := 2"
+        regions = _build_skip_regions(code, "go")
+        assert len(regions) == 2
+
+    # -- Triple-quoted strings (Python) --
+
+    def test_triple_double_quoted_string(self) -> None:
+        code = '"""\nThis is a docstring with eval() in it.\n"""\nx = 1'
+        regions = _build_skip_regions(code, "python")
+        assert len(regions) == 2
+        docstring = code[regions[0] : regions[1]]
+        assert docstring.startswith('"""')
+        assert "eval()" in docstring
+
+    def test_triple_single_quoted_string(self) -> None:
+        code = "'''\nAnother docstring\n'''\nx = 1"
+        regions = _build_skip_regions(code, "python")
+        assert len(regions) == 2
+
+    # -- Mixed regions --
+
+    def test_multiple_region_types(self) -> None:
+        """Code with both strings and comments creates multiple regions."""
+        code = 'msg = "hello"  # a comment\neval(x)'
+        regions = _build_skip_regions(code, "python")
+        # At least 2 regions: the string and the comment (4 boundaries)
+        assert len(regions) >= 4
+
+    def test_empty_code(self) -> None:
+        assert _build_skip_regions("", "python") == []
+
+    def test_no_strings_or_comments(self) -> None:
+        code = "x = 1 + 2\ny = 3"
+        assert _build_skip_regions(code, "python") == []
+
+    # -- Unknown language --
+
+    def test_unknown_language_supports_block_comments(self) -> None:
+        """Unknown languages should support /* */ as a fallback."""
+        code = "x = 1; /* a block comment */ + 2"
+        regions = _build_skip_regions(code, "unknown")
+        assert len(regions) >= 2
+        found_block = False
+        for i in range(0, len(regions), 2):
+            if "/*" in code[regions[i] : regions[i + 1]]:
+                found_block = True
+        assert found_block
+
+
+class TestIsInSkipRegion:
+    """Unit tests for _is_in_skip_region()."""
+
+    def test_empty_boundaries(self) -> None:
+        assert _is_in_skip_region(5, []) is False
+
+    def test_position_before_region(self) -> None:
+        # Region: [10, 20)
+        assert _is_in_skip_region(5, [10, 20]) is False
+
+    def test_position_at_region_start(self) -> None:
+        """Position AT the opening delimiter is NOT inside (strictly after)."""
+        assert _is_in_skip_region(10, [10, 20]) is False
+
+    def test_position_strictly_inside_region(self) -> None:
+        assert _is_in_skip_region(15, [10, 20]) is True
+
+    def test_position_at_region_end(self) -> None:
+        """Position at the end boundary is NOT inside (half-open interval)."""
+        assert _is_in_skip_region(20, [10, 20]) is False
+
+    def test_position_after_region(self) -> None:
+        assert _is_in_skip_region(25, [10, 20]) is False
+
+    def test_between_two_regions(self) -> None:
+        # Regions: [5, 10), [20, 30)
+        assert _is_in_skip_region(15, [5, 10, 20, 30]) is False
+
+    def test_inside_second_region(self) -> None:
+        assert _is_in_skip_region(25, [5, 10, 20, 30]) is True
+
+    def test_one_past_start(self) -> None:
+        """Position one past the start delimiter IS inside."""
+        assert _is_in_skip_region(11, [10, 20]) is True
+
+
+# ---------------------------------------------------------------------------
+# Block comment false-positive prevention (integration tests)
+# ---------------------------------------------------------------------------
+
+
+class TestBlockCommentFalsePositives:
+    """Integration tests: patterns inside block comments must NOT be flagged."""
+
+    def test_eval_in_js_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """eval() inside /* */ in JavaScript should NOT be flagged."""
+        code = "/* eval(userInput) */\nconst x = 1;"
+        result = validator.validate(code, language="javascript")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+        assert result.passed
+
+    def test_eval_in_multiline_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """eval() inside a multi-line /* */ block comment should NOT be flagged."""
+        code = """\
+/*
+ * Security notes:
+ * Never use eval(userInput) directly.
+ * Always sanitize first.
+ */
+const x = 1;
+"""
+        result = validator.validate(code, language="javascript")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+        assert result.passed
+
+    def test_eval_in_java_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """eval() inside /* */ in Java should NOT be flagged."""
+        code = "/* eval(foo) */ int x = 1;"
+        result = validator.validate(code, language="java")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+    def test_eval_in_go_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """eval() inside /* */ in Go should NOT be flagged."""
+        code = "/* eval(bar) */\nx := 1"
+        result = validator.validate(code, language="go")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+    def test_innerhtml_in_ts_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """innerHTML inside /* */ in TypeScript should NOT be flagged."""
+        code = "/* element.innerHTML = userInput; */\nconst x = 1;"
+        result = validator.validate(code, language="typescript")
+        assert not any(v.id == "TS005" for v in result.violations)
+
+    def test_child_process_in_js_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """child_process.exec inside /* */ in JS should NOT be flagged."""
+        code = "/* child_process.exec(cmd) */\nconst x = 1;"
+        result = validator.validate(code, language="javascript")
+        assert not any(v.id == "JS005" for v in result.violations)
+
+    def test_sprintf_sql_in_go_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """fmt.Sprintf SQL in /* */ in Go should NOT be flagged."""
+        code = '/* q := fmt.Sprintf("SELECT * FROM t WHERE id=%d", id) */\nx := 1'
+        result = validator.validate(code, language="go")
+        assert not any(v.id == "GO003" for v in result.violations)
+
+    def test_runtime_exec_in_java_block_comment_not_flagged(self, validator: CodeValidator) -> None:
+        """Runtime.exec inside /* */ in Java should NOT be flagged."""
+        code = "/* Runtime.getRuntime().exec(cmd) */\nint x = 1;"
+        result = validator.validate(code, language="java")
+        assert not any(v.id == "JV005" for v in result.violations)
+
+    def test_actual_eval_after_block_comment_still_flagged(self, validator: CodeValidator) -> None:
+        """Actual eval() AFTER a block comment should still be flagged."""
+        code = "/* safe comment */\neval(userInput);"
+        result = validator.validate(code, language="javascript")
+        assert any(v.rule == "no-eval" for v in result.violations)
+        assert not result.passed
+
+    def test_actual_eval_before_block_comment_still_flagged(self, validator: CodeValidator) -> None:
+        """Actual eval() BEFORE a block comment should still be flagged."""
+        code = "eval(userInput);\n/* safe comment */"
+        result = validator.validate(code, language="javascript")
+        assert any(v.rule == "no-eval" for v in result.violations)
+
+    def test_mixed_block_comment_and_real_code(self, validator: CodeValidator) -> None:
+        """Block comments interleaved with real violations should flag only real ones."""
+        code = """\
+/* eval(safe1) */
+const y = eval(userInput);
+/* eval(safe2) */
+"""
+        result = validator.validate(code, language="javascript")
+        eval_violations = [v for v in result.violations if v.rule == "no-eval"]
+        assert len(eval_violations) == 1
+
+
+class TestTemplateLiteralFalsePositives:
+    """Integration tests: patterns inside template literals must NOT be flagged."""
+
+    def test_eval_in_template_literal_not_flagged(self, validator: CodeValidator) -> None:
+        """eval() inside backtick template literal should NOT be flagged in JS."""
+        code = "const msg = `Warning: eval(userInput) is dangerous`;\nconst x = 1;"
+        result = validator.validate(code, language="javascript")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+    def test_innerhtml_in_template_literal_not_flagged(self, validator: CodeValidator) -> None:
+        """innerHTML in template literal should NOT be flagged in TypeScript."""
+        code = "const msg = `Don't use element.innerHTML = x`;\nconst y = 1;"
+        result = validator.validate(code, language="typescript")
+        assert not any(v.id == "TS005" for v in result.violations)
+
+    def test_template_literal_with_interpolation(self, validator: CodeValidator) -> None:
+        """Template literal with ${} interpolation should still be a skip region."""
+        code = "const msg = `User ${name} should not call eval()`;\nconst x = 1;"
+        result = validator.validate(code, language="javascript")
+        assert not any(v.rule == "no-eval" for v in result.violations)
+
+
+class TestLanguageSpecificCommentBehavior:
+    """Tests that comment syntax is correctly scoped to the right languages."""
+
+    def test_hash_annotation_not_skipped_in_rust(self, validator: CodeValidator) -> None:
+        """Rust #[derive()] should NOT be treated as a comment.
+
+        This ensures that Rust attribute syntax is not confused with
+        hash-style line comments.
+        """
+        # This is a basic verification that # doesn't create a skip region in Rust
+        code = "#[allow(unused)]\nfn main() {}"
+        regions = _build_skip_regions(code, "rust")
+        # The # should NOT be a comment — check no region starts at the #
+        if regions:
+            for i in range(0, len(regions), 2):
+                assert code[regions[i]] != "#"
+
+    def test_hash_is_comment_in_python(self) -> None:
+        """# IS a comment in Python and should create a skip region."""
+        code = "x = 1  # comment\ny = 2"
+        regions = _build_skip_regions(code, "python")
+        found_hash_region = False
+        for i in range(0, len(regions), 2):
+            if code[regions[i]] == "#":
+                found_hash_region = True
+        assert found_hash_region
+
+    def test_hash_is_comment_in_ruby(self) -> None:
+        """# IS a comment in Ruby and should create a skip region."""
+        code = "x = 1  # comment\ny = 2"
+        regions = _build_skip_regions(code, "ruby")
+        found_hash_region = False
+        for i in range(0, len(regions), 2):
+            if code[regions[i]] == "#":
+                found_hash_region = True
+        assert found_hash_region
+
+    def test_block_comment_in_typescript(self) -> None:
+        """TypeScript supports /* */ block comments."""
+        code = "/* block */ const x = 1;"
+        regions = _build_skip_regions(code, "typescript")
+        assert len(regions) >= 2
+        assert code[regions[0] : regions[0] + 2] == "/*"
+
+    def test_block_comment_not_in_ruby(self) -> None:
+        """Ruby does NOT use /* */ for comments."""
+        code = "x = 1 /* not a comment */"
+        regions = _build_skip_regions(code, "ruby")
+        for i in range(0, len(regions), 2):
+            region_text = code[regions[i] : regions[i + 1]]
+            assert not region_text.startswith("/*")

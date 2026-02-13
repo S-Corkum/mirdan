@@ -298,8 +298,13 @@ class IntentAnalyzer:
 
         # Vague words add ambiguity (use word boundaries to avoid false positives)
         vague_patterns = [
-            r"\bsomething\b", r"\bstuff\b", r"\bthing\b",
-            r"\bit\b", r"\bthis\b", r"\bthat\b", r"\bsome\b",
+            r"\bsomething\b",
+            r"\bstuff\b",
+            r"\bthing\b",
+            r"\bit\b",
+            r"\bthis\b",
+            r"\bthat\b",
+            r"\bsome\b",
         ]
         for pattern in vague_patterns:
             if re.search(pattern, prompt.lower()):

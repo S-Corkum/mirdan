@@ -1,6 +1,6 @@
 [project]
 name = "mirdan"
-version = "0.0.6"
+dynamic = ["version"]
 description = "AI Code Quality Orchestrator - Automatically transforms developer prompts into high-quality, structured requests"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,6 +40,9 @@ mirdan = "mirdan.server:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/mirdan/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mirdan"]
@@ -85,6 +88,9 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.report]
+fail_under = 85
 
 [dependency-groups]
 dev = [

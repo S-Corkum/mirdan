@@ -447,47 +447,33 @@ class TestKnowledgeGraphDetection:
         intent = analyzer.analyze("store entities in a graph database")
         assert intent.touches_knowledge_graph is True
 
-    def test_kg_and_rag_detected_simultaneously(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_kg_and_rag_detected_simultaneously(self, analyzer: IntentAnalyzer) -> None:
         """Both touches_rag and touches_knowledge_graph can be true."""
-        intent = analyzer.analyze(
-            "implement graphrag with knowledge graph and vector embeddings"
-        )
+        intent = analyzer.analyze("implement graphrag with knowledge graph and vector embeddings")
         assert intent.touches_rag is True
         assert intent.touches_knowledge_graph is True
 
-    def test_property_graph_triggers_kg(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_property_graph_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
         """Should detect 'property graph' as KG related."""
         intent = analyzer.analyze("model as a property graph")
         assert intent.touches_knowledge_graph is True
 
-    def test_triple_store_triggers_kg(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_triple_store_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
         """Should detect 'triple store' as KG related."""
         intent = analyzer.analyze("store RDF triples in a triple store")
         assert intent.touches_knowledge_graph is True
 
-    def test_entity_extraction_triggers_kg(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_entity_extraction_triggers_kg(self, analyzer: IntentAnalyzer) -> None:
         """Should detect 'entity extraction' as KG related."""
         intent = analyzer.analyze("build entity extraction pipeline")
         assert intent.touches_knowledge_graph is True
 
-    def test_non_kg_framework_does_not_trigger_kg(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_non_kg_framework_does_not_trigger_kg(self, analyzer: IntentAnalyzer) -> None:
         """Frameworks like chromadb should not trigger touches_knowledge_graph."""
         intent = analyzer.analyze("use chromadb for vector storage")
         assert intent.touches_knowledge_graph is False
 
-    def test_rag_without_kg_keywords_does_not_trigger_kg(
-        self, analyzer: IntentAnalyzer
-    ) -> None:
+    def test_rag_without_kg_keywords_does_not_trigger_kg(self, analyzer: IntentAnalyzer) -> None:
         """RAG keywords alone should not trigger touches_knowledge_graph."""
         intent = analyzer.analyze("build a RAG pipeline with embeddings")
         assert intent.touches_rag is True

@@ -320,9 +320,7 @@ class TestContextAggregator:
 class TestPublicRegistryMethods:
     """Tests for public MCP registry proxy methods on ContextAggregator."""
 
-    def test_is_mcp_configured_returns_true_for_configured(
-        self, full_config: MirdanConfig
-    ) -> None:
+    def test_is_mcp_configured_returns_true_for_configured(self, full_config: MirdanConfig) -> None:
         """Should return True for a configured MCP."""
         aggregator = ContextAggregator(full_config)
         assert aggregator.is_mcp_configured("context7") is True
@@ -334,16 +332,12 @@ class TestPublicRegistryMethods:
         aggregator = ContextAggregator(empty_config)
         assert aggregator.is_mcp_configured("context7") is False
 
-    def test_is_mcp_configured_with_empty_string(
-        self, full_config: MirdanConfig
-    ) -> None:
+    def test_is_mcp_configured_with_empty_string(self, full_config: MirdanConfig) -> None:
         """Should return False for empty string MCP name."""
         aggregator = ContextAggregator(full_config)
         assert aggregator.is_mcp_configured("") is False
 
-    def test_is_mcp_configured_checks_all_configured_mcps(
-        self, full_config: MirdanConfig
-    ) -> None:
+    def test_is_mcp_configured_checks_all_configured_mcps(self, full_config: MirdanConfig) -> None:
         """Should return True for all MCPs in the config."""
         aggregator = ContextAggregator(full_config)
         for name in ["context7", "filesystem", "enyal", "github"]:
@@ -378,9 +372,7 @@ class TestPublicRegistryMethods:
             assert result is mock_caps
 
     @pytest.mark.asyncio
-    async def test_discover_mcp_capabilities_force_param(
-        self, full_config: MirdanConfig
-    ) -> None:
+    async def test_discover_mcp_capabilities_force_param(self, full_config: MirdanConfig) -> None:
         """discover_mcp_capabilities should pass force to registry."""
         aggregator = ContextAggregator(full_config)
         with patch.object(

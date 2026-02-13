@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import bisect
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -14,6 +15,160 @@ from mirdan.models import ValidationResult, Violation
 
 if TYPE_CHECKING:
     from mirdan.config import ThresholdsConfig
+
+
+# Languages where # starts a line comment
+_HASH_COMMENT_LANGUAGES = frozenset({"python", "ruby", "perl", "shell", "bash"})
+
+# Languages that support /* */ block comments
+_BLOCK_COMMENT_LANGUAGES = frozenset(
+    {"typescript", "javascript", "java", "go", "rust", "c", "cpp", "c++", "c#", "kotlin", "swift"}
+)
+
+# Languages that support `` ` `` template literals
+_TEMPLATE_LITERAL_LANGUAGES = frozenset({"typescript", "javascript"})
+
+
+def _build_skip_regions(code: str, language: str = "unknown") -> list[int]:
+    """Build a flat sorted list of skip-region boundaries.
+
+    Scans the code once to identify all string literal and comment regions.
+    Returns a flat list of [start1, end1, start2, end2, ...] suitable for
+    bisect-based lookup.
+
+    Args:
+        code: Source code to scan.
+        language: Detected language (controls which comment syntaxes apply).
+
+    Returns:
+        Flat sorted list of region boundaries (even indices = start, odd = end).
+    """
+    boundaries: list[int] = []
+    lang = language.lower()
+    supports_hash = lang in _HASH_COMMENT_LANGUAGES
+    supports_block = lang in _BLOCK_COMMENT_LANGUAGES or lang == "unknown"
+    supports_template = lang in _TEMPLATE_LITERAL_LANGUAGES
+
+    i = 0
+    length = len(code)
+
+    while i < length:
+        c = code[i]
+
+        # --- Triple-quoted strings (Python) - must check before single quotes ---
+        if c in ('"', "'") and i + 2 < length and code[i + 1] == c and code[i + 2] == c:
+            quote = code[i : i + 3]
+            start = i
+            i += 3
+            while i < length - 2:
+                if code[i] == "\\":
+                    i += 2
+                    continue
+                if code[i : i + 3] == quote:
+                    i += 3
+                    break
+                i += 1
+            else:
+                i = length  # unterminated
+            boundaries.extend((start, i))
+            continue
+
+        # --- Line comments: # (Python/Ruby) ---
+        if supports_hash and c == "#":
+            start = i
+            newline = code.find("\n", i)
+            i = newline + 1 if newline != -1 else length
+            boundaries.extend((start, i))
+            continue
+
+        # --- Line comments: // (C-family) ---
+        if c == "/" and i + 1 < length and code[i + 1] == "/":
+            start = i
+            newline = code.find("\n", i)
+            i = newline + 1 if newline != -1 else length
+            boundaries.extend((start, i))
+            continue
+
+        # --- Block comments: /* */ (C-family) ---
+        if supports_block and c == "/" and i + 1 < length and code[i + 1] == "*":
+            start = i
+            end = code.find("*/", i + 2)
+            i = end + 2 if end != -1 else length
+            boundaries.extend((start, i))
+            continue
+
+        # --- Template literals: `...` (JS/TS) ---
+        if supports_template and c == "`":
+            start = i
+            i += 1
+            while i < length:
+                if code[i] == "\\":
+                    i += 2
+                    continue
+                if code[i] == "`":
+                    i += 1
+                    break
+                i += 1
+            else:
+                i = length
+            boundaries.extend((start, i))
+            continue
+
+        # --- Single/double quoted strings ---
+        if c in ('"', "'"):
+            quote = c
+            start = i
+            i += 1
+            while i < length:
+                if code[i] == "\\":
+                    i += 2
+                    continue
+                if code[i] == quote:
+                    i += 1
+                    break
+                if code[i] == "\n":
+                    # Unterminated single-line string
+                    break
+                i += 1
+            else:
+                i = length
+            boundaries.extend((start, i))
+            continue
+
+        i += 1
+
+    return boundaries
+
+
+def _is_in_skip_region(position: int, boundaries: list[int]) -> bool:
+    """Check if a position falls strictly inside any skip region.
+
+    A match AT the opening delimiter (quote or comment marker) is NOT
+    considered "inside" — only positions AFTER the delimiter are.  This
+    preserves the correct behavior for rules that intentionally match
+    comment text (``# type: ignore``) or string-concatenation patterns
+    (``"SELECT ..." + var``).
+
+    Uses binary search on the flat boundaries list for O(log n) lookup.
+
+    Args:
+        position: Character position to check.
+        boundaries: Flat list from _build_skip_regions.
+
+    Returns:
+        True if position is strictly inside a string literal or comment.
+    """
+    if not boundaries:
+        return False
+    # bisect_right gives us the insertion point.
+    # If the index is odd, we're between a start and end (i.e., inside a region).
+    idx = bisect.bisect_right(boundaries, position)
+    if idx % 2 == 0:
+        return False
+    # Position is within [region_start, region_end).
+    # Only skip if it's STRICTLY after the start (not at the delimiter itself).
+    region_start = boundaries[idx - 1]
+    return position > region_start
 
 
 @dataclass
@@ -321,7 +476,7 @@ class CodeValidator:
                 r"fmt\.Sprintf\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)",
                 "error",
                 "SQL query built with fmt.Sprintf - potential SQL injection",
-                "Use parameterized queries: db.Query(\"SELECT * FROM t WHERE id = $1\", id)",
+                'Use parameterized queries: db.Query("SELECT * FROM t WHERE id = $1", id)',
             ),
         ],
         "java": [
@@ -564,77 +719,6 @@ class CodeValidator:
 
         return rules
 
-    def _is_inside_string_or_comment(self, code: str, match_start: int) -> bool:
-        """Check if a position in code is inside a string literal or comment.
-
-        This helps avoid false positives when pattern text appears in strings
-        (e.g., error messages containing 'eval()').
-
-        Args:
-            code: The full code being validated
-            match_start: The starting position of the regex match
-
-        Returns:
-            True if the position appears to be inside a string or comment
-        """
-        # Get the line containing this match
-        line_start = code.rfind("\n", 0, match_start) + 1
-        line_end = code.find("\n", match_start)
-        if line_end == -1:
-            line_end = len(code)
-        line = code[line_start:line_end]
-        pos_in_line = match_start - line_start
-
-        # Check for line comments (# for Python, // for others)
-        # If there's a comment marker before our position, skip
-        comment_markers = ["#", "//"]
-        for marker in comment_markers:
-            marker_pos = line.find(marker)
-            if marker_pos != -1 and marker_pos < pos_in_line:
-                # Check if the marker itself is inside a string
-                prefix = line[:marker_pos]
-                if prefix.count('"') % 2 == 0 and prefix.count("'") % 2 == 0:
-                    return True
-
-        # Check for multi-line triple-quoted strings (docstrings)
-        # Count triple quotes in all code before the match position
-        code_before = code[:match_start]
-        triple_double_count = code_before.count('"""')
-        triple_single_count = code_before.count("'''")
-
-        # If we have an odd number of triple quotes, we're inside a multi-line string
-        if triple_double_count % 2 == 1 or triple_single_count % 2 == 1:
-            return True
-
-        # Check single-line strings on the current line
-        prefix = line[:pos_in_line]
-
-        # Count unescaped quotes on this line
-        in_single = False
-        in_double = False
-        i = 0
-        while i < len(prefix):
-            char = prefix[i]
-            # Skip escaped quotes
-            if char == "\\" and i + 1 < len(prefix):
-                i += 2
-                continue
-            # Check for triple quotes (already handled above for multi-line)
-            if prefix[i : i + 3] == '"""' and not in_single:
-                i += 3
-                continue
-            if prefix[i : i + 3] == "'''" and not in_double:
-                i += 3
-                continue
-            # Toggle quote state
-            if char == '"' and not in_single:
-                in_double = not in_double
-            elif char == "'" and not in_double:
-                in_single = not in_single
-            i += 1
-
-        return in_single or in_double
-
     def validate(
         self,
         code: str,
@@ -695,11 +779,17 @@ class CodeValidator:
 
         violations: list[Violation] = []
 
+        # Build skip regions once for all rule checks
+        skip_regions = _build_skip_regions(code, detected_lang)
+
         # Apply language-specific rules
         if check_style and detected_lang in self._compiled_rules:
             standards_checked.append(f"{detected_lang}_style")
             lang_violations = self._check_rules(
-                code, self._compiled_rules[detected_lang], is_test=is_test
+                code,
+                self._compiled_rules[detected_lang],
+                is_test=is_test,
+                skip_regions=skip_regions,
             )
             violations.extend(lang_violations)
 
@@ -707,16 +797,17 @@ class CodeValidator:
         if check_security:
             standards_checked.append("security")
             security_violations = self._check_rules(
-                code, self._compiled_rules["_security"], is_test=is_test
+                code,
+                self._compiled_rules["_security"],
+                is_test=is_test,
+                skip_regions=skip_regions,
             )
             violations.extend(security_violations)
 
         # Architecture checks (AST-based for Python)
         if check_architecture:
             standards_checked.append("architecture")
-            arch_violations, arch_limitations = self._check_architecture_ast(
-                code, detected_lang
-            )
+            arch_violations, arch_limitations = self._check_architecture_ast(code, detected_lang)
             violations.extend(arch_violations)
             limitations.extend(arch_limitations)
 
@@ -807,10 +898,7 @@ class CodeValidator:
                     rule="file-too-long",
                     category="architecture",
                     severity="warning",
-                    message=(
-                        f"File has {non_empty_lines} non-empty lines"
-                        f" (max {max_file_length})"
-                    ),
+                    message=(f"File has {non_empty_lines} non-empty lines (max {max_file_length})"),
                     line=1,
                     column=1,
                     code_snippet="",
@@ -847,8 +935,7 @@ class CodeValidator:
                             category="architecture",
                             severity="info",
                             message=(
-                                f"Public function '{node.name}' is missing"
-                                " a return type annotation"
+                                f"Public function '{node.name}' is missing a return type annotation"
                             ),
                             line=node.lineno,
                             column=node.col_offset + 1,
@@ -902,8 +989,7 @@ class CodeValidator:
                             if node.lineno <= len(lines)
                             else "",
                             suggestion=(
-                                "Reduce nesting by extracting conditions"
-                                " or using early returns"
+                                "Reduce nesting by extracting conditions or using early returns"
                             ),
                         )
                     )
@@ -943,10 +1029,12 @@ class CodeValidator:
         code: str,
         rules: list[DetectionRule],
         is_test: bool = False,
+        skip_regions: list[int] | None = None,
     ) -> list[Violation]:
         """Check code against a list of rules."""
         violations: list[Violation] = []
         lines = code.split("\n")
+        regions = skip_regions if skip_regions is not None else []
 
         for rule in rules:
             # Relax certain rules for test code
@@ -955,7 +1043,7 @@ class CodeValidator:
 
             for match in rule.pattern.finditer(code):
                 # Skip false positives inside strings or comments
-                if self._is_inside_string_or_comment(code, match.start()):
+                if _is_in_skip_region(match.start(), regions):
                     continue
 
                 # Calculate line number

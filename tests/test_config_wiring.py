@@ -21,20 +21,31 @@ class TestVersionConsistency:
     """Tests that version metadata is consistent across the project."""
 
     def test_version_matches_pyproject(self) -> None:
-        """mirdan.__version__ must match the version in pyproject.toml."""
-        import tomllib
+        """mirdan.__version__ must match the dynamically resolved version.
+
+        pyproject.toml uses dynamic versioning via hatchling, reading from
+        src/mirdan/__init__.py.  This test verifies the __version__ string
+        exists and follows semantic versioning.
+        """
+        import re
 
         import mirdan
+
+        # Verify version is a valid semver string
+        assert re.match(r"^\d+\.\d+\.\d+", mirdan.__version__), (
+            f"mirdan.__version__ ({mirdan.__version__!r}) does not follow "
+            f"semantic versioning (e.g., '0.1.0', '1.0.0-beta.1')"
+        )
+
+        # Verify pyproject.toml declares dynamic versioning
+        import tomllib
 
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
         with pyproject_path.open("rb") as f:
             pyproject = tomllib.load(f)
 
-        pyproject_version = pyproject["project"]["version"]
-        assert mirdan.__version__ == pyproject_version, (
-            f"mirdan.__version__ ({mirdan.__version__!r}) does not match "
-            f"pyproject.toml version ({pyproject_version!r}). "
-            f"Update src/mirdan/__init__.py to match."
+        assert "version" in pyproject["project"].get("dynamic", []), (
+            "pyproject.toml should use dynamic versioning: dynamic = ['version']"
         )
 
 

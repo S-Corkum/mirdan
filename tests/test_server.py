@@ -632,9 +632,7 @@ class TestEndToEndKnowledgeGraphFlow:
         standards = QualityStandards(config=config.quality)
         composer = PromptComposer(standards, config=config.enhancement)
 
-        intent = analyzer.analyze(
-            "Build a knowledge graph with neo4j for entity resolution"
-        )
+        intent = analyzer.analyze("Build a knowledge graph with neo4j for entity resolution")
 
         # Intent should detect KG
         assert intent.touches_knowledge_graph is True
@@ -642,11 +640,7 @@ class TestEndToEndKnowledgeGraphFlow:
         # Standards should include KG-related content
         quality_reqs = standards.render_for_intent(intent)
         reqs_text = " ".join(quality_reqs).lower()
-        assert (
-            "graph" in reqs_text
-            or "entity" in reqs_text
-            or "provenance" in reqs_text
-        )
+        assert "graph" in reqs_text or "entity" in reqs_text or "provenance" in reqs_text
 
         # Verification steps should include KG checks
         context = ContextBundle()
@@ -659,8 +653,7 @@ class TestEndToEndKnowledgeGraphFlow:
         """A prompt mentioning both RAG and KG should set both flags."""
         analyzer = IntentAnalyzer()
         intent = analyzer.analyze(
-            "implement a GraphRAG pipeline with knowledge graph and "
-            "vector embeddings"
+            "implement a GraphRAG pipeline with knowledge graph and vector embeddings"
         )
         assert intent.touches_rag is True
         assert intent.touches_knowledge_graph is True
@@ -670,9 +663,7 @@ class TestEndToEndKnowledgeGraphFlow:
         from mirdan.config import QualityConfig
 
         strict = QualityStandards(config=QualityConfig(framework="strict"))
-        permissive = QualityStandards(
-            config=QualityConfig(framework="permissive")
-        )
+        permissive = QualityStandards(config=QualityConfig(framework="permissive"))
 
         intent = Intent(
             original_prompt="build a knowledge graph",
