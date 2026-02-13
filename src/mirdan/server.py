@@ -1,6 +1,9 @@
 """Mirdan MCP Server - AI Code Quality Orchestrator."""
 
 import contextlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from fastmcp import FastMCP
@@ -32,22 +35,60 @@ def _check_input_size(value: str, name: str, max_length: int) -> dict[str, Any] 
     return None
 
 
-# Initialize the MCP server
-mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator")
+@dataclass
+class _Components:
+    """Holds all initialized Mirdan components."""
 
-# Load configuration
-config = MirdanConfig.find_config()
+    intent_analyzer: IntentAnalyzer
+    quality_standards: QualityStandards
+    prompt_composer: PromptComposer
+    mcp_orchestrator: MCPOrchestrator
+    context_aggregator: ContextAggregator
+    code_validator: CodeValidator
+    plan_validator: PlanValidator
+    config: MirdanConfig
 
-# Initialize components with configuration
-intent_analyzer = IntentAnalyzer(config.project)
-quality_standards = QualityStandards(config=config.quality)
-prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
-mcp_orchestrator = MCPOrchestrator(config.orchestration)
-context_aggregator = ContextAggregator(config)
-code_validator = CodeValidator(
-    quality_standards, config=config.quality, thresholds=config.thresholds
-)
-plan_validator = PlanValidator(config.planning, thresholds=config.thresholds)
+
+_components: _Components | None = None
+
+
+def _get_components() -> _Components:
+    """Get or create the singleton component set."""
+    global _components  # noqa: PLW0603
+    if _components is not None:
+        return _components
+
+    config = MirdanConfig.find_config()
+    quality_standards = QualityStandards(config=config.quality)
+
+    _components = _Components(
+        intent_analyzer=IntentAnalyzer(config.project),
+        quality_standards=quality_standards,
+        prompt_composer=PromptComposer(quality_standards, config=config.enhancement),
+        mcp_orchestrator=MCPOrchestrator(config.orchestration),
+        context_aggregator=ContextAggregator(config),
+        code_validator=CodeValidator(
+            quality_standards, config=config.quality, thresholds=config.thresholds
+        ),
+        plan_validator=PlanValidator(config.planning, thresholds=config.thresholds),
+        config=config,
+    )
+    return _components
+
+
+@asynccontextmanager
+async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
+    """Manage server lifecycle: startup initialization and shutdown cleanup."""
+    # Startup: eagerly initialize components
+    _get_components()
+    yield
+    # Shutdown: cleanup MCP client connections
+    if _components is not None:
+        await _components.context_aggregator.close()
+
+
+# Initialize the MCP server with lifespan
+mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator", lifespan=_lifespan)
 
 
 @mcp.tool()
@@ -72,8 +113,10 @@ async def enhance_prompt(
     if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
         return error
 
+    c = _get_components()
+
     # Analyze intent
-    intent = intent_analyzer.analyze(prompt)
+    intent = c.intent_analyzer.analyze(prompt)
 
     # Override task type if specified
     if task_type != "auto":
@@ -81,13 +124,13 @@ async def enhance_prompt(
             intent.task_type = TaskType(task_type)
 
     # Get tool recommendations
-    tool_recommendations = mcp_orchestrator.suggest_tools(intent)
+    tool_recommendations = c.mcp_orchestrator.suggest_tools(intent)
 
     # Gather context from configured MCPs
-    context = await context_aggregator.gather_all(intent, context_level)
+    context = await c.context_aggregator.gather_all(intent, context_level)
 
     # Compose enhanced prompt
-    enhanced = prompt_composer.compose(intent, context, tool_recommendations)
+    enhanced = c.prompt_composer.compose(intent, context, tool_recommendations)
 
     return enhanced.to_dict()
 
@@ -108,7 +151,8 @@ async def analyze_intent(prompt: str) -> dict[str, Any]:
     if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
         return error
 
-    intent = intent_analyzer.analyze(prompt)
+    c = _get_components()
+    intent = c.intent_analyzer.analyze(prompt)
 
     ambiguity_level = (
         "low"
@@ -150,7 +194,8 @@ async def get_quality_standards(
     Returns:
         Quality standards for the specified language/framework
     """
-    return quality_standards.get_all_standards(
+    c = _get_components()
+    return c.quality_standards.get_all_standards(
         language=language, framework=framework, category=category
     )
 
@@ -176,22 +221,24 @@ async def suggest_tools(
     if error := _check_input_size(intent_description, "intent_description", _MAX_PROMPT_LENGTH):
         return error
 
+    c = _get_components()
+
     # Parse available MCPs
     mcps = [m.strip() for m in available_mcps.split(",")] if available_mcps else None
 
     # Analyze the intent
-    intent = intent_analyzer.analyze(intent_description)
+    intent = c.intent_analyzer.analyze(intent_description)
 
     # Get recommendations
-    recommendations = mcp_orchestrator.suggest_tools(intent, mcps)
+    recommendations = c.mcp_orchestrator.suggest_tools(intent, mcps)
 
     # Optionally discover actual MCP capabilities
     discovered_mcps: dict[str, list[str]] = {}
     if discover_capabilities:
         for rec in recommendations:
             mcp_name = rec.mcp
-            if mcp_name and context_aggregator.is_mcp_configured(mcp_name):
-                capabilities = await context_aggregator.discover_mcp_capabilities(mcp_name)
+            if mcp_name and c.context_aggregator.is_mcp_configured(mcp_name):
+                capabilities = await c.context_aggregator.discover_mcp_capabilities(mcp_name)
                 if capabilities:
                     discovered_mcps[mcp_name] = [t.name for t in capabilities.tools[:10]]
 
@@ -229,7 +276,8 @@ async def get_verification_checklist(
         touches_security=touches_security,
     )
 
-    verification_steps = prompt_composer.generate_verification_steps(intent)
+    c = _get_components()
+    verification_steps = c.prompt_composer.generate_verification_steps(intent)
 
     return {
         "task_type": task.value,
@@ -265,7 +313,8 @@ async def validate_code_quality(
     if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
         return error
 
-    result = code_validator.validate(
+    c = _get_components()
+    result = c.code_validator.validate(
         code=code,
         language=language,
         check_security=check_security,
@@ -297,7 +346,8 @@ async def validate_plan_quality(
     if error := _check_input_size(plan, "plan", _MAX_PLAN_LENGTH):
         return error
 
-    result = plan_validator.validate(plan, target_model)
+    c = _get_components()
+    result = c.plan_validator.validate(plan, target_model)
     return result.to_dict()
 
 

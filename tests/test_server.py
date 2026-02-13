@@ -683,3 +683,25 @@ class TestEndToEndKnowledgeGraphFlow:
         strict_result = strict.render_for_intent(intent)
         permissive_result = permissive.render_for_intent(intent)
         assert len(strict_result) > len(permissive_result)
+
+
+class TestLazyInitialization:
+    """Tests for lazy component initialization."""
+
+    def test_get_components_returns_components(self) -> None:
+        """_get_components() should return a _Components instance."""
+        from mirdan.server import _Components, _get_components
+
+        result = _get_components()
+        assert isinstance(result, _Components)
+        assert result.intent_analyzer is not None
+        assert result.quality_standards is not None
+        assert result.code_validator is not None
+
+    def test_get_components_returns_same_instance(self) -> None:
+        """_get_components() should return the same singleton instance."""
+        from mirdan.server import _get_components
+
+        result1 = _get_components()
+        result2 = _get_components()
+        assert result1 is result2
