@@ -492,3 +492,40 @@ class TestKnowledgeGraphDetection:
         intent = analyzer.analyze("build a RAG pipeline with embeddings")
         assert intent.touches_rag is True
         assert intent.touches_knowledge_graph is False
+
+
+class TestWordBoundaryFixes:
+    """Tests for word boundary bug fixes in ambiguity and clarifying questions."""
+
+    def test_commit_does_not_match_it(self, analyzer: IntentAnalyzer) -> None:
+        """'commit' should not trigger false ambiguity from 'it' substring."""
+        intent = analyzer.analyze("commit the changes to the repository")
+        # "commit" contains "it" but should not count as vague word
+        # Score 0.5 = unknown task (0.3) + no language (0.2), no vague word penalty
+        assert intent.ambiguity_score <= 0.5
+
+    def test_awesome_does_not_match_some(self, analyzer: IntentAnalyzer) -> None:
+        """'awesome' should not trigger false ambiguity from 'some' substring."""
+        intent = analyzer.analyze("create an awesome Python feature with tests")
+        # Should have low ambiguity - no actual vague words
+        assert intent.ambiguity_score < 0.3
+
+    def test_vague_word_boundary_in_questions(self, analyzer: IntentAnalyzer) -> None:
+        """'commit something' should generate question about 'something' only."""
+        intent = analyzer.analyze("commit something")
+        if intent.ambiguity_score >= 0.6:
+            # Should ask about 'something' but NOT about 'it' (from 'commit')
+            has_it_question = any("'it'" in q for q in intent.clarifying_questions)
+            assert not has_it_question
+
+    def test_typescript_wins_over_javascript_for_explicit_mention(
+        self, analyzer: IntentAnalyzer
+    ) -> None:
+        """'Use React with TypeScript' should detect typescript, not javascript."""
+        intent = analyzer.analyze("Use React with TypeScript")
+        assert intent.primary_language == "typescript"
+
+    def test_react_alone_still_detects_javascript(self, analyzer: IntentAnalyzer) -> None:
+        """'create a React component' should still detect javascript."""
+        intent = analyzer.analyze("create a React component")
+        assert intent.primary_language == "javascript"

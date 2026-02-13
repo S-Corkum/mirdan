@@ -24,6 +24,11 @@ class IntentAnalyzer:
             count_all_matches=False,
             case_insensitive=True,
         )
+        self._language_matcher: PatternMatcher[str] = PatternMatcher(
+            self.LANGUAGE_PATTERNS,
+            count_all_matches=False,
+            case_insensitive=True,
+        )
 
     # Task type detection patterns with weights (pattern, weight)
     # Higher weight = more specific/stronger indicator
@@ -75,35 +80,36 @@ class IntentAnalyzer:
         ],
     }
 
-    # Language detection patterns
-    LANGUAGE_PATTERNS: dict[str, list[str]] = {
+    # Language detection patterns with weights
+    # Higher weight = stronger indicator. Explicit names=5, extensions=4, strong fw=3, weak=2
+    LANGUAGE_PATTERNS: dict[str, list[tuple[str, int]]] = {
         "typescript": [
-            r"\.tsx?$",
-            r"\btypescript\b",
-            r"\bts\b",
-            r"\bangular\b",
-            r"\bnext\.?js\b",
+            (r"\btypescript\b", 5),
+            (r"\.tsx?$", 4),
+            (r"\bts\b", 3),
+            (r"\bangular\b", 3),
+            (r"\bnext\.?js\b", 3),
         ],
         "python": [
-            r"\.py$",
-            r"\bpython\b",
-            r"\bdjango\b",
-            r"\bfastapi\b",
-            r"\bflask\b",
-            r"\blangchain\b",
-            r"\blanggraph\b",
+            (r"\bpython\b", 5),
+            (r"\.py$", 4),
+            (r"\bdjango\b", 3),
+            (r"\bfastapi\b", 3),
+            (r"\bflask\b", 3),
+            (r"\blangchain\b", 3),
+            (r"\blanggraph\b", 3),
         ],
         "javascript": [
-            r"\.jsx?$",
-            r"\bjavascript\b",
-            r"\bjs\b",
-            r"\bnode\b",
-            r"\breact\b",
-            r"\bvue\b",
+            (r"\bjavascript\b", 5),
+            (r"\.jsx?$", 4),
+            (r"\bjs\b", 3),
+            (r"\bnode\b", 3),
+            (r"\breact\b", 2),
+            (r"\bvue\b", 2),
         ],
-        "rust": [r"\.rs$", r"\brust\b", r"\bcargo\b"],
-        "go": [r"\.go$", r"\bgolang\b", r"\bgo\b"],
-        "java": [r"\.java$", r"\bjava\b", r"\bspring\b", r"\bmaven\b"],
+        "rust": [(r"\brust\b", 5), (r"\.rs$", 4), (r"\bcargo\b", 3)],
+        "go": [(r"\bgolang\b", 5), (r"\.go$", 4), (r"\bgo\b", 3)],
+        "java": [(r"\bjava\b", 5), (r"\.java$", 4), (r"\bspring\b", 3), (r"\bmaven\b", 3)],
     }
 
     # Framework detection
@@ -261,12 +267,8 @@ class IntentAnalyzer:
         return result if result is not None else TaskType.UNKNOWN
 
     def _detect_language(self, prompt: str) -> str | None:
-        """Detect the programming language from the prompt."""
-        for language, patterns in self.LANGUAGE_PATTERNS.items():
-            for pattern in patterns:
-                if re.search(pattern, prompt, re.IGNORECASE):
-                    return language
-        return None
+        """Detect the programming language from the prompt using weighted scoring."""
+        return self._language_matcher.best_match(prompt)
 
     def _detect_frameworks(self, prompt: str) -> list[str]:
         """Detect frameworks mentioned in the prompt."""
@@ -294,10 +296,13 @@ class IntentAnalyzer:
         if language is None:
             score += 0.2
 
-        # Vague words add ambiguity
-        vague_words = ["something", "stuff", "thing", "it", "this", "that", "some"]
-        for word in vague_words:
-            if word in prompt.lower():
+        # Vague words add ambiguity (use word boundaries to avoid false positives)
+        vague_patterns = [
+            r"\bsomething\b", r"\bstuff\b", r"\bthing\b",
+            r"\bit\b", r"\bthis\b", r"\bthat\b", r"\bsome\b",
+        ]
+        for pattern in vague_patterns:
+            if re.search(pattern, prompt.lower()):
                 score += 0.1
 
         return min(score, 1.0)
@@ -331,10 +336,10 @@ class IntentAnalyzer:
         if len(prompt.split()) < 5:
             questions.append("Could you provide more details about what you want to accomplish?")
 
-        # Priority 3: Vague words need clarification
+        # Priority 3: Vague words need clarification (use word boundaries)
         vague_words = ["something", "stuff", "thing", "it", "this", "that"]
         for word in vague_words:
-            if word in prompt_lower and len(questions) < 4:
+            if re.search(rf"\b{word}\b", prompt_lower) and len(questions) < 4:
                 questions.append(f"What does '{word}' refer to specifically?")
 
         # Priority 4: No language detected
