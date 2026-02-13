@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2026-02-13
+
+### Added
+
+- **AST-based Architecture Validation** for Python: function length, nesting depth, parameter count, import hygiene, class method count
+- Architecture thresholds, language stringency, and GitHub config fields in `MirdanConfig`
+- Block comment and template literal skip-region system for false-positive elimination (`_build_skip_regions` / `_is_in_skip_region`)
+- Server tool handler tests (`test_server_tools.py`) — 57 tests covering all 7 MCP tools
+- Dependabot configuration for automated dependency updates
+- Coverage gate (`fail_under = 85`) in CI pipeline
+
+### Changed
+
+- Server uses lazy component initialization with lifecycle management (`_lifespan` context manager, `_get_components` singleton)
+- Intent analyzer uses weighted scoring for language detection (replacing first-match)
+- Intent analyzer uses word boundary matching to reduce false positives
+- Quality standards respect language stringency for principles count
+
+### Fixed
+
+- Block comment (`/* */`) and template literal (`` ` ``) content no longer triggers false-positive code validation rules
+- Phantom security-scanner gatherer guard (no longer errors when MCP not configured)
+- Type annotation fixes across orchestrator and context aggregator
+- GitHub config wiring from `ProjectConfig` to `GitHubGatherer`
+
+### Testing
+
+- **715 total tests** (488 → 715, +227 new tests)
+- Server.py coverage: 50% → 99%
+- Overall project coverage: 89% (gate: 85%)
+- New test files: `test_server_tools.py` (57 tests)
+- Expanded: `test_code_validator.py` (+49 block comment tests), `test_intent_analyzer.py`, `test_config_wiring.py`, `test_context_aggregator.py`, `test_server.py`
+
 ## [0.0.6] - 2026-01-24
 
 ### Added
@@ -212,6 +245,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality standards for 6 languages
 - Integration guides for Claude Desktop, VS Code, Cursor
 
+[0.0.7]: https://github.com/S-Corkum/mirdan/compare/0.0.6...0.0.7
 [0.0.6]: https://github.com/S-Corkum/mirdan/compare/0.0.5...0.0.6
 [0.0.5]: https://github.com/S-Corkum/mirdan/compare/0.0.4...0.0.5
 [0.0.4]: https://github.com/S-Corkum/mirdan/compare/0.0.2...0.0.4

@@ -14,6 +14,8 @@ Mirdan is an MCP server that intercepts prompts, automatically enhances them wit
 
 - **Intent Analysis**: Classifies task type (generation, refactor, debug, review, test)
 - **Quality Injection**: Applies language-specific coding standards and security requirements
+- **Architecture Validation**: AST-based detection of function complexity, deep nesting, and import hygiene
+- **Plan Validation**: Validates implementation plans for grounding, completeness, and cheap-model readiness
 - **Prompt Composition**: Structures prompts using proven frameworks (Role/Goal/Constraints)
 - **MCP Orchestration**: Recommends which tools to use for context gathering
 - **Verification Checklists**: Generates task-specific verification steps
@@ -600,6 +602,10 @@ Get a verification checklist for a specific task type (generation, refactor, deb
 #### validate_code_quality
 
 Validate generated code against quality standards. Checks for security issues, architecture patterns, and language-specific style violations.
+
+#### validate_plan_quality
+
+Validate an implementation plan for quality and cheap-model readiness. Checks grounding, completeness, atomicity, and clarity.
 
 ## MCP Configuration Reference
 
