@@ -1,0 +1,27 @@
+---
+description: Mirdan planning protocol for implementation plans
+globs:
+alwaysApply: false
+---
+
+# Planning Protocol (via Mirdan)
+
+When creating implementation plans, use mirdan to ensure plan quality.
+
+## Before Planning
+
+Call `mcp_mirdan_enhance_prompt` with the planning task to get:
+- Detected frameworks (research with context7)
+- Quality requirements (use as constraints)
+- Security implications (plan for validation)
+
+## Plan Validation
+
+After writing the plan, validate with:
+```
+mcp_mirdan_validate_plan_quality(plan, target_model="haiku")
+```
+
+Address all issues flagged by the validator before presenting the plan.
+Plans must be grounded in verified facts — no step should reference files,
+functions, or APIs without tool verification.

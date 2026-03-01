@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import ast
 import bisect
+import logging
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+import yaml
 
 from mirdan.config import QualityConfig
 from mirdan.core.language_detector import LanguageDetector
@@ -15,6 +19,8 @@ from mirdan.models import ValidationResult, Violation
 
 if TYPE_CHECKING:
     from mirdan.config import ThresholdsConfig
+
+logger = logging.getLogger(__name__)
 
 
 # Languages where # starts a line comment
@@ -182,6 +188,47 @@ class DetectionRule:
     severity: str  # error, warning, info
     message: str
     suggestion: str
+    fix_template: str | None = None  # Auto-fix template (None = no auto-fix)
+    fix_description: str = ""  # Human-readable description of the fix
+
+
+# Auto-fix templates for deterministic fixes.
+# Keys are rule IDs, values are (fix_template, fix_description) tuples.
+# fix_template uses {match} as placeholder for the matched text.
+AUTO_FIX_TEMPLATES: dict[str, tuple[str, str]] = {
+    "PY003": (
+        "except Exception:",
+        "Replace bare except with 'except Exception:'",
+    ),
+    "PY004": (
+        "=None",
+        "Replace mutable default with None (initialize in function body)",
+    ),
+    "PY005": (
+        "# Use native types: list[], dict[], set[], tuple[], X | None, X | Y",
+        "Replace deprecated typing imports with native Python 3.9+ syntax",
+    ),
+    "PY011": (
+        "# Use pathlib.Path instead of os.path",
+        "Replace os.path usage with pathlib.Path methods",
+    ),
+    "JS001": (
+        "const",
+        "Replace 'var' with 'const' (or 'let' if reassigned)",
+    ),
+    "TS004": (
+        "as unknown",
+        "Replace 'as any' with 'as unknown' for type safety",
+    ),
+    "RS001": (
+        '.expect("TODO: handle error")',
+        "Replace .unwrap() with .expect() with a descriptive message",
+    ),
+    "SEC007": (
+        "verify=True",
+        "Enable SSL/TLS certificate verification",
+    ),
+}
 
 
 class CodeValidator:
@@ -684,40 +731,142 @@ class CodeValidator:
         self._language_detector = LanguageDetector(thresholds=thresholds)
         self._compiled_rules = self._compile_rules()
 
+        # Load custom rules if configured
+        if config and config.custom_rules_dir:
+            self._load_custom_rules(Path(config.custom_rules_dir))
+
     def _compile_rules(self) -> dict[str, list[DetectionRule]]:
         """Compile regex patterns for all rules."""
         rules: dict[str, list[DetectionRule]] = {}
 
         # Compile language-specific rules
         for lang, lang_rules in self.LANGUAGE_RULES.items():
-            rules[lang] = [
+            compiled: list[DetectionRule] = []
+            for rule_id, rule_name, pattern, severity, message, suggestion in lang_rules:
+                fix_data = AUTO_FIX_TEMPLATES.get(rule_id)
+                compiled.append(
+                    DetectionRule(
+                        id=rule_id,
+                        rule=rule_name,
+                        pattern=re.compile(
+                            pattern, re.IGNORECASE if "sql" in rule_name.lower() else 0
+                        ),
+                        category=self.RULE_CATEGORIES.get(rule_id, "style"),
+                        severity=severity,
+                        message=message,
+                        suggestion=suggestion,
+                        fix_template=fix_data[0] if fix_data else None,
+                        fix_description=fix_data[1] if fix_data else "",
+                    )
+                )
+            rules[lang] = compiled
+
+        # Compile security rules (apply to all)
+        sec_compiled: list[DetectionRule] = []
+        for rule_id, rule_name, pattern, severity, message, suggestion in self.SECURITY_RULES:
+            fix_data = AUTO_FIX_TEMPLATES.get(rule_id)
+            sec_compiled.append(
                 DetectionRule(
                     id=rule_id,
                     rule=rule_name,
-                    pattern=re.compile(pattern, re.IGNORECASE if "sql" in rule_name.lower() else 0),
-                    category=self.RULE_CATEGORIES.get(rule_id, "style"),
+                    pattern=re.compile(pattern, re.IGNORECASE),
+                    category="security",
                     severity=severity,
                     message=message,
                     suggestion=suggestion,
+                    fix_template=fix_data[0] if fix_data else None,
+                    fix_description=fix_data[1] if fix_data else "",
                 )
-                for rule_id, rule_name, pattern, severity, message, suggestion in lang_rules
-            ]
-
-        # Compile security rules (apply to all)
-        rules["_security"] = [
-            DetectionRule(
-                id=rule_id,
-                rule=rule_name,
-                pattern=re.compile(pattern, re.IGNORECASE),
-                category="security",
-                severity=severity,
-                message=message,
-                suggestion=suggestion,
             )
-            for rule_id, rule_name, pattern, severity, message, suggestion in self.SECURITY_RULES
-        ]
+        rules["_security"] = sec_compiled
 
         return rules
+
+    def _load_custom_rules(self, rules_dir: Path) -> None:
+        """Load custom validation rules from YAML files.
+
+        Custom rules are loaded from ``rules_dir/*.yaml`` and merged
+        into the compiled rules.  Each YAML file should contain a
+        ``rules`` list with entries having: id, rule, pattern, severity,
+        message, suggestion, and optionally language and category.
+
+        Custom rules can override the severity of built-in rules by
+        matching the same rule ID.
+
+        Args:
+            rules_dir: Directory containing custom rule YAML files.
+        """
+        if not rules_dir.exists():
+            return
+
+        for yaml_file in sorted(rules_dir.glob("*.yaml")):
+            try:
+                with yaml_file.open() as f:
+                    data = yaml.safe_load(f)
+            except (yaml.YAMLError, OSError) as e:
+                logger.warning("Failed to load custom rules from %s: %s", yaml_file, e)
+                continue
+
+            if not data or "rules" not in data:
+                continue
+
+            for rule_def in data["rules"]:
+                rule_id = rule_def.get("id", "")
+                if not rule_id:
+                    continue
+
+                # Check if this overrides an existing rule's severity
+                if self._try_override_severity(rule_id, rule_def.get("severity", "")):
+                    continue
+
+                # Otherwise, add as a new custom rule
+                try:
+                    pattern = re.compile(rule_def.get("pattern", ""), re.IGNORECASE)
+                except re.error as e:
+                    logger.warning("Invalid regex in custom rule %s: %s", rule_id, e)
+                    continue
+
+                language = rule_def.get("language", "_custom")
+                category = rule_def.get("category", "style")
+                severity = rule_def.get("severity", "warning")
+
+                fix_data = rule_def.get("fix_template"), rule_def.get("fix_description", "")
+
+                new_rule = DetectionRule(
+                    id=rule_id,
+                    rule=rule_def.get("rule", rule_id),
+                    pattern=pattern,
+                    category=category,
+                    severity=severity,
+                    message=rule_def.get("message", ""),
+                    suggestion=rule_def.get("suggestion", ""),
+                    fix_template=fix_data[0],
+                    fix_description=fix_data[1],
+                )
+
+                if language not in self._compiled_rules:
+                    self._compiled_rules[language] = []
+                self._compiled_rules[language].append(new_rule)
+
+    def _try_override_severity(self, rule_id: str, new_severity: str) -> bool:
+        """Try to override the severity of an existing rule.
+
+        Args:
+            rule_id: The rule ID to look for.
+            new_severity: The new severity level.
+
+        Returns:
+            True if an existing rule was found and overridden.
+        """
+        if not new_severity:
+            return False
+
+        for lang_rules in self._compiled_rules.values():
+            for rule in lang_rules:
+                if rule.id == rule_id:
+                    rule.severity = new_severity
+                    return True
+        return False
 
     def validate(
         self,
@@ -804,12 +953,30 @@ class CodeValidator:
             )
             violations.extend(security_violations)
 
-        # Architecture checks (AST-based for Python)
+        # Apply custom rules (always checked if present)
+        if "_custom" in self._compiled_rules:
+            standards_checked.append("custom")
+            custom_violations = self._check_rules(
+                code,
+                self._compiled_rules["_custom"],
+                is_test=is_test,
+                skip_regions=skip_regions,
+            )
+            violations.extend(custom_violations)
+
+        # Architecture checks (AST-based for Python, regex for TS/JS)
         if check_architecture:
             standards_checked.append("architecture")
             arch_violations, arch_limitations = self._check_architecture_ast(code, detected_lang)
             violations.extend(arch_violations)
             limitations.extend(arch_limitations)
+
+        # Framework-specific rules
+        if check_style:
+            fw_violations = self._check_framework_rules(code, detected_lang)
+            if fw_violations:
+                standards_checked.append("framework")
+                violations.extend(fw_violations)
 
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
@@ -824,10 +991,30 @@ class CodeValidator:
             limitations=limitations,
         )
 
+    def _check_framework_rules(self, code: str, detected_lang: str) -> list[Violation]:
+        """Run framework-specific validation rules.
+
+        Auto-detects frameworks from code content and dispatches
+        to the appropriate framework rule checker.
+
+        Args:
+            code: The code to validate.
+            detected_lang: Detected programming language.
+
+        Returns:
+            List of framework-specific violations.
+        """
+        from mirdan.core.framework_rules import check_framework_rules
+
+        return check_framework_rules(code, detected_lang)
+
     def _check_architecture_ast(
         self, code: str, detected_lang: str
     ) -> tuple[list[Violation], list[str]]:
-        """Run AST-based architecture checks on Python code.
+        """Run AST-based architecture checks.
+
+        Uses Python's ast module for Python code, and regex-based
+        heuristics for TypeScript/JavaScript.
 
         Args:
             code: The code to validate
@@ -836,8 +1023,18 @@ class CodeValidator:
         Returns:
             Tuple of (violations, limitations)
         """
+        if detected_lang in ("typescript", "javascript"):
+            from mirdan.core.ts_ast_validator import TSValidationConfig, validate_ts_architecture
+
+            ts_config = TSValidationConfig()
+            if self._thresholds:
+                ts_config.max_function_length = self._thresholds.arch_max_function_length
+                ts_config.max_file_length = self._thresholds.arch_max_file_length
+                ts_config.max_nesting_depth = self._thresholds.arch_max_nesting_depth
+            return validate_ts_architecture(code, detected_lang, ts_config)
+
         if detected_lang != "python":
-            return ([], ["Architecture AST validation currently supports Python only"])
+            return ([], [f"Architecture AST validation not available for {detected_lang}"])
 
         try:
             tree = ast.parse(code)
@@ -1065,6 +1262,8 @@ class CodeValidator:
                         column=column,
                         code_snippet=line_content.strip(),
                         suggestion=rule.suggestion,
+                        fix_code=rule.fix_template or "",
+                        fix_description=rule.fix_description,
                     )
                 )
 

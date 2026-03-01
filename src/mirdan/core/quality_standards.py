@@ -1,5 +1,9 @@
 """Quality Standards - Repository of coding standards by language and framework."""
 
+from __future__ import annotations
+
+import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +11,8 @@ import yaml
 
 from mirdan.config import QualityConfig
 from mirdan.models import Intent
+
+logger = logging.getLogger(__name__)
 
 
 class QualityStandards:
@@ -16,14 +22,17 @@ class QualityStandards:
         self,
         standards_dir: Path | None = None,
         config: QualityConfig | None = None,
+        project_dir: Path | None = None,
     ):
         """Initialize with optional custom standards directory and quality config.
 
         Args:
             standards_dir: Directory with custom YAML standards
             config: Quality config for stringency levels
+            project_dir: Project root for version detection from manifests
         """
         self._config = config
+        self._project_dir = project_dir
         self.standards_dir = standards_dir
         self.standards = self._load_default_standards()
         if standards_dir and standards_dir.exists():
@@ -138,15 +147,70 @@ class QualityStandards:
                         else:
                             self.standards[key] = value
 
+    def detect_framework_version(self, framework: str) -> str | None:
+        """Detect the installed version of a framework from project manifests.
+
+        Reads pyproject.toml and package.json in the project directory
+        to find the dependency version.
+
+        Args:
+            framework: Framework name (e.g., "react", "fastapi").
+
+        Returns:
+            Version string if found, None otherwise.
+        """
+        if self._project_dir is None:
+            return None
+        return _detect_version_from_manifests(framework, self._project_dir)
+
     def get_for_language(self, language: str) -> dict[str, Any]:
         """Get standards for a specific language."""
         result: dict[str, Any] = self.standards.get(language, {})
         return result
 
     def get_for_framework(self, framework: str) -> dict[str, Any]:
-        """Get standards for a specific framework."""
+        """Get standards for a specific framework.
+
+        Attempts to load version-specific standards first (e.g., ``react-19.yaml``),
+        falling back to the generic framework standards.
+        """
+        version = self.detect_framework_version(framework)
+        if version:
+            major = version.split(".")[0]
+            versioned = self._try_load_versioned_standards(framework, major)
+            if versioned:
+                # Merge versioned on top of generic
+                base: dict[str, Any] = dict(self.standards.get(framework, {}))
+                base.update(versioned)
+                return base
         result: dict[str, Any] = self.standards.get(framework, {})
         return result
+
+    def _try_load_versioned_standards(
+        self, framework: str, major_version: str
+    ) -> dict[str, Any] | None:
+        """Try to load version-specific standards file.
+
+        Looks for e.g. ``frameworks/react-19.yaml`` in the standards package.
+
+        Args:
+            framework: Framework name.
+            major_version: Major version string.
+
+        Returns:
+            Parsed standards dict if found, None otherwise.
+        """
+        from importlib.resources import files as pkg_files
+
+        try:
+            standards_pkg = pkg_files("mirdan.standards")
+            frameworks_dir = standards_pkg.joinpath("frameworks")
+            versioned_file = frameworks_dir.joinpath(f"{framework}-{major_version}.yaml")
+            content = versioned_file.read_text()
+            parsed = yaml.safe_load(content)
+            return parsed if parsed else None
+        except (ModuleNotFoundError, FileNotFoundError, TypeError, OSError):
+            return None
 
     def get_security_standards(self) -> dict[str, Any]:
         """Get security-related standards."""
@@ -247,3 +311,55 @@ class QualityStandards:
                 result["knowledge_graph_standards"] = kg_standards
 
         return result
+
+
+def _detect_version_from_manifests(framework: str, project_dir: Path) -> str | None:
+    """Detect framework version from project manifest files.
+
+    Checks pyproject.toml and package.json for the framework dependency.
+
+    Args:
+        framework: Framework name to look up.
+        project_dir: Project root directory.
+
+    Returns:
+        Version string if found, None otherwise.
+    """
+    # Check pyproject.toml
+    pyproject = project_dir / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            content = pyproject.read_text()
+            for line in content.splitlines():
+                stripped = line.strip().strip('"').strip("'").strip(",")
+                if framework in stripped.lower():
+                    for sep in [">=", "==", "~=", "<=", ">"]:
+                        if sep in stripped:
+                            version = (
+                                stripped.split(sep, 1)[1]
+                                .strip()
+                                .rstrip('"')
+                                .rstrip("'")
+                                .rstrip(",")
+                                .split(",")[0]
+                                .strip()
+                            )
+                            if version and version[0].isdigit():
+                                return version
+        except OSError:
+            pass
+
+    # Check package.json
+    pkg_json = project_dir / "package.json"
+    if pkg_json.exists():
+        try:
+            data = json.loads(pkg_json.read_text())
+            for section in ["dependencies", "devDependencies"]:
+                deps = data.get(section, {})
+                if framework in deps:
+                    pkg_version: str = str(deps[framework]).lstrip("^~>=<")
+                    return pkg_version
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return None

@@ -26,6 +26,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ast = [
+    "tree-sitter>=0.24",
+    "tree-sitter-typescript>=0.23",
+    "tree-sitter-javascript>=0.23",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -35,7 +40,7 @@ dev = [
 ]
 
 [project.scripts]
-mirdan = "mirdan.server:main"
+mirdan = "mirdan.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -76,6 +81,7 @@ ignore = [
 "tests/**" = ["S101"]  # Allow assert in tests
 "src/mirdan/core/gatherers/**" = ["S110"]  # Allow silent exception handling in optional gatherers
 "src/mirdan/core/client_registry.py" = ["ASYNC109"]  # timeout parameter is intentional API design
+"src/mirdan/core/active_orchestrator.py" = ["ASYNC109"]  # timeout parameter is passthrough API design
 
 [tool.mypy]
 python_version = "3.11"

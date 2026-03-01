@@ -1,0 +1,28 @@
+---
+description: Mirdan quality orchestration - always active
+globs:
+alwaysApply: true
+---
+
+# Mirdan Quality Orchestration
+
+Use the mirdan MCP server for code quality enforcement on every coding task.
+
+## Entry Point
+
+Before writing any code, call `mcp_mirdan_enhance_prompt` with the task description.
+Use the returned quality requirements as constraints during implementation.
+
+## Exit Gate
+
+After writing code, call `mcp_mirdan_validate_code_quality` with:
+- The written code
+- `check_security=true` if enhance_prompt indicated `touches_security`
+- The detected language
+
+Fix all errors before proceeding. Note warnings and address if reasonable.
+
+## Completion
+
+Before marking any task complete, call `mcp_mirdan_get_verification_checklist`
+with the task type. Review and satisfy each item.

@@ -16,6 +16,9 @@ class QualityConfig(BaseModel):
     testing: str = Field(default="strict", pattern="^(strict|moderate|permissive)$")
     framework: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
     language: str = Field(default="moderate", pattern="^(strict|moderate|permissive)$")
+    custom_rules_dir: str = Field(
+        default=".mirdan/rules", description="Directory for custom validation rules"
+    )
 
 
 class MCPClientConfig(BaseModel):
@@ -75,6 +78,25 @@ class PlanningConfig(BaseModel):
     # Anti-slop enforcement
     reject_vague_language: bool = True
     max_words_per_step_detail: int = Field(default=100, description="Force atomic steps")
+
+
+class SessionConfig(BaseModel):
+    """Session management configuration."""
+
+    ttl_seconds: int = Field(default=1800, description="Session time-to-live in seconds")
+    max_sessions: int = Field(default=100, description="Maximum concurrent sessions")
+
+
+class TokenConfig(BaseModel):
+    """Token budget and output formatting configuration."""
+
+    default_max_tokens: int = Field(default=0, description="Default max tokens (0=unlimited)")
+    compact_threshold: int = Field(
+        default=4000, description="Token budget below which compact format is used"
+    )
+    minimal_threshold: int = Field(
+        default=1000, description="Token budget below which minimal format is used"
+    )
 
 
 class ThresholdsConfig(BaseModel):
@@ -144,6 +166,8 @@ class MirdanConfig(BaseModel):
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
     thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
+    session: SessionConfig = Field(default_factory=SessionConfig)
+    tokens: TokenConfig = Field(default_factory=TokenConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

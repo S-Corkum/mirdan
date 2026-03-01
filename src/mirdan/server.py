@@ -11,12 +11,17 @@ from fastmcp import FastMCP
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
+from mirdan.core.diff_parser import parse_unified_diff
+from mirdan.core.environment_detector import detect_environment
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.orchestrator import MCPOrchestrator
+from mirdan.core.output_formatter import OutputFormatter
 from mirdan.core.plan_validator import PlanValidator
 from mirdan.core.prompt_composer import PromptComposer
+from mirdan.core.quality_persistence import QualityPersistence
 from mirdan.core.quality_standards import QualityStandards
-from mirdan.models import Intent, TaskType
+from mirdan.core.session_manager import SessionManager
+from mirdan.models import ComparisonEntry, ComparisonResult, Intent, ModelTier, TaskType
 
 # Input size limits to prevent abuse and resource exhaustion
 _MAX_PROMPT_LENGTH = 50_000  # ~12k tokens
@@ -46,6 +51,9 @@ class _Components:
     context_aggregator: ContextAggregator
     code_validator: CodeValidator
     plan_validator: PlanValidator
+    session_manager: SessionManager
+    output_formatter: OutputFormatter
+    quality_persistence: QualityPersistence
     config: MirdanConfig
 
 
@@ -71,6 +79,12 @@ def _get_components() -> _Components:
             quality_standards, config=config.quality, thresholds=config.thresholds
         ),
         plan_validator=PlanValidator(config.planning, thresholds=config.thresholds),
+        session_manager=SessionManager(config.session),
+        output_formatter=OutputFormatter(
+            compact_threshold=config.tokens.compact_threshold,
+            minimal_threshold=config.tokens.minimal_threshold,
+        ),
+        quality_persistence=QualityPersistence(),
         config=config,
     )
     return _components
@@ -96,6 +110,8 @@ async def enhance_prompt(
     prompt: str,
     task_type: str = "auto",
     context_level: str = "auto",
+    max_tokens: int = 0,
+    model_tier: str = "auto",
 ) -> dict[str, Any]:
     """
     Automatically enhance a coding prompt with quality requirements,
@@ -105,6 +121,11 @@ async def enhance_prompt(
         prompt: The original developer prompt
         task_type: Override auto-detection (generation|refactor|debug|review|test|planning|auto)
         context_level: How much context to gather (minimal|auto|comprehensive)
+        max_tokens: Maximum token budget for the response (0=unlimited). When set, output
+                    is automatically compressed: <=1000 tokens produces minimal output,
+                    <=4000 produces compact output.
+        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku).
+                    Haiku/Sonnet receive more compressed output.
 
     Returns:
         Enhanced prompt with quality requirements and tool recommendations
@@ -123,6 +144,9 @@ async def enhance_prompt(
         with contextlib.suppress(ValueError):
             intent.task_type = TaskType(task_type)
 
+    # Create session from intent
+    session = c.session_manager.create_from_intent(intent)
+
     # Get tool recommendations
     tool_recommendations = c.mcp_orchestrator.suggest_tools(intent)
 
@@ -132,7 +156,20 @@ async def enhance_prompt(
     # Compose enhanced prompt
     enhanced = c.prompt_composer.compose(intent, context, tool_recommendations)
 
-    return enhanced.to_dict()
+    result = enhanced.to_dict()
+    result["session_id"] = session.session_id
+
+    # Detect environment for context
+    env_info = detect_environment()
+    result["environment"] = env_info.to_dict()
+
+    # Apply token-budget-aware formatting
+    tier = _parse_model_tier(model_tier)
+    result = c.output_formatter.format_enhanced_prompt(
+        result, max_tokens=max_tokens, model_tier=tier
+    )
+
+    return result
 
 
 @mcp.tool()
@@ -294,6 +331,9 @@ async def validate_code_quality(
     check_architecture: bool = True,
     check_style: bool = True,
     severity_threshold: str = "warning",
+    session_id: str = "",
+    max_tokens: int = 0,
+    model_tier: str = "auto",
 ) -> dict[str, Any]:
     """
     Validate generated code against quality standards.
@@ -305,6 +345,9 @@ async def validate_code_quality(
         check_architecture: Validate against architecture standards
         check_style: Validate against language-specific style standards
         severity_threshold: Minimum severity to include in results (error|warning|info)
+        session_id: Session ID from enhance_prompt to auto-inherit language and security settings
+        max_tokens: Maximum token budget for the response (0=unlimited)
+        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
 
     Returns:
         Validation results with pass/fail, score, violations, and summary
@@ -314,15 +357,98 @@ async def validate_code_quality(
         return error
 
     c = _get_components()
+
+    # Apply session defaults if available
+    resolved_language, resolved_security = c.session_manager.apply_session_defaults(
+        session_id, language=language, check_security=check_security
+    )
+
     result = c.code_validator.validate(
         code=code,
-        language=language,
-        check_security=check_security,
+        language=resolved_language,
+        check_security=resolved_security,
         check_architecture=check_architecture,
         check_style=check_style,
     )
 
-    return result.to_dict(severity_threshold=severity_threshold)
+    output = result.to_dict(severity_threshold=severity_threshold)
+
+    # Apply token-budget-aware formatting
+    tier = _parse_model_tier(model_tier)
+    output = c.output_formatter.format_validation_result(
+        output, max_tokens=max_tokens, model_tier=tier
+    )
+
+    return output
+
+
+@mcp.tool()
+async def validate_diff(
+    diff: str,
+    language: str = "auto",
+    check_security: bool = True,
+    session_id: str = "",
+    max_tokens: int = 0,
+    model_tier: str = "auto",
+) -> dict[str, Any]:
+    """
+    Validate only the changed code in a unified diff.
+
+    Parses the diff to extract added lines, then validates just those changes.
+    More efficient than validating entire files when reviewing patches.
+
+    Args:
+        diff: Unified diff text (from git diff, etc.)
+        language: Programming language (python|typescript|javascript|rust|go|auto)
+        check_security: Validate against security standards
+        session_id: Session ID from enhance_prompt to auto-inherit settings
+        max_tokens: Maximum token budget for the response (0=unlimited)
+        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+
+    Returns:
+        Validation results for the changed code only
+    """
+    if error := _check_input_size(diff, "diff", _MAX_CODE_LENGTH):
+        return error
+
+    c = _get_components()
+
+    # Parse the diff
+    parsed = parse_unified_diff(diff)
+    added_code = parsed.get_added_code()
+
+    if not added_code.strip():
+        return {
+            "passed": True,
+            "score": 1.0,
+            "files_changed": parsed.files_changed,
+            "summary": "No added code found in diff",
+        }
+
+    # Apply session defaults if available
+    resolved_language, resolved_security = c.session_manager.apply_session_defaults(
+        session_id, language=language, check_security=check_security
+    )
+
+    result = c.code_validator.validate(
+        code=added_code,
+        language=resolved_language,
+        check_security=resolved_security,
+        check_architecture=False,  # Architecture checks need full file context
+        check_style=True,
+    )
+
+    output = result.to_dict(severity_threshold="warning")
+    output["files_changed"] = parsed.files_changed
+    output["lines_added"] = sum(len(h.added_lines) for h in parsed.hunks)
+
+    # Apply token-budget-aware formatting
+    tier = _parse_model_tier(model_tier)
+    output = c.output_formatter.format_validation_result(
+        output, max_tokens=max_tokens, model_tier=tier
+    )
+
+    return output
 
 
 @mcp.tool()
@@ -349,6 +475,112 @@ async def validate_plan_quality(
     c = _get_components()
     result = c.plan_validator.validate(plan, target_model)
     return result.to_dict()
+
+
+@mcp.tool()
+async def compare_approaches(
+    implementations: list[str],
+    language: str = "auto",
+    labels: list[str] | None = None,
+) -> dict[str, Any]:
+    """
+    Compare multiple code implementations side-by-side.
+
+    Validates each implementation and returns a ranked comparison with
+    scores, violations, and a winner recommendation.
+
+    Args:
+        implementations: List of code strings to compare (2-10)
+        language: Programming language (python|typescript|javascript|rust|go|auto)
+        labels: Optional labels for each implementation (e.g., ["Approach A", "Approach B"])
+
+    Returns:
+        Comparison results with scores, violations, and winner
+    """
+    if len(implementations) < 2:
+        return {"error": "At least 2 implementations are required for comparison"}
+    if len(implementations) > 10:
+        return {"error": "Maximum 10 implementations can be compared at once"}
+
+    for i, impl in enumerate(implementations):
+        if error := _check_input_size(impl, f"implementation[{i}]", _MAX_CODE_LENGTH):
+            return error
+
+    c = _get_components()
+
+    # Generate default labels if not provided
+    if labels is None or len(labels) != len(implementations):
+        labels = [f"Implementation {i + 1}" for i in range(len(implementations))]
+
+    entries: list[ComparisonEntry] = []
+    for impl, label in zip(implementations, labels, strict=True):
+        result = c.code_validator.validate(
+            code=impl,
+            language=language,
+            check_security=True,
+            check_architecture=True,
+            check_style=True,
+        )
+        output = result.to_dict(severity_threshold="warning")
+        entries.append(
+            ComparisonEntry(
+                label=label,
+                score=result.score,
+                passed=result.passed,
+                violation_counts=output.get("violations_count", {}),
+                summary=output.get("summary", ""),
+            )
+        )
+
+    # Determine winner (highest score, then fewest errors)
+    best = max(entries, key=lambda e: (e.score, -e.violation_counts.get("error", 0)))
+
+    comparison = ComparisonResult(
+        entries=entries,
+        winner=best.label,
+        language_detected=entries[0].summary.split()[0] if entries else language,
+    )
+
+    return comparison.to_dict()
+
+
+@mcp.tool()
+async def get_quality_trends(
+    project_path: str = "",
+    days: int = 30,
+) -> dict[str, Any]:
+    """
+    Get quality score trends over time from stored validation history.
+
+    Reads snapshots from `.mirdan/history/` and calculates aggregate
+    statistics including average score, pass rate, and trend direction.
+
+    Args:
+        project_path: Optional project path filter
+        days: Number of days of history to analyze (default: 30)
+
+    Returns:
+        Quality trend data with scores, pass rate, and trend direction
+    """
+    if days < 1:
+        return {"error": "days must be at least 1"}
+    if days > 365:
+        return {"error": "days cannot exceed 365"}
+
+    c = _get_components()
+    trend = c.quality_persistence.get_trends(
+        days=days,
+        project_path=project_path or None,
+    )
+    return trend.to_dict()
+
+
+def _parse_model_tier(tier: str) -> ModelTier:
+    """Parse a model tier string into the enum, defaulting to AUTO."""
+    try:
+        return ModelTier(tier.lower())
+    except ValueError:
+        return ModelTier.AUTO
 
 
 def main() -> None:

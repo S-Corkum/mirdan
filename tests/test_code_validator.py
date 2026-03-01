@@ -1142,10 +1142,16 @@ class TestArchitectureAST:
         assert any("syntax errors" in lim.lower() for lim in result.limitations)
 
     def test_non_python_gets_limitation(self, validator: CodeValidator) -> None:
-        """Non-Python code should get Python-only limitation."""
+        """Unsupported languages should get architecture limitation."""
+        code = "fn main() {}"
+        result = validator.validate(code, language="rust")
+        assert any("not available" in lim.lower() for lim in result.limitations)
+
+    def test_javascript_gets_ts_js_limitation(self, validator: CodeValidator) -> None:
+        """JavaScript should get TS/JS regex heuristics limitation."""
         code = "const x = 1;"
         result = validator.validate(code, language="javascript")
-        assert any("python only" in lim.lower() for lim in result.limitations)
+        assert any("regex" in lim.lower() for lim in result.limitations)
 
     def test_custom_thresholds_override_defaults(self) -> None:
         """Custom ThresholdsConfig should override default values."""

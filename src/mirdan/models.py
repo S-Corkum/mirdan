@@ -5,6 +5,23 @@ from enum import Enum
 from typing import Any
 
 
+class OutputFormat(Enum):
+    """Output compression format levels."""
+
+    FULL = "full"
+    COMPACT = "compact"
+    MINIMAL = "minimal"
+
+
+class ModelTier(Enum):
+    """Model tier for output optimization."""
+
+    AUTO = "auto"
+    OPUS = "opus"
+    SONNET = "sonnet"
+    HAIKU = "haiku"
+
+
 class TaskType(Enum):
     """Classification of developer task types."""
 
@@ -62,6 +79,40 @@ class ExtractedEntity:
             "confidence": self.confidence,
             "metadata": self.metadata,
         }
+
+
+@dataclass
+class SessionContext:
+    """Session state for multi-turn quality orchestration."""
+
+    session_id: str
+    task_type: TaskType = TaskType.UNKNOWN
+    detected_language: str | None = None
+    frameworks: list[str] = field(default_factory=list)
+    touches_security: bool = False
+    touches_rag: bool = False
+    touches_knowledge_graph: bool = False
+    created_at: float = 0.0
+    last_accessed: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "session_id": self.session_id,
+            "task_type": self.task_type.value,
+            "detected_language": self.detected_language,
+            "frameworks": self.frameworks,
+            "touches_security": self.touches_security,
+        }
+
+
+@dataclass
+class OutputConfig:
+    """Configuration for output formatting and compression."""
+
+    max_tokens: int = 0  # 0 = no limit (full output)
+    format: OutputFormat = OutputFormat.FULL
+    model_tier: ModelTier = ModelTier.AUTO
 
 
 @dataclass
@@ -236,6 +287,99 @@ class EnhancedPrompt:
 
 
 @dataclass
+class ComparisonEntry:
+    """A single implementation's validation result within a comparison."""
+
+    label: str
+    score: float
+    passed: bool
+    violation_counts: dict[str, int] = field(default_factory=dict)
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "label": self.label,
+            "score": self.score,
+            "passed": self.passed,
+            "violation_counts": self.violation_counts,
+            "summary": self.summary,
+        }
+
+
+@dataclass
+class ComparisonResult:
+    """Side-by-side comparison of multiple implementations."""
+
+    entries: list[ComparisonEntry] = field(default_factory=list)
+    winner: str = ""
+    language_detected: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "entries": [e.to_dict() for e in self.entries],
+            "winner": self.winner,
+            "language_detected": self.language_detected,
+            "count": len(self.entries),
+        }
+
+
+@dataclass
+class QualitySnapshot:
+    """A point-in-time quality measurement."""
+
+    timestamp: str  # ISO 8601
+    project_path: str
+    language: str
+    score: float
+    passed: bool
+    violation_counts: dict[str, int] = field(default_factory=dict)
+    standards_checked: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "timestamp": self.timestamp,
+            "project_path": self.project_path,
+            "language": self.language,
+            "score": self.score,
+            "passed": self.passed,
+            "violation_counts": self.violation_counts,
+            "standards_checked": self.standards_checked,
+        }
+
+
+@dataclass
+class QualityTrend:
+    """Quality trend data over a time period."""
+
+    project_path: str
+    days: int
+    snapshot_count: int
+    avg_score: float
+    min_score: float
+    max_score: float
+    pass_rate: float  # Fraction of snapshots that passed
+    score_trend: str  # "improving", "declining", "stable"
+    snapshots: list[QualitySnapshot] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "project_path": self.project_path,
+            "days": self.days,
+            "snapshot_count": self.snapshot_count,
+            "avg_score": round(self.avg_score, 3),
+            "min_score": round(self.min_score, 3),
+            "max_score": round(self.max_score, 3),
+            "pass_rate": round(self.pass_rate, 3),
+            "score_trend": self.score_trend,
+            "snapshots": [s.to_dict() for s in self.snapshots],
+        }
+
+
+@dataclass
 class Violation:
     """A code quality violation detected during validation."""
 
@@ -248,10 +392,12 @@ class Violation:
     column: int | None = None
     code_snippet: str = ""
     suggestion: str = ""
+    fix_code: str = ""
+    fix_description: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result: dict[str, Any] = {
             "id": self.id,
             "rule": self.rule,
             "category": self.category,
@@ -262,6 +408,10 @@ class Violation:
             "code_snippet": self.code_snippet,
             "suggestion": self.suggestion,
         }
+        if self.fix_code:
+            result["fix_code"] = self.fix_code
+            result["fix_description"] = self.fix_description
+        return result
 
 
 @dataclass

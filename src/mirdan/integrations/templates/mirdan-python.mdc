@@ -1,0 +1,30 @@
+---
+description: Mirdan Python quality standards
+globs: "*.py"
+alwaysApply: false
+---
+
+# Python Quality Standards (via Mirdan)
+
+When writing or modifying Python files, enforce these standards:
+
+## Before Writing
+
+Call `mcp_mirdan_get_quality_standards` with `language="python"` to get
+current Python best practices. If using a framework (FastAPI, Django, etc.),
+include the `framework` parameter.
+
+## Key Rules
+
+- No bare `except:` — use `except Exception:` or specific exception types
+- No mutable default arguments — use `None` and assign in function body
+- Use `pathlib.Path` instead of `os.path`
+- Use native type hints (`list[]`, `dict[]`) instead of `typing.List`, `typing.Dict`
+- No `eval()` or `exec()` on user input
+
+## Validation
+
+After writing Python code, validate with:
+```
+mcp_mirdan_validate_code_quality(code, language="python", check_security=true)
+```
