@@ -868,6 +868,33 @@ class CodeValidator:
                     return True
         return False
 
+    def _resolve_language(
+        self, code: str, language: str
+    ) -> tuple[str, list[str]]:
+        """Resolve language from code and language hint.
+
+        Args:
+            code: Source code (used for auto-detection).
+            language: Language hint or "auto" for detection.
+
+        Returns:
+            Tuple of (detected_language, limitations).
+        """
+        limitations: list[str] = []
+        if language == "auto":
+            detected_lang, confidence = self._language_detector.detect(code)
+            if confidence == "low":
+                limitations.append(
+                    f"Language detection confidence is low - detected '{detected_lang}'"
+                )
+        else:
+            detected_lang = language.lower()
+            if detected_lang not in self.LANGUAGE_RULES:
+                limitations.append(
+                    f"Language '{language}' not fully supported - only security checks applied"
+                )
+        return detected_lang, limitations
+
     def validate(
         self,
         code: str,
@@ -904,18 +931,8 @@ class CodeValidator:
             )
 
         # Detect or validate language
-        if language == "auto":
-            detected_lang, confidence = self._language_detector.detect(code)
-            if confidence == "low":
-                limitations.append(
-                    f"Language detection confidence is low - detected '{detected_lang}'"
-                )
-        else:
-            detected_lang = language.lower()
-            if detected_lang not in self.LANGUAGE_RULES:
-                limitations.append(
-                    f"Language '{language}' not fully supported - only security checks applied"
-                )
+        detected_lang, lang_limitations = self._resolve_language(code, language)
+        limitations.extend(lang_limitations)
 
         # Check for minified code
         if self._language_detector.is_likely_minified(code):
@@ -988,6 +1005,58 @@ class CodeValidator:
             language_detected=detected_lang,
             violations=violations,
             standards_checked=standards_checked,
+            limitations=limitations,
+        )
+
+    def validate_quick(
+        self,
+        code: str,
+        language: str = "auto",
+    ) -> ValidationResult:
+        """Fast security-only validation for hooks and real-time feedback.
+
+        Runs only security rules — skips style, architecture, framework,
+        custom rules, minified code detection, and test code detection.
+        Targets <500ms execution time.
+
+        Args:
+            code: The code to validate.
+            language: Programming language or "auto" for detection.
+
+        Returns:
+            ValidationResult with only security violations.
+        """
+        # Handle empty code
+        if not code or not code.strip():
+            return ValidationResult(
+                passed=True,
+                score=1.0,
+                language_detected="unknown",
+                violations=[],
+                standards_checked=["security"],
+                limitations=["No code provided for validation"],
+            )
+
+        detected_lang, limitations = self._resolve_language(code, language)
+
+        # Build skip regions and run security rules only
+        skip_regions = _build_skip_regions(code, detected_lang)
+        violations = self._check_rules(
+            code,
+            self._compiled_rules["_security"],
+            is_test=False,
+            skip_regions=skip_regions,
+        )
+
+        passed = not any(v.severity == "error" for v in violations)
+        score = self._calculate_score(violations)
+
+        return ValidationResult(
+            passed=passed,
+            score=score,
+            language_detected=detected_lang,
+            violations=violations,
+            standards_checked=["security"],
             limitations=limitations,
         )
 

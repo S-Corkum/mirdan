@@ -10,8 +10,7 @@ from pathlib import Path
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.diff_parser import parse_unified_diff
-from mirdan.core.linter_runner import LinterConfig as RunnerLinterConfig
-from mirdan.core.linter_runner import LinterRunner
+from mirdan.core.linter_orchestrator import create_linter_runner, merge_linter_violations
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ValidationResult
 
@@ -43,32 +42,52 @@ def run_validate(args: list[str]) -> None:
     check_security = parsed.get("security", True)
 
     run_lint = parsed.get("lint", False)
+    quick_mode = parsed.get("quick", False)
 
     try:
         if parsed.get("diff"):
             diff_text = sys.stdin.read()
-            result = _validate_diff(validator, diff_text, language, check_security)
+            if quick_mode:
+                parsed_diff = parse_unified_diff(diff_text)
+                added_code = parsed_diff.get_added_code()
+                if not added_code.strip():
+                    result = ValidationResult(
+                        passed=True,
+                        score=1.0,
+                        language_detected=language if language != "auto" else "unknown",
+                        standards_checked=["security"],
+                    )
+                else:
+                    result = validator.validate_quick(code=added_code, language=language)
+            else:
+                result = _validate_diff(validator, diff_text, language, check_security)
         elif parsed.get("stdin"):
             code = sys.stdin.read()
-            result = validator.validate(
-                code=code,
-                language=language,
-                check_security=check_security,
-            )
+            if quick_mode:
+                result = validator.validate_quick(code=code, language=language)
+            else:
+                result = validator.validate(
+                    code=code,
+                    language=language,
+                    check_security=check_security,
+                )
         elif parsed.get("file"):
             file_path = Path(parsed["file"])
             if not file_path.exists():
                 print(f"Error: file not found: {file_path}", file=sys.stderr)
                 sys.exit(2)
             code = file_path.read_text()
-            result = validator.validate(
-                code=code,
-                language=language,
-                check_security=check_security,
-            )
-            # Run external linters if requested
-            if run_lint:
-                result = _run_linters(result, file_path, language, config)
+            if quick_mode:
+                result = validator.validate_quick(code=code, language=language)
+            else:
+                result = validator.validate(
+                    code=code,
+                    language=language,
+                    check_security=check_security,
+                )
+                # Run external linters if requested
+                if run_lint:
+                    result = _run_linters(result, file_path, language, config)
         else:
             print("Error: one of --file, --stdin, or --diff is required", file=sys.stderr)
             _print_validate_help()
@@ -117,15 +136,7 @@ def _run_linters(
     config: MirdanConfig,
 ) -> ValidationResult:
     """Run external linters and merge violations into the result."""
-    linter_config = RunnerLinterConfig(
-        enabled_linters=config.linters.enabled_linters,
-        ruff_args=config.linters.ruff_args,
-        eslint_args=config.linters.eslint_args,
-        mypy_args=config.linters.mypy_args,
-        auto_detect=config.linters.auto_detect,
-        timeout=config.linters.timeout,
-    )
-    runner = LinterRunner(linter_config)
+    runner = create_linter_runner(config)
 
     # Use the detected language from validation if auto
     lang = result.language_detected if language == "auto" else language
@@ -133,23 +144,7 @@ def _run_linters(
     linter_violations = asyncio.run(runner.run(file_path, lang))
 
     if linter_violations:
-        # Merge linter violations into result
-        all_violations = list(result.violations) + linter_violations
-        # Recalculate pass/fail and score
-        error_count = sum(1 for v in all_violations if v.severity == "error")
-        warning_count = sum(1 for v in all_violations if v.severity == "warning")
-        info_count = sum(1 for v in all_violations if v.severity == "info")
-        score = max(0.0, 1.0 - (error_count * 0.25 + warning_count * 0.08 + info_count * 0.02))
-        passed = error_count == 0
-
-        return ValidationResult(
-            passed=passed,
-            score=score,
-            language_detected=result.language_detected,
-            violations=all_violations,
-            standards_checked=result.standards_checked + ["external-linters"],
-            limitations=result.limitations,
-        )
+        return merge_linter_violations(result, linter_violations, config.thresholds)
 
     return result
 
@@ -224,6 +219,9 @@ def _parse_args(args: list[str]) -> dict:
         elif arg == "--no-lint":
             parsed["lint"] = False
             i += 1
+        elif arg == "--quick":
+            parsed["quick"] = True
+            i += 1
         elif arg == "--format" and i + 1 < len(args):
             fmt = args[i + 1]
             if fmt not in ("json", "text", "github"):
@@ -255,6 +253,7 @@ def _print_validate_help() -> None:
     print("  --no-security      Disable security checks")
     print("  --lint             Run external linters (ruff, eslint, mypy)")
     print("  --no-lint          Skip external linters (default)")
+    print("  --quick            Fast security-only validation (for hooks)")
     print("  --format FORMAT    Output format (text|json|github)")
     print("  -h, --help         Show this help")
     print()

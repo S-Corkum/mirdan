@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mirdan validate --file $TOOL_INPUT_FILE_PATH --format text"
+            "command": "mirdan validate --quick --file $TOOL_INPUT_FILE_PATH --format text"
           }
         ]
       }

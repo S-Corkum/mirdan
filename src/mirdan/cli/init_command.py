@@ -237,35 +237,11 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
 
 def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
     """Generate Claude Code configuration files."""
-    claude_dir = directory / ".claude"
-    claude_dir.mkdir(parents=True, exist_ok=True)
+    from mirdan.integrations.claude_code import generate_claude_code_config
 
-    # Generate hooks.json if not present (also handled by _setup_hooks, but
-    # explicit platform profile should always create it)
-    hooks_path = claude_dir / "hooks.json"
-    if not hooks_path.exists():
-        hooks_config = {
-            "hooks": {
-                "PostToolUse": [
-                    {
-                        "matcher": "Write|Edit",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": (
-                                    "mirdan validate"
-                                    " --file $TOOL_INPUT_FILE_PATH"
-                                    " --format text"
-                                ),
-                            }
-                        ],
-                    }
-                ]
-            }
-        }
-        with hooks_path.open("w") as f:
-            json.dump(hooks_config, f, indent=2)
-        print(f"  Created {hooks_path}")
+    generated = generate_claude_code_config(directory, detected)
+    for path in generated:
+        print(f"  Created {path}")
 
     print()
     print("  Claude Code configured! mirdan will validate edits automatically.")

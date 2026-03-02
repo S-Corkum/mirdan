@@ -10,6 +10,8 @@ from typing import Any
 
 from fastmcp import FastMCP
 
+from pathlib import Path
+
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
@@ -17,6 +19,8 @@ from mirdan.core.diff_parser import parse_unified_diff
 from mirdan.core.environment_detector import detect_environment
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.knowledge_producer import KnowledgeProducer
+from mirdan.core.linter_orchestrator import create_linter_runner, merge_linter_violations
+from mirdan.core.linter_runner import LinterRunner
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.output_formatter import OutputFormatter
 from mirdan.core.plan_validator import PlanValidator
@@ -60,6 +64,7 @@ class _Components:
     output_formatter: OutputFormatter
     quality_persistence: QualityPersistence
     knowledge_producer: KnowledgeProducer
+    linter_runner: LinterRunner
     config: MirdanConfig
 
 
@@ -92,6 +97,7 @@ def _get_components() -> _Components:
         ),
         quality_persistence=QualityPersistence(),
         knowledge_producer=KnowledgeProducer(),
+        linter_runner=create_linter_runner(config),
         config=config,
     )
     return _components
@@ -249,6 +255,7 @@ async def validate_code_quality(
     model_tier: str = "auto",
     input_type: str = "code",
     compare: bool = False,
+    file_path: str = "",
 ) -> dict[str, Any]:
     """
     Validate generated code against quality standards.
@@ -265,6 +272,8 @@ async def validate_code_quality(
         model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
         input_type: Input type - "code" for raw code (default), "diff" for unified diff
         compare: If True, treat `code` as JSON array of implementations to compare
+        file_path: Optional file path for external linter analysis. When provided,
+                   runs ruff/eslint/mypy on the file and merges results.
 
     Returns:
         Validation results with pass/fail, score, violations, and summary
@@ -298,6 +307,14 @@ async def validate_code_quality(
         check_architecture=check_architecture,
         check_style=check_style,
     )
+
+    # Run external linters if file_path provided
+    if file_path:
+        fp = Path(file_path)
+        if fp.exists():
+            linter_violations = await c.linter_runner.run(fp, result.language_detected)
+            if linter_violations:
+                result = merge_linter_violations(result, linter_violations, c.config.thresholds)
 
     output = result.to_dict(severity_threshold=severity_threshold)
 
@@ -438,6 +455,50 @@ async def _handle_compare(
     )
 
     return comparison.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Core Tool 2b: validate_quick
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def validate_quick(
+    code: str,
+    language: str = "auto",
+    max_tokens: int = 0,
+    model_tier: str = "auto",
+) -> dict[str, Any]:
+    """Fast security-only validation for hooks and real-time feedback (<500ms target).
+
+    Runs only security rules — skips style, architecture, framework, and custom checks.
+    Ideal for PostToolUse hooks where speed matters more than comprehensive analysis.
+
+    Args:
+        code: The code to validate
+        language: Programming language (python|typescript|javascript|rust|go|auto)
+        max_tokens: Maximum token budget for the response (0=unlimited)
+        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+
+    Returns:
+        Validation results with pass/fail, score, and security-only violations
+    """
+    if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
+        return error
+
+    c = _get_components()
+
+    result = c.code_validator.validate_quick(code=code, language=language)
+
+    output = result.to_dict(severity_threshold="warning")
+
+    # Apply token-budget-aware formatting
+    tier = _parse_model_tier(model_tier)
+    output = c.output_formatter.format_validation_result(
+        output, max_tokens=max_tokens, model_tier=tier
+    )
+
+    return output
 
 
 # ---------------------------------------------------------------------------

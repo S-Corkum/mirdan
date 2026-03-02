@@ -1,0 +1,19 @@
+# Security-Sensitive Code (via Mirdan)
+
+Files in auth, security, API, and middleware paths require stricter validation.
+
+## Mandatory Steps
+
+1. Call `mcp__mirdan__enhance_prompt` — confirm `touches_security=true`
+2. Call `mcp__mirdan__get_quality_standards` with `category="security"`
+3. After writing code, validate with `check_security=true`
+
+## Security Checklist
+
+- No hardcoded secrets, tokens, or API keys
+- All user input is validated and sanitized
+- SQL queries use parameterized statements
+- HTTP requests verify TLS certificates
+- Authentication tokens have expiry
+- Sensitive data is not logged
+- File paths are validated against traversal attacks
