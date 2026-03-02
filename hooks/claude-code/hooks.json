@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mirdan validate --file $TOOL_INPUT_FILE_PATH --format text"
+          }
+        ]
+      }
+    ],
+    "PreCommit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mirdan validate --diff --format text"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -145,6 +145,20 @@ class ThresholdsConfig(BaseModel):
     arch_max_class_methods: int = Field(default=10, description="Max methods per class")
 
 
+class LinterOrcConfig(BaseModel):
+    """Configuration for external linter orchestration."""
+
+    enabled_linters: list[str] = Field(
+        default_factory=list,
+        description="Explicit list of linters to run (empty = auto-detect)",
+    )
+    ruff_args: list[str] = Field(default_factory=list, description="Extra args for ruff")
+    eslint_args: list[str] = Field(default_factory=list, description="Extra args for ESLint")
+    mypy_args: list[str] = Field(default_factory=list, description="Extra args for mypy")
+    auto_detect: bool = Field(default=True, description="Auto-detect available linters")
+    timeout: float = Field(default=30.0, description="Timeout per linter invocation (seconds)")
+
+
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
 
@@ -168,6 +182,7 @@ class MirdanConfig(BaseModel):
     thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
     tokens: TokenConfig = Field(default_factory=TokenConfig)
+    linters: LinterOrcConfig = Field(default_factory=LinterOrcConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

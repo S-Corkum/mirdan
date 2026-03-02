@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -240,7 +241,7 @@ def _detect_from_pom(directory: Path, result: DetectedProject) -> None:
 
 
 def _detect_ides(directory: Path, result: DetectedProject) -> None:
-    """Detect IDEs from directory presence."""
+    """Detect IDEs from directory presence and environment variables."""
     ide_dirs = {
         ".cursor": "cursor",
         ".claude": "claude-code",
@@ -250,6 +251,12 @@ def _detect_ides(directory: Path, result: DetectedProject) -> None:
     for dirname, ide in ide_dirs.items():
         if (directory / dirname).is_dir():
             result.detected_ides.append(ide)
+
+    # Also check environment variables for IDE detection
+    if "cursor" not in result.detected_ides and os.environ.get("CURSOR_TRACE_ID"):
+        result.detected_ides.append("cursor")
+    if "claude-code" not in result.detected_ides and os.environ.get("CLAUDE_CODE_RUNNING"):
+        result.detected_ides.append("claude-code")
 
 
 def _get_python_dep_version(pyproject: Path, dep_name: str) -> str | None:

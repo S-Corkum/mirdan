@@ -4,6 +4,10 @@ Routes:
 - ``mirdan`` (bare) → starts MCP server (backward compatible)
 - ``mirdan serve`` → starts MCP server (explicit)
 - ``mirdan init`` → project initialization wizard
+- ``mirdan validate`` → code quality validation
+- ``mirdan standards`` → quality standards lookup
+- ``mirdan checklist`` → verification checklist
+- ``mirdan scan`` → codebase convention extraction
 """
 
 from __future__ import annotations
@@ -19,6 +23,14 @@ def main() -> None:
         _serve()
     elif args[0] == "init":
         _init(args[1:])
+    elif args[0] == "validate":
+        _validate(args[1:])
+    elif args[0] == "standards":
+        _standards(args[1:])
+    elif args[0] == "checklist":
+        _checklist(args[1:])
+    elif args[0] == "scan":
+        _scan(args[1:])
     elif args[0] in ("--help", "-h"):
         _print_help()
     elif args[0] in ("--version", "-V"):
@@ -43,6 +55,34 @@ def _init(args: list[str]) -> None:
     run_init(args)
 
 
+def _validate(args: list[str]) -> None:
+    """Run code quality validation."""
+    from mirdan.cli.validate_command import run_validate
+
+    run_validate(args)
+
+
+def _standards(args: list[str]) -> None:
+    """Display quality standards."""
+    from mirdan.cli.standards_command import run_standards
+
+    run_standards(args)
+
+
+def _checklist(args: list[str]) -> None:
+    """Display verification checklist."""
+    from mirdan.cli.checklist_command import run_checklist
+
+    run_checklist(args)
+
+
+def _scan(args: list[str]) -> None:
+    """Scan codebase for conventions."""
+    from mirdan.cli.scan_command import run_scan
+
+    run_scan(args)
+
+
 def _print_help() -> None:
     """Print CLI usage help."""
     from mirdan import __version__
@@ -55,6 +95,10 @@ def _print_help() -> None:
     print("  (none)     Start the MCP server (default)")
     print("  serve      Start the MCP server")
     print("  init       Initialize mirdan for the current project")
+    print("  validate   Validate code quality")
+    print("  standards  Show quality standards for a language")
+    print("  checklist  Show verification checklist for a task type")
+    print("  scan       Scan codebase to discover conventions")
     print()
     print("Options:")
     print("  -h, --help     Show this help")

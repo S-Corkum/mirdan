@@ -1,6 +1,8 @@
 """Mirdan MCP Server - AI Code Quality Orchestrator."""
 
 import contextlib
+import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -14,6 +16,7 @@ from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.diff_parser import parse_unified_diff
 from mirdan.core.environment_detector import detect_environment
 from mirdan.core.intent_analyzer import IntentAnalyzer
+from mirdan.core.knowledge_producer import KnowledgeProducer
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.output_formatter import OutputFormatter
 from mirdan.core.plan_validator import PlanValidator
@@ -22,6 +25,8 @@ from mirdan.core.quality_persistence import QualityPersistence
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.core.session_manager import SessionManager
 from mirdan.models import ComparisonEntry, ComparisonResult, Intent, ModelTier, TaskType
+
+logger = logging.getLogger(__name__)
 
 # Input size limits to prevent abuse and resource exhaustion
 _MAX_PROMPT_LENGTH = 50_000  # ~12k tokens
@@ -54,6 +59,7 @@ class _Components:
     session_manager: SessionManager
     output_formatter: OutputFormatter
     quality_persistence: QualityPersistence
+    knowledge_producer: KnowledgeProducer
     config: MirdanConfig
 
 
@@ -85,6 +91,7 @@ def _get_components() -> _Components:
             minimal_threshold=config.tokens.minimal_threshold,
         ),
         quality_persistence=QualityPersistence(),
+        knowledge_producer=KnowledgeProducer(),
         config=config,
     )
     return _components
@@ -105,6 +112,11 @@ async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
 mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator", lifespan=_lifespan)
 
 
+# ---------------------------------------------------------------------------
+# Core Tool 1: enhance_prompt
+# ---------------------------------------------------------------------------
+
+
 @mcp.tool()
 async def enhance_prompt(
     prompt: str,
@@ -120,7 +132,9 @@ async def enhance_prompt(
     Args:
         prompt: The original developer prompt
         task_type: Override auto-detection (generation|refactor|debug|review|test|planning|auto)
-        context_level: How much context to gather (minimal|auto|comprehensive)
+                   Use "analyze_only" to return just intent analysis without enhancement.
+                   Use "plan_validation" to validate a plan for implementation quality.
+        context_level: How much context to gather (minimal|auto|comprehensive|none)
         max_tokens: Maximum token budget for the response (0=unlimited). When set, output
                     is automatically compressed: <=1000 tokens produces minimal output,
                     <=4000 produces compact output.
@@ -131,11 +145,42 @@ async def enhance_prompt(
         Enhanced prompt with quality requirements and tool recommendations
     """
     # Validate input size
-    if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
+    max_length = _MAX_PLAN_LENGTH if task_type == "plan_validation" else _MAX_PROMPT_LENGTH
+    if error := _check_input_size(prompt, "prompt", max_length):
         return error
 
     c = _get_components()
 
+    # --- Mode: analyze_only (replaces standalone analyze_intent tool) ---
+    if task_type == "analyze_only":
+        intent = c.intent_analyzer.analyze(prompt)
+        ambiguity_level = (
+            "low"
+            if intent.ambiguity_score < 0.3
+            else "medium"
+            if intent.ambiguity_score < 0.6
+            else "high"
+        )
+        return {
+            "task_type": intent.task_type.value,
+            "language": intent.primary_language,
+            "frameworks": intent.frameworks,
+            "touches_security": intent.touches_security,
+            "touches_rag": intent.touches_rag,
+            "touches_knowledge_graph": intent.touches_knowledge_graph,
+            "uses_external_framework": intent.uses_external_framework,
+            "ambiguity_score": intent.ambiguity_score,
+            "ambiguity_level": ambiguity_level,
+            "extracted_entities": [e.to_dict() for e in intent.entities],
+            "clarifying_questions": intent.clarifying_questions,
+        }
+
+    # --- Mode: plan_validation (replaces standalone validate_plan_quality tool) ---
+    if task_type == "plan_validation":
+        result = c.plan_validator.validate(prompt, "haiku")
+        return result.to_dict()
+
+    # --- Standard enhancement flow ---
     # Analyze intent
     intent = c.intent_analyzer.analyze(prompt)
 
@@ -150,177 +195,45 @@ async def enhance_prompt(
     # Get tool recommendations
     tool_recommendations = c.mcp_orchestrator.suggest_tools(intent)
 
-    # Gather context from configured MCPs
-    context = await c.context_aggregator.gather_all(intent, context_level)
+    # Gather context from configured MCPs (skip if "none")
+    if context_level == "none":
+        from mirdan.models import ContextBundle
+
+        context = ContextBundle()
+    else:
+        context = await c.context_aggregator.gather_all(intent, context_level)
 
     # Compose enhanced prompt
     enhanced = c.prompt_composer.compose(intent, context, tool_recommendations)
 
-    result = enhanced.to_dict()
-    result["session_id"] = session.session_id
+    result_dict = enhanced.to_dict()
+    result_dict["session_id"] = session.session_id
+
+    # Add knowledge entries from intent analysis
+    knowledge_entries = c.knowledge_producer.extract_from_intent(
+        task_type=intent.task_type.value,
+        language=intent.primary_language,
+        frameworks=intent.frameworks,
+    )
+    if knowledge_entries:
+        result_dict["knowledge_entries"] = [e.to_dict() for e in knowledge_entries]
 
     # Detect environment for context
     env_info = detect_environment()
-    result["environment"] = env_info.to_dict()
+    result_dict["environment"] = env_info.to_dict()
 
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
-    result = c.output_formatter.format_enhanced_prompt(
-        result, max_tokens=max_tokens, model_tier=tier
+    result_dict = c.output_formatter.format_enhanced_prompt(
+        result_dict, max_tokens=max_tokens, model_tier=tier
     )
 
-    return result
+    return result_dict
 
 
-@mcp.tool()
-async def analyze_intent(prompt: str) -> dict[str, Any]:
-    """
-    Analyze a prompt without enhancement, returning the detected intent,
-    entities, and recommended approach.
-
-    Args:
-        prompt: The developer prompt to analyze
-
-    Returns:
-        Structured intent analysis
-    """
-    # Validate input size
-    if error := _check_input_size(prompt, "prompt", _MAX_PROMPT_LENGTH):
-        return error
-
-    c = _get_components()
-    intent = c.intent_analyzer.analyze(prompt)
-
-    ambiguity_level = (
-        "low"
-        if intent.ambiguity_score < 0.3
-        else "medium"
-        if intent.ambiguity_score < 0.6
-        else "high"
-    )
-
-    return {
-        "task_type": intent.task_type.value,
-        "language": intent.primary_language,
-        "frameworks": intent.frameworks,
-        "touches_security": intent.touches_security,
-        "touches_rag": intent.touches_rag,
-        "touches_knowledge_graph": intent.touches_knowledge_graph,
-        "uses_external_framework": intent.uses_external_framework,
-        "ambiguity_score": intent.ambiguity_score,
-        "ambiguity_level": ambiguity_level,
-        "extracted_entities": [e.to_dict() for e in intent.entities],
-        "clarifying_questions": intent.clarifying_questions,
-    }
-
-
-@mcp.tool()
-async def get_quality_standards(
-    language: str,
-    framework: str = "",
-    category: str = "all",
-) -> dict[str, Any]:
-    """
-    Retrieve quality standards for a language/framework combination.
-
-    Args:
-        language: Programming language (typescript, python, etc.)
-        framework: Optional framework (react, fastapi, etc.)
-        category: Filter to specific category (security|architecture|style|all)
-
-    Returns:
-        Quality standards for the specified language/framework
-    """
-    c = _get_components()
-    return c.quality_standards.get_all_standards(
-        language=language, framework=framework, category=category
-    )
-
-
-@mcp.tool()
-async def suggest_tools(
-    intent_description: str,
-    available_mcps: str = "",
-    discover_capabilities: bool = False,
-) -> dict[str, Any]:
-    """
-    Suggest which MCP tools should be used for a given intent.
-
-    Args:
-        intent_description: Description of what you're trying to do
-        available_mcps: Comma-separated list of available MCPs (optional)
-        discover_capabilities: If True, query actual MCP capabilities for recommended MCPs
-
-    Returns:
-        Tool recommendations with priorities and reasons
-    """
-    # Validate input size
-    if error := _check_input_size(intent_description, "intent_description", _MAX_PROMPT_LENGTH):
-        return error
-
-    c = _get_components()
-
-    # Parse available MCPs
-    mcps = [m.strip() for m in available_mcps.split(",")] if available_mcps else None
-
-    # Analyze the intent
-    intent = c.intent_analyzer.analyze(intent_description)
-
-    # Get recommendations
-    recommendations = c.mcp_orchestrator.suggest_tools(intent, mcps)
-
-    # Optionally discover actual MCP capabilities
-    discovered_mcps: dict[str, list[str]] = {}
-    if discover_capabilities:
-        for rec in recommendations:
-            mcp_name = rec.mcp
-            if mcp_name and c.context_aggregator.is_mcp_configured(mcp_name):
-                capabilities = await c.context_aggregator.discover_mcp_capabilities(mcp_name)
-                if capabilities:
-                    discovered_mcps[mcp_name] = [t.name for t in capabilities.tools[:10]]
-
-    return {
-        "recommendations": [r.to_dict() for r in recommendations],
-        "detected_intent": intent.task_type.value,
-        "discovered_tools": discovered_mcps,
-    }
-
-
-@mcp.tool()
-async def get_verification_checklist(
-    task_type: str,
-    touches_security: bool = False,
-) -> dict[str, Any]:
-    """
-    Get a verification checklist for a specific task type.
-
-    Args:
-        task_type: Type of task (generation|refactor|debug|review|test)
-        touches_security: Whether the task involves security-sensitive code
-
-    Returns:
-        Verification checklist appropriate for the task
-    """
-    # Create a minimal intent for checklist generation
-    try:
-        task = TaskType(task_type)
-    except ValueError:
-        task = TaskType.UNKNOWN
-
-    intent = Intent(
-        original_prompt="",
-        task_type=task,
-        touches_security=touches_security,
-    )
-
-    c = _get_components()
-    verification_steps = c.prompt_composer.generate_verification_steps(intent)
-
-    return {
-        "task_type": task.value,
-        "touches_security": touches_security,
-        "checklist": verification_steps,
-    }
+# ---------------------------------------------------------------------------
+# Core Tool 2: validate_code_quality
+# ---------------------------------------------------------------------------
 
 
 @mcp.tool()
@@ -334,6 +247,8 @@ async def validate_code_quality(
     session_id: str = "",
     max_tokens: int = 0,
     model_tier: str = "auto",
+    input_type: str = "code",
+    compare: bool = False,
 ) -> dict[str, Any]:
     """
     Validate generated code against quality standards.
@@ -348,10 +263,23 @@ async def validate_code_quality(
         session_id: Session ID from enhance_prompt to auto-inherit language and security settings
         max_tokens: Maximum token budget for the response (0=unlimited)
         model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+        input_type: Input type - "code" for raw code (default), "diff" for unified diff
+        compare: If True, treat `code` as JSON array of implementations to compare
 
     Returns:
         Validation results with pass/fail, score, violations, and summary
     """
+    # --- Mode: compare (replaces standalone compare_approaches tool) ---
+    if compare:
+        return await _handle_compare(code, language)
+
+    # --- Mode: diff (replaces standalone validate_diff tool) ---
+    if input_type == "diff":
+        return await _handle_diff(
+            code, language, check_security, session_id, max_tokens, model_tier
+        )
+
+    # --- Standard code validation ---
     # Validate input size
     if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
         return error
@@ -373,6 +301,24 @@ async def validate_code_quality(
 
     output = result.to_dict(severity_threshold=severity_threshold)
 
+    # Add knowledge entries for enyal storage
+    knowledge_entries = c.knowledge_producer.extract_from_validation(result)
+    if knowledge_entries:
+        output["knowledge_entries"] = [e.to_dict() for e in knowledge_entries]
+
+    # Add verification checklist to output (absorbs get_verification_checklist)
+    intent = Intent(
+        original_prompt="",
+        task_type=TaskType.UNKNOWN,
+        touches_security=resolved_security,
+    )
+    # Detect task type from session if available
+    if session_id:
+        session = c.session_manager.get(session_id)
+        if session:
+            intent.task_type = session.task_type
+    output["checklist"] = c.prompt_composer.generate_verification_steps(intent)
+
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
     output = c.output_formatter.format_validation_result(
@@ -382,32 +328,15 @@ async def validate_code_quality(
     return output
 
 
-@mcp.tool()
-async def validate_diff(
+async def _handle_diff(
     diff: str,
-    language: str = "auto",
-    check_security: bool = True,
-    session_id: str = "",
-    max_tokens: int = 0,
-    model_tier: str = "auto",
+    language: str,
+    check_security: bool,
+    session_id: str,
+    max_tokens: int,
+    model_tier: str,
 ) -> dict[str, Any]:
-    """
-    Validate only the changed code in a unified diff.
-
-    Parses the diff to extract added lines, then validates just those changes.
-    More efficient than validating entire files when reviewing patches.
-
-    Args:
-        diff: Unified diff text (from git diff, etc.)
-        language: Programming language (python|typescript|javascript|rust|go|auto)
-        check_security: Validate against security standards
-        session_id: Session ID from enhance_prompt to auto-inherit settings
-        max_tokens: Maximum token budget for the response (0=unlimited)
-        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
-
-    Returns:
-        Validation results for the changed code only
-    """
+    """Handle diff validation (replaces standalone validate_diff tool)."""
     if error := _check_input_size(diff, "diff", _MAX_CODE_LENGTH):
         return error
 
@@ -451,12 +380,288 @@ async def validate_diff(
     return output
 
 
+async def _handle_compare(
+    code: str,
+    language: str,
+) -> dict[str, Any]:
+    """Handle multi-implementation comparison (replaces standalone compare_approaches tool)."""
+    try:
+        implementations = json.loads(code)
+    except (json.JSONDecodeError, TypeError):
+        return {"error": "When compare=True, code must be a JSON array of implementation strings"}
+
+    if not isinstance(implementations, list):
+        return {"error": "When compare=True, code must be a JSON array of implementation strings"}
+
+    if len(implementations) < 2:
+        return {"error": "At least 2 implementations are required for comparison"}
+    if len(implementations) > 10:
+        return {"error": "Maximum 10 implementations can be compared at once"}
+
+    for i, impl in enumerate(implementations):
+        if not isinstance(impl, str):
+            return {"error": f"implementation[{i}] must be a string"}
+        if error := _check_input_size(impl, f"implementation[{i}]", _MAX_CODE_LENGTH):
+            return error
+
+    c = _get_components()
+
+    labels = [f"Implementation {i + 1}" for i in range(len(implementations))]
+
+    entries: list[ComparisonEntry] = []
+    for impl, label in zip(implementations, labels, strict=True):
+        result = c.code_validator.validate(
+            code=impl,
+            language=language,
+            check_security=True,
+            check_architecture=True,
+            check_style=True,
+        )
+        output = result.to_dict(severity_threshold="warning")
+        entries.append(
+            ComparisonEntry(
+                label=label,
+                score=result.score,
+                passed=result.passed,
+                violation_counts=output.get("violations_count", {}),
+                summary=output.get("summary", ""),
+            )
+        )
+
+    # Determine winner (highest score, then fewest errors)
+    best = max(entries, key=lambda e: (e.score, -e.violation_counts.get("error", 0)))
+
+    comparison = ComparisonResult(
+        entries=entries,
+        winner=best.label,
+        language_detected=entries[0].summary.split()[0] if entries else language,
+    )
+
+    return comparison.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Core Tool 3: get_quality_standards
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def get_quality_standards(
+    language: str,
+    framework: str = "",
+    category: str = "all",
+) -> dict[str, Any]:
+    """
+    Retrieve quality standards for a language/framework combination.
+
+    Args:
+        language: Programming language (typescript, python, etc.)
+        framework: Optional framework (react, fastapi, etc.)
+        category: Filter to specific category (security|architecture|style|all)
+
+    Returns:
+        Quality standards for the specified language/framework
+    """
+    c = _get_components()
+    return c.quality_standards.get_all_standards(
+        language=language, framework=framework, category=category
+    )
+
+
+# ---------------------------------------------------------------------------
+# Core Tool 4: get_quality_trends
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def get_quality_trends(
+    project_path: str = "",
+    days: int = 30,
+) -> dict[str, Any]:
+    """
+    Get quality score trends over time from stored validation history.
+
+    Reads snapshots from `.mirdan/history/` and calculates aggregate
+    statistics including average score, pass rate, and trend direction.
+
+    Args:
+        project_path: Optional project path filter
+        days: Number of days of history to analyze (default: 30)
+
+    Returns:
+        Quality trend data with scores, pass rate, and trend direction
+    """
+    if days < 1:
+        return {"error": "days must be at least 1"}
+    if days > 365:
+        return {"error": "days cannot exceed 365"}
+
+    c = _get_components()
+    trend = c.quality_persistence.get_trends(
+        days=days,
+        project_path=project_path or None,
+    )
+    return trend.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Deprecated aliases (removed after 1 version cycle)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def analyze_intent(prompt: str) -> dict[str, Any]:
+    """
+    [DEPRECATED] Use enhance_prompt with task_type="analyze_only" instead.
+
+    Analyze a prompt without enhancement, returning the detected intent,
+    entities, and recommended approach.
+
+    Args:
+        prompt: The developer prompt to analyze
+
+    Returns:
+        Structured intent analysis
+    """
+    logger.warning("analyze_intent is deprecated. Use enhance_prompt(task_type='analyze_only').")
+    result: dict[str, Any] = await enhance_prompt.fn(prompt, task_type="analyze_only")
+    return result
+
+
+@mcp.tool()
+async def suggest_tools(
+    intent_description: str,
+    available_mcps: str = "",
+    discover_capabilities: bool = False,
+) -> dict[str, Any]:
+    """
+    [DEPRECATED] Tool recommendations are included in enhance_prompt output.
+
+    Suggest which MCP tools should be used for a given intent.
+
+    Args:
+        intent_description: Description of what you're trying to do
+        available_mcps: Comma-separated list of available MCPs (optional)
+        discover_capabilities: If True, query actual MCP capabilities for recommended MCPs
+
+    Returns:
+        Tool recommendations with priorities and reasons
+    """
+    logger.warning(
+        "suggest_tools is deprecated. Use enhance_prompt() — tool_recommendations are included."
+    )
+    # Validate input size
+    if error := _check_input_size(intent_description, "intent_description", _MAX_PROMPT_LENGTH):
+        return error
+
+    c = _get_components()
+
+    # Parse available MCPs
+    mcps = [m.strip() for m in available_mcps.split(",")] if available_mcps else None
+
+    # Analyze the intent
+    intent = c.intent_analyzer.analyze(intent_description)
+
+    # Get recommendations
+    recommendations = c.mcp_orchestrator.suggest_tools(intent, mcps)
+
+    # Optionally discover actual MCP capabilities
+    discovered_mcps: dict[str, list[str]] = {}
+    if discover_capabilities:
+        for rec in recommendations:
+            mcp_name = rec.mcp
+            if mcp_name and c.context_aggregator.is_mcp_configured(mcp_name):
+                capabilities = await c.context_aggregator.discover_mcp_capabilities(mcp_name)
+                if capabilities:
+                    discovered_mcps[mcp_name] = [t.name for t in capabilities.tools[:10]]
+
+    return {
+        "recommendations": [r.to_dict() for r in recommendations],
+        "detected_intent": intent.task_type.value,
+        "discovered_tools": discovered_mcps,
+    }
+
+
+@mcp.tool()
+async def get_verification_checklist(
+    task_type: str,
+    touches_security: bool = False,
+) -> dict[str, Any]:
+    """
+    [DEPRECATED] Checklist is now included in validate_code_quality output.
+
+    Get a verification checklist for a specific task type.
+
+    Args:
+        task_type: Type of task (generation|refactor|debug|review|test)
+        touches_security: Whether the task involves security-sensitive code
+
+    Returns:
+        Verification checklist appropriate for the task
+    """
+    logger.warning(
+        "get_verification_checklist is deprecated."
+        " Checklist is now in validate_code_quality output."
+    )
+    # Create a minimal intent for checklist generation
+    try:
+        task = TaskType(task_type)
+    except ValueError:
+        task = TaskType.UNKNOWN
+
+    intent = Intent(
+        original_prompt="",
+        task_type=task,
+        touches_security=touches_security,
+    )
+
+    c = _get_components()
+    verification_steps = c.prompt_composer.generate_verification_steps(intent)
+
+    return {
+        "task_type": task.value,
+        "touches_security": touches_security,
+        "checklist": verification_steps,
+    }
+
+
+@mcp.tool()
+async def validate_diff(
+    diff: str,
+    language: str = "auto",
+    check_security: bool = True,
+    session_id: str = "",
+    max_tokens: int = 0,
+    model_tier: str = "auto",
+) -> dict[str, Any]:
+    """
+    [DEPRECATED] Use validate_code_quality with input_type="diff" instead.
+
+    Validate only the changed code in a unified diff.
+
+    Args:
+        diff: Unified diff text (from git diff, etc.)
+        language: Programming language (python|typescript|javascript|rust|go|auto)
+        check_security: Validate against security standards
+        session_id: Session ID from enhance_prompt to auto-inherit settings
+        max_tokens: Maximum token budget for the response (0=unlimited)
+        model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+
+    Returns:
+        Validation results for the changed code only
+    """
+    logger.warning("validate_diff is deprecated. Use validate_code_quality(input_type='diff').")
+    return await _handle_diff(diff, language, check_security, session_id, max_tokens, model_tier)
+
+
 @mcp.tool()
 async def validate_plan_quality(
     plan: str,
     target_model: str = "haiku",
 ) -> dict[str, Any]:
     """
+    [DEPRECATED] Use enhance_prompt with task_type="plan_validation" instead.
+
     Validate a plan for implementation by a less capable model.
     Returns a quality score and list of issues that need fixing.
 
@@ -468,6 +673,10 @@ async def validate_plan_quality(
     Returns:
         Quality scores, issues list, and ready_for_cheap_model flag
     """
+    logger.warning(
+        "validate_plan_quality is deprecated."
+        " Use enhance_prompt(task_type='plan_validation')."
+    )
     # Validate input size
     if error := _check_input_size(plan, "plan", _MAX_PLAN_LENGTH):
         return error
@@ -484,19 +693,19 @@ async def compare_approaches(
     labels: list[str] | None = None,
 ) -> dict[str, Any]:
     """
-    Compare multiple code implementations side-by-side.
+    [DEPRECATED] Use validate_code_quality with compare=True instead.
 
-    Validates each implementation and returns a ranked comparison with
-    scores, violations, and a winner recommendation.
+    Compare multiple code implementations side-by-side.
 
     Args:
         implementations: List of code strings to compare (2-10)
         language: Programming language (python|typescript|javascript|rust|go|auto)
-        labels: Optional labels for each implementation (e.g., ["Approach A", "Approach B"])
+        labels: Optional labels for each implementation
 
     Returns:
         Comparison results with scores, violations, and winner
     """
+    logger.warning("compare_approaches is deprecated. Use validate_code_quality(compare=True).")
     if len(implementations) < 2:
         return {"error": "At least 2 implementations are required for comparison"}
     if len(implementations) > 10:
@@ -544,35 +753,9 @@ async def compare_approaches(
     return comparison.to_dict()
 
 
-@mcp.tool()
-async def get_quality_trends(
-    project_path: str = "",
-    days: int = 30,
-) -> dict[str, Any]:
-    """
-    Get quality score trends over time from stored validation history.
-
-    Reads snapshots from `.mirdan/history/` and calculates aggregate
-    statistics including average score, pass rate, and trend direction.
-
-    Args:
-        project_path: Optional project path filter
-        days: Number of days of history to analyze (default: 30)
-
-    Returns:
-        Quality trend data with scores, pass rate, and trend direction
-    """
-    if days < 1:
-        return {"error": "days must be at least 1"}
-    if days > 365:
-        return {"error": "days cannot exceed 365"}
-
-    c = _get_components()
-    trend = c.quality_persistence.get_trends(
-        days=days,
-        project_path=project_path or None,
-    )
-    return trend.to_dict()
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
 
 
 def _parse_model_tier(tier: str) -> ModelTier:

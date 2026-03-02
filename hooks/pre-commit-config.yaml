@@ -1,0 +1,13 @@
+# Example .pre-commit-config.yaml for mirdan
+# Copy this to your project root as .pre-commit-config.yaml
+#
+# Install: pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: mirdan-validate
+        name: mirdan quality check
+        entry: mirdan validate --file
+        language: system
+        types: [python, javascript, ts, tsx]
+        pass_filenames: true

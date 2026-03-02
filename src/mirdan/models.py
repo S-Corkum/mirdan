@@ -380,6 +380,35 @@ class QualityTrend:
 
 
 @dataclass
+class KnowledgeEntry:
+    """A storable insight extracted from validation, ready for enyal_remember.
+
+    Maps directly to enyal_remember parameters for frictionless storage
+    by the AI agent.
+    """
+
+    content: str  # What to store
+    content_type: str  # fact|convention|pattern|decision
+    tags: list[str] = field(default_factory=list)
+    scope: str = "project"  # global|project|file
+    scope_path: str = ""  # For file-scoped entries
+    confidence: float = 0.8
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary matching enyal_remember parameters."""
+        result: dict[str, Any] = {
+            "content": self.content,
+            "content_type": self.content_type,
+            "tags": self.tags,
+            "scope": self.scope,
+            "confidence": self.confidence,
+        }
+        if self.scope_path:
+            result["scope_path"] = self.scope_path
+        return result
+
+
+@dataclass
 class Violation:
     """A code quality violation detected during validation."""
 
