@@ -466,8 +466,10 @@ class TestClaudeCodeInit:
         content = workflow.read_text()
         assert "enhance_prompt" in content
 
-    def test_init_claude_code_generates_hooks_with_all_events(self, tmp_path: Path) -> None:
-        """--claude-code hooks.json should include advanced events."""
+    def test_init_claude_code_generates_hooks_with_comprehensive_events(
+        self, tmp_path: Path
+    ) -> None:
+        """--claude-code hooks.json should include comprehensive lifecycle events."""
         (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
 
         with patch("builtins.input", return_value=""):
@@ -477,9 +479,10 @@ class TestClaudeCodeInit:
         assert hooks_path.exists()
         data = json.loads(hooks_path.read_text())
         hooks = data["hooks"]
-        # Should have all 9 events
-        assert "SessionStart" in hooks
+        # Should have comprehensive enforcement events
+        assert "UserPromptSubmit" in hooks
         assert "PreCompact" in hooks
+        assert "SubagentStart" in hooks
 
     def test_fix_command_routed(self) -> None:
         """'mirdan fix' should route to the fix command."""

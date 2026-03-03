@@ -206,6 +206,14 @@ class MirdanConfig(BaseModel):
     version: str = "1.0"
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
+    quality_profile: str = Field(
+        default="default",
+        description="Named quality profile (e.g. default, enterprise)",
+    )
+    custom_profiles: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Custom quality profile definitions",
+    )
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)

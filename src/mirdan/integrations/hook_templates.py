@@ -1,16 +1,52 @@
 """Hook template generator for Claude Code hook lifecycle.
 
 Generates hooks.json configurations covering the full Claude Code
-hook event lifecycle: PreToolUse, PostToolUse, Stop, SessionStart,
-SessionStop, SubagentStart, SubagentStop, PreCompact, Notification.
+hook event lifecycle: UserPromptSubmit, PreToolUse, PostToolUse, Stop,
+SessionStart, SessionStop, SubagentStart, SubagentStop, PreCompact,
+Notification.
+
+Supports three stringency levels:
+- minimal: PostToolUse + Stop (2 hooks)
+- standard: UserPromptSubmit + PreToolUse + PostToolUse + Stop + SubagentStart (5 hooks)
+- comprehensive: All 7 enforcement hooks (full lifecycle)
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any
+
+
+class HookStringency(Enum):
+    """Hook stringency levels controlling how many hooks are generated."""
+
+    MINIMAL = "minimal"  # 2 hooks: PostToolUse, Stop
+    STANDARD = "standard"  # 5 hooks: UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStart
+    COMPREHENSIVE = "comprehensive"  # 7 hooks: full enforcement lifecycle
+
+
+# Events for each stringency level
+STRINGENCY_EVENTS: dict[HookStringency, list[str]] = {
+    HookStringency.MINIMAL: ["PostToolUse", "Stop"],
+    HookStringency.STANDARD: [
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "Stop",
+        "SubagentStart",
+    ],
+    HookStringency.COMPREHENSIVE: [
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "Stop",
+        "PreCompact",
+        "SubagentStart",
+    ],
+}
 
 
 @dataclass
@@ -37,6 +73,7 @@ class HookConfig:
 
 # All supported Claude Code hook events
 ALL_HOOK_EVENTS = [
+    "UserPromptSubmit",
     "PreToolUse",
     "PostToolUse",
     "Stop",
@@ -73,20 +110,36 @@ class HookTemplateGenerator:
         """
         hooks: dict[str, list[dict[str, Any]]] = {}
 
-        event_generators = {
-            "PreToolUse": self._pre_tool_use,
-            "PostToolUse": self._post_tool_use,
-            "Stop": self._stop,
-            "SessionStart": self._session_start,
-            "SessionStop": self._session_stop,
-            "SubagentStart": self._subagent_start,
-            "SubagentStop": self._subagent_stop,
-            "PreCompact": self._pre_compact,
-            "Notification": self._notification,
-        }
-
         for event in self._effective_events():
-            generator = event_generators.get(event)
+            generator = self._event_generators().get(event)
+            if generator:
+                hook_def = generator()
+                if hook_def:
+                    hooks[event] = hook_def
+
+        return {"hooks": hooks}
+
+    def generate_claude_code_hooks(
+        self,
+        stringency: HookStringency = HookStringency.COMPREHENSIVE,
+    ) -> dict[str, Any]:
+        """Generate hooks.json for Claude Code with prompt-type hooks.
+
+        Uses prompt-type hooks (not command-type) for Claude Code plugin
+        compatibility. The stringency level controls how many hooks are
+        generated.
+
+        Args:
+            stringency: Hook stringency level (minimal, standard, comprehensive).
+
+        Returns:
+            hooks.json-compatible dict.
+        """
+        hooks: dict[str, list[dict[str, Any]]] = {}
+        events = STRINGENCY_EVENTS[stringency]
+
+        for event in events:
+            generator = self._event_generators().get(event)
             if generator:
                 hook_def = generator()
                 if hook_def:
@@ -132,22 +185,61 @@ class HookTemplateGenerator:
 
         return events
 
+    def _event_generators(self) -> dict[str, Any]:
+        """Map event names to their generator methods."""
+        return {
+            "UserPromptSubmit": self._user_prompt_submit,
+            "PreToolUse": self._pre_tool_use,
+            "PostToolUse": self._post_tool_use,
+            "Stop": self._stop,
+            "SessionStart": self._session_start,
+            "SessionStop": self._session_stop,
+            "SubagentStart": self._subagent_start,
+            "SubagentStop": self._subagent_stop,
+            "PreCompact": self._pre_compact,
+            "Notification": self._notification,
+        }
+
     # ------------------------------------------------------------------
     # Hook event generators
     # ------------------------------------------------------------------
 
-    def _pre_tool_use(self) -> list[dict[str, Any]]:
-        """PreToolUse: Smart reminder before Write/Edit to ensure quality."""
+    def _user_prompt_submit(self) -> list[dict[str, Any]]:
+        """UserPromptSubmit: Inject quality context before processing."""
         return [
             {
-                "matcher": "Write|Edit",
                 "hooks": [
                     {
                         "type": "prompt",
                         "prompt": (
-                            "Before writing code, ensure you have called"
-                            " mcp__mirdan__enhance_prompt for quality requirements."
-                            " If not yet done, call it first."
+                            "mirdan quality context is active. For coding tasks:"
+                            " 1) Call mcp__mirdan__enhance_prompt first for quality"
+                            " requirements and session context."
+                            " 2) Call mcp__mirdan__get_quality_standards for the"
+                            " detected language."
+                            " 3) Follow the quality_requirements from enhance_prompt"
+                            " output as constraints during implementation."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _pre_tool_use(self) -> list[dict[str, Any]]:
+        """PreToolUse: Security-aware reminder before Write/Edit."""
+        return [
+            {
+                "matcher": "Write|Edit|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "Before writing code: ensure you have called"
+                            " mcp__mirdan__enhance_prompt for this task's quality"
+                            " requirements. If writing security-sensitive code"
+                            " (auth, input handling, SQL, API endpoints), note that"
+                            " mcp__mirdan__validate_code_quality must be called"
+                            " with check_security=true after this edit."
                         ),
                     }
                 ],
@@ -155,44 +247,48 @@ class HookTemplateGenerator:
         ]
 
     def _post_tool_use(self) -> list[dict[str, Any]]:
-        """PostToolUse: Quick validation + auto-fix after Write/Edit."""
-        hooks_list: list[dict[str, Any]] = [
-            {
-                "type": "command",
-                "command": (
-                    f'{self._mirdan_cmd} validate --quick'
-                    ' --file "$TOOL_INPUT_FILE_PATH"'
-                    ' --format micro'
-                ),
-                "timeout": self._config.quick_validate_timeout,
-            }
-        ]
+        """PostToolUse: Validation after Write/Edit.
 
-        if self._config.auto_fix_suggestions:
-            hooks_list.append({
-                "type": "prompt",
-                "prompt": (
-                    "If the validation above found violations, consider running"
-                    " mcp__mirdan__validate_code_quality with the full code for"
-                    " detailed fixes. Fix all errors before proceeding."
-                ),
-            })
-
+        Uses prompt-type hooks to invoke mirdan MCP tools for validation.
+        """
         return [
             {
-                "matcher": "Write|Edit",
-                "hooks": hooks_list,
+                "matcher": "Write|Edit|MultiEdit",
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "Code was just written or edited. Call"
+                            " mcp__mirdan__validate_code_quality on the changed"
+                            " code with max_tokens=500 and model_tier=haiku."
+                            " If the code touches auth, input handling, SQL, or"
+                            " API endpoints, set check_security=true. Fix all"
+                            " errors (severity=error) immediately before"
+                            " continuing. Note warnings for awareness but"
+                            " continue working."
+                        ),
+                    }
+                ],
             }
         ]
 
     def _stop(self) -> list[dict[str, Any]]:
-        """Stop: Full validation before task completion."""
+        """Stop: Verification gate before task completion."""
         return [
             {
                 "hooks": [
                     {
-                        "type": "command",
-                        "command": f"{self._mirdan_cmd} validate --staged --format text",
+                        "type": "prompt",
+                        "prompt": (
+                            "Before completing this task, verify quality was"
+                            " enforced: 1) Was mcp__mirdan__enhance_prompt"
+                            " called at the start? If not, call it now."
+                            " 2) Was mcp__mirdan__validate_code_quality called"
+                            " on all changed files? If not, validate now."
+                            " 3) Are there any unresolved errors from"
+                            " validation? If so, fix them. Do NOT complete the"
+                            " task if there are unresolved validation errors."
+                        ),
                     }
                 ],
             }

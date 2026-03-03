@@ -1,23 +1,26 @@
-# Mirdan Quality Orchestration
+# Mirdan Quality Enforcement (Always Active)
 
-Use the mirdan MCP server for code quality enforcement on every coding task.
+## Quality Workflow
 
-## Entry Point
+For ANY coding task, follow this workflow:
 
-Before writing any code, call `mcp__mirdan__enhance_prompt` with the task description.
-Use the returned quality requirements as constraints during implementation.
+1. **Start**: Call `mcp__mirdan__enhance_prompt` with the task description
+2. **Standards**: Call `mcp__mirdan__get_quality_standards` for the detected language
+3. **Implement**: Follow the quality_requirements from enhance_prompt
+4. **Validate**: Call `mcp__mirdan__validate_code_quality` on all changed code
+5. **Fix**: Resolve all errors before considering the task complete
 
-## Exit Gate
+## AI Quality Rules (Mandatory)
 
-After writing code, call `mcp__mirdan__validate_code_quality` with:
-- The written code
-- `check_security=true` if enhance_prompt indicated `touches_security`
-- The detected language
+- **AI001**: No placeholder code — `NotImplementedError`, `pass`, `TODO` in production code is an error
+- **AI002**: No hallucinated imports — verify every import exists in the project or dependencies
+- **AI003**: No invented APIs — verify function signatures with documentation or source code
+- **AI004**: No dead code — remove unused functions, variables, and imports
+- **AI005**: No copy-paste artifacts — no duplicate blocks, no "similar to above" comments
+- **AI006**: No inconsistent naming — follow the existing codebase naming conventions
+- **AI007**: No unvalidated input — all user/external input must be validated at boundaries
+- **AI008**: No string injection — never use f-strings or concatenation in SQL, eval, exec, or shell commands
 
-Fix all errors before proceeding. Note warnings and address if reasonable.
+## Validation Gate
 
-## Quick Validation
-
-For rapid feedback during editing, use `mcp__mirdan__validate_quick` which runs
-security-only checks in under 500ms. Use the full `validate_code_quality` for
-final validation before commits.
+Code is NOT complete until `mcp__mirdan__validate_code_quality` returns a passing score with zero errors.

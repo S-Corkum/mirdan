@@ -1,19 +1,29 @@
-# Security-Sensitive Code (via Mirdan)
+# Mirdan Security Enforcement
 
-Files in auth, security, API, and middleware paths require stricter validation.
+This file is security-sensitive. Apply strict validation.
 
-## Mandatory Steps
+## Mandatory Checks
 
-1. Call `mcp__mirdan__enhance_prompt` — confirm `touches_security=true`
-2. Call `mcp__mirdan__get_quality_standards` with `category="security"`
-3. After writing code, validate with `check_security=true`
+Call `mcp__mirdan__validate_code_quality` with `check_security=true` on this file.
 
-## Security Checklist
+## Security Rules
 
-- No hardcoded secrets, tokens, or API keys
-- All user input is validated and sanitized
-- SQL queries use parameterized statements
-- HTTP requests verify TLS certificates
-- Authentication tokens have expiry
-- Sensitive data is not logged
-- File paths are validated against traversal attacks
+- **SEC001**: No hardcoded API keys, tokens, or secrets — use environment variables
+- **SEC002**: No hardcoded passwords — use secure credential storage
+- **SEC003**: No AWS access keys in source — use IAM roles or env vars
+- **SEC004**: Parameterized SQL queries only — never concatenate user input into SQL
+- **SEC005**: No f-string SQL — use parameterized queries with placeholders
+- **SEC006**: No template literal SQL — use parameterized queries
+- **SEC007**: Never disable SSL verification — remove `verify=False`
+- **SEC008**: No shell injection — never pass user input to `subprocess` with `shell=True`
+- **SEC009**: Never disable JWT verification — always verify tokens
+- **SEC010**: No Cypher injection — use parameterized graph queries
+- **SEC011**: No Gremlin injection — use parameterized traversals
+- **SEC012**: Validate all input at system boundaries
+- **SEC013**: Use bcrypt or argon2 for password hashing, never MD5/SHA for passwords
+
+## Before Writing Security Code
+
+1. Read the existing security patterns in the codebase
+2. Follow established authentication/authorization patterns
+3. Never store secrets in code, configs, or logs

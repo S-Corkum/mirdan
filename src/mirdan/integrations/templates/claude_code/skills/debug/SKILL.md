@@ -1,29 +1,36 @@
 ---
-description: "Use when debugging, fixing bugs, or investigating errors. Analyzes the problem, applies a fix, and validates the fix meets quality standards."
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_verification_checklist
+name: debug
+description: "Mirdan-assisted debugging with quality validation"
+model: inherit
+allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Write, Edit, Glob, Grep, Bash
 ---
 
-# /debug - Quality-Validated Debugging
+# /debug — Quality-Aware Debugging
 
-Follow this workflow to debug the issue:
+Debug issues with mirdan quality analysis to prevent introducing new problems.
 
-## 1. Analyze intent
-Call `mcp__mirdan__enhance_prompt` with the bug description and `task_type="debug"`.
-Note the `quality_requirements` and `touches_security` fields.
+## Dynamic Context
 
-## 2. Investigate
-Use Read, Grep, and Glob to trace the issue. Identify the root cause before changing code.
+Recent changes:
+```
+!`git diff --stat HEAD 2>/dev/null | tail -5`
+```
 
-## 3. Fix
-Apply the minimal fix needed. Do not refactor or add features beyond the bug fix.
+## Workflow
 
-## 4. Validate
-Call `mcp__mirdan__validate_code_quality` on the modified code.
-Pass `check_security=true` if the fix touches security-sensitive areas.
+1. **Analyze** — Call `mcp__mirdan__enhance_prompt` with the bug description (task_type=debug)
+   - Get security context and quality requirements
+   - Note if touches_security is flagged
 
-## 5. Verify
-Run relevant tests to confirm the fix works and no regressions were introduced.
+2. **Investigate** — Read relevant code, trace the issue through the codebase
 
-## 6. Report
-Run `mcp__mirdan__get_verification_checklist` for the debug task type.
-Summarize the root cause, the fix applied, and the validation score.
+3. **Fix** — Apply the fix following quality requirements from enhance_prompt
+
+4. **Validate** — Call `mcp__mirdan__validate_code_quality` on the modified code
+   - Set `check_security=true` if touches_security was flagged
+   - Ensure the fix doesn't introduce new violations
+
+5. **Verify** — Confirm:
+   - Root cause addressed (not just symptoms)
+   - No new validation errors introduced
+   - Regression test coverage considered

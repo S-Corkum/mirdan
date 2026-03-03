@@ -142,12 +142,12 @@ class TestFullGeneration:
 class TestPreToolUse:
     """Tests for PreToolUse hook generation."""
 
-    def test_matches_write_edit(self, default_generator: HookTemplateGenerator) -> None:
-        """PreToolUse should match Write|Edit."""
+    def test_matches_write_edit_multiedit(self, default_generator: HookTemplateGenerator) -> None:
+        """PreToolUse should match Write|Edit|MultiEdit."""
         hooks = default_generator.generate()["hooks"]
         pre_tool = hooks["PreToolUse"]
         assert len(pre_tool) > 0
-        assert "Write|Edit" in pre_tool[0].get("matcher", "")
+        assert "Write|Edit|MultiEdit" in pre_tool[0].get("matcher", "")
 
     def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
         """PreToolUse should use prompt type."""
@@ -167,88 +167,41 @@ class TestPreToolUse:
 class TestPostToolUse:
     """Tests for PostToolUse hook generation."""
 
-    def test_matches_write_edit(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse should match Write|Edit."""
+    def test_matches_write_edit_multiedit(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse should match Write|Edit|MultiEdit."""
         hooks = default_generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
-        assert "Write|Edit" in post_tool[0].get("matcher", "")
+        assert "Write|Edit|MultiEdit" in post_tool[0].get("matcher", "")
 
-    def test_has_command_type(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse should have a command type hook."""
+    def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse should have a prompt type hook."""
         hooks = default_generator.generate()["hooks"]
-        post_tool = hooks["PostToolUse"]
-        hook_types = [h["type"] for h in post_tool[0]["hooks"]]
-        assert "command" in hook_types
-
-    def test_uses_micro_format(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse command should use micro format."""
-        hooks = default_generator.generate()["hooks"]
-        post_tool = hooks["PostToolUse"]
-        for hook in post_tool[0]["hooks"]:
-            if hook["type"] == "command":
-                assert "micro" in hook["command"]
-
-    def test_has_timeout(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse command should have a timeout."""
-        hooks = default_generator.generate()["hooks"]
-        post_tool = hooks["PostToolUse"]
-        for hook in post_tool[0]["hooks"]:
-            if hook["type"] == "command":
-                assert "timeout" in hook
-
-    def test_auto_fix_suggestion_included(self) -> None:
-        """With auto_fix_suggestions=True, should include fix prompt."""
-        config = HookConfig(auto_fix_suggestions=True)
-        generator = HookTemplateGenerator(config=config)
-        hooks = generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
         hook_types = [h["type"] for h in post_tool[0]["hooks"]]
         assert "prompt" in hook_types
 
-    def test_auto_fix_suggestion_excluded(self) -> None:
-        """With auto_fix_suggestions=False, should not include fix prompt."""
-        config = HookConfig(auto_fix_suggestions=False)
-        generator = HookTemplateGenerator(config=config)
-        hooks = generator.generate()["hooks"]
+    def test_mentions_validate(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse prompt should mention validate_code_quality."""
+        hooks = default_generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
-        hook_types = [h["type"] for h in post_tool[0]["hooks"]]
-        assert hook_types == ["command"]
+        prompt = post_tool[0]["hooks"][0]["prompt"]
+        assert "validate_code_quality" in prompt
 
 
 class TestStop:
     """Tests for Stop hook generation."""
 
-    def test_has_command_type(self, default_generator: HookTemplateGenerator) -> None:
-        """Stop should have a command hook."""
+    def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
+        """Stop should have a prompt hook for verification gate."""
         hooks = default_generator.generate()["hooks"]
         stop = hooks["Stop"]
-        assert stop[0]["hooks"][0]["type"] == "command"
+        assert stop[0]["hooks"][0]["type"] == "prompt"
 
-    def test_validates_staged(self, default_generator: HookTemplateGenerator) -> None:
-        """Stop command should validate staged files."""
+    def test_mentions_validation(self, default_generator: HookTemplateGenerator) -> None:
+        """Stop prompt should mention validation."""
         hooks = default_generator.generate()["hooks"]
         stop = hooks["Stop"]
-        assert "--staged" in stop[0]["hooks"][0]["command"]
-
-
-class TestCustomCommand:
-    """Tests for custom mirdan command path."""
-
-    def test_custom_command_in_post_tool_use(self) -> None:
-        """Custom mirdan command should appear in hooks."""
-        generator = HookTemplateGenerator(mirdan_command="uvx mirdan")
-        hooks = generator.generate()["hooks"]
-        post_tool = hooks["PostToolUse"]
-        for hook in post_tool[0]["hooks"]:
-            if hook["type"] == "command":
-                assert "uvx mirdan" in hook["command"]
-
-    def test_custom_command_in_stop(self) -> None:
-        """Custom mirdan command should appear in stop hook."""
-        generator = HookTemplateGenerator(mirdan_command="python -m mirdan")
-        hooks = generator.generate()["hooks"]
-        stop = hooks["Stop"]
-        assert "python -m mirdan" in stop[0]["hooks"][0]["command"]
+        assert "validate" in stop[0]["hooks"][0]["prompt"].lower()
 
 
 class TestGenerateAndWrite:
@@ -276,13 +229,13 @@ class TestGenerateAndWrite:
 class TestAllHookEvents:
     """Tests for the ALL_HOOK_EVENTS constant."""
 
-    def test_has_nine_events(self) -> None:
-        """Should define 9 hook events."""
-        assert len(ALL_HOOK_EVENTS) == 9
+    def test_has_ten_events(self) -> None:
+        """Should define 10 hook events."""
+        assert len(ALL_HOOK_EVENTS) == 10
 
     def test_includes_core_events(self) -> None:
         """Should include all core events."""
-        for event in ("PreToolUse", "PostToolUse", "Stop"):
+        for event in ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"):
             assert event in ALL_HOOK_EVENTS
 
     def test_includes_advanced_events(self) -> None:

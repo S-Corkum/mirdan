@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-03
+
+### Added
+
+- **Quality Profiles System** — Pre-configured quality dimensions for different project types:
+  - `QualityProfile` dataclass with 6 dimensions: security, architecture, testing, documentation, ai_slop_detection, performance
+  - 7 built-in profiles: default, startup, enterprise, fintech, library, data-science, prototype
+  - `get_profile()`, `apply_profile()`, `list_profiles()` functions
+  - Maps profile dimensions to QualityConfig stringency levels (strict/moderate/permissive)
+  - `quality_profile` and `custom_profiles` fields added to `MirdanConfig`
+  - New module: `src/mirdan/core/quality_profiles.py`
+
+- **Full Lifecycle Hooks for Claude Code** — 7 enforcement hooks (up from 2):
+  - `UserPromptSubmit` — Inject quality context before processing
+  - `PreToolUse` — Security-aware reminder before Write/Edit/MultiEdit
+  - `PostToolUse` — Validate code quality after Write/Edit/MultiEdit
+  - `Stop` — Verification gate before task completion
+  - `PreCompact` — Preserve quality state for compaction resilience
+  - `SubagentStart` — Inject quality standards into subagents
+  - All hooks use prompt-type for Claude Code plugin compatibility
+  - `HookStringency` enum: minimal (2), standard (5), comprehensive (6) hooks
+  - `generate_claude_code_hooks()` method on `HookTemplateGenerator`
+
+- **Compaction-Resilient Rules** — `.claude/rules/` enforcement files:
+  - `mirdan-always.md` — Always-loaded quality enforcement (AI001-AI008 rules)
+  - `mirdan-security.md` — Path-scoped to auth/API files (SEC001-SEC013 rules)
+  - `mirdan-ai-quality.md` — Path-scoped to code files (AI-specific violations)
+  - Rules survive context compaction (re-read from disk automatically)
+
+- **Modernized Skills** — 5 skills (up from 3) with modern SKILL.md features:
+  - Added `/plan` skill with `context: fork` and config dynamic context
+  - Added `/quality` skill with `context: fork` for isolated analysis
+  - Updated `/review` skill with `context: fork` and git diff context
+  - All skills use `model: inherit` and reference only current 5 MCP tools
+  - Dynamic context via `!` backtick commands (git diff, config)
+
+- **Specialized Subagent Ecosystem** — 5 agents (up from 1):
+  - `security-scanner` — PROACTIVELY scans auth/API files (haiku, background, memory)
+  - `architecture-reviewer` — Structural analysis for ARCH001-ARCH005 (sonnet, background)
+  - `ai-slop-detector` — PROACTIVELY detects AI001-AI008 violations (haiku, background)
+  - `test-auditor` — Test quality audit for meaningful coverage (haiku, background, memory)
+  - `quality-validator` — Updated with `background: true` and `memory: project`
+
+### Changed
+
+- Hooks now use prompt-type handlers instead of command-type for Claude Code plugin compatibility
+- PostToolUse matcher expanded from `Write|Edit` to `Write|Edit|MultiEdit`
+- `ALL_HOOK_EVENTS` expanded to 10 events (added `UserPromptSubmit`)
+- Skills reference only current 5 MCP tools (removed deprecated tool references)
+- Settings.json updated from 8 tool permissions to 5 (matching current server)
+
+### Fixed
+
+- Plugin `settings.json` no longer references removed tools (get_verification_checklist, analyze_intent, suggest_tools, validate_plan_quality, validate_diff)
+- Skill SKILL.md files no longer reference deprecated tool names
+
+### Stats
+
+- 1544 total tests (up from 1479)
+- 73 new v0.3.0 tests covering quality profiles, hooks, rules, skills, agents
+
 ## [0.2.0] - 2026-03-03
 
 ### Added

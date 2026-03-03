@@ -61,7 +61,7 @@ def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
     if templates_pkg is None:
         return generated
 
-    for skill_name in ("code", "debug", "review"):
+    for skill_name in ("code", "debug", "review", "plan", "quality"):
         skill_dir = project_dir / ".claude" / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
 
@@ -102,7 +102,13 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
     agents_dir = project_dir / ".claude" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
-    agent_names = ("quality-gate", "security-audit", "test-quality", "convention-check")
+    agent_names = (
+        "quality-gate",
+        "security-audit",
+        "test-quality",
+        "convention-check",
+        "architecture-reviewer",
+    )
     for agent_name in agent_names:
         try:
             template_file = templates_pkg / "agents" / f"{agent_name}.md"
@@ -114,6 +120,21 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
             continue
 
     return generated
+
+
+def generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:
+    """Generate .claude/rules/ enforcement files.
+
+    Public wrapper around _generate_rules for external use.
+
+    Args:
+        project_dir: The project root directory.
+        detected: Detected project metadata.
+
+    Returns:
+        List of generated rule file paths.
+    """
+    return _generate_rules(project_dir, detected)
 
 
 def generate_mcp_json(project_dir: Path) -> Path:
@@ -208,7 +229,7 @@ def export_plugin(output_dir: Path) -> Path:
         json.dump(mcp_config, f, indent=2)
 
     # Copy skills
-    for skill_name in ("code", "debug", "review"):
+    for skill_name in ("code", "debug", "review", "plan", "quality"):
         skill_dir = output_dir / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -221,7 +242,13 @@ def export_plugin(output_dir: Path) -> Path:
     # Copy agents
     agents_dir = output_dir / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    for agent_name in ("quality-gate", "security-audit", "test-quality", "convention-check"):
+    for agent_name in (
+        "quality-gate",
+        "security-audit",
+        "test-quality",
+        "convention-check",
+        "architecture-reviewer",
+    ):
         try:
             template_file = templates_pkg / "agents" / f"{agent_name}.md"
             content = template_file.read_text()
@@ -269,22 +296,23 @@ def _generate_hooks(project_dir: Path) -> Path | None:
     if hooks_path.exists():
         return None
 
-    from mirdan.integrations.hook_templates import HookConfig, HookTemplateGenerator
+    from mirdan.integrations.hook_templates import (
+        HookStringency,
+        HookTemplateGenerator,
+    )
 
     command, _args = _detect_mirdan_command()
     mirdan_cmd = command if not _args else f"{command} {' '.join(_args)}"
 
-    # Claude Code gets all hook events enabled by default
-    hook_config = HookConfig(
-        enabled_events=["PreToolUse", "PostToolUse", "Stop"],
-        session_hooks=True,
-        subagent_hooks=True,
-        compaction_resilience=True,
-        notification_hooks=True,
+    generator = HookTemplateGenerator(mirdan_command=mirdan_cmd)
+    config = generator.generate_claude_code_hooks(
+        stringency=HookStringency.COMPREHENSIVE,
     )
 
-    generator = HookTemplateGenerator(config=hook_config, mirdan_command=mirdan_cmd)
-    return generator.generate_and_write(hooks_path)
+    hooks_path.parent.mkdir(parents=True, exist_ok=True)
+    with hooks_path.open("w") as f:
+        json.dump(config, f, indent=2)
+    return hooks_path
 
 
 def _generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:

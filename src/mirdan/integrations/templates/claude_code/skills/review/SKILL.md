@@ -1,38 +1,39 @@
 ---
-description: "Use when reviewing code, pull requests, or evaluating code quality. Reads changed files, runs quality validation, and reports findings."
-allowed-tools: Read, Grep, Glob, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__get_verification_checklist
-model: sonnet
+name: review
+description: "Code review with mirdan quality standards enforcement"
+model: inherit
+context: fork
+allowed-tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__get_quality_trends, Read, Glob, Grep
 ---
 
-# /review - Quality Standards Review
+# /review — Quality Standards Code Review
 
-Follow this workflow to review the code:
+Review code or diffs against mirdan quality standards in an isolated context.
 
-## 1. Identify changes
-Use Glob and Read to find and read the files that were changed.
+## Dynamic Context
 
-## 2. Get standards
-Call `mcp__mirdan__get_quality_standards` with the detected language for context.
+Recent changes:
+```
+!`git diff --stat HEAD 2>/dev/null | tail -10`
+```
 
-## 3. Validate quality
-For each changed file, call `mcp__mirdan__validate_code_quality` with the file contents.
-Set `check_security=true` for all reviews.
+## Workflow
 
-## 4. Analyze findings
-Group violations by severity (error > warning > info).
-Note any AI-specific issues (AI001-AI008):
-- AI001: Placeholder code
-- AI002: Hallucinated imports
-- AI003: Over-engineering
-- AI004: Duplicate code blocks
-- AI005: Inconsistent error handling
-- AI006: Heavy imports for simple usage
-- AI007: Security theater
-- AI008: Injection vulnerabilities
+1. **Read** — Read the code to review (specific file or recent changes)
 
-## 5. Report
-Present findings organized by file with:
-- Overall pass/fail status and quality score
-- Critical issues (errors) that must be fixed
-- Warnings worth addressing
-- Positive observations about code quality
+2. **Validate** — Call `mcp__mirdan__validate_code_quality` on the code
+   - Set `check_security=true` for security-sensitive files
+   - Set `check_architecture=true` for structural analysis
+
+3. **Standards** — Call `mcp__mirdan__get_quality_standards` for the language
+   - Compare code against language best practices
+
+4. **Report** — Present findings organized by severity:
+   - **Errors** — Must fix before merge
+   - **Warnings** — Should fix, note if intentional
+   - **Info** — Suggestions for improvement
+
+5. **Summary** — Overall assessment:
+   - Quality score
+   - Key areas of concern
+   - Positive observations

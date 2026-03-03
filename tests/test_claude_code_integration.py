@@ -70,29 +70,31 @@ class TestHooksGeneration:
         data = json.loads(hooks_path.read_text())
         assert "Stop" in data["hooks"]
 
-    def test_post_tool_use_uses_quick(self, tmp_path, detected_python) -> None:
-        """PostToolUse should use --quick flag for fast validation."""
+    def test_post_tool_use_uses_prompt(self, tmp_path, detected_python) -> None:
+        """PostToolUse should use prompt-type hook for validation."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        ptu_command = data["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
-        assert "--quick" in ptu_command
+        ptu_hook = data["hooks"]["PostToolUse"][0]["hooks"][0]
+        assert ptu_hook["type"] == "prompt"
+        assert "validate_code_quality" in ptu_hook["prompt"]
 
-    def test_stop_no_quick(self, tmp_path, detected_python) -> None:
-        """Stop hook should NOT use --quick flag (full validation)."""
+    def test_stop_uses_prompt(self, tmp_path, detected_python) -> None:
+        """Stop hook should use prompt-type for verification gate."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        stop_command = data["hooks"]["Stop"][0]["hooks"][0]["command"]
-        assert "--quick" not in stop_command
+        stop_hook = data["hooks"]["Stop"][0]["hooks"][0]
+        assert stop_hook["type"] == "prompt"
+        assert "validate" in stop_hook["prompt"].lower()
 
     def test_post_tool_use_matcher(self, tmp_path, detected_python) -> None:
-        """PostToolUse should match Write|Edit tools."""
+        """PostToolUse should match Write|Edit|MultiEdit tools."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         matcher = data["hooks"]["PostToolUse"][0]["matcher"]
-        assert matcher == "Write|Edit"
+        assert matcher == "Write|Edit|MultiEdit"
 
     def test_hooks_not_overwritten(self, tmp_path, detected_python) -> None:
         """Existing hooks.json should not be overwritten."""
@@ -210,35 +212,27 @@ class TestFullConfigGeneration:
 class TestHookDelegation:
     """Tests for hook generation delegating to HookTemplateGenerator."""
 
-    def test_hooks_json_has_nine_events(self, tmp_path, detected_python) -> None:
-        """Hooks should now include all 9 lifecycle events."""
+    def test_hooks_json_has_comprehensive_events(self, tmp_path, detected_python) -> None:
+        """Hooks should include 6 comprehensive lifecycle events."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         hooks = data["hooks"]
-        assert len(hooks) >= 9
+        assert len(hooks) >= 6
 
-    def test_hooks_has_session_start(self, tmp_path, detected_python) -> None:
-        """Should include SessionStart hook."""
+    def test_hooks_has_user_prompt_submit(self, tmp_path, detected_python) -> None:
+        """Should include UserPromptSubmit hook."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        assert "SessionStart" in data["hooks"]
+        assert "UserPromptSubmit" in data["hooks"]
 
-    def test_hooks_has_session_stop(self, tmp_path, detected_python) -> None:
-        """Should include SessionStop hook."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        assert "SessionStop" in data["hooks"]
-
-    def test_hooks_has_subagent_events(self, tmp_path, detected_python) -> None:
-        """Should include SubagentStart and SubagentStop hooks."""
+    def test_hooks_has_subagent_start(self, tmp_path, detected_python) -> None:
+        """Should include SubagentStart hook."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         assert "SubagentStart" in data["hooks"]
-        assert "SubagentStop" in data["hooks"]
 
     def test_hooks_has_pre_compact(self, tmp_path, detected_python) -> None:
         """Should include PreCompact hook for compaction resilience."""
@@ -246,13 +240,6 @@ class TestHookDelegation:
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         assert "PreCompact" in data["hooks"]
-
-    def test_hooks_has_notification(self, tmp_path, detected_python) -> None:
-        """Should include Notification hook."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        assert "Notification" in data["hooks"]
 
     def test_hooks_has_pre_tool_use(self, tmp_path, detected_python) -> None:
         """Should include PreToolUse hook with prompt type."""
@@ -263,8 +250,8 @@ class TestHookDelegation:
         assert len(pre) > 0
         assert pre[0]["hooks"][0]["type"] == "prompt"
 
-    def test_post_tool_use_has_auto_fix_prompt(self, tmp_path, detected_python) -> None:
-        """PostToolUse should include auto-fix suggestion prompt."""
+    def test_post_tool_use_has_prompt(self, tmp_path, detected_python) -> None:
+        """PostToolUse should use prompt-type hook for validation."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
@@ -272,20 +259,11 @@ class TestHookDelegation:
         hook_types = [h["type"] for h in post[0]["hooks"]]
         assert "prompt" in hook_types
 
-    def test_post_tool_use_micro_format(self, tmp_path, detected_python) -> None:
-        """PostToolUse command should use micro format."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        post = data["hooks"]["PostToolUse"]
-        for hook in post[0]["hooks"]:
-            if hook["type"] == "command":
-                assert "micro" in hook["command"]
-
-    def test_stop_validates_staged_files(self, tmp_path, detected_python) -> None:
-        """Stop hook should validate staged files."""
+    def test_stop_uses_prompt_type(self, tmp_path, detected_python) -> None:
+        """Stop hook should use prompt type for verification gate."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         stop = data["hooks"]["Stop"]
-        assert "--staged" in stop[0]["hooks"][0]["command"]
+        assert stop[0]["hooks"][0]["type"] == "prompt"
+        assert "validate" in stop[0]["hooks"][0]["prompt"].lower()

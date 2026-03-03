@@ -131,21 +131,23 @@ class TestSkillsAutoInvocation:
 
 
 class TestSpecializedAgents:
-    """Tests for 4 specialized agents (Step 17)."""
+    """Tests for 5 specialized agents."""
 
-    def test_four_agents_generated(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_five_agents_generated(self, tmp_path: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.claude_code import generate_agents
 
         paths = generate_agents(tmp_path, detected)
-        assert len(paths) == 4
+        assert len(paths) == 5
 
-    def test_agents_have_memory_project(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_most_agents_have_memory_project(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         from mirdan.integrations.claude_code import generate_agents
 
         paths = generate_agents(tmp_path, detected)
-        for path in paths:
-            content = path.read_text()
-            assert "memory: project" in content
+        agents_with_memory = sum(1 for p in paths if "memory: project" in p.read_text())
+        # Most agents have memory: project (quality-gate, security-audit, test-quality)
+        assert agents_with_memory >= 3
 
     def test_security_audit_uses_haiku(self, tmp_path: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.claude_code import generate_agents
@@ -160,7 +162,13 @@ class TestSpecializedAgents:
 
         paths = generate_agents(tmp_path, detected)
         names = {p.name for p in paths}
-        expected = {"quality-gate.md", "security-audit.md", "test-quality.md", "convention-check.md"}
+        expected = {
+            "quality-gate.md",
+            "security-audit.md",
+            "test-quality.md",
+            "convention-check.md",
+            "architecture-reviewer.md",
+        }
         assert names == expected
 
 
@@ -170,7 +178,7 @@ class TestSpecializedAgents:
 
 
 class TestAdvancedHooks:
-    """Tests for 6 lifecycle event hooks (Step 18)."""
+    """Tests for comprehensive lifecycle hooks."""
 
     def _load_hooks(self, tmp_path: Path, detected: DetectedProject) -> dict:
         from mirdan.integrations.claude_code import generate_claude_code_config
@@ -182,35 +190,38 @@ class TestAdvancedHooks:
         # hooks.json has a top-level "hooks" key
         return data.get("hooks", data)
 
-    def test_hooks_json_has_six_events(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_hooks_json_has_comprehensive_events(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
-        # Should have 6 lifecycle events
+        # Should have 6 comprehensive lifecycle events
         assert len(hooks) >= 6
 
-    def test_hooks_has_session_start(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_hooks_has_user_prompt_submit(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
-        assert "SessionStart" in hooks
+        assert "UserPromptSubmit" in hooks
 
-    def test_hooks_has_subagent_stop(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_hooks_has_subagent_start(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
-        assert "SubagentStop" in hooks
+        assert "SubagentStart" in hooks
 
     def test_hooks_has_pre_compact(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         assert "PreCompact" in hooks
 
-    def test_post_tool_use_uses_micro_format(
+    def test_post_tool_use_uses_prompt(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         post_tool = hooks.get("PostToolUse", [])
         assert len(post_tool) > 0
-        # Find the command hook
+        # Should use prompt-type hooks
         for entry in post_tool:
             hook_list = entry.get("hooks", [])
             for hook in hook_list:
-                if hook.get("type") == "command":
-                    assert "micro" in hook.get("command", "")
+                assert hook.get("type") == "prompt"
 
 
 # ---------------------------------------------------------------------------

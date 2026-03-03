@@ -1,32 +1,39 @@
 ---
-description: "Use when writing, generating, or implementing code. Enhances code quality through mirdan validation, security checks, and AI-specific quality detection."
-allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__get_verification_checklist
+name: code
+description: "Enhanced coding with automatic mirdan quality orchestration"
+model: inherit
+allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__validate_quick, Read, Write, Edit, Glob, Grep, Bash
 ---
 
-# /code - Quality-Orchestrated Coding
+# /code — Quality-Orchestrated Coding
 
-Follow this workflow for the coding task:
+Execute coding tasks with automatic quality enforcement via mirdan.
 
-## 1. Enhance the prompt
-Call `mcp__mirdan__enhance_prompt` with the user's task description.
-Save the returned `quality_requirements`, `detected_language`, `frameworks`, and `touches_security` fields.
+## Dynamic Context
 
-## 2. Get quality standards
-Call `mcp__mirdan__get_quality_standards` with the detected language.
-Use these standards as implementation constraints.
+Recent changes:
+```
+!`git diff --stat HEAD 2>/dev/null | tail -5`
+```
 
-## 3. Implement the solution
-Write the code following the quality requirements. Use Read to understand existing code before modifying.
-Follow the `verification_steps` provided in the enhancement output.
+## Workflow
 
-## 4. Validate the output
-Call `mcp__mirdan__validate_code_quality` with the code you wrote.
-Pass `check_security=true` if `touches_security` was flagged in step 1.
+1. **Analyze** — Call `mcp__mirdan__enhance_prompt` with the user's task to get:
+   - Detected language and frameworks
+   - Quality requirements to follow
+   - Security sensitivity (touches_security)
+   - A session_id for the task
 
-## 5. Fix violations
-If validation fails, fix all reported violations and re-validate until it passes.
-Pay special attention to AI-specific violations (AI001-AI008).
+2. **Standards** — Call `mcp__mirdan__get_quality_standards` for the detected language/framework
 
-## 6. Verify and report
-Run `mcp__mirdan__get_verification_checklist` for the task type.
-Execute each checklist item. Summarize what was implemented and the final quality score.
+3. **Implement** — Write the code following the quality_requirements from step 1
+
+4. **Validate** — Call `mcp__mirdan__validate_code_quality` on each changed file:
+   - Set `check_security=true` if touches_security was flagged
+   - Fix all errors immediately
+   - Note warnings for review
+
+5. **Complete** — Confirm:
+   - All validation errors resolved
+   - Quality requirements from enhance_prompt satisfied
+   - No placeholder code (AI001) or hallucinated imports (AI002)
