@@ -260,6 +260,71 @@ class OutputFormatter:
             "touches_security": data.get("touches_security", False),
         }
 
+    def format_for_compaction(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Format quality state for context compaction.
+
+        Produces a minimal representation that can survive context window
+        compaction and be used to restore mirdan state afterwards.
+
+        Args:
+            data: Full quality state (session + last validation).
+
+        Returns:
+            Minimal state dict suitable for compaction survival.
+        """
+        return {
+            "mirdan_compact_state": {
+                "session_id": data.get("session_id", ""),
+                "task_type": data.get("task_type", ""),
+                "language": data.get("language", ""),
+                "touches_security": data.get("touches_security", False),
+                "last_score": data.get("score"),
+                "open_violations": data.get("violations_count", {}).get("error", 0),
+                "frameworks": data.get("frameworks", []),
+            }
+        }
+
+    def format_quality_context(
+        self,
+        session_data: dict[str, Any],
+        validation_data: dict[str, Any] | None = None,
+        budget: int | None = None,
+    ) -> dict[str, Any]:
+        """Format quality context for injection into agent context.
+
+        Combines session and validation data, compressed according to
+        available budget. Used by SessionStart hooks.
+
+        Args:
+            session_data: Session context dict.
+            validation_data: Last validation result dict, if available.
+            budget: Available token budget (None = no limit).
+
+        Returns:
+            Quality context dict, compressed if needed.
+        """
+        context: dict[str, Any] = {
+            "mirdan_quality_context": {
+                "task_type": session_data.get("task_type", ""),
+                "language": session_data.get("language", ""),
+                "touches_security": session_data.get("touches_security", False),
+                "frameworks": session_data.get("frameworks", []),
+            }
+        }
+
+        if validation_data:
+            if budget and budget < 500:
+                # Ultra-compressed: just score
+                context["mirdan_quality_context"]["last_score"] = validation_data.get("score")
+            else:
+                context["mirdan_quality_context"]["last_validation"] = {
+                    "passed": validation_data.get("passed"),
+                    "score": validation_data.get("score"),
+                    "summary": validation_data.get("summary", ""),
+                }
+
+        return context
+
     def _micro_validation(self, data: dict[str, Any]) -> dict[str, Any]:
         """Micro format for validation: single-line equivalent.
 

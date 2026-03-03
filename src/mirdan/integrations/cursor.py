@@ -278,33 +278,14 @@ def _generate_agents_md(
     detected: DetectedProject,
     standards: QualityStandards | None,
 ) -> str:
-    """Generate AGENTS.md content for Cursor background agents."""
-    lang = detected.primary_language or "python"
-    return f"""# Cursor Agents — mirdan Quality Configuration
+    """Generate AGENTS.md content for Cursor background agents.
 
-## Quality Gate Agent
-When reviewing or editing code, validate against mirdan quality standards:
-- Run mirdan validation on all changed files
-- Fix AI-specific issues (AI001-AI008) before committing
-- Ensure security checks pass for any code handling user input
+    Delegates to the cross-platform AgentsMDGenerator with Cursor overlay.
+    """
+    from mirdan.integrations.agents_md import AgentsMDGenerator
 
-## Language: {lang.title()}
-- Follow {lang} best practices and project conventions
-- Use type annotations where supported
-- Keep functions under 30 lines, files under 300 lines
-
-## AI Code Quality Rules
-| Rule | Description | Severity |
-|------|-------------|----------|
-| AI001 | No placeholder code | Error |
-| AI002 | No hallucinated imports | Warning |
-| AI003 | No over-engineering | Warning |
-| AI004 | No duplicate code blocks | Warning |
-| AI005 | Consistent error handling | Warning |
-| AI006 | No unnecessary heavy imports | Info |
-| AI007 | No security theater | Error |
-| AI008 | No injection vulnerabilities | Error |
-"""
+    generator = AgentsMDGenerator(standards=standards)
+    return generator.generate(detected, platform="cursor")
 
 
 def _generate_bugbot_md(

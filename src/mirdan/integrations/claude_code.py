@@ -252,7 +252,11 @@ def export_plugin(output_dir: Path) -> Path:
 
 
 def _generate_hooks(project_dir: Path) -> Path | None:
-    """Generate .claude/hooks.json from template if not present.
+    """Generate .claude/hooks.json using HookTemplateGenerator.
+
+    Delegates to the dedicated hook template generator for full
+    lifecycle coverage. Only creates hooks.json if it doesn't exist
+    (respects user customizations).
 
     Returns:
         Path to hooks.json if created, None if already exists.
@@ -264,68 +268,22 @@ def _generate_hooks(project_dir: Path) -> Path | None:
     if hooks_path.exists():
         return None
 
-    # Try loading from template
-    templates_pkg = _get_templates_package()
-    if templates_pkg is not None:
-        try:
-            template_file = templates_pkg / "hooks.json"
-            content = template_file.read_text()
-            hooks_path.write_text(content)
-            return hooks_path
-        except (FileNotFoundError, TypeError, AttributeError):
-            pass
+    from mirdan.integrations.hook_templates import HookConfig, HookTemplateGenerator
 
-    # Fallback: inline hooks config
-    hooks_config = {
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Write|Edit",
-                    "hooks": [
-                        {
-                            "type": "prompt",
-                            "prompt": (
-                                "Before writing code, ensure you have called"
-                                " mcp__mirdan__enhance_prompt for quality requirements."
-                                " If not yet done, call it first."
-                            ),
-                        }
-                    ],
-                }
-            ],
-            "PostToolUse": [
-                {
-                    "matcher": "Write|Edit",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": (
-                                'mirdan validate --quick'
-                                ' --file "$TOOL_INPUT_FILE_PATH"'
-                                ' --format text'
-                            ),
-                            "timeout": 5000,
-                        }
-                    ],
-                }
-            ],
-            "Stop": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "mirdan validate --staged --format text",
-                        }
-                    ],
-                }
-            ],
-        }
-    }
+    command, _args = _detect_mirdan_command()
+    mirdan_cmd = command if not _args else f"{command} {' '.join(_args)}"
 
-    with hooks_path.open("w") as f:
-        json.dump(hooks_config, f, indent=2)
+    # Claude Code gets all hook events enabled by default
+    hook_config = HookConfig(
+        enabled_events=["PreToolUse", "PostToolUse", "Stop"],
+        session_hooks=True,
+        subagent_hooks=True,
+        compaction_resilience=True,
+        notification_hooks=True,
+    )
 
-    return hooks_path
+    generator = HookTemplateGenerator(config=hook_config, mirdan_command=mirdan_cmd)
+    return generator.generate_and_write(hooks_path)
 
 
 def _generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:

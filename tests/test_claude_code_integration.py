@@ -200,3 +200,92 @@ class TestFullConfigGeneration:
         generated = generate_claude_code_config(tmp_path, detected_python)
         for path in generated:
             assert path.exists(), f"{path} does not exist"
+
+
+# ---------------------------------------------------------------------------
+# v0.2.0: Hook delegation, advanced events, self-managing integration
+# ---------------------------------------------------------------------------
+
+
+class TestHookDelegation:
+    """Tests for hook generation delegating to HookTemplateGenerator."""
+
+    def test_hooks_json_has_nine_events(self, tmp_path, detected_python) -> None:
+        """Hooks should now include all 9 lifecycle events."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        hooks = data["hooks"]
+        assert len(hooks) >= 9
+
+    def test_hooks_has_session_start(self, tmp_path, detected_python) -> None:
+        """Should include SessionStart hook."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        assert "SessionStart" in data["hooks"]
+
+    def test_hooks_has_session_stop(self, tmp_path, detected_python) -> None:
+        """Should include SessionStop hook."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        assert "SessionStop" in data["hooks"]
+
+    def test_hooks_has_subagent_events(self, tmp_path, detected_python) -> None:
+        """Should include SubagentStart and SubagentStop hooks."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        assert "SubagentStart" in data["hooks"]
+        assert "SubagentStop" in data["hooks"]
+
+    def test_hooks_has_pre_compact(self, tmp_path, detected_python) -> None:
+        """Should include PreCompact hook for compaction resilience."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        assert "PreCompact" in data["hooks"]
+
+    def test_hooks_has_notification(self, tmp_path, detected_python) -> None:
+        """Should include Notification hook."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        assert "Notification" in data["hooks"]
+
+    def test_hooks_has_pre_tool_use(self, tmp_path, detected_python) -> None:
+        """Should include PreToolUse hook with prompt type."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        pre = data["hooks"]["PreToolUse"]
+        assert len(pre) > 0
+        assert pre[0]["hooks"][0]["type"] == "prompt"
+
+    def test_post_tool_use_has_auto_fix_prompt(self, tmp_path, detected_python) -> None:
+        """PostToolUse should include auto-fix suggestion prompt."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        post = data["hooks"]["PostToolUse"]
+        hook_types = [h["type"] for h in post[0]["hooks"]]
+        assert "prompt" in hook_types
+
+    def test_post_tool_use_micro_format(self, tmp_path, detected_python) -> None:
+        """PostToolUse command should use micro format."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        post = data["hooks"]["PostToolUse"]
+        for hook in post[0]["hooks"]:
+            if hook["type"] == "command":
+                assert "micro" in hook["command"]
+
+    def test_stop_validates_staged_files(self, tmp_path, detected_python) -> None:
+        """Stop hook should validate staged files."""
+        generate_claude_code_config(tmp_path, detected_python)
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        data = json.loads(hooks_path.read_text())
+        stop = data["hooks"]["Stop"]
+        assert "--staged" in stop[0]["hooks"][0]["command"]

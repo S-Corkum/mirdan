@@ -411,6 +411,49 @@ class KnowledgeEntry:
 
 
 @dataclass
+class CompactState:
+    """Minimal state for compaction resilience.
+
+    When the context window is compacted, this captures the essential
+    quality state so mirdan can resume without full context. Used by
+    the self-managing integration's PreCompact hook.
+    """
+
+    session_id: str = ""
+    task_type: str = ""
+    language: str = ""
+    touches_security: bool = False
+    last_score: float | None = None
+    open_violations: int = 0
+    frameworks: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            "session_id": self.session_id,
+            "task_type": self.task_type,
+            "language": self.language,
+            "touches_security": self.touches_security,
+            "last_score": self.last_score,
+            "open_violations": self.open_violations,
+            "frameworks": self.frameworks,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "CompactState":
+        """Create from dictionary."""
+        return cls(
+            session_id=data.get("session_id", ""),
+            task_type=data.get("task_type", ""),
+            language=data.get("language", ""),
+            touches_security=data.get("touches_security", False),
+            last_score=data.get("last_score"),
+            open_violations=data.get("open_violations", 0),
+            frameworks=data.get("frameworks", []),
+        )
+
+
+@dataclass
 class Violation:
     """A code quality violation detected during validation."""
 

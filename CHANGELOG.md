@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-03
+
+### Added
+
+- **Self-Managing Integration** — Zero CLAUDE.md instructions needed after `mirdan init`:
+  - New `SelfManagingIntegration` class generates `.claude/rules/mirdan-workflow.md`
+  - Workflow rule contains quality sandwich pattern, tool table, auto-fix instructions
+  - Compaction-resilient state: `generate_compaction_state()` / `restore_from_compaction()`
+  - Quality context injection for session awareness
+  - New module: `src/mirdan/integrations/self_managing.py`
+  - New template: `src/mirdan/integrations/templates/claude_code/mirdan-workflow.md`
+
+- **AGENTS.md Cross-Platform Standard** — Universal generator with platform-specific overlays:
+  - `AgentsMDGenerator` class with universal sections (quality rules, language, security, workflow)
+  - Platform overlays: Cursor (BugBot, .mdc rules), Claude Code (hooks, MCP tools, skills)
+  - Convenience function: `generate_root_agents_md()` for quick generation
+  - `mirdan init` now always generates root `AGENTS.md` regardless of platform
+  - New module: `src/mirdan/integrations/agents_md.py`
+
+- **Full Hook Lifecycle Coverage** — All 9 Claude Code hook events supported:
+  - `HookTemplateGenerator` with per-event methods for all events
+  - Events: PreToolUse (prompt reminder), PostToolUse (quick validate + auto-fix), Stop (full validation), SessionStart (inject quality context), SessionStop (persist report), SubagentStart (pass context), SubagentStop (validate output), PreCompact (serialize state), Notification (quality alerts)
+  - `HookConfig` dataclass: `enabled_events`, `quick_validate_timeout`, `auto_fix_suggestions`, `compaction_resilience`, `multi_agent_awareness`, `session_hooks`, `subagent_hooks`, `notification_hooks`
+  - `ALL_HOOK_EVENTS` constant listing all 9 events
+  - Claude Code integration now generates all 9 hooks (up from 3)
+  - New module: `src/mirdan/integrations/hook_templates.py`
+
+- **Context Budget Awareness** — Environment-aware output compression:
+  - `EnvironmentInfo.context_budget` field, detected from `MIRDAN_CONTEXT_BUDGET`, `CLAUDE_CONTEXT_REMAINING`, `CONTEXT_BUDGET` env vars
+  - `OutputFormatter.format_for_compaction()` produces minimal state for context compaction
+  - `OutputFormatter.format_quality_context()` with budget-aware compression
+  - `SessionManager.serialize()` / `restore()` for compaction resilience
+  - `CompactState` dataclass with `to_dict()` / `from_dict()` roundtrip
+
+- **Auto-Fix Expansion** — Dedicated auto-fix engine covering all fixable rules:
+  - `AutoFixer` class with template-based (30+ rules) and pattern-based (12+ regex) fixes
+  - Fix confidence scoring (>= 0.7 threshold to suggest)
+  - Coverage: all PY, JS, TS, RS, GO, JAVA, SEC, AI rules
+  - `get_fix()`, `apply_fix()`, `batch_fix()`, `get_fix_for_violation()`
+  - `get_fixable_rules()`, `coverage_report()` class methods
+  - New CLI command: `mirdan fix <file>` with `--dry-run`, `--staged`, `--auto` flags
+  - New modules: `src/mirdan/core/auto_fixer.py`, `src/mirdan/cli/fix_command.py`
+
+- **`mirdan init --upgrade`** — Upgrade existing mirdan installations:
+  - Detects existing config version, merges new fields with defaults
+  - Regenerates all integration files (hooks, rules, AGENTS.md, workflow)
+  - Zero breaking changes from v0.1.0
+
+### Changed
+
+- `generate_claude_code_config()` now delegates hook generation to `HookTemplateGenerator` (9 events vs 3)
+- `generate_cursor_rules()` AGENTS.md generation delegated to `AgentsMDGenerator`
+- `CodeValidator` fix lookup delegated to `AutoFixer` (expanded from 8 to 30+ fixable rules)
+- `HookConfig` added to `MirdanConfig` for hook customization
+- `mirdan init` now generates root `AGENTS.md` as step 5 (cross-platform standard)
+- `_setup_claude_code()` also generates self-managing workflow rule
+
+### Testing
+
+- **1479 total tests** (1325 → 1479, +154 new tests), all passing
+- New test files:
+  - `test_auto_fixer.py` (34 tests): template fixes, pattern fixes, apply/batch fix, coverage
+  - `test_hook_templates.py` (34 tests): config defaults, event generation, custom commands
+  - `test_agents_md.py` (24 tests): universal generation, platform overlays, edge cases
+  - `test_self_managing.py` (22 tests): workflow rule, quality context, compaction state
+  - `test_context_budget.py` (20 tests): budget detection, compression, session roundtrip
+- Updated test files:
+  - `test_cli_init.py` (+10 tests): --upgrade flag, AGENTS.md generation, fix routing
+  - `test_claude_code_integration.py` (+10 tests): hook delegation, 9-event coverage
+
 ## [0.1.0] - 2026-03-02
 
 ### Added
@@ -297,6 +367,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality standards for 6 languages
 - Integration guides for Claude Desktop, VS Code, Cursor
 
+[0.2.0]: https://github.com/S-Corkum/mirdan/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/S-Corkum/mirdan/compare/0.0.7...0.1.0
 [0.0.7]: https://github.com/S-Corkum/mirdan/compare/0.0.6...0.0.7
 [0.0.6]: https://github.com/S-Corkum/mirdan/compare/0.0.5...0.0.6

@@ -148,6 +148,33 @@ class ThresholdsConfig(BaseModel):
     arch_max_class_methods: int = Field(default=10, description="Max methods per class")
 
 
+class HookConfig(BaseModel):
+    """Configuration for Claude Code hook generation."""
+
+    enabled_events: list[str] = Field(
+        default_factory=lambda: ["PreToolUse", "PostToolUse", "Stop"],
+        description="Hook events to generate",
+    )
+    quick_validate_timeout: int = Field(
+        default=5000, description="Timeout for quick validation hooks (ms)"
+    )
+    auto_fix_suggestions: bool = Field(
+        default=True, description="Include auto-fix suggestion prompts in PostToolUse"
+    )
+    compaction_resilience: bool = Field(
+        default=False, description="Enable PreCompact hook for state persistence"
+    )
+    multi_agent_awareness: bool = Field(
+        default=False, description="Enable SubagentStart/SubagentStop hooks"
+    )
+    session_hooks: bool = Field(
+        default=False, description="Enable SessionStart/SessionStop hooks"
+    )
+    notification_hooks: bool = Field(
+        default=False, description="Enable Notification hooks for quality alerts"
+    )
+
+
 class LinterOrcConfig(BaseModel):
     """Configuration for external linter orchestration."""
 
@@ -186,6 +213,7 @@ class MirdanConfig(BaseModel):
     session: SessionConfig = Field(default_factory=SessionConfig)
     tokens: TokenConfig = Field(default_factory=TokenConfig)
     linters: LinterOrcConfig = Field(default_factory=LinterOrcConfig)
+    hooks: HookConfig = Field(default_factory=HookConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

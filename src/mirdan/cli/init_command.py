@@ -23,6 +23,7 @@ def run_init(args: list[str]) -> None:
     install_hooks = False
     force_cursor = False
     force_claude_code = False
+    upgrade = False
     directory = Path.cwd()
     remaining: list[str] = []
 
@@ -33,6 +34,8 @@ def run_init(args: list[str]) -> None:
             force_cursor = True
         elif arg == "--claude-code":
             force_claude_code = True
+        elif arg == "--upgrade":
+            upgrade = True
         elif arg in ("--help", "-h"):
             _print_init_help()
             sys.exit(0)
@@ -45,6 +48,10 @@ def run_init(args: list[str]) -> None:
     if not directory.is_dir():
         print(f"Error: {directory} is not a directory")
         sys.exit(1)
+
+    if upgrade:
+        _run_upgrade(directory)
+        return
 
     print(f"Initializing mirdan in {directory.resolve()}")
     print()
@@ -90,10 +97,13 @@ def run_init(args: list[str]) -> None:
     if platform == "claude-code" or "claude-code" in detected.detected_ides:
         _setup_claude_code(directory, detected)
 
-    # Step 5: CI/CD integration files
+    # Step 5: Generate root AGENTS.md (cross-platform standard)
+    _setup_agents_md(directory, detected, platform)
+
+    # Step 6: CI/CD integration files
     _setup_ci(directory, detected)
 
-    # Step 6: Hook installation (auto-install for explicit platform profiles)
+    # Step 7: Hook installation (auto-install for explicit platform profiles)
     if install_hooks or force_cursor or force_claude_code:
         _setup_hooks(directory, detected)
 
@@ -228,6 +238,7 @@ def _create_rules_template(rules_dir: Path, detected: DetectedProject) -> None:
 
 def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     """Generate .cursor/rules/ .mdc files, AGENTS.md, and BUGBOT.md."""
+    from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.cursor import generate_cursor_agents, generate_cursor_rules
 
     # Try to use dynamic generation with QualityStandards
@@ -257,6 +268,7 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
         generate_mcp_json,
         generate_skills,
     )
+    from mirdan.integrations.self_managing import SelfManagingIntegration
 
     # MCP server registration
     mcp_path = generate_mcp_json(directory)
@@ -266,6 +278,11 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
     generated = generate_claude_code_config(directory, detected)
     for path in generated:
         print(f"  Created {path}")
+
+    # Self-managing workflow rule
+    self_managing = SelfManagingIntegration()
+    workflow_path = self_managing.write_workflow_rule(directory, detected)
+    print(f"  Created {workflow_path}")
 
     # Skills
     skill_paths = generate_skills(directory, detected)
@@ -279,8 +296,75 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
 
     print()
     print("  Claude Code configured! mirdan will validate edits automatically.")
+    print("  Workflow rule installed — no CLAUDE.md mirdan instructions needed.")
     if skill_paths:
         print("  Skills installed: /mirdan:code, /mirdan:debug, /mirdan:review")
+
+
+def _setup_agents_md(
+    directory: Path,
+    detected: DetectedProject,
+    platform: str = "generic",
+) -> None:
+    """Generate root AGENTS.md (cross-platform standard)."""
+    from mirdan.core.quality_standards import QualityStandards
+    from mirdan.integrations.agents_md import generate_root_agents_md
+
+    try:
+        standards = QualityStandards()
+    except Exception:
+        standards = None
+
+    agents_path = generate_root_agents_md(
+        directory, detected, standards=standards, platform=platform,
+    )
+    print(f"  Created {agents_path}")
+
+
+def _run_upgrade(directory: Path) -> None:
+    """Upgrade an existing mirdan installation.
+
+    Detects existing config version, merges new fields, and regenerates
+    integration files (hooks, rules, AGENTS.md, workflow).
+
+    Args:
+        directory: Project root directory.
+    """
+    print(f"Upgrading mirdan in {directory.resolve()}")
+    print()
+
+    config_path = directory / ".mirdan" / "config.yaml"
+    if not config_path.exists():
+        print("No existing mirdan config found. Run 'mirdan init' first.")
+        sys.exit(1)
+
+    # Load existing config (auto-merges with defaults for new fields)
+    config = MirdanConfig.load(config_path)
+    detected = detect_project(directory)
+
+    _print_detection(detected)
+
+    # Re-save config (adds new fields with defaults)
+    _write_config(config, config_path, platform="generic")
+
+    # Determine platform
+    platform = _determine_platform(detected, False, False)
+
+    # Regenerate integration files
+    if platform == "claude-code" or "claude-code" in detected.detected_ides:
+        _setup_claude_code(directory, detected)
+
+    if platform == "cursor" or "cursor" in detected.detected_ides:
+        _setup_cursor(directory, detected)
+
+    # Always regenerate AGENTS.md
+    _setup_agents_md(directory, detected, platform)
+
+    print()
+    print("Upgrade complete!")
+    print("  - Config updated with new defaults")
+    print("  - Integration files regenerated")
+    print("  - AGENTS.md updated")
 
 
 def _setup_ci(directory: Path, detected: DetectedProject) -> None:
@@ -413,4 +497,5 @@ def _print_init_help() -> None:
     print("  --hooks        Install hook scripts for auto-validation")
     print("  --cursor       Use Cursor platform profile")
     print("  --claude-code  Use Claude Code platform profile")
+    print("  --upgrade      Upgrade existing config (merge new fields, regenerate)")
     print("  -h, --help     Show this help")

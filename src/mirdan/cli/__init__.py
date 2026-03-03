@@ -10,6 +10,7 @@ Routes:
 - ``mirdan scan`` → codebase convention extraction
 - ``mirdan plugin`` → plugin management (export)
 - ``mirdan report`` → project quality report
+- ``mirdan fix`` → auto-fix code quality violations
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ def main() -> None:
         _plugin(args[1:])
     elif args[0] == "report":
         _report(args[1:])
+    elif args[0] == "fix":
+        _fix(args[1:])
     elif args[0] in ("--help", "-h"):
         _print_help()
     elif args[0] in ("--version", "-V"):
@@ -103,6 +106,13 @@ def _report(args: list[str]) -> None:
     run_report(args)
 
 
+def _fix(args: list[str]) -> None:
+    """Auto-fix code quality violations."""
+    from mirdan.cli.fix_command import run_fix
+
+    run_fix(args)
+
+
 def _print_help() -> None:
     """Print CLI usage help."""
     from mirdan import __version__
@@ -121,6 +131,7 @@ def _print_help() -> None:
     print("  scan       Scan codebase to discover conventions")
     print("  plugin     Plugin management (export)")
     print("  report     Generate project quality report")
+    print("  fix        Auto-fix code quality violations")
     print()
     print("Options:")
     print("  -h, --help     Show this help")

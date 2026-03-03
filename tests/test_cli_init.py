@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from mirdan.cli import main
 from mirdan.cli.detect import DetectedProject, detect_framework_version, detect_project
 from mirdan.cli.init_command import _build_config, _create_rules_template, run_init
@@ -354,3 +356,136 @@ class TestCursorIntegration:
         generated = generate_cursor_rules(rules_dir, detected)
         names = [p.name for p in generated]
         assert "mirdan-typescript.mdc" not in names
+
+
+# ---------------------------------------------------------------------------
+# v0.2.0: --upgrade flag, AGENTS.md generation, migration
+# ---------------------------------------------------------------------------
+
+
+class TestUpgradeFlag:
+    """Tests for mirdan init --upgrade."""
+
+    def test_upgrade_flag_parsed(self) -> None:
+        """--upgrade should be parsed from CLI args."""
+        with (
+            patch.object(sys, "argv", ["mirdan", "init", "--upgrade"]),
+            patch("mirdan.cli._init") as mock_init,
+        ):
+            main()
+            mock_init.assert_called_once_with(["--upgrade"])
+
+    def test_upgrade_requires_existing_config(self, tmp_path: Path) -> None:
+        """--upgrade should exit if no .mirdan/config.yaml exists."""
+        with pytest.raises(SystemExit) as exc_info:
+            run_init(["--upgrade", str(tmp_path)])
+        assert exc_info.value.code == 1
+
+    def test_upgrade_preserves_existing_config(self, tmp_path: Path) -> None:
+        """--upgrade should preserve existing config values."""
+        # Create existing config
+        config_dir = tmp_path / ".mirdan"
+        config_dir.mkdir(parents=True)
+        config_path = config_dir / "config.yaml"
+        config_path.write_text(
+            "version: '1'\nproject:\n  name: myapp\n  primary_language: python\n"
+            "quality:\n  security: strict\n"
+        )
+        # Create minimal project file so detect_project works
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "myapp"\n')
+
+        run_init(["--upgrade", str(tmp_path)])
+
+        # Config should still exist and contain project name
+        assert config_path.exists()
+        content = config_path.read_text()
+        assert "myapp" in content
+
+    def test_upgrade_generates_agents_md(self, tmp_path: Path) -> None:
+        """--upgrade should generate root AGENTS.md."""
+        config_dir = tmp_path / ".mirdan"
+        config_dir.mkdir(parents=True)
+        (config_dir / "config.yaml").write_text(
+            "version: '1'\nproject:\n  name: testapp\n  primary_language: python\n"
+            "quality:\n  security: strict\n"
+        )
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        run_init(["--upgrade", str(tmp_path)])
+
+        agents_md = tmp_path / "AGENTS.md"
+        assert agents_md.exists()
+
+
+class TestAgentsMdGeneration:
+    """Tests for AGENTS.md generation during init."""
+
+    def test_init_generates_agents_md(self, tmp_path: Path) -> None:
+        """Standard init should generate root AGENTS.md."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init([str(tmp_path)])
+
+        agents_md = tmp_path / "AGENTS.md"
+        assert agents_md.exists()
+
+    def test_agents_md_has_quality_rules(self, tmp_path: Path) -> None:
+        """Generated AGENTS.md should contain quality rules."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init([str(tmp_path)])
+
+        content = (tmp_path / "AGENTS.md").read_text()
+        assert "AI001" in content
+
+    def test_agents_md_mentions_language(self, tmp_path: Path) -> None:
+        """Generated AGENTS.md should mention the detected language."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init([str(tmp_path)])
+
+        content = (tmp_path / "AGENTS.md").read_text()
+        assert "Python" in content
+
+
+class TestClaudeCodeInit:
+    """Tests for Claude Code-specific init with v0.2.0 features."""
+
+    def test_init_claude_code_generates_workflow_rule(self, tmp_path: Path) -> None:
+        """--claude-code should generate mirdan-workflow.md."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--claude-code", str(tmp_path)])
+
+        workflow = tmp_path / ".claude" / "rules" / "mirdan-workflow.md"
+        assert workflow.exists()
+        content = workflow.read_text()
+        assert "enhance_prompt" in content
+
+    def test_init_claude_code_generates_hooks_with_all_events(self, tmp_path: Path) -> None:
+        """--claude-code hooks.json should include advanced events."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--claude-code", str(tmp_path)])
+
+        hooks_path = tmp_path / ".claude" / "hooks.json"
+        assert hooks_path.exists()
+        data = json.loads(hooks_path.read_text())
+        hooks = data["hooks"]
+        # Should have all 9 events
+        assert "SessionStart" in hooks
+        assert "PreCompact" in hooks
+
+    def test_fix_command_routed(self) -> None:
+        """'mirdan fix' should route to the fix command."""
+        with (
+            patch.object(sys, "argv", ["mirdan", "fix", "test.py"]),
+            patch("mirdan.cli._fix") as mock_fix,
+        ):
+            main()
+            mock_fix.assert_called_once_with(["test.py"])

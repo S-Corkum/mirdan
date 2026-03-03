@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from mirdan.models import Intent, SessionContext, TaskType
 
@@ -143,6 +144,62 @@ class SessionManager:
             resolved_security = True
 
         return resolved_language, resolved_security
+
+    def serialize(self, session_id: str) -> dict[str, Any]:
+        """Serialize a session to a dictionary for persistence/compaction.
+
+        Args:
+            session_id: The session identifier.
+
+        Returns:
+            Serialized session dict, or empty dict if session not found.
+        """
+        session = self.get(session_id)
+        if session is None:
+            return {}
+        return {
+            "session_id": session.session_id,
+            "task_type": session.task_type.value,
+            "detected_language": session.detected_language,
+            "frameworks": session.frameworks,
+            "touches_security": session.touches_security,
+            "touches_rag": session.touches_rag,
+            "touches_knowledge_graph": session.touches_knowledge_graph,
+        }
+
+    def restore(self, data: dict[str, Any]) -> SessionContext | None:
+        """Restore a session from serialized data.
+
+        Creates a new session with the state from the serialized data.
+        Used to recover state after context compaction.
+
+        Args:
+            data: Serialized session dict (from serialize()).
+
+        Returns:
+            Restored SessionContext, or None if data is empty/invalid.
+        """
+        if not data or "session_id" not in data:
+            return None
+
+        now = time.monotonic()
+        task_type = TaskType.UNKNOWN
+        with contextlib.suppress(ValueError):
+            task_type = TaskType(data.get("task_type", "unknown"))
+
+        session = SessionContext(
+            session_id=data["session_id"],
+            task_type=task_type,
+            detected_language=data.get("detected_language"),
+            frameworks=data.get("frameworks", []),
+            touches_security=data.get("touches_security", False),
+            touches_rag=data.get("touches_rag", False),
+            touches_knowledge_graph=data.get("touches_knowledge_graph", False),
+            created_at=now,
+            last_accessed=now,
+        )
+        self._sessions[session.session_id] = session
+        return session
 
     def create_empty(self) -> SessionContext:
         """Create a minimal session without intent (for testing or fallback).

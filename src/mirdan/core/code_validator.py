@@ -747,10 +747,13 @@ class CodeValidator:
         rules: dict[str, list[DetectionRule]] = {}
 
         # Compile language-specific rules
+        from mirdan.core.auto_fixer import AutoFixer
+
+        _fixer = AutoFixer()
         for lang, lang_rules in self.LANGUAGE_RULES.items():
             compiled: list[DetectionRule] = []
             for rule_id, rule_name, pattern, severity, message, suggestion in lang_rules:
-                fix_data = AUTO_FIX_TEMPLATES.get(rule_id)
+                fix_result = _fixer.get_fix(rule_id)
                 compiled.append(
                     DetectionRule(
                         id=rule_id,
@@ -762,8 +765,8 @@ class CodeValidator:
                         severity=severity,
                         message=message,
                         suggestion=suggestion,
-                        fix_template=fix_data[0] if fix_data else None,
-                        fix_description=fix_data[1] if fix_data else "",
+                        fix_template=fix_result.fix_code if fix_result else None,
+                        fix_description=fix_result.fix_description if fix_result else "",
                     )
                 )
             rules[lang] = compiled
@@ -771,7 +774,7 @@ class CodeValidator:
         # Compile security rules (apply to all)
         sec_compiled: list[DetectionRule] = []
         for rule_id, rule_name, pattern, severity, message, suggestion in self.SECURITY_RULES:
-            fix_data = AUTO_FIX_TEMPLATES.get(rule_id)
+            fix_result = _fixer.get_fix(rule_id)
             sec_compiled.append(
                 DetectionRule(
                     id=rule_id,
@@ -781,8 +784,8 @@ class CodeValidator:
                     severity=severity,
                     message=message,
                     suggestion=suggestion,
-                    fix_template=fix_data[0] if fix_data else None,
-                    fix_description=fix_data[1] if fix_data else "",
+                    fix_template=fix_result.fix_code if fix_result else None,
+                    fix_description=fix_result.fix_description if fix_result else "",
                 )
             )
         rules["_security"] = sec_compiled

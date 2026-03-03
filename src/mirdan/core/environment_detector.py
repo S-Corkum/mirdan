@@ -24,15 +24,19 @@ class EnvironmentInfo:
     ide: IDEType = IDEType.UNKNOWN
     ide_name: str = "unknown"
     is_agent_context: bool = False
+    context_budget: int | None = None  # Remaining context tokens, if detectable
     env_hints: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> dict[str, str | bool]:
+    def to_dict(self) -> dict[str, str | bool | int | None]:
         """Convert to dictionary for API response."""
-        return {
+        result: dict[str, str | bool | int | None] = {
             "ide": self.ide.value,
             "ide_name": self.ide_name,
             "is_agent_context": self.is_agent_context,
         }
+        if self.context_budget is not None:
+            result["context_budget"] = self.context_budget
+        return result
 
 
 # Environment variable mapping for IDE detection.
@@ -72,15 +76,46 @@ def detect_environment() -> EnvironmentInfo:
 
         env_hints[env_var] = value
         is_agent = ide_type in (IDEType.CLAUDE_CODE, IDEType.CURSOR, IDEType.WINDSURF)
+        context_budget = _detect_context_budget()
 
         return EnvironmentInfo(
             ide=ide_type,
             ide_name=ide_name,
             is_agent_context=is_agent,
+            context_budget=context_budget,
             env_hints=env_hints,
         )
 
-    return EnvironmentInfo(env_hints=env_hints)
+    return EnvironmentInfo(
+        context_budget=_detect_context_budget(),
+        env_hints=env_hints,
+    )
+
+
+def _detect_context_budget() -> int | None:
+    """Detect remaining context budget from environment variables.
+
+    Checks for context budget hints set by IDE integrations or hook
+    environments. Returns None if no budget information is available.
+
+    Returns:
+        Estimated remaining context tokens, or None.
+    """
+    # Claude Code sets these in hook environments
+    for env_var in (
+        "MIRDAN_CONTEXT_BUDGET",
+        "CLAUDE_CONTEXT_REMAINING",
+        "CONTEXT_BUDGET",
+    ):
+        value = os.environ.get(env_var, "")
+        if value:
+            try:
+                budget = int(value)
+                if budget > 0:
+                    return budget
+            except ValueError:
+                continue
+    return None
 
 
 def is_claude_code() -> bool:
