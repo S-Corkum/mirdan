@@ -9,6 +9,7 @@ Routes:
 - ``mirdan checklist`` → verification checklist
 - ``mirdan scan`` → codebase convention extraction
 - ``mirdan plugin`` → plugin management (export)
+- ``mirdan report`` → project quality report
 """
 
 from __future__ import annotations
@@ -34,6 +35,8 @@ def main() -> None:
         _scan(args[1:])
     elif args[0] == "plugin":
         _plugin(args[1:])
+    elif args[0] == "report":
+        _report(args[1:])
     elif args[0] in ("--help", "-h"):
         _print_help()
     elif args[0] in ("--version", "-V"):
@@ -93,6 +96,13 @@ def _plugin(args: list[str]) -> None:
     run_plugin(args)
 
 
+def _report(args: list[str]) -> None:
+    """Generate project quality report."""
+    from mirdan.cli.report_command import run_report
+
+    run_report(args)
+
+
 def _print_help() -> None:
     """Print CLI usage help."""
     from mirdan import __version__
@@ -110,6 +120,7 @@ def _print_help() -> None:
     print("  checklist  Show verification checklist for a task type")
     print("  scan       Scan codebase to discover conventions")
     print("  plugin     Plugin management (export)")
+    print("  report     Generate project quality report")
     print()
     print("Options:")
     print("  -h, --help     Show this help")

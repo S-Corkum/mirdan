@@ -1,5 +1,15 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mirdan validate --version 2>/dev/null && echo 'mirdan quality runtime active' || echo 'mirdan not found - install with: pip install mirdan'"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Write|Edit",
@@ -17,8 +27,28 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mirdan validate --quick --file \"$TOOL_INPUT_FILE_PATH\" --format text",
+            "command": "mirdan validate --quick --file \"$TOOL_INPUT_FILE_PATH\" --format micro",
             "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "A subagent just completed work. If it wrote code, validate quality by calling mcp__mirdan__validate_code_quality on the changed files."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Context is being compressed. Ensure any pending mirdan quality violations are addressed before context is lost."
           }
         ]
       }

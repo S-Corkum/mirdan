@@ -492,15 +492,19 @@ mirdan init --claude-code
 
 ---
 
-## Phase 2: AI-Specific Intelligence (0.2.0)
+## Phase 2: AI-Specific Intelligence (0.2.0) — COMPLETE
 
 **Goal**: mirdan catches code quality issues that NO other tool catches — issues unique to AI-generated code. Also completes linter orchestration deferred from Phase 1.
 
+> **Status**: COMPLETE. All AI rules (AI001-AI008) implemented. Multi-language AI002 (Python, TypeScript/JavaScript, Go, Rust). CLI --staged flag and --format micro added. Linter orchestration verified functional.
+
 > **Note**: AI001 (placeholder detection), AI002 (hallucinated imports), AI008 (injection vulnerabilities), and ai_quality.yaml were completed in Phase 1 (0.1.0). Phase 2 focuses on the remaining AI rules and linter orchestration.
 
-### 2A: Remaining AI-Specific Quality Rules
+### 2A: Remaining AI-Specific Quality Rules — COMPLETE
 
 > AI001, AI002, AI008, AIQualityChecker module, and ai_quality.yaml are DONE (shipped in 0.1.0).
+> AI003-AI007 DONE (shipped in 0.2.0): Over-engineering detection, duplicate block detection, inconsistent error handling, heavy import detection, security theater detection.
+> Multi-language AI002 DONE: TypeScript/JavaScript, Go, Rust support added.
 
 #### Step 2.1: Implement Additional AI Rules
 
@@ -531,7 +535,9 @@ mirdan init --claude-code
 
 **File**: `tests/test_ai_quality_checker.py` (extend existing)
 
-### 2A-bis: Complete Linter Orchestration (deferred from Phase 1)
+### 2A-bis: Complete Linter Orchestration (deferred from Phase 1) — VERIFIED COMPLETE
+
+> Linter orchestration verified functional in 0.2.0: LinterRunner auto-detects ruff/mypy/eslint, runs as async subprocesses with JSON output. CLI `--lint` flag works with `--file` mode. merge_linter_violations recalculates scores with config-based severity weights.
 
 ---
 
@@ -663,9 +669,11 @@ class ModularStandards:
 
 ---
 
-## Phase 3: Learning & Adaptation (0.3.0)
+## Phase 3: Learning & Adaptation (0.3.0) — PARTIAL (Active Runtime shipped)
 
 **Goal**: mirdan learns from the project and gets smarter over time.
+
+> **Status**: Active Runtime features shipped in 0.3.0: MICRO output format, auto-invocation skills with MCP tools, 4 specialized agents (quality-gate, security-audit, test-quality, convention-check), 6 Claude Code lifecycle hooks (SessionStart, PreToolUse, PostToolUse, SubagentStop, PreCompact, Stop), dynamic Cursor rules generation with AGENTS.md/BUGBOT.md. Convention learning bridge deferred to future release.
 
 ### 3A: Convention Learning Bridge
 

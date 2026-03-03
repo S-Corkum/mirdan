@@ -1,6 +1,7 @@
 """Intent Analyzer - Classifies developer prompts to understand intent."""
 
 import re
+from pathlib import Path
 
 from mirdan.config import ProjectConfig
 from mirdan.core.entity_extractor import EntityExtractor
@@ -221,6 +222,9 @@ class IntentAnalyzer:
         if not frameworks and self._config and self._config.frameworks:
             frameworks = list(self._config.frameworks)
 
+        # Detect framework versions from dependency manifests
+        framework_versions = self._detect_framework_versions(frameworks)
+
         # Check if touches security
         touches_security = any(
             re.search(pattern, prompt_lower) for pattern in self.SECURITY_KEYWORDS
@@ -252,6 +256,7 @@ class IntentAnalyzer:
             task_type=task_type,
             primary_language=language,
             frameworks=frameworks,
+            framework_versions=framework_versions,
             entities=extracted_entities,
             touches_security=touches_security,
             touches_rag=touches_rag,
@@ -279,6 +284,36 @@ class IntentAnalyzer:
                     detected.append(framework)
                     break
         return detected
+
+    def _detect_framework_versions(self, frameworks: list[str]) -> dict[str, str]:
+        """Detect framework versions from dependency manifests in the current directory.
+
+        Searches pyproject.toml, package.json, Cargo.toml, and go.mod for
+        version information of the detected frameworks.
+
+        Args:
+            frameworks: List of detected framework names.
+
+        Returns:
+            Mapping of framework name to version string.
+        """
+        if not frameworks:
+            return {}
+
+        from mirdan.cli.detect import detect_framework_version
+
+        versions: dict[str, str] = {}
+        cwd = Path.cwd()
+
+        for framework in frameworks:
+            try:
+                version = detect_framework_version(framework, cwd)
+                if version:
+                    versions[framework] = version
+            except Exception:
+                continue
+
+        return versions
 
     def _calculate_ambiguity(self, prompt: str, task_type: TaskType, language: str | None) -> float:
         """Calculate how ambiguous the prompt is."""

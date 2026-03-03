@@ -97,6 +97,9 @@ class TokenConfig(BaseModel):
     minimal_threshold: int = Field(
         default=1000, description="Token budget below which minimal format is used"
     )
+    micro_threshold: int = Field(
+        default=200, description="Token budget below which micro format is used (hooks)"
+    )
 
 
 class ThresholdsConfig(BaseModel):

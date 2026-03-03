@@ -88,23 +88,35 @@ class TestGenerateSkills:
 class TestGenerateAgents:
     """Tests for agent file generation."""
 
-    def test_creates_quality_gate(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_creates_all_agents(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_agents(tmp_path, detected)
-        assert len(paths) == 1
-        assert paths[0].name == "quality-gate.md"
+        assert len(paths) == 4
+        names = {p.name for p in paths}
+        assert "quality-gate.md" in names
+        assert "security-audit.md" in names
+        assert "test-quality.md" in names
+        assert "convention-check.md" in names
 
     def test_agent_has_frontmatter(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_agents(tmp_path, detected)
-        content = paths[0].read_text()
-        assert content.startswith("---")
-        assert "name:" in content
-        assert "model:" in content
+        for path in paths:
+            content = path.read_text()
+            assert content.startswith("---"), f"{path.name} missing frontmatter"
+            assert "name:" in content, f"{path.name} missing name"
+            assert "model:" in content, f"{path.name} missing model"
 
-    def test_agent_references_mirdan_tools(
+    def test_agents_have_memory_field(self, tmp_path: Path, detected: DetectedProject) -> None:
+        paths = generate_agents(tmp_path, detected)
+        for path in paths:
+            content = path.read_text()
+            assert "memory: project" in content, f"{path.name} missing memory: project"
+
+    def test_quality_gate_references_mirdan_tools(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         paths = generate_agents(tmp_path, detected)
-        content = paths[0].read_text()
+        qg = next(p for p in paths if p.name == "quality-gate.md")
+        content = qg.read_text()
         assert "mcp__mirdan__validate_code_quality" in content
 
 

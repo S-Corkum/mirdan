@@ -1,0 +1,35 @@
+name: mirdan Quality Check
+description: Run mirdan code quality validation on pull requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mirdan
+        run: pip install mirdan
+
+      - name: Run mirdan validation (quick)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git diff --staged --unified=0 origin/${{ github.base_ref }}...HEAD | mirdan validate --diff --quick --format github
+
+      - name: Run mirdan validation (full)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          git diff --unified=0 HEAD~1 | mirdan validate --diff --format github

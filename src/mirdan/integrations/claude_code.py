@@ -80,7 +80,11 @@ def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
 def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
     """Generate .claude/agents/ markdown files from templates.
 
-    Creates the quality-gate agent definition.
+    Creates specialized agent definitions:
+    - quality-gate: Full quality validation
+    - security-audit: Security-focused audit
+    - test-quality: Test code quality validation
+    - convention-check: Project convention compliance
 
     Args:
         project_dir: The project root directory.
@@ -97,14 +101,16 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
     agents_dir = project_dir / ".claude" / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
 
-    try:
-        template_file = templates_pkg / "agents" / "quality-gate.md"
-        content = template_file.read_text()
-        dest = agents_dir / "quality-gate.md"
-        dest.write_text(content)
-        generated.append(dest)
-    except (FileNotFoundError, TypeError, AttributeError):
-        pass
+    agent_names = ("quality-gate", "security-audit", "test-quality", "convention-check")
+    for agent_name in agent_names:
+        try:
+            template_file = templates_pkg / "agents" / f"{agent_name}.md"
+            content = template_file.read_text()
+            dest = agents_dir / f"{agent_name}.md"
+            dest.write_text(content)
+            generated.append(dest)
+        except (FileNotFoundError, TypeError, AttributeError):
+            continue
 
     return generated
 
@@ -214,12 +220,13 @@ def export_plugin(output_dir: Path) -> Path:
     # Copy agents
     agents_dir = output_dir / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        template_file = templates_pkg / "agents" / "quality-gate.md"
-        content = template_file.read_text()
-        (agents_dir / "quality-gate.md").write_text(content)
-    except (FileNotFoundError, TypeError, AttributeError):
-        pass
+    for agent_name in ("quality-gate", "security-audit", "test-quality", "convention-check"):
+        try:
+            template_file = templates_pkg / "agents" / f"{agent_name}.md"
+            content = template_file.read_text()
+            (agents_dir / f"{agent_name}.md").write_text(content)
+        except (FileNotFoundError, TypeError, AttributeError):
+            continue
 
     # Write README
     try:

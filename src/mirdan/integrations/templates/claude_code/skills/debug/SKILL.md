@@ -1,6 +1,6 @@
 ---
-description: Debug an issue with mirdan quality gates. Analyzes the problem, applies a fix, and validates the fix meets quality standards.
-allowed-tools: Read, Grep, Glob, Bash
+description: "Use when debugging, fixing bugs, or investigating errors. Analyzes the problem, applies a fix, and validates the fix meets quality standards."
+allowed-tools: Read, Edit, Write, Grep, Glob, Bash, mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_verification_checklist
 ---
 
 # /debug - Quality-Validated Debugging
@@ -25,4 +25,5 @@ Pass `check_security=true` if the fix touches security-sensitive areas.
 Run relevant tests to confirm the fix works and no regressions were introduced.
 
 ## 6. Report
+Run `mcp__mirdan__get_verification_checklist` for the debug task type.
 Summarize the root cause, the fix applied, and the validation score.

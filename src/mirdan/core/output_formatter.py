@@ -35,7 +35,10 @@ def estimate_dict_tokens(data: dict[str, Any]) -> int:
 
 
 def determine_format(
-    max_tokens: int, compact_threshold: int, minimal_threshold: int
+    max_tokens: int,
+    compact_threshold: int,
+    minimal_threshold: int,
+    micro_threshold: int = 200,
 ) -> OutputFormat:
     """Determine output format based on token budget.
 
@@ -43,12 +46,15 @@ def determine_format(
         max_tokens: Maximum token budget (0 = unlimited).
         compact_threshold: Threshold below which compact format is used.
         minimal_threshold: Threshold below which minimal format is used.
+        micro_threshold: Threshold below which micro format is used.
 
     Returns:
         The appropriate OutputFormat.
     """
     if max_tokens <= 0:
         return OutputFormat.FULL
+    if max_tokens <= micro_threshold:
+        return OutputFormat.MICRO
     if max_tokens <= minimal_threshold:
         return OutputFormat.MINIMAL
     if max_tokens <= compact_threshold:
@@ -79,20 +85,23 @@ def determine_format_for_model(model_tier: ModelTier) -> OutputFormat:
 class OutputFormatter:
     """Formats output according to token budget and model tier constraints.
 
-    Three compression levels:
+    Four compression levels:
     - FULL: Current behavior, all fields included.
     - COMPACT: No code_snippets/suggestions in violations, max 3 requirements,
                truncated tool recommendations.
     - MINIMAL: Pass/fail + score only.
+    - MICRO: Single-line output for hooks (e.g., "PASS 0.95" or "FAIL:2E 1W AI001:L42").
     """
 
     def __init__(
         self,
         compact_threshold: int = 4000,
         minimal_threshold: int = 1000,
+        micro_threshold: int = 200,
     ) -> None:
         self._compact_threshold = compact_threshold
         self._minimal_threshold = minimal_threshold
+        self._micro_threshold = micro_threshold
 
     def format_enhanced_prompt(
         self,
@@ -114,6 +123,9 @@ class OutputFormatter:
 
         if fmt == OutputFormat.FULL:
             return data
+
+        if fmt == OutputFormat.MICRO:
+            return self._micro_enhanced(data)
 
         if fmt == OutputFormat.MINIMAL:
             return self._minimal_enhanced(data)
@@ -141,6 +153,9 @@ class OutputFormatter:
         if fmt == OutputFormat.FULL:
             return data
 
+        if fmt == OutputFormat.MICRO:
+            return self._micro_validation(data)
+
         if fmt == OutputFormat.MINIMAL:
             return self._minimal_validation(data)
 
@@ -148,7 +163,9 @@ class OutputFormatter:
 
     def _resolve_format(self, max_tokens: int, model_tier: ModelTier) -> OutputFormat:
         """Resolve the effective output format from token budget and model tier."""
-        token_fmt = determine_format(max_tokens, self._compact_threshold, self._minimal_threshold)
+        token_fmt = determine_format(
+            max_tokens, self._compact_threshold, self._minimal_threshold, self._micro_threshold,
+        )
         model_fmt = (
             determine_format_for_model(model_tier)
             if model_tier != ModelTier.AUTO
@@ -156,7 +173,12 @@ class OutputFormatter:
         )
 
         # Use the more compressed of the two
-        priority = {OutputFormat.MINIMAL: 0, OutputFormat.COMPACT: 1, OutputFormat.FULL: 2}
+        priority = {
+            OutputFormat.MICRO: 0,
+            OutputFormat.MINIMAL: 1,
+            OutputFormat.COMPACT: 2,
+            OutputFormat.FULL: 3,
+        }
         if priority[token_fmt] <= priority[model_fmt]:
             return token_fmt
         return model_fmt
@@ -229,4 +251,40 @@ class OutputFormatter:
             "passed": data.get("passed", True),
             "score": data.get("score", 1.0),
             "summary": data.get("summary", ""),
+        }
+
+    def _micro_enhanced(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Micro format for enhanced prompt: absolute minimum."""
+        return {
+            "task_type": data.get("task_type", ""),
+            "touches_security": data.get("touches_security", False),
+        }
+
+    def _micro_validation(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Micro format for validation: single-line equivalent.
+
+        Returns a dict with a 'micro' key containing the single-line string
+        format, plus the raw passed/score for programmatic use.
+        """
+        passed = data.get("passed", True)
+        score = data.get("score", 1.0)
+
+        if passed:
+            micro_line = f"PASS {score:.2f}"
+        else:
+            violations = data.get("violations", [])
+            error_count = sum(1 for v in violations if v.get("severity") == "error")
+            warn_count = sum(1 for v in violations if v.get("severity") == "warning")
+            parts = []
+            for v in violations[:10]:
+                vid = v.get("id", "")
+                line = v.get("line")
+                loc = f":L{line}" if line else ""
+                parts.append(f"{vid}{loc}")
+            micro_line = f"FAIL:{error_count}E {warn_count}W {' '.join(parts)}"
+
+        return {
+            "passed": passed,
+            "score": score,
+            "micro": micro_line,
         }

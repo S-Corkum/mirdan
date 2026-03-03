@@ -11,6 +11,7 @@ class OutputFormat(Enum):
     FULL = "full"
     COMPACT = "compact"
     MINIMAL = "minimal"
+    MICRO = "micro"
 
 
 class ModelTier(Enum):
@@ -51,6 +52,7 @@ class Intent:
     task_type: TaskType
     primary_language: str | None = None
     frameworks: list[str] = field(default_factory=list)
+    framework_versions: dict[str, str] = field(default_factory=dict)
     entities: list["ExtractedEntity"] = field(default_factory=list)
     touches_security: bool = False
     touches_rag: bool = False

@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from mirdan.config import QualityConfig
-from mirdan.models import Intent
+from mirdan.models import Intent, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +132,10 @@ class QualityStandards:
         kg_file = standards_pkg.joinpath("knowledge_graphs.yaml")
         standards["knowledge_graphs"] = self._load_yaml_file(kg_file, "knowledge_graphs")
 
+        # Load testing standards (applied to test files)
+        testing_file = standards_pkg.joinpath("testing.yaml")
+        standards["testing"] = self._load_yaml_file(testing_file, "testing")
+
         return standards
 
     def _load_custom_standards(self, standards_dir: Path) -> None:
@@ -222,6 +226,11 @@ class QualityStandards:
         result: dict[str, Any] = self.standards.get("architecture", {})
         return result
 
+    def get_testing_standards(self) -> dict[str, Any]:
+        """Get testing quality standards."""
+        result: dict[str, Any] = self.standards.get("testing", {})
+        return result
+
     def render_for_intent(self, intent: Intent) -> list[str]:
         """Render relevant standards for a given intent."""
         requirements: list[str] = []
@@ -263,6 +272,17 @@ class QualityStandards:
             kg_standards = self.standards.get("knowledge_graphs", {})
             if "principles" in kg_standards:
                 requirements.extend(kg_standards["principles"][:kg_count])
+
+        # Add testing standards if task type is TEST
+        if intent.task_type == TaskType.TEST:
+            test_count = self._get_stringency_count("testing")
+            test_standards = self.get_testing_standards()
+            if "testing" in test_standards:
+                for category_rules in test_standards["testing"].values():
+                    if isinstance(category_rules, list):
+                        for rule in category_rules[:test_count]:
+                            if isinstance(rule, dict) and "description" in rule:
+                                requirements.append(rule["description"])
 
         # Add architecture standards (use architecture stringency)
         arch_count = self._get_stringency_count("architecture")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -45,7 +46,30 @@ def run_validate(args: list[str]) -> None:
     quick_mode = parsed.get("quick", False)
 
     try:
-        if parsed.get("diff"):
+        if parsed.get("staged"):
+            diff_text = _get_staged_diff()
+            if not diff_text.strip():
+                result = ValidationResult(
+                    passed=True,
+                    score=1.0,
+                    language_detected=language if language != "auto" else "unknown",
+                    standards_checked=["security"],
+                )
+            elif quick_mode:
+                parsed_diff = parse_unified_diff(diff_text)
+                added_code = parsed_diff.get_added_code()
+                if not added_code.strip():
+                    result = ValidationResult(
+                        passed=True,
+                        score=1.0,
+                        language_detected=language if language != "auto" else "unknown",
+                        standards_checked=["security"],
+                    )
+                else:
+                    result = validator.validate_quick(code=added_code, language=language)
+            else:
+                result = _validate_diff(validator, diff_text, language, check_security)
+        elif parsed.get("diff"):
             diff_text = sys.stdin.read()
             if quick_mode:
                 parsed_diff = parse_unified_diff(diff_text)
@@ -100,6 +124,20 @@ def run_validate(args: list[str]) -> None:
 
     _output_result(result, output_format, parsed.get("file"))
     sys.exit(0 if result.passed else 1)
+
+
+def _get_staged_diff() -> str:
+    """Get the diff of staged (git add) changes."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--staged", "--unified=0"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
 
 
 def _validate_diff(
@@ -168,8 +206,28 @@ def _output_result(
             line_part = f"line={v.line}," if v.line else ""
             print(f"::{level} {file_part}{line_part}col={v.column or 1}::{v.id}: {v.message}")
 
+    elif output_format == "micro":
+        _output_micro(result)
+
     else:  # text
         _output_text(result, file_path)
+
+
+def _output_micro(result: ValidationResult) -> None:
+    """Ultra-minimal single-line output for hooks."""
+    if result.passed:
+        print(f"PASS {result.score:.2f}")
+        return
+
+    error_count = sum(1 for v in result.violations if v.severity == "error")
+    warn_count = sum(1 for v in result.violations if v.severity == "warning")
+    violation_parts = []
+    for v in result.violations:
+        if v.severity in ("error", "warning"):
+            loc = f":L{v.line}" if v.line else ""
+            violation_parts.append(f"{v.id}{loc}")
+    violations_str = " ".join(violation_parts[:10])  # Cap at 10 for brevity
+    print(f"FAIL:{error_count}E {warn_count}W {violations_str}")
 
 
 def _output_text(result: ValidationResult, file_path: str | None = None) -> None:
@@ -222,9 +280,12 @@ def _parse_args(args: list[str]) -> dict:
         elif arg == "--quick":
             parsed["quick"] = True
             i += 1
+        elif arg == "--staged":
+            parsed["staged"] = True
+            i += 1
         elif arg == "--format" and i + 1 < len(args):
             fmt = args[i + 1]
-            if fmt not in ("json", "text", "github"):
+            if fmt not in ("json", "text", "github", "micro"):
                 parsed["error"] = f"invalid format: {fmt}"
                 return parsed
             parsed["format"] = fmt
@@ -246,6 +307,7 @@ def _print_validate_help() -> None:
     print("  --file PATH       Validate a file")
     print("  --stdin            Read code from stdin")
     print("  --diff             Read unified diff from stdin")
+    print("  --staged           Validate git staged changes")
     print()
     print("Options:")
     print("  --language LANG    Language (python|typescript|javascript|rust|go|auto)")
@@ -254,7 +316,7 @@ def _print_validate_help() -> None:
     print("  --lint             Run external linters (ruff, eslint, mypy)")
     print("  --no-lint          Skip external linters (default)")
     print("  --quick            Fast security-only validation (for hooks)")
-    print("  --format FORMAT    Output format (text|json|github)")
+    print("  --format FORMAT    Output format (text|json|github|micro)")
     print("  -h, --help         Show this help")
     print()
     print("Exit codes: 0=pass, 1=fail, 2=error")

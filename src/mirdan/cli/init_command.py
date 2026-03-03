@@ -90,7 +90,10 @@ def run_init(args: list[str]) -> None:
     if platform == "claude-code" or "claude-code" in detected.detected_ides:
         _setup_claude_code(directory, detected)
 
-    # Step 5: Hook installation (auto-install for explicit platform profiles)
+    # Step 5: CI/CD integration files
+    _setup_ci(directory, detected)
+
+    # Step 6: Hook installation (auto-install for explicit platform profiles)
     if install_hooks or force_cursor or force_claude_code:
         _setup_hooks(directory, detected)
 
@@ -224,13 +227,25 @@ def _create_rules_template(rules_dir: Path, detected: DetectedProject) -> None:
 
 
 def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
-    """Generate .cursor/rules/ .mdc files."""
-    from mirdan.integrations.cursor import generate_cursor_rules
+    """Generate .cursor/rules/ .mdc files, AGENTS.md, and BUGBOT.md."""
+    from mirdan.integrations.cursor import generate_cursor_agents, generate_cursor_rules
+
+    # Try to use dynamic generation with QualityStandards
+    try:
+        standards = QualityStandards()
+    except Exception:
+        standards = None
 
     rules_dir = directory / ".cursor" / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
-    generated = generate_cursor_rules(rules_dir, detected)
+    generated = generate_cursor_rules(rules_dir, detected, standards=standards)
     for path in generated:
+        print(f"  Created {path}")
+
+    # Generate AGENTS.md and BUGBOT.md
+    cursor_dir = directory / ".cursor"
+    agent_paths = generate_cursor_agents(cursor_dir, detected, standards=standards)
+    for path in agent_paths:
         print(f"  Created {path}")
 
 
@@ -266,6 +281,23 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
     print("  Claude Code configured! mirdan will validate edits automatically.")
     if skill_paths:
         print("  Skills installed: /mirdan:code, /mirdan:debug, /mirdan:review")
+
+
+def _setup_ci(directory: Path, detected: DetectedProject) -> None:
+    """Generate CI/CD integration files (GitHub Action, pre-commit config)."""
+    from mirdan.integrations.github_ci import generate_github_action, generate_precommit_config
+
+    # GitHub Action workflow
+    git_dir = directory / ".git"
+    if git_dir.is_dir():
+        action_path = generate_github_action(directory)
+        if action_path:
+            print(f"  Created {action_path}")
+
+    # pre-commit config
+    precommit_path = generate_precommit_config(directory)
+    if precommit_path:
+        print(f"  Created {precommit_path}")
 
 
 def _setup_hooks(directory: Path, detected: DetectedProject) -> None:

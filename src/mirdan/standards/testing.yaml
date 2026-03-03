@@ -1,0 +1,66 @@
+# mirdan Testing Quality Standards
+# Applied when validating test files (detected via is_likely_test_code)
+
+testing:
+  naming:
+    - id: TEST001
+      description: "Test names should describe the behavior being tested"
+      pattern: "def test_\\d+|def test_it_"
+      severity: warning
+      message: "Test name is not descriptive. Use: test_<action>_<context>_<expected>"
+      suggestion: "Rename to describe what is being tested, e.g., test_validates_email_format"
+
+    - id: TEST002
+      description: "Test class names should indicate what is being tested"
+      pattern: "class Tests?\\d*[^a-zA-Z]|class Tests?$"
+      severity: info
+      message: "Test class name is generic. Use: Test<Component> or Test<Feature>"
+
+  assertions:
+    - id: TEST003
+      description: "No bare assert True in tests"
+      pattern: "assert\\s+True\\s*$"
+      severity: error
+      message: "Bare 'assert True' provides no actual test verification"
+      suggestion: "Replace with a meaningful assertion that verifies behavior"
+
+    - id: TEST004
+      description: "No empty test bodies"
+      pattern: "def test_\\w+.*:\\s*\\n\\s+pass\\s*$"
+      severity: error
+      message: "Empty test body (pass) provides no verification"
+      suggestion: "Add assertions or remove the empty test"
+
+    - id: TEST005
+      description: "Tests should have at least one assertion"
+      severity: warning
+      message: "Test function has no assert statement"
+      suggestion: "Add at least one assertion to verify expected behavior"
+
+  isolation:
+    - id: TEST006
+      description: "Tests should not write to fixed file paths"
+      pattern: "open\\(['\"]\\/"
+      severity: warning
+      message: "Test writes to an absolute path. Use tmp_path or tempfile fixtures"
+      suggestion: "Use pytest's tmp_path fixture for temporary files"
+
+    - id: TEST007
+      description: "Tests should not depend on environment variables without defaults"
+      pattern: "os\\.environ\\[(?!.*\\.get)"
+      severity: info
+      message: "Test depends on environment variable. Use os.environ.get() with defaults"
+
+  mocking:
+    - id: TEST008
+      description: "Avoid overly broad mocks"
+      pattern: "@patch\\(['\"]builtins"
+      severity: info
+      message: "Mocking builtins is overly broad. Mock at the narrowest scope possible"
+      suggestion: "Mock the specific function or method being called"
+
+  coverage:
+    - id: TEST009
+      description: "Test files should test the corresponding source module"
+      severity: info
+      message: "Test file name doesn't match any source module"

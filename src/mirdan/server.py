@@ -99,6 +99,7 @@ def _get_components() -> _Components:
         output_formatter=OutputFormatter(
             compact_threshold=config.tokens.compact_threshold,
             minimal_threshold=config.tokens.minimal_threshold,
+            micro_threshold=config.tokens.micro_threshold,
         ),
         quality_persistence=QualityPersistence(),
         knowledge_producer=KnowledgeProducer(),
@@ -176,6 +177,7 @@ async def enhance_prompt(
             "task_type": intent.task_type.value,
             "language": intent.primary_language,
             "frameworks": intent.frameworks,
+            "framework_versions": intent.framework_versions,
             "touches_security": intent.touches_security,
             "touches_rag": intent.touches_rag,
             "touches_knowledge_graph": intent.touches_knowledge_graph,
