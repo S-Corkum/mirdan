@@ -8,7 +8,6 @@ import pytest
 
 from mirdan.core.ai_quality_checker import PYTHON_STDLIB_MODULES, AIQualityChecker
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

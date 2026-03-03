@@ -49,7 +49,8 @@ def parse_mypy_output(raw: str) -> list[Violation]:
     """Parse mypy JSON output into Violations.
 
     mypy output format (--output json):
-        Each line is a JSON object: {"file": "...", "line": 1, "column": 1, "severity": "error", ...}
+        Each line is a JSON object:
+        {"file": "...", "line": 1, "column": 1, "severity": "error", ...}
     """
     violations: list[Violation] = []
     for line in raw.strip().splitlines():

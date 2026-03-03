@@ -7,10 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from mirdan.core.environment_detector import EnvironmentInfo, _detect_context_budget, detect_environment
+from mirdan.core.environment_detector import (
+    EnvironmentInfo,
+    _detect_context_budget,
+    detect_environment,
+)
 from mirdan.core.output_formatter import OutputFormatter
 from mirdan.core.session_manager import SessionManager
-from mirdan.models import CompactState, Intent, TaskType
+from mirdan.models import Intent, TaskType
 
 
 class TestContextBudgetDetection:

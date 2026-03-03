@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.prompt_composer import PromptComposer
@@ -29,7 +30,6 @@ def run_checklist(args: list[str]) -> None:
         print("Error: --task-type is required", file=sys.stderr)
         _print_checklist_help()
         sys.exit(2)
-        return
 
     try:
         task = TaskType(task_type_str)
@@ -37,7 +37,6 @@ def run_checklist(args: list[str]) -> None:
         print(f"Error: unknown task type: {task_type_str}", file=sys.stderr)
         print(f"  Valid types: {', '.join(t.value for t in TaskType)}")
         sys.exit(2)
-        return
 
     touches_security = parsed.get("security", False)
 
@@ -61,9 +60,9 @@ def run_checklist(args: list[str]) -> None:
             print(f"  {i}. {step}")
 
 
-def _parse_args(args: list[str]) -> dict:
+def _parse_args(args: list[str]) -> dict[str, Any]:
     """Parse checklist subcommand arguments."""
-    parsed: dict = {}
+    parsed: dict[str, Any] = {}
     i = 0
     while i < len(args):
         arg = args[i]
@@ -94,7 +93,7 @@ def _print_checklist_help() -> None:
     print("Usage: mirdan checklist [options]")
     print()
     print("Options:")
-    print("  --task-type TYPE     Task type (required: generation|refactor|debug|review|test|planning)")
+    print("  --task-type TYPE     Task type (required: generation|refactor|debug|review|test|planning)")  # noqa: E501
     print("  --security           Include security-related checks")
     print("  --format FORMAT      Output format (text|json)")
     print("  -h, --help           Show this help")

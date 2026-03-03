@@ -60,7 +60,7 @@ def merge_linter_violations(
         score=score,
         language_detected=base_result.language_detected,
         violations=all_violations,
-        standards_checked=base_result.standards_checked + ["external-linters"],
+        standards_checked=[*base_result.standards_checked, "external-linters"],
         limitations=base_result.limitations,
     )
 

@@ -471,7 +471,7 @@ class AIQualityChecker:
                 continue
             if module.startswith("node:"):
                 continue
-            if self._project_deps is not None and module in self._project_deps:
+            if module in self._project_deps:
                 continue
             violations.append(Violation(
                 id="AI002",
@@ -520,11 +520,11 @@ class AIQualityChecker:
             if "." not in top_pkg and top_pkg in GO_STDLIB_PACKAGES:
                 continue
             # Third-party: check against go.mod deps
-            if self._project_deps is not None and path in self._project_deps:
+            if path in self._project_deps:
                 continue
             # Check module prefix match: import path should start with a known dep
             # e.g., "github.com/foo/bar/sub" starts with dep "github.com/foo/bar"
-            if self._project_deps is not None and any(
+            if any(
                 path.startswith(dep + "/") or path == dep
                 for dep in self._project_deps
             ):
@@ -566,7 +566,7 @@ class AIQualityChecker:
             line_no = code[:m.start()].count("\n") + 1
             if crate_name in rust_builtins:
                 continue
-            if self._project_deps is not None and crate_name in self._project_deps:
+            if crate_name in self._project_deps:
                 continue
             violations.append(Violation(
                 id="AI002",
@@ -911,10 +911,11 @@ class AIQualityChecker:
         i = 0
         while i < len(lines):
             line = lines[i]
-            stripped = line.strip()
             # Detect function/method definitions
-            if re.match(r"^\s*(?:def|function|fn|func|pub\s+fn|async\s+def|async\s+function)\s+\w+", line):
-                if _is_in_skip_region(sum(len(l) + 1 for l in lines[:i]), skip_regions):
+            _func_re = r"^\s*(?:def|function|fn|func|pub\s+fn|async\s+def|async\s+function)\s+\w+"
+            if re.match(_func_re, line):
+                char_offset = sum(len(ln) + 1 for ln in lines[:i])
+                if _is_in_skip_region(char_offset, skip_regions):
                     i += 1
                     continue
                 func_indent = len(line) - len(line.lstrip())
@@ -946,7 +947,7 @@ class AIQualityChecker:
             normalized = re.sub(r"#.*$", "", body, flags=re.MULTILINE)
             normalized = re.sub(r"//.*$", "", normalized, flags=re.MULTILINE)
             normalized = re.sub(r"\s+", " ", normalized).strip()
-            h = hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()  # noqa: S324
+            h = hashlib.md5(normalized.encode(), usedforsecurity=False).hexdigest()
             if h in seen:
                 violations.append(Violation(
                     id="AI004",
@@ -991,20 +992,20 @@ class AIQualityChecker:
         violations: list[Violation] = []
 
         # Detect bare except mixed with specific except in same file
-        bare_excepts: list[int] = []
-        specific_excepts: list[int] = []
-
-        for m in re.finditer(r"^\s*except\s*:", code, re.MULTILINE):
-            if not _is_in_skip_region(m.start(), skip_regions):
-                bare_excepts.append(code[:m.start()].count("\n") + 1)
-
-        for m in re.finditer(r"^\s*except\s+\w+", code, re.MULTILINE):
-            if not _is_in_skip_region(m.start(), skip_regions):
-                specific_excepts.append(code[:m.start()].count("\n") + 1)
+        bare_excepts = [
+            code[:m.start()].count("\n") + 1
+            for m in re.finditer(r"^\s*except\s*:", code, re.MULTILINE)
+            if not _is_in_skip_region(m.start(), skip_regions)
+        ]
+        specific_excepts = [
+            code[:m.start()].count("\n") + 1
+            for m in re.finditer(r"^\s*except\s+\w+", code, re.MULTILINE)
+            if not _is_in_skip_region(m.start(), skip_regions)
+        ]
 
         if bare_excepts and specific_excepts:
-            for line_no in bare_excepts:
-                violations.append(Violation(
+            violations.extend(
+                Violation(
                     id="AI005",
                     rule="ai-inconsistent-errors",
                     category="ai_quality",
@@ -1015,7 +1016,9 @@ class AIQualityChecker:
                     ),
                     line=line_no,
                     suggestion="Replace bare 'except:' with specific exception types",
-                ))
+                )
+                for line_no in bare_excepts
+            )
 
         return violations
 
@@ -1024,22 +1027,22 @@ class AIQualityChecker:
         violations: list[Violation] = []
 
         # Detect empty catch blocks mixed with handled catch blocks
-        empty_catches: list[int] = []
-        handled_catches: list[int] = []
-
-        for m in re.finditer(r"catch\s*\([^)]*\)\s*\{\s*\}", code):
-            if not _is_in_skip_region(m.start(), skip_regions):
-                empty_catches.append(code[:m.start()].count("\n") + 1)
-
-        for m in re.finditer(r"catch\s*\([^)]*\)\s*\{[^}]+\}", code, re.DOTALL):
-            if not _is_in_skip_region(m.start(), skip_regions):
-                body = m.group(0)
-                if body.strip() != "catch" and "{}" not in body.replace(" ", ""):
-                    handled_catches.append(code[:m.start()].count("\n") + 1)
+        empty_catches = [
+            code[:m.start()].count("\n") + 1
+            for m in re.finditer(r"catch\s*\([^)]*\)\s*\{\s*\}", code)
+            if not _is_in_skip_region(m.start(), skip_regions)
+        ]
+        handled_catches = [
+            code[:m.start()].count("\n") + 1
+            for m in re.finditer(r"catch\s*\([^)]*\)\s*\{[^}]+\}", code, re.DOTALL)
+            if not _is_in_skip_region(m.start(), skip_regions)
+            and m.group(0).strip() != "catch"
+            and "{}" not in m.group(0).replace(" ", "")
+        ]
 
         if empty_catches and handled_catches:
-            for line_no in empty_catches:
-                violations.append(Violation(
+            violations.extend(
+                Violation(
                     id="AI005",
                     rule="ai-inconsistent-errors",
                     category="ai_quality",
@@ -1050,7 +1053,9 @@ class AIQualityChecker:
                     ),
                     line=line_no,
                     suggestion="Add error handling or a comment explaining why it's ignored",
-                ))
+                )
+                for line_no in empty_catches
+            )
 
         return violations
 

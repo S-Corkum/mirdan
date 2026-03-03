@@ -29,7 +29,6 @@ def run_standards(args: list[str]) -> None:
         print("Error: --language is required", file=sys.stderr)
         _print_standards_help()
         sys.exit(2)
-        return
 
     config = MirdanConfig.find_config()
     standards = QualityStandards(config=config.quality)
@@ -47,9 +46,9 @@ def run_standards(args: list[str]) -> None:
         print(yaml.dump(result, default_flow_style=False, sort_keys=False))
 
 
-def _parse_args(args: list[str]) -> dict:
+def _parse_args(args: list[str]) -> dict[str, str]:
     """Parse standards subcommand arguments."""
-    parsed: dict = {}
+    parsed: dict[str, str] = {}
     i = 0
     while i < len(args):
         arg = args[i]

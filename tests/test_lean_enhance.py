@@ -30,7 +30,7 @@ class TestLeanEnhancePrompt:
             "gather_all",
             new_callable=AsyncMock,
         ) as mock_gather:
-            result = await _enhance_prompt("Create a Python function", context_level="none")
+            await _enhance_prompt("Create a Python function", context_level="none")
         mock_gather.assert_not_awaited()
 
     async def test_returns_quality_requirements(self) -> None:

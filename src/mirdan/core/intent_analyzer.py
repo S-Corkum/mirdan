@@ -1,5 +1,6 @@
 """Intent Analyzer - Classifies developer prompts to understand intent."""
 
+import logging
 import re
 from pathlib import Path
 
@@ -7,6 +8,8 @@ from mirdan.config import ProjectConfig
 from mirdan.core.entity_extractor import EntityExtractor
 from mirdan.core.pattern_matcher import PatternMatcher
 from mirdan.models import Intent, TaskType
+
+logger = logging.getLogger(__name__)
 
 
 class IntentAnalyzer:
@@ -311,6 +314,7 @@ class IntentAnalyzer:
                 if version:
                     versions[framework] = version
             except Exception:
+                logger.debug("Could not detect version for framework %s", framework, exc_info=True)
                 continue
 
         return versions

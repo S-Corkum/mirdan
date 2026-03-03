@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -45,14 +46,22 @@ class LinterConfig:
 # Mapping: language -> list of (linter_name, command_builder, parser)
 _LINTER_REGISTRY: dict[str, list[tuple[str, Any, Any]]] = {
     "python": [
-        ("ruff", lambda f, args: ["ruff", "check", "--output-format", "json", *args, str(f)], parse_ruff_output),
-        ("mypy", lambda f, args: ["mypy", "--output", "json", "--no-error-summary", *args, str(f)], parse_mypy_output),
+        (
+            "ruff",
+            lambda f, args: ["ruff", "check", "--output-format", "json", *args, str(f)],
+            parse_ruff_output,
+        ),
+        (
+            "mypy",
+            lambda f, args: ["mypy", "--output", "json", "--no-error-summary", *args, str(f)],
+            parse_mypy_output,
+        ),
     ],
     "javascript": [
-        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),
+        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),  # noqa: E501
     ],
     "typescript": [
-        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),
+        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),  # noqa: E501
     ],
 }
 
@@ -135,7 +144,7 @@ class LinterRunner:
         self,
         name: str,
         cmd: list[str],
-        parser: Any,
+        parser: Callable[[str], list[Violation]],
     ) -> list[Violation]:
         """Run a single linter subprocess."""
         logger.debug("Running linter '%s': %s", name, " ".join(cmd))
@@ -161,7 +170,9 @@ class LinterRunner:
         # Some linters use non-zero exit codes for "found issues" vs errors
         if proc.returncode is not None and proc.returncode > 2:
             stderr_text = stderr.decode("utf-8", errors="replace")
-            logger.warning("Linter '%s' failed (exit %d): %s", name, proc.returncode, stderr_text[:200])
+            logger.warning(
+                "Linter '%s' failed (exit %d): %s", name, proc.returncode, stderr_text[:200]
+            )
             return []
 
         violations = parser(raw_output)

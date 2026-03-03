@@ -278,11 +278,13 @@ class QualityStandards:
             test_count = self._get_stringency_count("testing")
             test_standards = self.get_testing_standards()
             if "testing" in test_standards:
-                for category_rules in test_standards["testing"].values():
-                    if isinstance(category_rules, list):
-                        for rule in category_rules[:test_count]:
-                            if isinstance(rule, dict) and "description" in rule:
-                                requirements.append(rule["description"])
+                requirements.extend(
+                    rule["description"]
+                    for category_rules in test_standards["testing"].values()
+                    if isinstance(category_rules, list)
+                    for rule in category_rules[:test_count]
+                    if isinstance(rule, dict) and "description" in rule
+                )
 
         # Add architecture standards (use architecture stringency)
         arch_count = self._get_stringency_count("architecture")

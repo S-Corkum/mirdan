@@ -214,7 +214,7 @@ class TestBatchFix:
             )
         ]
         code = "try:\n    pass\nexcept:\n    pass"
-        fixed_code, fixes = fixer.batch_fix(code, violations, dry_run=False)
+        fixed_code, _ = fixer.batch_fix(code, violations, dry_run=False)
         # May or may not apply depending on pattern match
         assert isinstance(fixed_code, str)
 

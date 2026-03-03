@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from importlib.resources import files
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 from mirdan.cli.detect import DetectedProject
@@ -341,7 +342,7 @@ def _load_rule_templates() -> dict[str, str]:
     return templates
 
 
-def _get_templates_package():
+def _get_templates_package() -> Traversable | None:
     """Get the templates package traversable."""
     try:
         return files("mirdan.integrations.templates.claude_code")

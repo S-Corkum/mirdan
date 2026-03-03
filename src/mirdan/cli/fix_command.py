@@ -136,7 +136,7 @@ def _fix_staged(
 
     try:
         result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],  # noqa: S607
             capture_output=True,
             text=True,
             check=True,

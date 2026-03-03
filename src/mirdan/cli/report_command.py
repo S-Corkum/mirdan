@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.quality_standards import QualityStandards
-from mirdan.models import ValidationResult
 
+logger = logging.getLogger(__name__)
 
 # File extensions to scan by language
 _LANG_EXTENSIONS: dict[str, list[str]] = {
@@ -54,7 +56,7 @@ def run_report(args: list[str]) -> None:
         sys.exit(0)
 
     # Validate each file
-    file_results: list[dict] = []
+    file_results: list[dict[str, Any]] = []
     total_violations = {"error": 0, "warning": 0, "info": 0}
     total_score = 0.0
     passed_count = 0
@@ -81,6 +83,7 @@ def run_report(args: list[str]) -> None:
             for v in result.violations:
                 total_violations[v.severity] = total_violations.get(v.severity, 0) + 1
         except Exception:
+            logger.debug("Skipping file due to analysis error", exc_info=True)
             continue
 
     if not file_results:
@@ -122,17 +125,15 @@ def _discover_source_files(
         for path in directory.rglob(f"*{ext}"):
             # Skip hidden dirs, venvs, node_modules, __pycache__
             parts = path.parts
-            if any(
-                p.startswith(".") or p in ("node_modules", "__pycache__", "venv", ".venv", "dist", "build")
-                for p in parts
-            ):
+            _skip = {"node_modules", "__pycache__", "venv", ".venv", "dist", "build"}
+            if any(p.startswith(".") or p in _skip for p in parts):
                 continue
             files.append(path)
 
     return sorted(files)
 
 
-def _output_text_report(report: dict) -> None:
+def _output_text_report(report: dict[str, Any]) -> None:
     """Print human-readable text report."""
     print(f"mirdan Quality Report: {report['directory']}")
     print(f"{'=' * 60}")
@@ -157,16 +158,16 @@ def _output_text_report(report: dict) -> None:
     print(f"  Overall: {status}")
 
 
-def _output_markdown(report: dict) -> None:
+def _output_markdown(report: dict[str, Any]) -> None:
     """Print markdown-formatted report."""
     avg = report["avg_score"]
     pr = report["pass_rate"]
     te = report["total_violations"].get("error", 0)
     tw = report["total_violations"].get("warning", 0)
 
-    print(f"# mirdan Quality Report\n")
-    print(f"| Metric | Value |")
-    print(f"|--------|-------|")
+    print("# mirdan Quality Report\n")
+    print("| Metric | Value |")
+    print("|--------|-------|")
     print(f"| Files analyzed | {report['files_analyzed']} |")
     print(f"| Average score | {avg:.3f} |")
     print(f"| Pass rate | {pr:.1%} |")
@@ -183,9 +184,9 @@ def _output_markdown(report: dict) -> None:
             print(f"| {f['score']:.2f} | `{f['file']}` | {f['errors']} | {f['warnings']} |")
 
 
-def _parse_report_args(args: list[str]) -> dict:
+def _parse_report_args(args: list[str]) -> dict[str, Any]:
     """Parse report subcommand arguments."""
-    parsed: dict = {}
+    parsed: dict[str, Any] = {}
     i = 0
     while i < len(args):
         arg = args[i]

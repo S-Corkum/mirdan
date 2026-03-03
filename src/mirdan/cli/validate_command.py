@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
@@ -116,11 +117,9 @@ def run_validate(args: list[str]) -> None:
             print("Error: one of --file, --stdin, or --diff is required", file=sys.stderr)
             _print_validate_help()
             sys.exit(2)
-            return  # unreachable, but helps type-checker
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
-        return
 
     _output_result(result, output_format, parsed.get("file"))
     sys.exit(0 if result.passed else 1)
@@ -130,7 +129,7 @@ def _get_staged_diff() -> str:
     """Get the diff of staged (git add) changes."""
     try:
         result = subprocess.run(
-            ["git", "diff", "--staged", "--unified=0"],
+            ["git", "diff", "--staged", "--unified=0"],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=10,
@@ -247,9 +246,9 @@ def _output_text(result: ValidationResult, file_path: str | None = None) -> None
             print(f"          -> {v.suggestion}")
 
 
-def _parse_args(args: list[str]) -> dict:
+def _parse_args(args: list[str]) -> dict[str, Any]:
     """Parse validate subcommand arguments."""
-    parsed: dict = {}
+    parsed: dict[str, Any] = {}
     i = 0
     while i < len(args):
         arg = args[i]

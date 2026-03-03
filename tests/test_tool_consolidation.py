@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 import mirdan.server as server_mod
-from mirdan.models import ContextBundle
 
 # Extract raw async functions from FastMCP FunctionTool wrappers
 _enhance_prompt = server_mod.enhance_prompt.fn

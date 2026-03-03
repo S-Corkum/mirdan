@@ -129,7 +129,7 @@ def _generate_dynamic_rules(
 
 def _build_always_mdc(standards: QualityStandards) -> str:
     """Build the always-on mirdan rule."""
-    return f"""---
+    return """---
 description: "mirdan quality standards — always active"
 globs: "**/*"
 alwaysApply: true
@@ -164,7 +164,8 @@ def _build_language_mdc(language: str, globs: str, standards: QualityStandards) 
                 rules_text += f"\n### {category.title()}\n"
                 for item in items[:10]:  # Cap at 10 per category
                     if isinstance(item, dict):
-                        rules_text += f"- **{item.get('id', '')}**: {item.get('description', item.get('message', ''))}\n"
+                        desc = item.get("description", item.get("message", ""))
+                        rules_text += f"- **{item.get('id', '')}**: {desc}\n"
                     elif isinstance(item, str):
                         rules_text += f"- {item}\n"
 
