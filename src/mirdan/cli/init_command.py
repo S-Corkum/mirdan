@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 import sys
 from pathlib import Path
@@ -236,15 +235,37 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
 
 
 def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
-    """Generate Claude Code configuration files."""
-    from mirdan.integrations.claude_code import generate_claude_code_config
+    """Generate Claude Code configuration files, skills, agents, and MCP config."""
+    from mirdan.integrations.claude_code import (
+        generate_agents,
+        generate_claude_code_config,
+        generate_mcp_json,
+        generate_skills,
+    )
 
+    # MCP server registration
+    mcp_path = generate_mcp_json(directory)
+    print(f"  Created {mcp_path}")
+
+    # Hooks + rules
     generated = generate_claude_code_config(directory, detected)
     for path in generated:
         print(f"  Created {path}")
 
+    # Skills
+    skill_paths = generate_skills(directory, detected)
+    for path in skill_paths:
+        print(f"  Created {path}")
+
+    # Agents
+    agent_paths = generate_agents(directory, detected)
+    for path in agent_paths:
+        print(f"  Created {path}")
+
     print()
     print("  Claude Code configured! mirdan will validate edits automatically.")
+    if skill_paths:
+        print("  Skills installed: /mirdan:code, /mirdan:debug, /mirdan:review")
 
 
 def _setup_hooks(directory: Path, detected: DetectedProject) -> None:

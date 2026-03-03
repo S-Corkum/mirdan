@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mirdan": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mirdan"]
+    }
+  }
+}

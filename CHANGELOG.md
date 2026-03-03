@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-03-02
+
+### Added
+
+- **AI Quality Rules** — AI-specific code quality detection that no other tool catches:
+  - `AI001` (error): Placeholder detection — catches `raise NotImplementedError`, `pass` with TODO/FIXME (skips `@abstractmethod`)
+  - `AI002` (warning): Hallucinated import detection — flags imports not in Python stdlib or project dependencies
+  - `AI008` (error): Injection vulnerability — catches f-string SQL, eval/exec/os.system/subprocess with f-strings
+  - New module: `src/mirdan/core/ai_quality_checker.py` with `AIQualityChecker` class
+  - New standards: `src/mirdan/standards/ai_quality.yaml`
+  - AI rules integrated into both `validate()` (full) and `validate_quick()` (AI001 + AI008)
+
+- **Claude Code Plugin System** — mirdan ships as a distributable Claude Code plugin:
+  - `mirdan plugin export [--output-dir PATH]` — exports complete plugin structure
+  - Plugin manifest (`.claude-plugin/plugin.json`), MCP config, skills, agents
+  - Skills: `/mirdan:code`, `/mirdan:debug`, `/mirdan:review` with SKILL.md frontmatter
+  - Agent: `quality-gate` subagent for background quality validation
+  - Enhanced hooks template: PreToolUse (prompt reminder), PostToolUse (quick validation), Stop (full validation)
+
+- **Enhanced `mirdan init --claude-code`** — generates complete integration in one command:
+  - `.mcp.json` — MCP server registration (auto-detects uvx/mirdan/python -m)
+  - `.claude/hooks.json` — automatic quality gates on every edit
+  - `.claude/rules/mirdan-*.md` — language-specific quality rules
+  - `.claude/skills/{code,debug,review}/SKILL.md` — skill files
+  - `.claude/agents/quality-gate.md` — quality gate subagent
+  - Merges with existing `.mcp.json` without overwriting other servers
+  - Respects existing `hooks.json` (won't overwrite user customizations)
+
+- **New CLI command**: `mirdan plugin` with `export` subcommand
+
+### Removed
+
+- **6 deprecated MCP tool aliases** — reduces context overhead by ~1,200 tokens/session:
+  - `analyze_intent` (use `enhance_prompt` instead)
+  - `suggest_tools` (use `enhance_prompt` tool_recommendations)
+  - `get_verification_checklist` (use `enhance_prompt` verification_steps)
+  - `validate_diff` (use `validate_code_quality` with diff input)
+  - `validate_plan_quality` (use `validate_code_quality`)
+  - `compare_approaches` (removed — platforms handle this natively)
+- Only 5 MCP tools remain: `enhance_prompt`, `validate_code_quality`, `validate_quick`, `get_quality_standards`, `get_quality_trends`
+
+### Changed
+
+- `CodeValidator` accepts optional `project_dir` parameter for AI002 import verification
+- `mirdan init --claude-code` now generates skills, agents, hooks, and MCP config (previously only rules)
+
+### Testing
+
+- **1233 total tests** (1182 → 1233, +51 new tests), all passing
+- New test files: `test_ai_quality_checker.py` (64 tests), `test_plugin_export.py` (20 tests)
+- Updated: `test_server_tools.py` (tool registration verification), `test_claude_code_integration.py` (Stop hook tests)
+
 ## [0.0.7] - 2026-02-13
 
 ### Added
@@ -245,6 +297,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality standards for 6 languages
 - Integration guides for Claude Desktop, VS Code, Cursor
 
+[0.1.0]: https://github.com/S-Corkum/mirdan/compare/0.0.7...0.1.0
 [0.0.7]: https://github.com/S-Corkum/mirdan/compare/0.0.6...0.0.7
 [0.0.6]: https://github.com/S-Corkum/mirdan/compare/0.0.5...0.0.6
 [0.0.5]: https://github.com/S-Corkum/mirdan/compare/0.0.4...0.0.5

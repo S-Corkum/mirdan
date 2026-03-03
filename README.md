@@ -380,10 +380,9 @@ Configure mirdan-related settings in `.claude/settings.json`:
     "allow": [
       "mcp__mirdan__enhance_prompt",
       "mcp__mirdan__validate_code_quality",
+      "mcp__mirdan__validate_quick",
       "mcp__mirdan__get_quality_standards",
-      "mcp__mirdan__analyze_intent",
-      "mcp__mirdan__suggest_tools",
-      "mcp__mirdan__get_verification_checklist"
+      "mcp__mirdan__get_quality_trends"
     ]
   },
   "enableAllProjectMcpServers": true,
@@ -577,35 +576,68 @@ Code in security-sensitive paths requires STRICT validation:
 
 **Recommended:** Start with AGENTS.md for immediate benefit. Add granular Project Rules as your team's needs grow.
 
-### Available Tools
+### Automatic Setup with `mirdan init`
+
+The fastest way to integrate mirdan with Claude Code:
+
+```bash
+mirdan init --claude-code
+```
+
+This generates everything needed for automatic quality enforcement:
+
+| Generated | Path | Purpose |
+|-----------|------|---------|
+| MCP config | `.mcp.json` | Registers mirdan as MCP server |
+| Hooks | `.claude/hooks.json` | Auto-validates edits (PostToolUse) and final output (Stop) |
+| Quality rules | `.claude/rules/mirdan-*.md` | Language-specific quality standards |
+| Skills | `.claude/skills/{code,debug,review}/SKILL.md` | `/mirdan:code`, `/mirdan:debug`, `/mirdan:review` |
+| Agent | `.claude/agents/quality-gate.md` | Background quality validation subagent |
+
+After init, quality gates fire automatically with zero manual effort.
+
+#### Plugin Distribution
+
+mirdan can also be exported as a standalone Claude Code plugin:
+
+```bash
+mirdan plugin export --output-dir ./mirdan-plugin
+# Install with: claude --plugin-dir ./mirdan-plugin
+```
+
+### Available Tools (5)
 
 #### enhance_prompt
 
 Automatically enhance a coding prompt with quality requirements and tool recommendations.
 
-#### analyze_intent
-
-Analyze a prompt without enhancement to understand the detected intent.
-
 #### get_quality_standards
 
 Retrieve quality standards for a language/framework combination.
 
-#### suggest_tools
-
-Get recommendations for which MCP tools to use.
-
-#### get_verification_checklist
-
-Get a verification checklist for a specific task type (generation, refactor, debug, review, test).
-
 #### validate_code_quality
 
-Validate generated code against quality standards. Checks for security issues, architecture patterns, and language-specific style violations.
+Validate generated code against quality standards. Checks for security issues, architecture patterns, AI-specific quality rules, and language-specific style violations.
 
-#### validate_plan_quality
+#### validate_quick
 
-Validate an implementation plan for quality and cheap-model readiness. Checks grounding, completeness, atomicity, and clarity.
+Fast validation mode (<500ms) for hook integration. Runs only security-critical rules (SEC001-SEC013, AI001, AI008).
+
+#### get_quality_trends
+
+Get quality score trends across validation sessions.
+
+### AI Quality Rules
+
+mirdan includes AI-specific quality rules that catch issues unique to AI-generated code:
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| **AI001** | error | Placeholder detection — catches `raise NotImplementedError`, `pass` with TODO/FIXME comments (skips `@abstractmethod`) |
+| **AI002** | warning | Hallucinated import detection — flags imports not found in Python stdlib or project dependencies |
+| **AI008** | error | Injection vulnerability — catches f-string SQL, `eval`/`exec`/`os.system`/`subprocess` with f-strings |
+
+AI001 and AI008 run in both full and quick validation modes (security-critical).
 
 ## MCP Configuration Reference
 

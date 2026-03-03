@@ -717,6 +717,7 @@ class CodeValidator:
         standards: QualityStandards,
         config: QualityConfig | None = None,
         thresholds: ThresholdsConfig | None = None,
+        project_dir: Path | None = None,
     ):
         """Initialize validator with quality standards.
 
@@ -724,12 +725,18 @@ class CodeValidator:
             standards: Quality standards repository to validate against
             config: Optional quality config for stringency levels
             thresholds: Optional thresholds for score calculation
+            project_dir: Optional project directory for AI002 import verification
         """
         self.standards = standards
         self._config = config
         self._thresholds = thresholds
         self._language_detector = LanguageDetector(thresholds=thresholds)
         self._compiled_rules = self._compile_rules()
+
+        # AI-specific quality checker
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        self._ai_checker = AIQualityChecker(project_dir)
 
         # Load custom rules if configured
         if config and config.custom_rules_dir:
@@ -995,6 +1002,12 @@ class CodeValidator:
                 standards_checked.append("framework")
                 violations.extend(fw_violations)
 
+        # AI-specific quality checks
+        ai_violations = self._ai_checker.check(code, detected_lang)
+        if ai_violations:
+            standards_checked.append("ai_quality")
+            violations.extend(ai_violations)
+
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
         score = self._calculate_score(violations)
@@ -1048,6 +1061,14 @@ class CodeValidator:
             skip_regions=skip_regions,
         )
 
+        # AI-specific critical checks (AI001 placeholders, AI008 injection)
+        ai_violations = self._ai_checker.check_quick(code, detected_lang)
+        violations.extend(ai_violations)
+
+        standards_checked = ["security"]
+        if ai_violations:
+            standards_checked.append("ai_quality")
+
         passed = not any(v.severity == "error" for v in violations)
         score = self._calculate_score(violations)
 
@@ -1056,7 +1077,7 @@ class CodeValidator:
             score=score,
             language_detected=detected_lang,
             violations=violations,
-            standards_checked=["security"],
+            standards_checked=standards_checked,
             limitations=limitations,
         )
 

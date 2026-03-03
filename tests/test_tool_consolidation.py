@@ -13,12 +13,6 @@ from mirdan.models import ContextBundle
 # Extract raw async functions from FastMCP FunctionTool wrappers
 _enhance_prompt = server_mod.enhance_prompt.fn
 _validate_code_quality = server_mod.validate_code_quality.fn
-_analyze_intent = server_mod.analyze_intent.fn
-_suggest_tools = server_mod.suggest_tools.fn
-_get_verification_checklist = server_mod.get_verification_checklist.fn
-_validate_diff = server_mod.validate_diff.fn
-_validate_plan_quality = server_mod.validate_plan_quality.fn
-_compare_approaches = server_mod.compare_approaches.fn
 
 
 @pytest.fixture(autouse=True)
@@ -226,43 +220,11 @@ class TestValidateCodeQualityChecklist:
 
 
 # ---------------------------------------------------------------------------
-# Deprecated aliases still work
+# Consolidated modes cover all former deprecated tool functionality
 # ---------------------------------------------------------------------------
-
-
-class TestDeprecatedAliases:
-    """Deprecated tool names should still function but log warnings."""
-
-    async def test_analyze_intent_deprecated(self) -> None:
-        server_mod._get_components()
-        result = await _analyze_intent("Write Python code")
-        assert "task_type" in result
-
-    async def test_suggest_tools_deprecated(self) -> None:
-        server_mod._get_components()
-        result = await _suggest_tools("Create a Python REST API")
-        assert "recommendations" in result
-
-    async def test_get_verification_checklist_deprecated(self) -> None:
-        server_mod._get_components()
-        result = await _get_verification_checklist("generation")
-        assert "checklist" in result
-
-    async def test_validate_diff_deprecated(self) -> None:
-        server_mod._get_components()
-        diff = "--- a/t.py\n+++ b/t.py\n@@ -1 +1,2 @@\n x=1\n+y=2\n"
-        result = await _validate_diff(diff, language="python")
-        assert "passed" in result
-
-    async def test_validate_plan_quality_deprecated(self) -> None:
-        server_mod._get_components()
-        result = await _validate_plan_quality("Fix the thing probably")
-        assert "overall_score" in result
-
-    async def test_compare_approaches_deprecated(self) -> None:
-        server_mod._get_components()
-        result = await _compare_approaches(
-            ["def f(): pass\n", "def g(): pass\n"],
-            language="python",
-        )
-        assert "winner" in result
+# analyze_intent → enhance_prompt(task_type="analyze_only")  [tested above]
+# validate_plan_quality → enhance_prompt(task_type="plan_validation")  [tested above]
+# validate_diff → validate_code_quality(input_type="diff")  [tested above]
+# compare_approaches → validate_code_quality(compare=True)  [tested above]
+# suggest_tools → enhance_prompt includes tool_recommendations  [tested in test_server_tools]
+# get_verification_checklist → validate_code_quality includes checklist  [tested above]

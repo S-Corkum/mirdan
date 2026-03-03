@@ -63,12 +63,12 @@ class TestHooksGeneration:
         data = json.loads(hooks_path.read_text())
         assert "PostToolUse" in data["hooks"]
 
-    def test_hooks_has_pre_commit(self, tmp_path, detected_python) -> None:
-        """hooks.json should have PreCommit entry."""
+    def test_hooks_has_stop(self, tmp_path, detected_python) -> None:
+        """hooks.json should have Stop entry for final quality check."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        assert "PreCommit" in data["hooks"]
+        assert "Stop" in data["hooks"]
 
     def test_post_tool_use_uses_quick(self, tmp_path, detected_python) -> None:
         """PostToolUse should use --quick flag for fast validation."""
@@ -78,13 +78,13 @@ class TestHooksGeneration:
         ptu_command = data["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
         assert "--quick" in ptu_command
 
-    def test_pre_commit_no_quick(self, tmp_path, detected_python) -> None:
-        """PreCommit should NOT use --quick flag (full validation)."""
+    def test_stop_no_quick(self, tmp_path, detected_python) -> None:
+        """Stop hook should NOT use --quick flag (full validation)."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        pc_command = data["hooks"]["PreCommit"][0]["hooks"][0]["command"]
-        assert "--quick" not in pc_command
+        stop_command = data["hooks"]["Stop"][0]["hooks"][0]["command"]
+        assert "--quick" not in stop_command
 
     def test_post_tool_use_matcher(self, tmp_path, detected_python) -> None:
         """PostToolUse should match Write|Edit tools."""

@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before writing code, ensure you have called mcp__mirdan__enhance_prompt for quality requirements. If not yet done, call it first."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mirdan validate --quick --file \"$TOOL_INPUT_FILE_PATH\" --format text",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mirdan validate --staged --format text"
+          }
+        ]
+      }
+    ]
+  }
+}

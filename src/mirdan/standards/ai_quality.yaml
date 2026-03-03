@@ -1,0 +1,44 @@
+principles:
+  - "Verify all imports exist in project dependencies or Python stdlib"
+  - "No placeholder code (raise NotImplementedError, pass with TODO) in final output"
+  - "Sanitize all user/LLM output before using in SQL, eval, exec, or system commands"
+  - "Use parameterized queries instead of f-string SQL"
+  - "Prefer stdlib for simple operations over heavy third-party libraries"
+  - "Error handling patterns should be consistent within a module"
+
+forbidden:
+  - "eval() or exec() with f-string containing external input"
+  - "f-string SQL queries with variable interpolation"
+  - "os.system() or subprocess with f-string commands"
+  - "Placeholder pass/NotImplementedError in non-abstract production code"
+  - "Imports for packages not in project dependencies"
+
+rules:
+  - id: AI001
+    name: ai-placeholder-code
+    severity: error
+    category: ai_quality
+    description: >
+      Detects AI-generated placeholder code that was never replaced with
+      real implementation. Catches raise NotImplementedError (outside
+      @abstractmethod), pass with TODO/FIXME comments, and ellipsis with
+      placeholder comments.
+
+  - id: AI002
+    name: ai-hallucinated-import
+    severity: warning
+    category: ai_quality
+    description: >
+      Detects imports for modules not found in the Python stdlib or the
+      project's declared dependencies. AI models sometimes hallucinate
+      package names or use packages that aren't installed.
+
+  - id: AI008
+    name: ai-injection-vulnerability
+    severity: error
+    category: security
+    description: >
+      Detects potential injection vulnerabilities where f-string
+      interpolation is used to build SQL queries, eval/exec calls,
+      os.system commands, or subprocess arguments. These patterns allow
+      user or LLM input to be executed as code.
