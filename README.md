@@ -457,29 +457,89 @@ For organization-wide mirdan enforcement, IT can deploy managed configuration.
 
 ---
 
-### Cursor: Project Rules (Cursor 2.2+)
+### Cursor: Full Integration (Cursor 1.7+)
 
-Cursor's [Project Rules](https://cursor.com/docs/context/rules) provide persistent instructions that activate automatically based on what you're doing. mirdan leverages this for **invisible quality orchestration** - you just code normally, mirdan handles the rest.
+Cursor's [Project Rules](https://cursor.com/docs/context/rules), [Hooks](https://cursor.com/docs/agent/hooks), and [AGENTS.md](https://cursor.com/docs/context/agents-md) provide a complete quality orchestration surface. mirdan leverages all three for **invisible quality enforcement** — you just code normally, mirdan handles the rest.
 
-#### Quick Start: AGENTS.md
+#### Automatic Setup (Recommended)
 
-For immediate setup, create `AGENTS.md` in your project root:
-
-```markdown
-# Code Quality with Mirdan
-
-When writing or modifying code:
-1. Call `mirdan.enhance_prompt` with task description before implementation
-2. Follow quality_requirements from response during coding
-3. Call `mirdan.validate_code_quality` on completed code - must pass before done
-4. If security-related, use check_security=true
+```bash
+mirdan init --cursor
 ```
 
-#### Full Integration: Granular Project Rules
+This generates everything needed for automatic quality enforcement:
 
-For teams and power users, create focused rules in `.cursor/rules/`. Each rule uses the `RULE.md` format with YAML frontmatter.
+| Generated | Path | Purpose |
+|-----------|------|---------|
+| Hooks | `.cursor/hooks.json` | Prompt-based hooks for afterFileEdit, preToolUse, stop, beforeSubmitPrompt |
+| MCP config | `.cursor/mcp.json` | Registers mirdan as MCP server with tool budget |
+| Project rules | `.cursor/rules/*.mdc` | Language-specific quality standards (code quality, security, debug) |
+| AGENTS.md | `AGENTS.md` | Quality checkpoints, AI/security rules, quality thresholds for agents |
+| BUGBOT.md | `BUGBOT.md` | Structured PR review rules with regex pattern matching |
 
-**`.cursor/rules/mirdan-code-quality/RULE.md`** - Auto-attaches on code files:
+After init, quality gates fire automatically with zero manual effort.
+
+#### What Gets Generated
+
+**`.cursor/hooks.json`** — Prompt-type hooks that fire automatically:
+
+| Event | What It Does |
+|-------|-------------|
+| `afterFileEdit` | Calls `validate_code_quality` on changed code, fixes any errors |
+| `preToolUse` | Security review before Write/Edit operations (SQL injection, secrets, command injection) |
+| `stop` | Final quality gate — verifies all changed files were validated before task completion |
+| `beforeSubmitPrompt` | Suggests calling `enhance_prompt` for quality requirements |
+
+Hook stringency levels control how many events are active:
+
+| Level | Events | Best For |
+|-------|--------|----------|
+| `MINIMAL` | afterFileEdit, stop | Low-friction onboarding |
+| `STANDARD` | + preToolUse | Daily development |
+| `COMPREHENSIVE` | + beforeSubmitPrompt | Teams, production projects |
+
+**`.cursor/mcp.json`** — MCP server registration with tool budget:
+
+```json
+{
+  "mcpServers": {
+    "mirdan": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mirdan", "serve"],
+      "env": {"MIRDAN_TOOL_BUDGET": "3"}
+    }
+  }
+}
+```
+
+The `MIRDAN_TOOL_BUDGET` env var limits exposed tools by priority (useful for Cursor's tool slot limits):
+
+| Budget | Tools Exposed |
+|--------|--------------|
+| 2 | validate_code_quality, validate_quick |
+| 3 | + enhance_prompt |
+| 4 | + get_quality_standards |
+| 5 | All tools (default when unset) |
+
+**`AGENTS.md`** — Enhanced with quality enforcement sections:
+
+- **Mandatory Quality Checkpoints**: Before writing code, after every file edit, before PR/completion
+- **AI Quality Rules (AI001–AI008)**: Inline rule descriptions with severity levels
+- **Security Standards (SEC001–SEC010)**: Critical and important security rules
+- **Quality Thresholds**: Code cannot be marked complete if quality score < 0.7
+
+**`BUGBOT.md`** — Structured PR review rules for Cursor's BugBot:
+
+- **Blocking Bugs** (severity: critical): AI001 placeholders, AI008 injection, SEC001–SEC003 hardcoded secrets/SQL injection/command injection with regex patterns
+- **Request Changes** (severity: warning): AI003 over-abstraction, AI007 weak crypto, SEC006–SEC010
+- **Best Practice** (severity: info): AI004–AI006 duplication/error handling, documentation
+
+#### Granular Project Rules
+
+For fine-grained control, `mirdan init --cursor` also generates focused rules in `.cursor/rules/`:
+
+**`.cursor/rules/mirdan-code-quality/RULE.md`** — Auto-attaches on code files:
 
 ```markdown
 ---
@@ -497,9 +557,6 @@ Call `mirdan.enhance_prompt` with task description. Use response for:
 - `touches_security` → enables strict validation
 - `quality_requirements` → constraints during implementation
 
-## Implementation
-Follow quality_requirements from enhance_prompt.
-
 ## Exit Gate (REQUIRED)
 Before completion:
 1. Call `mirdan.validate_code_quality` on your code
@@ -507,28 +564,7 @@ Before completion:
 3. Fix all violations and re-validate until passed
 ```
 
-**`.cursor/rules/mirdan-debug/RULE.md`** - For Debug Mode (Cursor 2.2):
-
-```markdown
----
-description: Enhances Cursor Debug Mode with mirdan analysis for debugging and bug fixes
-alwaysApply: false
----
-# Mirdan Debug Enhancement
-
-When using Cursor's Debug Mode or fixing bugs:
-
-## Before Generating Hypotheses
-Call `mirdan.analyze_intent` to classify the debugging task.
-
-## Before Applying Fix
-1. Call `mirdan.validate_code_quality` with `check_security=true`
-   (bugs often have security implications)
-2. Call `mirdan.get_verification_checklist(task_type="debug")`
-3. Complete each verification step before marking fixed
-```
-
-**`.cursor/rules/mirdan-security/RULE.md`** - Auto-attaches on auth/security paths:
+**`.cursor/rules/mirdan-security/RULE.md`** — Auto-attaches on auth/security paths:
 
 ```markdown
 ---
@@ -540,51 +576,56 @@ alwaysApply: false
 
 Code in security-sensitive paths requires STRICT validation:
 
-## Mandatory Exit Gate
-1. `mirdan.validate_code_quality` with:
-   - `check_security=true` (REQUIRED)
-   - `severity_threshold="info"` (catch ALL issues)
+1. `mirdan.validate_code_quality` with `check_security=true` and `severity_threshold="info"`
 2. Resolve ALL security violations before completion
 ```
 
-#### How Rules Activate
+#### How Rules & Hooks Work Together
 
-| Your Action | Rule That Activates | Why |
-|-------------|---------------------|-----|
-| Edit `api/routes.py` | mirdan-code-quality | Glob matches `*.py` |
-| Edit `src/auth/login.ts` | mirdan-code-quality + mirdan-security | Matches `*.ts` AND `**/auth/**` |
-| Say "debug this error" | mirdan-debug | Description matches intent |
-| Plan an implementation | mirdan-code-quality (on execution) | Applies when code is written |
+| Your Action | What Fires | Why |
+|-------------|-----------|-----|
+| Edit `api/routes.py` | `afterFileEdit` hook + mirdan-code-quality rule | Hook validates; rule provides context |
+| Edit `src/auth/login.ts` | `afterFileEdit` hook + code-quality + security rules | Hook + both rules activate |
+| Say "debug this error" | mirdan-debug rule | Description matches intent |
+| Complete a task | `stop` hook | Final quality gate verifies all files validated |
+| Submit a prompt | `beforeSubmitPrompt` hook | Suggests enhance_prompt for quality context |
 
-#### Cursor 2.2 Feature Integration
+#### Cursor Feature Integration
 
-**Debug Mode**: mirdan augments Cursor's hypothesis-driven debugging. `analyze_intent` classifies the bug, `validate_code_quality` ensures fixes don't introduce new vulnerabilities.
+**Debug Mode**: mirdan augments Cursor's hypothesis-driven debugging. `enhance_prompt` classifies the bug, `validate_code_quality` ensures fixes don't introduce new vulnerabilities.
 
-**Plan Mode**: When using Plan Mode with Mermaid diagrams, `enhance_prompt` at planning stage surfaces security considerations. When delegating steps to parallel agents, each follows mirdan-code-quality.
+**Plan Mode**: When using Plan Mode, `enhance_prompt` at planning stage surfaces security considerations. When delegating steps to parallel agents, each follows mirdan-code-quality rules.
 
-**Multi-Agent Judging**: When Cursor evaluates parallel agent runs, mirdan validation results inform which solution is "best" - quality-validated code wins.
+**Background Agents**: mirdan hooks and AGENTS.md provide guardrails for autonomous agents, ensuring quality even without human oversight.
 
-**Background Agents**: mirdan rules provide guardrails for autonomous agents running in the background, ensuring quality even without human oversight.
-
-#### Which Approach to Use?
-
-| Approach | Best For |
-|----------|----------|
-| **AGENTS.md** | Quick start, individual developers, trying mirdan out |
-| **Project Rules** | Teams, production projects, fine-grained control |
-| **Both** | AGENTS.md baseline + specific rules for security paths |
-
-**Recommended:** Start with AGENTS.md for immediate benefit. Add granular Project Rules as your team's needs grow.
+**BugBot PR Reviews**: BUGBOT.md gives BugBot structured detection rules with regex patterns, catching placeholder code, injection vulnerabilities, and hardcoded secrets automatically.
 
 ### Automatic Setup with `mirdan init`
 
-The fastest way to integrate mirdan with Claude Code:
+The fastest way to integrate mirdan with your IDE:
 
 ```bash
+# Cursor (hooks + rules + AGENTS.md + BUGBOT.md + MCP config)
+mirdan init --cursor
+
+# Claude Code (hooks + rules + skills + agents + MCP config)
 mirdan init --claude-code
+
+# Both platforms at once
+mirdan init --all
 ```
 
-This generates everything needed for automatic quality enforcement:
+#### Cursor Setup (`mirdan init --cursor`)
+
+| Generated | Path | Purpose |
+|-----------|------|---------|
+| Hooks | `.cursor/hooks.json` | Prompt hooks: afterFileEdit, preToolUse, stop, beforeSubmitPrompt |
+| MCP config | `.cursor/mcp.json` | Registers mirdan MCP server with tool budget |
+| Project rules | `.cursor/rules/*.mdc` | Language-specific quality standards |
+| AGENTS.md | `AGENTS.md` | Quality checkpoints + inline AI/security rules |
+| BUGBOT.md | `BUGBOT.md` | Structured PR review rules with regex patterns |
+
+#### Claude Code Setup (`mirdan init --claude-code`)
 
 | Generated | Path | Purpose |
 |-----------|------|---------|
@@ -593,6 +634,13 @@ This generates everything needed for automatic quality enforcement:
 | Quality rules | `.claude/rules/mirdan-*.md` | Language-specific quality standards |
 | Skills | `.claude/skills/{code,debug,review}/SKILL.md` | `/mirdan:code`, `/mirdan:debug`, `/mirdan:review` |
 | Agent | `.claude/agents/quality-gate.md` | Background quality validation subagent |
+
+#### Additional Flags
+
+| Flag | Effect |
+|------|--------|
+| `--all` | Run both `--cursor` and `--claude-code` setup |
+| `--quality-profile PROFILE` | Set quality profile (e.g., `enterprise`, `startup`) |
 
 After init, quality gates fire automatically with zero manual effort.
 

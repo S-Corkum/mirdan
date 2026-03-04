@@ -1,35 +1,77 @@
 # Mirdan Hook Setup Guide
 
-Mirdan hooks automatically validate code quality after AI edits and before commits.
+Mirdan hooks automatically validate code quality after AI edits and before task completion.
 
 ## Quick Setup
 
 ```bash
-mirdan init --hooks
-```
+# Cursor (recommended for Cursor 1.7+)
+mirdan init --cursor
 
-This auto-detects your IDE and installs appropriate hooks.
+# Claude Code
+mirdan init --claude-code
+
+# Both platforms
+mirdan init --all
+```
 
 ## Platform-Specific Setup
 
-### Cursor
+### Cursor (1.7+)
 
 ```bash
-mirdan init --hooks --cursor
+mirdan init --cursor
 ```
 
-Installs:
-- `.cursor/hooks/post-edit.sh` — validates files after Write/Edit tool calls
-- `.git/hooks/pre-commit` — validates staged files before commit
+Generates `.cursor/hooks.json` with **prompt-type hooks** that leverage Cursor's native hook system:
+
+| Event | Behavior |
+|-------|----------|
+| `afterFileEdit` | Calls `validate_code_quality` on changed code, fixes errors automatically |
+| `preToolUse` | Security review before Write/Edit (SQL injection, secrets, command injection) |
+| `stop` | Final quality gate — verifies all files validated before completion (loop_limit: 3) |
+| `beforeSubmitPrompt` | Suggests `enhance_prompt` for quality requirements |
+
+Also generates:
+- `.cursor/mcp.json` — MCP server registration with `MIRDAN_TOOL_BUDGET`
+- `.cursor/rules/*.mdc` — Language-specific project rules
+- `AGENTS.md` — Enhanced with quality checkpoints, AI/security rules, quality thresholds
+- `BUGBOT.md` — Structured PR review rules with regex patterns
+
+#### Hook Stringency
+
+Hooks are generated at COMPREHENSIVE level by default. The stringency levels are:
+
+| Level | Events | Best For |
+|-------|--------|----------|
+| MINIMAL | afterFileEdit, stop | Low-friction onboarding |
+| STANDARD | + preToolUse | Daily development |
+| COMPREHENSIVE | + beforeSubmitPrompt | Teams, production projects |
+
+#### Tool Budget
+
+The generated `.cursor/mcp.json` includes `MIRDAN_TOOL_BUDGET=3` by default, exposing the top 3 priority tools:
+
+1. `validate_code_quality` (always included)
+2. `validate_quick` (always included with budget >= 2)
+3. `enhance_prompt` (included with budget >= 3)
+4. `get_quality_standards` (budget >= 4)
+5. `get_quality_trends` (budget = 5 or unset)
+
+Adjust via the `MIRDAN_TOOL_BUDGET` env var in `.cursor/mcp.json`.
 
 ### Claude Code
 
 ```bash
-mirdan init --hooks --claude-code
+mirdan init --claude-code
 ```
 
-Installs:
-- `.claude/hooks.json` — PostToolUse hook configuration
+Generates:
+- `.claude/hooks.json` — PostToolUse and Stop hook configuration
+- `.mcp.json` — MCP server registration
+- `.claude/rules/mirdan-*.md` — Quality rules
+- `.claude/skills/` — `/mirdan:code`, `/mirdan:debug`, `/mirdan:review`
+- `.claude/agents/quality-gate.md` — Background quality validation
 
 ### Pre-commit (any platform)
 
@@ -47,33 +89,24 @@ pre-commit install
 
 ## Hook Behavior
 
-- **Non-blocking by default**: hooks report issues but don't prevent edits
-- **Pre-commit hooks**: block commits with errors (exit 1)
-- **Format**: text output for human readability
+### Cursor Hooks (prompt-type)
 
-## Manual Installation
+All Cursor hooks use the **prompt type**, meaning the LLM evaluates the hook instruction in context (with access to MCP tools). This is more powerful than command-type hooks because the AI can reason about what to validate.
 
-### Cursor post-edit hook
+- **afterFileEdit**: Non-blocking — reports and fixes issues inline
+- **preToolUse**: Advisory — provides security guidance before writes
+- **stop**: Blocking loop — re-runs up to 3 times until all files are validated
+- **beforeSubmitPrompt**: Advisory — suggests quality enhancement
 
-Copy `hooks/cursor/post-edit.sh` to `.cursor/hooks/post-edit.sh`:
-```bash
-cp $(python -c "import mirdan; print(mirdan.__file__)")/../../hooks/cursor/post-edit.sh .cursor/hooks/
-chmod +x .cursor/hooks/post-edit.sh
-```
+### Claude Code Hooks (command-type)
 
-### Claude Code hooks
+- **PostToolUse**: Runs `mirdan validate-quick` after Write/Edit tool calls
+- **Stop**: Runs validation summary before completing
 
-Copy `hooks/claude-code/hooks.json` to `.claude/hooks.json`:
-```bash
-cp $(python -c "import mirdan; print(mirdan.__file__)")/../../hooks/claude-code/hooks.json .claude/hooks.json
-```
+### Pre-commit Hooks
 
-### Git pre-commit
-
-```bash
-cp hooks/cursor/pre-commit.sh .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit
-```
+- **Blocking**: Prevents commits with quality errors (exit 1)
+- **Format**: Text output for human readability
 
 ## Configuration
 
@@ -85,6 +118,10 @@ linters:
   enabled_linters: [ruff, mypy]
   timeout: 30.0
 ```
+
+## Idempotent Generation
+
+`mirdan init --cursor` will **skip** generating `.cursor/hooks.json` if it already exists, respecting any customizations you've made. To regenerate, delete the file first.
 
 ## Adding --lint to hooks
 
