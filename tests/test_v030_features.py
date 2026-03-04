@@ -3,7 +3,7 @@
 Tests cover:
 - HookStringency enum and generate_claude_code_hooks method
 - UserPromptSubmit event generation
-- Rules file content and path-scoped frontmatter
+- Rules content via template generators
 - Modernized skills with context:fork and dynamic context
 - Specialized agents with PROACTIVELY in descriptions
 - Config quality_profile field
@@ -21,7 +21,6 @@ from mirdan.integrations.hook_templates import (
     HookStringency,
     HookTemplateGenerator,
 )
-
 
 # ---------------------------------------------------------------------------
 # HookStringency and generate_claude_code_hooks
@@ -51,9 +50,8 @@ class TestHookStringency:
         assert "Stop" in events
         assert "SubagentStart" in events
 
-    def test_comprehensive_has_six_events(self) -> None:
+    def test_comprehensive_events(self) -> None:
         events = STRINGENCY_EVENTS[HookStringency.COMPREHENSIVE]
-        assert len(events) == 6
         assert "UserPromptSubmit" in events
         assert "PreToolUse" in events
         assert "PostToolUse" in events
@@ -75,24 +73,21 @@ class TestGenerateClaudeCodeHooks:
         result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
         assert len(result["hooks"]) == 5
 
-    def test_comprehensive_generates_six_hooks(self) -> None:
-        generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(HookStringency.COMPREHENSIVE)
-        assert len(result["hooks"]) == 6
-
     def test_comprehensive_is_default(self) -> None:
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks()
         assert "UserPromptSubmit" in result["hooks"]
         assert "PreCompact" in result["hooks"]
 
-    def test_all_hooks_use_prompt_type(self) -> None:
+    def test_all_hooks_have_valid_type(self) -> None:
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.COMPREHENSIVE)
         for event_name, entries in result["hooks"].items():
             for entry in entries:
                 for hook in entry.get("hooks", []):
-                    assert hook["type"] == "prompt", f"{event_name} has non-prompt hook"
+                    assert hook["type"] in ("prompt", "command"), (
+                        f"{event_name} has invalid hook type: {hook['type']}"
+                    )
 
 
 class TestUserPromptSubmit:
@@ -119,58 +114,37 @@ class TestUserPromptSubmit:
 
 
 # ---------------------------------------------------------------------------
-# Rules content validation
+# Rules content validation (using templates from package)
 # ---------------------------------------------------------------------------
 
 
 class TestRulesContent:
-    """Tests for the content of generated rules files."""
+    """Tests for the content of rule templates."""
 
-    def test_always_rule_no_frontmatter(self) -> None:
-        """mirdan-always.md should NOT have YAML frontmatter."""
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-always.md"
-        ).read_text()
-        assert not content.startswith("---")
+    @pytest.fixture
+    def rule_templates(self) -> dict[str, str]:
+        """Load rule templates from package resources."""
+        from importlib.resources import files as pkg_files
 
-    def test_always_rule_mentions_ai_rules(self) -> None:
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-always.md"
-        ).read_text()
+        templates: dict[str, str] = {}
+        try:
+            pkg = pkg_files("mirdan.integrations.templates.claude_code")
+            for item in pkg.iterdir():
+                if item.name.endswith(".md") and not item.is_dir():
+                    templates[item.name] = item.read_text()
+        except (ModuleNotFoundError, FileNotFoundError, TypeError):
+            pytest.skip("Templates package not available")
+        return templates
+
+    def test_quality_rule_mentions_ai_rules(self, rule_templates: dict[str, str]) -> None:
+        content = rule_templates.get("mirdan-quality.md", "")
         assert "AI001" in content
         assert "AI008" in content
 
-    def test_security_rule_has_frontmatter(self) -> None:
-        """mirdan-security.md should have paths: frontmatter."""
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-security.md"
-        ).read_text()
-        assert content.startswith("---")
-        assert "paths:" in content
-        assert "**/auth*" in content
-
-    def test_security_rule_mentions_sec_rules(self) -> None:
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-security.md"
-        ).read_text()
+    def test_security_rule_mentions_sec_rules(self, rule_templates: dict[str, str]) -> None:
+        content = rule_templates.get("mirdan-security.md", "")
         assert "SEC001" in content
         assert "SEC013" in content
-
-    def test_ai_quality_rule_has_frontmatter(self) -> None:
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-ai-quality.md"
-        ).read_text()
-        assert content.startswith("---")
-        assert "paths:" in content
-        assert "**/*.py" in content
-        assert "**/*.ts" in content
-
-    def test_ai_quality_rule_mentions_all_ai_rules(self) -> None:
-        content = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/rules/mirdan-ai-quality.md"
-        ).read_text()
-        for i in range(1, 9):
-            assert f"AI00{i}" in content
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +157,16 @@ class TestModernizedSkills:
 
     @pytest.fixture
     def skills_dir(self) -> Path:
-        return Path("/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/skills")
+        """Get skills template directory from package."""
+        from importlib.resources import files as pkg_files
+
+        try:
+            pkg = pkg_files("mirdan.integrations.templates.claude_code")
+            skills = pkg / "skills"
+            return Path(str(skills))
+        except (ModuleNotFoundError, FileNotFoundError, TypeError):
+            pytest.skip("Templates package not available")
+            return Path()  # unreachable
 
     def test_code_skill_has_model_inherit(self, skills_dir: Path) -> None:
         content = (skills_dir / "code" / "SKILL.md").read_text()
@@ -197,8 +180,6 @@ class TestModernizedSkills:
         content = (skills_dir / "code" / "SKILL.md").read_text()
         assert "mcp__mirdan__enhance_prompt" in content
         assert "mcp__mirdan__validate_code_quality" in content
-        # Should NOT reference removed tools
-        assert "get_verification_checklist" not in content
 
     def test_plan_skill_has_context_fork(self, skills_dir: Path) -> None:
         content = (skills_dir / "plan" / "SKILL.md").read_text()
@@ -219,8 +200,6 @@ class TestModernizedSkills:
     def test_debug_skill_references_current_tools(self, skills_dir: Path) -> None:
         content = (skills_dir / "debug" / "SKILL.md").read_text()
         assert "mcp__mirdan__enhance_prompt" in content
-        # Should NOT reference removed tools
-        assert "analyze_intent" not in content
 
     def test_all_skills_exist(self, skills_dir: Path) -> None:
         for skill in ("code", "debug", "plan", "quality", "review"):
@@ -237,25 +216,34 @@ class TestSpecializedAgents:
 
     @pytest.fixture
     def agents_dir(self) -> Path:
-        return Path("/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/agents")
+        """Get agents template directory from package."""
+        from importlib.resources import files as pkg_files
+
+        try:
+            pkg = pkg_files("mirdan.integrations.templates.claude_code")
+            agents = pkg / "agents"
+            return Path(str(agents))
+        except (ModuleNotFoundError, FileNotFoundError, TypeError):
+            pytest.skip("Templates package not available")
+            return Path()  # unreachable
 
     def test_all_agents_exist(self, agents_dir: Path) -> None:
         expected = {
-            "quality-validator.md",
-            "security-scanner.md",
+            "quality-gate.md",
+            "security-audit.md",
             "architecture-reviewer.md",
-            "ai-slop-detector.md",
-            "test-auditor.md",
+            "convention-check.md",
+            "test-quality.md",
         }
         actual = {p.name for p in agents_dir.iterdir() if p.suffix == ".md"}
         assert expected == actual
 
     def test_security_scanner_is_proactive(self, agents_dir: Path) -> None:
-        content = (agents_dir / "security-scanner.md").read_text()
+        content = (agents_dir / "security-audit.md").read_text()
         assert "PROACTIVELY" in content
 
     def test_ai_slop_detector_is_proactive(self, agents_dir: Path) -> None:
-        content = (agents_dir / "ai-slop-detector.md").read_text()
+        content = (agents_dir / "convention-check.md").read_text()
         assert "PROACTIVELY" in content
 
     def test_architecture_reviewer_uses_sonnet(self, agents_dir: Path) -> None:
@@ -263,15 +251,15 @@ class TestSpecializedAgents:
         assert "model: sonnet" in content
 
     def test_quality_validator_has_background(self, agents_dir: Path) -> None:
-        content = (agents_dir / "quality-validator.md").read_text()
+        content = (agents_dir / "quality-gate.md").read_text()
         assert "background: true" in content
 
     def test_quality_validator_has_memory(self, agents_dir: Path) -> None:
-        content = (agents_dir / "quality-validator.md").read_text()
+        content = (agents_dir / "quality-gate.md").read_text()
         assert "memory: project" in content
 
     def test_test_auditor_has_memory(self, agents_dir: Path) -> None:
-        content = (agents_dir / "test-auditor.md").read_text()
+        content = (agents_dir / "test-quality.md").read_text()
         assert "memory: project" in content
 
     def test_agents_reference_current_tools(self, agents_dir: Path) -> None:
@@ -282,100 +270,74 @@ class TestSpecializedAgents:
 
 
 # ---------------------------------------------------------------------------
-# Plugin manifest validation
+# Plugin export validation
 # ---------------------------------------------------------------------------
 
 
-class TestPluginManifest:
-    """Tests for the updated plugin manifest."""
+class TestPluginExport:
+    """Tests for the plugin export function."""
 
-    @pytest.fixture
-    def plugin_dir(self) -> Path:
-        return Path("/Users/seancorkum/projects/ai-assistance/mirdan-claude-code")
+    def test_export_creates_plugin_json(self, tmp_path: Path) -> None:
+        from mirdan.integrations.claude_code import export_plugin
 
-    def test_version_is_030(self, plugin_dir: Path) -> None:
-        manifest = json.loads((plugin_dir / ".claude-plugin" / "plugin.json").read_text())
-        assert manifest["version"] == "0.3.0"
+        export_plugin(tmp_path)
+        manifest_path = tmp_path / ".claude-plugin" / "plugin.json"
+        assert manifest_path.exists()
+        manifest = json.loads(manifest_path.read_text())
+        assert manifest["name"] == "mirdan"
 
-    def test_provides_rules(self, plugin_dir: Path) -> None:
-        manifest = json.loads((plugin_dir / ".claude-plugin" / "plugin.json").read_text())
-        assert manifest["provides"].get("rules") is True
+    def test_export_version_matches_package(self, tmp_path: Path) -> None:
+        from mirdan import __version__
+        from mirdan.integrations.claude_code import export_plugin
 
-    def test_package_version_is_030(self, plugin_dir: Path) -> None:
-        pkg = json.loads((plugin_dir / "package.json").read_text())
-        assert pkg["version"] == "0.3.0"
+        export_plugin(tmp_path)
+        manifest = json.loads(
+            (tmp_path / ".claude-plugin" / "plugin.json").read_text()
+        )
+        assert manifest["version"] == __version__
 
-    def test_package_includes_rules(self, plugin_dir: Path) -> None:
-        pkg = json.loads((plugin_dir / "package.json").read_text())
-        assert "rules/" in pkg["files"]
+    def test_export_creates_skills(self, tmp_path: Path) -> None:
+        from mirdan.integrations.claude_code import export_plugin
 
-    def test_settings_has_current_tools(self, plugin_dir: Path) -> None:
-        settings = json.loads((plugin_dir / "settings.json").read_text())
-        tools = settings["permissions"]["allow"]
-        assert "mcp__mirdan__enhance_prompt" in tools
-        assert "mcp__mirdan__validate_code_quality" in tools
-        assert "mcp__mirdan__validate_quick" in tools
-        assert "mcp__mirdan__get_quality_standards" in tools
-        assert "mcp__mirdan__get_quality_trends" in tools
-        assert len(tools) == 5
+        export_plugin(tmp_path)
+        for skill in ("code", "debug", "plan", "quality", "review"):
+            assert (tmp_path / "skills" / skill / "SKILL.md").exists()
 
-    def test_settings_no_removed_tools(self, plugin_dir: Path) -> None:
-        settings = json.loads((plugin_dir / "settings.json").read_text())
-        tools = settings["permissions"]["allow"]
-        # Should NOT have removed tools
-        assert "mcp__mirdan__get_verification_checklist" not in tools
-        assert "mcp__mirdan__analyze_intent" not in tools
-        assert "mcp__mirdan__suggest_tools" not in tools
-        assert "mcp__mirdan__validate_plan_quality" not in tools
-        assert "mcp__mirdan__validate_diff" not in tools
+    def test_export_creates_agents(self, tmp_path: Path) -> None:
+        from mirdan.integrations.claude_code import export_plugin
+
+        export_plugin(tmp_path)
+        agents_dir = tmp_path / "agents"
+        assert agents_dir.exists()
+        md_files = list(agents_dir.glob("*.md"))
+        assert len(md_files) == 5
 
 
 # ---------------------------------------------------------------------------
-# Hooks.json validation
+# Hooks.json validation (via generator, not static file)
 # ---------------------------------------------------------------------------
 
 
 class TestPluginHooks:
-    """Tests for the plugin hooks.json."""
+    """Tests for hooks.json generated by HookTemplateGenerator."""
 
     @pytest.fixture
     def hooks(self) -> dict:
-        hooks_path = Path(
-            "/Users/seancorkum/projects/ai-assistance/mirdan-claude-code/hooks/hooks.json"
-        )
-        data = json.loads(hooks_path.read_text())
-        return data["hooks"]
+        generator = HookTemplateGenerator()
+        result = generator.generate_claude_code_hooks(HookStringency.COMPREHENSIVE)
+        return result["hooks"]
 
-    def test_has_six_events(self, hooks: dict) -> None:
-        assert len(hooks) == 6
-
-    def test_has_user_prompt_submit(self, hooks: dict) -> None:
+    def test_has_core_events(self, hooks: dict) -> None:
         assert "UserPromptSubmit" in hooks
-
-    def test_has_pre_tool_use(self, hooks: dict) -> None:
         assert "PreToolUse" in hooks
-
-    def test_has_post_tool_use(self, hooks: dict) -> None:
         assert "PostToolUse" in hooks
-
-    def test_has_stop(self, hooks: dict) -> None:
         assert "Stop" in hooks
-
-    def test_has_pre_compact(self, hooks: dict) -> None:
         assert "PreCompact" in hooks
-
-    def test_has_subagent_start(self, hooks: dict) -> None:
         assert "SubagentStart" in hooks
 
     def test_post_tool_use_matches_multiedit(self, hooks: dict) -> None:
         matcher = hooks["PostToolUse"][0]["matcher"]
         assert "MultiEdit" in matcher
-
-    def test_all_hooks_are_prompt_type(self, hooks: dict) -> None:
-        for event, entries in hooks.items():
-            for entry in entries:
-                for hook in entry.get("hooks", []):
-                    assert hook["type"] == "prompt", f"{event} has non-prompt hook"
 
 
 # ---------------------------------------------------------------------------

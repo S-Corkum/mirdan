@@ -2,8 +2,10 @@
 name: quality-validator
 description: "Background code quality reviewer using mirdan standards"
 model: haiku
+maxTurns: 10
 background: true
 memory: project
+skills: quality
 tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__validate_quick, Read, Glob, Grep
 ---
 

@@ -10,7 +10,7 @@ When writing or modifying TypeScript/JavaScript files, enforce these standards:
 
 ## Before Writing
 
-Call `mcp_mirdan_get_quality_standards` with `language="typescript"` (or
+Call `mcp__mirdan__get_quality_standards` with `language="typescript"` (or
 `"javascript"`) and include the `framework` parameter if using React,
 Next.js, Vue, etc.
 
@@ -26,5 +26,5 @@ Next.js, Vue, etc.
 
 After writing TS/JS code, validate with:
 ```
-mcp_mirdan_validate_code_quality(code, language="typescript", check_security=true)
+mcp__mirdan__validate_code_quality(code, language="typescript", check_security=true)
 ```

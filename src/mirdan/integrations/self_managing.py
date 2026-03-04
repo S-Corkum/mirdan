@@ -163,6 +163,53 @@ class SelfManagingIntegration:
                 state["frameworks"] = [f.strip() for f in fw_str.split(",")]
         return state
 
+    def generate_session_summary(
+        self,
+        session_data: dict[str, Any],
+        file_results: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Generate a markdown summary of a quality session.
+
+        Args:
+            session_data: Session quality data (validation_count, avg_score, etc.).
+            file_results: Optional per-file results.
+
+        Returns:
+            Markdown-formatted session summary.
+        """
+        lines = [
+            "# mirdan Session Quality Summary",
+            "",
+        ]
+
+        validation_count = session_data.get("validation_count", 0)
+        avg_score = session_data.get("avg_score", 0.0)
+        files_validated = session_data.get("files_validated", 0)
+        unresolved_errors = session_data.get("unresolved_errors", 0)
+
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.append(f"| Validations | {validation_count} |")
+        lines.append(f"| Files validated | {files_validated} |")
+        lines.append(f"| Average score | {avg_score:.3f} |")
+        lines.append(f"| Unresolved errors | {unresolved_errors} |")
+
+        status = "PASS" if unresolved_errors == 0 else "NEEDS WORK"
+        lines.append(f"| Status | {status} |")
+        lines.append("")
+
+        if file_results:
+            lines.append("## File Details")
+            lines.append("")
+            lines.append("| File | Score | Status |")
+            lines.append("|------|-------|--------|")
+            for fr in file_results:
+                s = "PASS" if fr.get("passed", True) else "FAIL"
+                lines.append(f"| `{fr.get('file', '')}` | {fr.get('score', 0):.2f} | {s} |")
+            lines.append("")
+
+        return "\n".join(lines)
+
     def write_workflow_rule(
         self,
         project_dir: Path,

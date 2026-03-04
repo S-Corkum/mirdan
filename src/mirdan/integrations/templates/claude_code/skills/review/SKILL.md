@@ -1,6 +1,8 @@
 ---
 name: review
 description: "Code review with mirdan quality standards enforcement"
+argument-hint: "File or PR to review"
+user-invocable: true
 model: inherit
 context: fork
 allowed-tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__get_quality_trends, Read, Glob, Grep

@@ -1,6 +1,7 @@
 ---
 name: plan
 description: "Planning workflow with mirdan quality gates"
+argument-hint: "Describe what to plan"
 model: inherit
 context: fork
 allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Glob, Grep

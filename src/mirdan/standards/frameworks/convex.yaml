@@ -1,0 +1,20 @@
+principles:
+  - Define schemas with defineSchema and defineTable for type-safe document models
+  - Use query functions for reads and mutation functions for writes
+  - Leverage automatic reactivity — queries re-run when underlying data changes
+  - Use validators (v.string(), v.number(), etc.) for argument and return type safety
+  - Implement actions for side effects (external APIs, file I/O) outside transactions
+  - Use scheduled functions (crons, scheduled) for background and recurring tasks
+  - Organize functions in convex/ directory following Convex file conventions
+
+forbidden:
+  - Side effects (HTTP calls, file writes) inside query or mutation functions
+  - Missing argument validators on public functions
+  - Storing large blobs in documents instead of using Convex file storage
+  - Unbounded queries without pagination using .paginate()
+  - Exposing internal functions without authentication checks
+
+patterns:
+  query: "export const get = query({ args: { id: v.id('table') }, handler: async (ctx, args) => {...} })"
+  mutation: "export const create = mutation({ args: {...}, handler: async (ctx, args) => {...} })"
+  schema: "defineSchema({ table: defineTable({ field: v.string() }).index('by_field', ['field']) })"

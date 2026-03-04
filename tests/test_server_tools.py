@@ -316,16 +316,17 @@ class TestValidateCodeQualityTool:
 class TestToolRegistration:
     """Tests for MCP tool registration."""
 
-    def test_exactly_five_tools_registered(self) -> None:
-        """After deprecated tool removal, exactly 5 MCP tools should be registered."""
+    def test_exactly_six_tools_registered(self) -> None:
+        """All 6 MCP tools should be registered."""
         tool_names = set(server_mod.mcp._tool_manager._tools.keys())
-        assert len(tool_names) == 5
+        assert len(tool_names) == 6
         expected = {
             "enhance_prompt",
             "validate_code_quality",
             "validate_quick",
             "get_quality_standards",
             "get_quality_trends",
+            "scan_conventions",
         }
         assert tool_names == expected
 

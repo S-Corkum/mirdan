@@ -1,0 +1,20 @@
+principles:
+  - Define Signatures with typed InputField and OutputField for structured I/O
+  - Use Modules (dspy.Predict, dspy.ChainOfThought) as composable building blocks
+  - Compile programs with optimizers (BootstrapFewShot, MIPROv2) for automatic prompt tuning
+  - Write assertions with dspy.Assert and dspy.Suggest for output validation
+  - Use dspy.Evaluate with labeled examples for systematic program evaluation
+  - Configure LM globally with dspy.configure(lm=...) for clean model management
+  - Prefer typed signatures over raw string prompts for maintainability
+
+forbidden:
+  - Raw string prompts instead of typed Signatures
+  - Manual few-shot examples instead of compiled optimizers
+  - Skipping evaluation metrics when optimizing programs
+  - Mutable global state for model configuration in multi-threaded contexts
+  - Ignoring assertion failures in production pipelines
+
+patterns:
+  signature: "class MyTask(dspy.Signature): input = dspy.InputField(); output = dspy.OutputField()"
+  module: "dspy.ChainOfThought(MyTask) for reasoning-heavy tasks"
+  optimization: "BootstrapFewShot(metric=my_metric).compile(program, trainset=examples)"

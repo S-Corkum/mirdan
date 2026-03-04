@@ -10,7 +10,7 @@ When creating implementation plans, use mirdan to ensure plan quality.
 
 ## Before Planning
 
-Call `mcp_mirdan_enhance_prompt` with the planning task to get:
+Call `mcp__mirdan__enhance_prompt` with the planning task to get:
 - Detected frameworks (research with context7)
 - Quality requirements (use as constraints)
 - Security implications (plan for validation)
@@ -19,7 +19,7 @@ Call `mcp_mirdan_enhance_prompt` with the planning task to get:
 
 After writing the plan, validate with:
 ```
-mcp_mirdan_validate_plan_quality(plan, target_model="haiku")
+mcp__mirdan__validate_plan_quality(plan, target_model="haiku")
 ```
 
 Address all issues flagged by the validator before presenting the plan.

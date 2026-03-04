@@ -97,24 +97,30 @@ class SessionContext:
     created_at: float = 0.0
     last_accessed: float = 0.0
 
+    # Session-wide quality tracking (Phase 2)
+    validation_count: int = 0
+    cumulative_score: float = 0.0
+    unresolved_errors: int = 0
+    files_validated: list[str] = field(default_factory=list)
+    last_validated_at: float = 0.0
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
-        return {
+        result: dict[str, Any] = {
             "session_id": self.session_id,
             "task_type": self.task_type.value,
             "detected_language": self.detected_language,
             "frameworks": self.frameworks,
             "touches_security": self.touches_security,
         }
-
-
-@dataclass
-class OutputConfig:
-    """Configuration for output formatting and compression."""
-
-    max_tokens: int = 0  # 0 = no limit (full output)
-    format: OutputFormat = OutputFormat.FULL
-    model_tier: ModelTier = ModelTier.AUTO
+        if self.validation_count > 0:
+            result["session_quality"] = {
+                "validation_count": self.validation_count,
+                "avg_score": round(self.cumulative_score / self.validation_count, 3),
+                "unresolved_errors": self.unresolved_errors,
+                "files_validated": len(self.files_validated),
+            }
+        return result
 
 
 @dataclass
@@ -468,6 +474,9 @@ class Violation:
     suggestion: str = ""
     fix_code: str = ""
     fix_description: str = ""
+    explanation: str = ""
+    related_violations: list[str] = field(default_factory=list)
+    historical_frequency: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -485,6 +494,12 @@ class Violation:
         if self.fix_code:
             result["fix_code"] = self.fix_code
             result["fix_description"] = self.fix_description
+        if self.explanation:
+            result["explanation"] = self.explanation
+        if self.related_violations:
+            result["related_violations"] = self.related_violations
+        if self.historical_frequency > 0:
+            result["historical_frequency"] = self.historical_frequency
         return result
 
 

@@ -11,7 +11,7 @@ import logging
 from typing import Any
 
 from mirdan.core.client_registry import MCPClientRegistry
-from mirdan.models import MCPToolCall, MCPToolResult, ToolRecommendation
+from mirdan.models import KnowledgeEntry, MCPToolCall, MCPToolResult, ToolRecommendation
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +166,51 @@ class ActiveOrchestrator:
             return capabilities.tools[0].name
 
         return None
+
+    async def store_knowledge(
+        self,
+        entries: list[KnowledgeEntry],
+        min_confidence: float = 0.8,
+    ) -> list[MCPToolResult]:
+        """Store high-confidence knowledge entries via enyal MCP.
+
+        Filters entries by confidence threshold and invokes enyal_remember
+        for each qualifying entry.
+
+        Args:
+            entries: Knowledge entries from KnowledgeProducer.
+            min_confidence: Minimum confidence to store (0.0-1.0).
+
+        Returns:
+            List of MCPToolResult for stored entries.
+        """
+        if not self._registry.is_configured("enyal"):
+            logger.debug("Enyal MCP not configured, skipping auto-memory")
+            return []
+
+        calls: list[MCPToolCall] = []
+        for entry in entries:
+            if entry.confidence < min_confidence:
+                continue
+
+            arguments = entry.to_dict()
+            arguments["check_duplicate"] = True
+            arguments["auto_link"] = True
+
+            calls.append(
+                MCPToolCall(
+                    mcp_name="enyal",
+                    tool_name="enyal_remember",
+                    arguments=arguments,
+                )
+            )
+
+        if not calls:
+            logger.debug("No knowledge entries above threshold %.2f", min_confidence)
+            return []
+
+        logger.info("Auto-storing %d knowledge entries via enyal", len(calls))
+        return await self._registry.call_tools_parallel(calls)
 
     def get_invocable_count(
         self,

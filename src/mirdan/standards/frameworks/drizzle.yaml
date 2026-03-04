@@ -1,0 +1,20 @@
+principles:
+  - Define schemas with drizzle table helpers (pgTable, mysqlTable, sqliteTable)
+  - Use drizzle-kit for migration generation and management
+  - Prefer prepared statements for frequently executed queries
+  - Use relations() for type-safe joins without raw SQL
+  - Leverage $inferSelect and $inferInsert for automatic TypeScript type inference
+  - Use transactions for multi-statement operations that must be atomic
+  - Keep schema definitions in dedicated schema files separate from query logic
+
+forbidden:
+  - Raw SQL strings when Drizzle query builder can express the operation
+  - Missing indexes on frequently queried columns
+  - Schema changes without corresponding migrations
+  - N+1 queries — use with() for eager loading relations
+  - Exposing database errors directly to API consumers
+
+patterns:
+  schema: "export const users = pgTable('users', { id: serial('id').primaryKey(), name: text('name').notNull() })"
+  query: "db.select().from(users).where(eq(users.id, id))"
+  migration: "drizzle-kit generate && drizzle-kit migrate for schema changes"

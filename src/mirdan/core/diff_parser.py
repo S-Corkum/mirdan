@@ -36,6 +36,24 @@ class ParsedDiff:
                 lines.append(line)
         return "\n".join(lines)
 
+    def get_added_code_with_mapping(self) -> tuple[str, dict[int, tuple[str, int]]]:
+        """Get added code with a mapping from extracted line numbers to original locations.
+
+        Returns:
+            Tuple of (concatenated added code, mapping). The mapping maps
+            1-based line numbers in the extracted code to (file_path, original_line)
+            tuples.
+        """
+        lines: list[str] = []
+        mapping: dict[int, tuple[str, int]] = {}
+        extracted_line = 1
+        for hunk in self.hunks:
+            for original_line, line in hunk.added_lines:
+                lines.append(line)
+                mapping[extracted_line] = (hunk.file_path, original_line)
+                extracted_line += 1
+        return "\n".join(lines), mapping
+
     def get_added_code_by_file(self) -> dict[str, str]:
         """Get added code grouped by file path.
 

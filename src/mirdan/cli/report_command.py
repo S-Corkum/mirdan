@@ -36,6 +36,16 @@ def run_report(args: list[str]) -> None:
         _print_report_help()
         sys.exit(0)
 
+    # Session report mode: generate summary from session tracker
+    if parsed.get("session"):
+        _run_session_report(parsed)
+        return
+
+    # Compact state mode: output compaction state for preservation
+    if parsed.get("compact_state"):
+        _run_compact_state_report(parsed)
+        return
+
     directory = Path(parsed.get("directory", ".")).resolve()
     if not directory.is_dir():
         print(f"Error: {directory} is not a directory", file=sys.stderr)
@@ -196,6 +206,12 @@ def _parse_report_args(args: list[str]) -> dict[str, Any]:
         elif arg == "--language" and i + 1 < len(args):
             parsed["language"] = args[i + 1]
             i += 2
+        elif arg == "--session":
+            parsed["session"] = True
+            i += 1
+        elif arg == "--compact-state":
+            parsed["compact_state"] = True
+            i += 1
         elif arg in ("--help", "-h"):
             parsed["help"] = True
             i += 1
@@ -205,6 +221,103 @@ def _parse_report_args(args: list[str]) -> dict[str, Any]:
     return parsed
 
 
+def _run_session_report(parsed: dict[str, Any]) -> None:
+    """Generate a session quality report.
+
+    Uses the same validation infrastructure to scan changed files
+    and produce a session-oriented summary.
+    """
+    import subprocess as _sp
+
+    output_format = parsed.get("format", "text")
+
+    # Get changed files from git
+    try:
+        result = _sp.run(
+            ["git", "diff", "--name-only", "HEAD"],  # noqa: S607
+            capture_output=True, text=True, timeout=10,
+        )
+        changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+    except (FileNotFoundError, _sp.TimeoutExpired):
+        changed_files = []
+
+    if not changed_files:
+        session_data = {
+            "validation_count": 0,
+            "avg_score": 1.0,
+            "files_validated": 0,
+            "unresolved_errors": 0,
+        }
+    else:
+        config = MirdanConfig.find_config()
+        standards = QualityStandards(config=config.quality)
+        validator = CodeValidator(
+            standards, config=config.quality, thresholds=config.thresholds,
+        )
+
+        file_results: list[dict[str, Any]] = []
+        total_score = 0.0
+        total_errors = 0
+
+        for file_str in changed_files:
+            file_path = Path(file_str)
+            if not file_path.exists() or not file_path.is_file():
+                continue
+            try:
+                code = file_path.read_text()
+                if not code.strip():
+                    continue
+                res = validator.validate(code=code, language="auto", check_security=True)
+                errors = sum(1 for v in res.violations if v.severity == "error")
+                total_errors += errors
+                total_score += res.score
+                file_results.append({
+                    "file": file_str,
+                    "score": res.score,
+                    "passed": res.passed,
+                    "errors": errors,
+                })
+            except Exception:
+                logger.debug("Skipping file in session report", exc_info=True)
+                continue
+
+        files_validated = len(file_results)
+        session_data = {
+            "validation_count": files_validated,
+            "avg_score": total_score / files_validated if files_validated else 1.0,
+            "files_validated": files_validated,
+            "unresolved_errors": total_errors,
+        }
+
+    if output_format == "json":
+        print(json.dumps(session_data, indent=2))
+    else:
+        from mirdan.integrations.self_managing import SelfManagingIntegration
+
+        integration = SelfManagingIntegration()
+        print(integration.generate_session_summary(
+            session_data,
+            file_results=file_results if changed_files else None,
+        ))
+
+
+def _run_compact_state_report(parsed: dict[str, Any]) -> None:
+    """Output current compaction state for context preservation."""
+    from mirdan.integrations.self_managing import SelfManagingIntegration
+    from mirdan.models import CompactState
+
+    output_format = parsed.get("format", "text")
+
+    # Create a minimal compact state from current context
+    state = CompactState()
+
+    if output_format == "json":
+        print(json.dumps(state.to_dict(), indent=2))
+    else:
+        integration = SelfManagingIntegration()
+        print(integration.generate_compaction_state(state))
+
+
 def _print_report_help() -> None:
     """Print usage help for the report command."""
     print("Usage: mirdan report [directory] [options]")
@@ -212,6 +325,8 @@ def _print_report_help() -> None:
     print("Generate a quality summary for a project.")
     print()
     print("Options:")
-    print("  --format FORMAT    Output format (text|json|markdown)")
-    print("  --language LANG    Filter by language (python|typescript|javascript|rust|go)")
-    print("  -h, --help         Show this help")
+    print("  --format FORMAT     Output format (text|json|markdown)")
+    print("  --language LANG     Filter by language (python|typescript|javascript|rust|go)")
+    print("  --session           Generate session quality report (validates changed files)")
+    print("  --compact-state     Output compaction state for context preservation")
+    print("  -h, --help          Show this help")

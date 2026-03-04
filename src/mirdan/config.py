@@ -44,6 +44,14 @@ class OrchestrationConfig(BaseModel):
     )
     gather_timeout: float = Field(default=10.0, description="Total timeout for context gathering")
     gatherer_timeout: float = Field(default=3.0, description="Timeout per gatherer")
+    auto_memory: bool = Field(
+        default=False,
+        description="Automatically store high-confidence knowledge entries via enyal",
+    )
+    auto_memory_threshold: float = Field(
+        default=0.8,
+        description="Minimum confidence for auto-storing knowledge entries (0.0-1.0)",
+    )
 
 
 class EnhancementConfig(BaseModel):

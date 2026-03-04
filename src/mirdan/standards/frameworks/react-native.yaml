@@ -1,0 +1,20 @@
+principles:
+  - Use React Navigation for type-safe screen navigation with proper TypeScript types
+  - Prefer FlatList/SectionList over ScrollView for large lists (virtualized rendering)
+  - Use platform-specific file extensions (.ios.tsx, .android.tsx) for divergent UI
+  - Implement error boundaries for graceful crash recovery on production builds
+  - Use Reanimated and Gesture Handler for performant 60fps animations
+  - Store sensitive data with expo-secure-store or react-native-keychain, never AsyncStorage
+  - Test with React Native Testing Library for component behavior, Detox for E2E
+
+forbidden:
+  - Inline styles on frequently re-rendered components — use StyleSheet.create()
+  - ScrollView for long dynamic lists (no virtualization, causes memory issues)
+  - Storing auth tokens or secrets in AsyncStorage (unencrypted)
+  - Blocking the JS thread with synchronous heavy computation
+  - Missing keyboard avoidance for forms with text inputs
+
+patterns:
+  navigation: "useNavigation<NativeStackNavigationProp<RootStackParamList>>()"
+  list: "FlatList with keyExtractor, renderItem, and getItemLayout for optimal performance"
+  styling: "StyleSheet.create({ container: { flex: 1 } }) for static style optimization"

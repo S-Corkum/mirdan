@@ -1,3 +1,11 @@
+---
+description: "Mirdan security enforcement for sensitive code"
+paths:
+  - "**/auth/**"
+  - "**/security/**"
+  - "**/api/**"
+---
+
 # Mirdan Security Enforcement
 
 This file is security-sensitive. Apply strict validation.

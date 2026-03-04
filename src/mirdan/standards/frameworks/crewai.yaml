@@ -1,0 +1,20 @@
+principles:
+  - Define agents with clear roles, goals, and backstories for focused behavior
+  - Use Task objects with expected_output for structured agent outputs
+  - Compose agents into Crew with appropriate process type (sequential or hierarchical)
+  - Use tools decorator to create type-safe agent tools with proper descriptions
+  - Implement memory for agents that need context across task executions
+  - Use delegation wisely — enable only when agents need to collaborate
+  - Set verbose mode during development for debugging agent interactions
+
+forbidden:
+  - Agents without clear role or goal definitions
+  - Missing expected_output on tasks causing unstructured responses
+  - Circular delegation between agents without termination conditions
+  - Hardcoded LLM responses instead of proper agent reasoning
+  - Missing error handling for agent tool failures
+
+patterns:
+  agent_definition: "Agent(role='...', goal='...', backstory='...', tools=[...], verbose=True)"
+  task_creation: "Task(description='...', expected_output='...', agent=agent)"
+  crew_assembly: "Crew(agents=[...], tasks=[...], process=Process.sequential)"

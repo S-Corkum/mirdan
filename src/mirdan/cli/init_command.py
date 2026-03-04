@@ -25,6 +25,7 @@ def run_init(args: list[str]) -> None:
     force_claude_code = False
     force_all = False
     upgrade = False
+    learn = False
     quality_profile = ""
     directory = Path.cwd()
     remaining: list[str] = []
@@ -42,6 +43,8 @@ def run_init(args: list[str]) -> None:
             force_all = True
         elif arg == "--upgrade":
             upgrade = True
+        elif arg == "--learn":
+            learn = True
         elif arg.startswith("--quality-profile"):
             if "=" in arg:
                 quality_profile = arg.split("=", 1)[1]
@@ -109,6 +112,10 @@ def run_init(args: list[str]) -> None:
     rules_dir.mkdir(parents=True, exist_ok=True)
     _create_rules_template(rules_dir, detected)
 
+    # Step 3b: Learn conventions from codebase
+    if learn:
+        _learn_conventions(directory, rules_dir, detected)
+
     # Step 4: IDE integrations (platform-specific)
     if platform == "cursor" or "cursor" in detected.detected_ides:
         _setup_cursor(directory, detected)
@@ -136,6 +143,44 @@ def run_init(args: list[str]) -> None:
     print("  3. Start the server: mirdan serve")
     if install_hooks or force_cursor or force_claude_code:
         print("  4. Hooks installed — edits will be auto-validated")
+
+
+def _learn_conventions(
+    directory: Path,
+    rules_dir: Path,
+    detected: DetectedProject,
+) -> None:
+    """Scan the project and generate custom rules from conventions.
+
+    Args:
+        directory: Project root directory.
+        rules_dir: Rules directory to write to.
+        detected: Auto-detected project metadata.
+    """
+    from mirdan.core.convention_extractor import ConventionExtractor
+    from mirdan.core.rule_generator import RuleGenerator
+
+    print("  Scanning codebase for conventions...")
+    extractor = ConventionExtractor()
+    language = detected.primary_language or "auto"
+    result = extractor.scan(directory, language=language)
+
+    if not result.conventions:
+        print("  No conventions discovered.")
+        return
+
+    print(f"  Found {len(result.conventions)} convention(s)")
+
+    generator = RuleGenerator()
+    rules = generator.generate_from_conventions(result.conventions)
+
+    if not rules:
+        print("  No high-confidence conventions to generate rules from.")
+        return
+
+    output_path = rules_dir / "conventions.yaml"
+    generator.generate_and_write(result.conventions, output_path)
+    print(f"  Created {output_path} ({len(rules)} rules)")
 
 
 def _determine_platform(
@@ -555,5 +600,6 @@ def _print_init_help() -> None:
     print("  --claude-code            Use Claude Code platform profile")
     print("  --all                    Set up both Cursor and Claude Code")
     print("  --quality-profile NAME   Set quality profile (e.g. enterprise, startup)")
+    print("  --learn                  Scan codebase and generate custom rules from conventions")
     print("  --upgrade                Upgrade existing config (merge new fields, regenerate)")
     print("  -h, --help               Show this help")

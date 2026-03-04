@@ -1,3 +1,9 @@
+---
+description: "Python quality standards enforced by Mirdan"
+paths:
+  - "**/*.py"
+---
+
 # Python Quality Standards (via Mirdan)
 
 When writing or modifying Python files, enforce these standards:

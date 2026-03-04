@@ -1,6 +1,7 @@
 ---
 name: debug
 description: "Mirdan-assisted debugging with quality validation"
+argument-hint: "Describe the bug or error"
 model: inherit
 allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Write, Edit, Glob, Grep, Bash
 ---

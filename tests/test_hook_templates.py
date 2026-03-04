@@ -180,28 +180,40 @@ class TestPostToolUse:
         hook_types = [h["type"] for h in post_tool[0]["hooks"]]
         assert "prompt" in hook_types
 
-    def test_mentions_validate(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse prompt should mention validate_code_quality."""
+    def test_has_command_type(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse should have a command type hook."""
         hooks = default_generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
-        prompt = post_tool[0]["hooks"][0]["prompt"]
-        assert "validate_code_quality" in prompt
+        hook_types = [h["type"] for h in post_tool[0]["hooks"]]
+        assert "command" in hook_types
+
+    def test_prompt_mentions_validate(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse prompt hook should mention validate_code_quality."""
+        hooks = default_generator.generate()["hooks"]
+        post_tool = hooks["PostToolUse"]
+        prompt_hooks = [h for h in post_tool[0]["hooks"] if h["type"] == "prompt"]
+        assert len(prompt_hooks) > 0
+        assert "validate_code_quality" in prompt_hooks[0]["prompt"]
 
 
 class TestStop:
     """Tests for Stop hook generation."""
 
-    def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
-        """Stop should have a prompt hook for verification gate."""
+    def test_has_command_and_prompt(self, default_generator: HookTemplateGenerator) -> None:
+        """Stop should have command+prompt combo for quality gate."""
         hooks = default_generator.generate()["hooks"]
         stop = hooks["Stop"]
-        assert stop[0]["hooks"][0]["type"] == "prompt"
+        hook_types = [h["type"] for h in stop[0]["hooks"]]
+        assert "command" in hook_types
+        assert "prompt" in hook_types
 
-    def test_mentions_validation(self, default_generator: HookTemplateGenerator) -> None:
-        """Stop prompt should mention validation."""
+    def test_command_runs_gate(self, default_generator: HookTemplateGenerator) -> None:
+        """Stop command should run mirdan gate."""
         hooks = default_generator.generate()["hooks"]
         stop = hooks["Stop"]
-        assert "validate" in stop[0]["hooks"][0]["prompt"].lower()
+        command_hooks = [h for h in stop[0]["hooks"] if h["type"] == "command"]
+        assert len(command_hooks) > 0
+        assert "gate" in command_hooks[0]["command"]
 
 
 class TestGenerateAndWrite:
@@ -229,9 +241,9 @@ class TestGenerateAndWrite:
 class TestAllHookEvents:
     """Tests for the ALL_HOOK_EVENTS constant."""
 
-    def test_has_ten_events(self) -> None:
-        """Should define 10 hook events."""
-        assert len(ALL_HOOK_EVENTS) == 10
+    def test_has_seventeen_events(self) -> None:
+        """Should define 17 hook events."""
+        assert len(ALL_HOOK_EVENTS) == 17
 
     def test_includes_core_events(self) -> None:
         """Should include all core events."""

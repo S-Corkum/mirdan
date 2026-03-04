@@ -1,3 +1,12 @@
+---
+description: "TypeScript/JavaScript quality standards enforced by Mirdan"
+paths:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+---
+
 # TypeScript/JavaScript Quality Standards (via Mirdan)
 
 When writing or modifying TypeScript/JavaScript files, enforce these standards:

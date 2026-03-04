@@ -1,0 +1,20 @@
+principles:
+  - Define routers with typed input/output using Zod schemas for end-to-end type safety
+  - Use middleware for shared concerns (auth, logging, rate limiting)
+  - Organize procedures into sub-routers merged via mergeRouters for modularity
+  - Use queries for read operations, mutations for writes following REST semantics
+  - Export AppRouter type for client-side type inference without code generation
+  - Use superjson or similar transformer for Date, Map, Set serialization
+  - Implement error handling with TRPCError and proper HTTP status codes
+
+forbidden:
+  - Untyped procedure inputs — always use Zod schema validation
+  - Exposing internal errors to clients without proper error formatting
+  - Mixing query and mutation semantics in a single procedure
+  - Circular router imports causing type inference failures
+  - Missing middleware for authentication on protected procedures
+
+patterns:
+  router: "t.router({ getUser: t.procedure.input(z.object({...})).query(async ({input}) => {...}) })"
+  middleware: "t.middleware(async ({ctx, next}) => { return next({ctx: {...ctx, user}}) })"
+  client_usage: "trpc.getUser.useQuery({id: '1'}) for React Query integration"

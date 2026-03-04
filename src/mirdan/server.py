@@ -13,10 +13,12 @@ from typing import Any
 from fastmcp import FastMCP
 
 from mirdan.config import MirdanConfig
+from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
+from mirdan.core.convention_extractor import ConventionExtractor
 from mirdan.core.diff_parser import parse_unified_diff
-from mirdan.core.environment_detector import detect_environment
+from mirdan.core.environment_detector import IDEType, detect_environment
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.knowledge_producer import KnowledgeProducer
 from mirdan.core.linter_orchestrator import create_linter_runner, merge_linter_violations
@@ -28,6 +30,7 @@ from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_persistence import QualityPersistence
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.core.session_manager import SessionManager
+from mirdan.core.session_tracker import SessionTracker
 from mirdan.models import ComparisonEntry, ComparisonResult, Intent, ModelTier, TaskType
 
 logger = logging.getLogger(__name__)
@@ -65,6 +68,10 @@ class _Components:
     quality_persistence: QualityPersistence
     knowledge_producer: KnowledgeProducer
     linter_runner: LinterRunner
+    session_tracker: SessionTracker
+    auto_fixer: AutoFixer
+    convention_extractor: ConventionExtractor
+    violation_explainer: Any  # ViolationExplainer (lazy import)
     config: MirdanConfig
 
 
@@ -78,7 +85,15 @@ _TOOL_PRIORITY = [
     "enhance_prompt",
     "get_quality_standards",
     "get_quality_trends",
+    "scan_conventions",
 ]
+
+
+def _create_violation_explainer() -> Any:
+    """Create the ViolationExplainer instance."""
+    from mirdan.core.violation_explainer import ViolationExplainer
+
+    return ViolationExplainer()
 
 
 def _get_components() -> _Components:
@@ -88,10 +103,39 @@ def _get_components() -> _Components:
         return _components
 
     config = MirdanConfig.find_config()
+
+    # Apply quality profile if not default (Bug #2: apply_profile was never called)
+    if config.quality_profile and config.quality_profile != "default":
+        from mirdan.core.quality_profiles import apply_profile, get_profile
+
+        try:
+            profile = get_profile(config.quality_profile, config.custom_profiles)
+            config_dict = {"quality": config.quality.__dict__.copy()}
+            apply_profile(profile, config_dict)
+            # Update the quality config with profile values
+            for key, value in config_dict.get("quality", {}).items():
+                if hasattr(config.quality, key):
+                    setattr(config.quality, key, value)
+        except ValueError:
+            logger.warning("Unknown quality profile '%s', using default", config.quality_profile)
+
     quality_standards = QualityStandards(config=config.quality)
 
     # Detect project directory for AI002 import verification
     project_dir = Path.cwd()
+
+    # Detect environment once for output optimization (Phase 2G)
+    env_info = detect_environment()
+    compact_threshold = config.tokens.compact_threshold
+    minimal_threshold = config.tokens.minimal_threshold
+    micro_threshold = config.tokens.micro_threshold
+
+    if env_info.ide == IDEType.CLAUDE_CODE:
+        # Claude Code: prefer compact mode (context window pressure from hooks/rules)
+        compact_threshold = max(compact_threshold, 8000)
+    elif env_info.ide == IDEType.CURSOR:
+        # Cursor: prefer full mode (larger context, MCP Apps can render)
+        compact_threshold = min(compact_threshold, 2000)
 
     _components = _Components(
         intent_analyzer=IntentAnalyzer(config.project),
@@ -108,13 +152,17 @@ def _get_components() -> _Components:
         plan_validator=PlanValidator(config.planning, thresholds=config.thresholds),
         session_manager=SessionManager(config.session),
         output_formatter=OutputFormatter(
-            compact_threshold=config.tokens.compact_threshold,
-            minimal_threshold=config.tokens.minimal_threshold,
-            micro_threshold=config.tokens.micro_threshold,
+            compact_threshold=compact_threshold,
+            minimal_threshold=minimal_threshold,
+            micro_threshold=micro_threshold,
         ),
         quality_persistence=QualityPersistence(),
         knowledge_producer=KnowledgeProducer(),
         linter_runner=create_linter_runner(config),
+        session_tracker=SessionTracker(),
+        auto_fixer=AutoFixer(),
+        convention_extractor=ConventionExtractor(config),
+        violation_explainer=_create_violation_explainer(),
         config=config,
     )
     return _components
@@ -260,7 +308,15 @@ async def enhance_prompt(
         frameworks=intent.frameworks,
     )
     if knowledge_entries:
-        result_dict["knowledge_entries"] = [e.to_dict() for e in knowledge_entries]
+        auto_mem = c.config.orchestration.auto_memory
+        threshold = c.config.orchestration.auto_memory_threshold
+        entries_out = []
+        for e in knowledge_entries:
+            d = e.to_dict()
+            if auto_mem and e.confidence >= threshold:
+                d["auto_store"] = True
+            entries_out.append(d)
+        result_dict["knowledge_entries"] = entries_out
 
     # Detect environment for context
     env_info = detect_environment()
@@ -308,7 +364,9 @@ async def validate_code_quality(
         session_id: Session ID from enhance_prompt to auto-inherit language and security settings
         max_tokens: Maximum token budget for the response (0=unlimited)
         model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
-        input_type: Input type - "code" for raw code (default), "diff" for unified diff
+        input_type: Input type - "code" for raw code (default), "diff" for unified
+                   diff format (git diff output). When "diff", only added lines are
+                   validated and violation line numbers map back to original file locations
         compare: If True, treat `code` as JSON array of implementations to compare
         file_path: Optional file path for external linter analysis. When provided,
                    runs ruff/eslint/mypy on the file and merges results.
@@ -354,12 +412,48 @@ async def validate_code_quality(
             if linter_violations:
                 result = merge_linter_violations(result, linter_violations, c.config.thresholds)
 
+    # Enrich violations with contextual explanations (Phase 5A)
+    if result.violations:
+        try:
+            c.violation_explainer.enrich_violations(result.violations)
+        except Exception:
+            logger.debug("Failed to enrich violations", exc_info=True)
+
+    # Persist snapshot for quality trends (Bug #1: save_snapshot was never called)
+    try:
+        c.quality_persistence.save_snapshot(result)
+    except Exception:
+        logger.debug("Failed to save quality snapshot", exc_info=True)
+
+    # Track validation in session (Phase 2: always-on tracking)
+    session = None
+    if session_id:
+        session = c.session_manager.get(session_id)
+    c.session_tracker.record_validation(result, file_path=file_path, session=session)
+
     output = result.to_dict(severity_threshold=severity_threshold)
+
+    # Include session quality summary if session is active
+    if session and session.validation_count > 0:
+        output["session_quality"] = {
+            "validation_count": session.validation_count,
+            "avg_score": round(session.cumulative_score / session.validation_count, 3),
+            "unresolved_errors": session.unresolved_errors,
+            "files_validated": len(session.files_validated),
+        }
 
     # Add knowledge entries for enyal storage
     knowledge_entries = c.knowledge_producer.extract_from_validation(result)
     if knowledge_entries:
-        output["knowledge_entries"] = [e.to_dict() for e in knowledge_entries]
+        auto_mem = c.config.orchestration.auto_memory
+        threshold = c.config.orchestration.auto_memory_threshold
+        entries_out = []
+        for e in knowledge_entries:
+            d = e.to_dict()
+            if auto_mem and e.confidence >= threshold:
+                d["auto_store"] = True
+            entries_out.append(d)
+        output["knowledge_entries"] = entries_out
 
     # Add verification checklist to output (absorbs get_verification_checklist)
     intent = Intent(
@@ -368,10 +462,8 @@ async def validate_code_quality(
         touches_security=resolved_security,
     )
     # Detect task type from session if available
-    if session_id:
-        session = c.session_manager.get(session_id)
-        if session:
-            intent.task_type = session.task_type
+    if session:
+        intent.task_type = session.task_type
     output["checklist"] = c.prompt_composer.generate_verification_steps(intent)
 
     # Apply token-budget-aware formatting
@@ -399,7 +491,7 @@ async def _handle_diff(
 
     # Parse the diff
     parsed = parse_unified_diff(diff)
-    added_code = parsed.get_added_code()
+    added_code, line_mapping = parsed.get_added_code_with_mapping()
 
     if not added_code.strip():
         return {
@@ -422,9 +514,25 @@ async def _handle_diff(
         check_style=True,
     )
 
+    # Persist snapshot for quality trends
+    try:
+        c.quality_persistence.save_snapshot(result)
+    except Exception:
+        logger.debug("Failed to save quality snapshot", exc_info=True)
+
     output = result.to_dict(severity_threshold="warning")
     output["files_changed"] = parsed.files_changed
     output["lines_added"] = sum(len(h.added_lines) for h in parsed.hunks)
+
+    # Remap violation line numbers to original file locations
+    if "violations" in output and line_mapping:
+        for violation in output["violations"]:
+            extracted_line = violation.get("line")
+            if extracted_line and extracted_line in line_mapping:
+                file_path, original_line = line_mapping[extracted_line]
+                violation["file"] = file_path
+                violation["original_line"] = original_line
+                violation["line"] = original_line
 
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
@@ -530,6 +638,18 @@ async def validate_quick(
 
     output = result.to_dict(severity_threshold="warning")
 
+    # Add auto-fix suggestions for high-confidence security/critical fixes
+    auto_fixes = c.auto_fixer.quick_fix(result)
+    if auto_fixes:
+        output["auto_fixes"] = [
+            {
+                "fix_code": f.fix_code,
+                "fix_description": f.fix_description,
+                "confidence": f.confidence,
+            }
+            for f in auto_fixes
+        ]
+
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
     output = c.output_formatter.format_validation_result(
@@ -576,6 +696,7 @@ async def get_quality_standards(
 async def get_quality_trends(
     project_path: str = "",
     days: int = 30,
+    format: str = "",
 ) -> dict[str, Any]:
     """
     Get quality score trends over time from stored validation history.
@@ -586,6 +707,7 @@ async def get_quality_trends(
     Args:
         project_path: Optional project path filter
         days: Number of days of history to analyze (default: 30)
+        format: Output format — empty for default, "dashboard" for MCP Apps data
 
     Returns:
         Quality trend data with scores, pass rate, and trend direction
@@ -600,7 +722,61 @@ async def get_quality_trends(
         days=days,
         project_path=project_path or None,
     )
-    return trend.to_dict()
+    trend_dict = trend.to_dict()
+
+    # Add quality forecasting (Phase 5D)
+    if trend.snapshots:
+        from mirdan.core.quality_forecaster import QualityForecaster
+
+        forecaster = QualityForecaster()
+        snap_dicts = [s.to_dict() for s in trend.snapshots]
+        forecast = forecaster.forecast(snap_dicts)
+        trend_dict["forecast"] = forecast.to_dict()
+        regressions = forecaster.detect_regression(snap_dicts)
+        if regressions:
+            trend_dict["regression_alerts"] = [r.to_dict() for r in regressions]
+        trend_dict["velocity"] = round(forecaster.calculate_velocity(snap_dicts), 6)
+
+    if format == "dashboard":
+        from mirdan.integrations.mcp_apps import QualityDashboard
+
+        dashboard = QualityDashboard()
+        trend_dict["dashboard"] = dashboard.score_timeline(trend_dict)
+
+    return trend_dict
+
+
+# ---------------------------------------------------------------------------
+# Core Tool 5: scan_conventions
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def scan_conventions(
+    directory: str = ".",
+    language: str = "auto",
+) -> dict[str, Any]:
+    """Scan a codebase to discover implicit conventions and patterns.
+
+    Validates multiple source files, aggregates results, and produces
+    convention entries describing naming patterns, import styles,
+    docstring conventions, and recurring violation patterns.
+
+    Args:
+        directory: Directory to scan (default: current directory)
+        language: Language filter or "auto" to detect
+
+    Returns:
+        Scan result with discovered conventions and quality baselines
+    """
+    c = _get_components()
+    scan_dir = Path(directory).resolve()
+
+    if not scan_dir.is_dir():
+        return {"error": f"Not a directory: {directory}"}
+
+    result = c.convention_extractor.scan(scan_dir, language=language)
+    return result.to_dict()
 
 
 # ---------------------------------------------------------------------------

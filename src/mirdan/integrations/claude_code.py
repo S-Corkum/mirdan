@@ -210,6 +210,17 @@ def export_plugin(output_dir: Path) -> Path:
         ),
         "version": _get_version(),
         "author": "mirdan",
+        "categories": ["code-quality", "security", "ai-safety"],
+        "skills": ["code", "debug", "review", "plan", "quality"],
+        "agents": [
+            "quality-gate",
+            "security-audit",
+            "test-quality",
+            "convention-check",
+            "architecture-reviewer",
+        ],
+        "hooks": True,
+        "mcpServers": ["mirdan"],
     }
     with (plugin_dir / "plugin.json").open("w") as f:
         json.dump(plugin_json, f, indent=2)
@@ -255,6 +266,20 @@ def export_plugin(output_dir: Path) -> Path:
             (agents_dir / f"{agent_name}.md").write_text(content)
         except (FileNotFoundError, TypeError, AttributeError):
             continue
+
+    # Copy rules
+    rules_dir = output_dir / "rules"
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    for rule_name, content in _load_rule_templates().items():
+        (rules_dir / rule_name).write_text(content)
+
+    # Generate hooks.json
+    from mirdan.integrations.hook_templates import HookTemplateGenerator
+
+    hook_gen = HookTemplateGenerator()
+    hooks_data = hook_gen.generate()
+    with (output_dir / "hooks.json").open("w") as f:
+        json.dump(hooks_data, f, indent=2)
 
     # Write README
     try:
@@ -331,8 +356,12 @@ def _generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:
     generated: list[Path] = []
     templates = _load_rule_templates()
 
-    # Always generate quality and security rules
-    for template_name in ("mirdan-quality.md", "mirdan-security.md"):
+    # Always generate quality, security, and workflow rules
+    for template_name in (
+        "mirdan-quality.md",
+        "mirdan-security.md",
+        "mirdan-workflow.md",
+    ):
         if template_name in templates:
             path = rules_dir / template_name
             path.write_text(templates[template_name])
@@ -396,11 +425,9 @@ def detect_mirdan_command() -> tuple[str, list[str]]:
 
 def _get_version() -> str:
     """Get the mirdan version string."""
-    try:
-        from mirdan import __version__
-        return __version__
-    except ImportError:
-        return "0.1.0"
+    from mirdan import __version__
+
+    return __version__
 
 
 # ---------------------------------------------------------------------------

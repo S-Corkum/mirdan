@@ -10,8 +10,8 @@ Files in auth, security, API, and middleware paths require stricter validation.
 
 ## Mandatory Steps
 
-1. Call `mcp_mirdan_enhance_prompt` — confirm `touches_security=true`
-2. Call `mcp_mirdan_get_quality_standards` with `category="security"`
+1. Call `mcp__mirdan__enhance_prompt` — confirm `touches_security=true`
+2. Call `mcp__mirdan__get_quality_standards` with `category="security"`
 3. After writing code, validate with `check_security=true`
 
 ## Security Checklist

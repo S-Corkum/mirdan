@@ -1,0 +1,20 @@
+principles:
+  - Use content collections with Zod schemas for type-safe markdown and data
+  - Prefer static rendering (default) unless page requires client interactivity
+  - Use client directives (client:load, client:visible, client:idle) for partial hydration
+  - Organize pages in src/pages/ following file-based routing conventions
+  - Use Astro.props for type-safe component props with TypeScript interfaces
+  - Leverage view transitions API for smooth page navigation
+  - Use middleware for shared request processing (auth, redirects, headers)
+
+forbidden:
+  - client:load on components that can render statically
+  - Importing large client-side frameworks for static content pages
+  - Missing content collection schemas allowing unvalidated frontmatter
+  - Using getStaticPaths without proper pagination for large collections
+  - Global CSS without scoped styles in components
+
+patterns:
+  content_collection: "defineCollection({ type: 'content', schema: z.object({...}) })"
+  partial_hydration: "<ReactComponent client:visible /> for below-fold interactive content"
+  routing: "src/pages/[...slug].astro with getStaticPaths() for dynamic routes"

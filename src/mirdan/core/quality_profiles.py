@@ -169,6 +169,46 @@ def apply_profile(profile: QualityProfile, config: dict[str, Any]) -> dict[str, 
     return config
 
 
+def suggest_profile(
+    scan_result: dict[str, Any],
+) -> tuple[str, float]:
+    """Suggest a quality profile based on codebase scan results.
+
+    Analyzes the scan_result (from ConventionExtractor or quality report)
+    and recommends the best-matching built-in profile.
+
+    Args:
+        scan_result: Dict with keys like avg_score, pass_rate,
+            convention_count, files_scanned, common_violations, language.
+
+    Returns:
+        Tuple of (profile_name, confidence) where confidence is 0.0-1.0.
+    """
+    avg_score = scan_result.get("avg_score", 0.5)
+    pass_rate = scan_result.get("pass_rate", 0.5)
+    files_scanned = scan_result.get("files_scanned", 0)
+
+    # High quality codebase → enterprise or library
+    if avg_score >= 0.9 and pass_rate >= 0.9:
+        if files_scanned > 50:
+            return ("enterprise", 0.8)
+        return ("library", 0.75)
+
+    # Medium quality → default
+    if avg_score >= 0.7:
+        return ("default", 0.7)
+
+    # Lower quality but some conventions → startup
+    if avg_score >= 0.5:
+        return ("startup", 0.65)
+
+    # Low quality or few files → prototype
+    if files_scanned < 10 or avg_score < 0.5:
+        return ("prototype", 0.6)
+
+    return ("default", 0.5)
+
+
 def list_profiles(custom_profiles: dict[str, dict[str, Any]] | None = None) -> list[dict[str, str]]:
     """List all available profiles with descriptions.
 

@@ -70,23 +70,25 @@ class TestHooksGeneration:
         data = json.loads(hooks_path.read_text())
         assert "Stop" in data["hooks"]
 
-    def test_post_tool_use_uses_prompt(self, tmp_path, detected_python) -> None:
-        """PostToolUse should use prompt-type hook for validation."""
+    def test_post_tool_use_has_command_and_prompt(self, tmp_path, detected_python) -> None:
+        """PostToolUse should use command+prompt combo for validation."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        ptu_hook = data["hooks"]["PostToolUse"][0]["hooks"][0]
-        assert ptu_hook["type"] == "prompt"
-        assert "validate_code_quality" in ptu_hook["prompt"]
+        ptu_hooks = data["hooks"]["PostToolUse"][0]["hooks"]
+        hook_types = [h["type"] for h in ptu_hooks]
+        assert "command" in hook_types
+        assert "prompt" in hook_types
 
-    def test_stop_uses_prompt(self, tmp_path, detected_python) -> None:
-        """Stop hook should use prompt-type for verification gate."""
+    def test_stop_has_command_and_prompt(self, tmp_path, detected_python) -> None:
+        """Stop hook should use command+prompt combo for quality gate."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
-        stop_hook = data["hooks"]["Stop"][0]["hooks"][0]
-        assert stop_hook["type"] == "prompt"
-        assert "validate" in stop_hook["prompt"].lower()
+        stop_hooks = data["hooks"]["Stop"][0]["hooks"]
+        hook_types = [h["type"] for h in stop_hooks]
+        assert "command" in hook_types
+        assert "prompt" in hook_types
 
     def test_post_tool_use_matcher(self, tmp_path, detected_python) -> None:
         """PostToolUse should match Write|Edit|MultiEdit tools."""
@@ -163,13 +165,13 @@ class TestRulesGeneration:
         python_path = tmp_path / ".claude" / "rules" / "mirdan-python.md"
         assert not python_path.exists()
 
-    def test_rules_are_plain_markdown(self, tmp_path, detected_python) -> None:
-        """Rule files should be plain markdown (no YAML frontmatter)."""
+    def test_rules_have_yaml_frontmatter(self, tmp_path, detected_python) -> None:
+        """Rule files should have YAML frontmatter with description."""
         generate_claude_code_config(tmp_path, detected_python)
         quality_path = tmp_path / ".claude" / "rules" / "mirdan-quality.md"
         content = quality_path.read_text()
-        # Should NOT start with YAML frontmatter (---)
-        assert not content.startswith("---")
+        assert content.startswith("---")
+        assert "description:" in content
 
     def test_rules_overwritten_on_regeneration(self, tmp_path, detected_python) -> None:
         """Rule files should be overwritten on regeneration."""
@@ -259,11 +261,12 @@ class TestHookDelegation:
         hook_types = [h["type"] for h in post[0]["hooks"]]
         assert "prompt" in hook_types
 
-    def test_stop_uses_prompt_type(self, tmp_path, detected_python) -> None:
-        """Stop hook should use prompt type for verification gate."""
+    def test_stop_has_command_and_prompt(self, tmp_path, detected_python) -> None:
+        """Stop hook should use command+prompt combo for quality gate."""
         generate_claude_code_config(tmp_path, detected_python)
         hooks_path = tmp_path / ".claude" / "hooks.json"
         data = json.loads(hooks_path.read_text())
         stop = data["hooks"]["Stop"]
-        assert stop[0]["hooks"][0]["type"] == "prompt"
-        assert "validate" in stop[0]["hooks"][0]["prompt"].lower()
+        hook_types = [h["type"] for h in stop[0]["hooks"]]
+        assert "command" in hook_types
+        assert "prompt" in hook_types

@@ -1,3 +1,7 @@
+---
+description: "Mirdan quality enforcement rules for AI-generated code"
+---
+
 # Mirdan Quality Enforcement (Always Active)
 
 ## Quality Workflow

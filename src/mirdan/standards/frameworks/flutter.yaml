@@ -1,0 +1,20 @@
+principles:
+  - Follow the Widget composition pattern — prefer small, focused widgets over deep trees
+  - Use const constructors wherever possible for build performance optimization
+  - Manage state with appropriate solutions (Provider, Riverpod, BLoC) per complexity
+  - Implement proper null safety with required keyword and late initialization
+  - Use go_router or auto_route for declarative type-safe navigation
+  - Separate business logic from UI with repository and service layers
+  - Write widget tests with testWidgets() and integration tests with patrol or integration_test
+
+forbidden:
+  - setState() for complex state management spanning multiple widgets
+  - Deep widget nesting without extracting reusable components
+  - Missing const on stateless widget constructors and literals
+  - Blocking the UI thread with synchronous file or network operations
+  - Hardcoded strings instead of using localization (intl or easy_localization)
+
+patterns:
+  widget: "class MyWidget extends StatelessWidget { const MyWidget({super.key}); }"
+  state_management: "ref.watch(provider) in Riverpod for reactive state consumption"
+  navigation: "GoRouter(routes: [GoRoute(path: '/', builder: (ctx, state) => HomeScreen())])"

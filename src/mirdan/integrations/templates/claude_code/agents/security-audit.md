@@ -2,6 +2,8 @@
 name: security-scanner
 description: "PROACTIVELY scan security-sensitive files using mirdan validation"
 model: haiku
+maxTurns: 5
+isolation: worktree
 background: true
 memory: project
 tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Glob, Grep

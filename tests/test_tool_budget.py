@@ -14,9 +14,9 @@ from mirdan.config import MirdanConfig, PlatformProfile
 class TestToolPriority:
     """Tests for _TOOL_PRIORITY list."""
 
-    def test_has_five_entries(self) -> None:
-        """_TOOL_PRIORITY should have exactly 5 entries."""
-        assert len(server_mod._TOOL_PRIORITY) == 5
+    def test_has_six_entries(self) -> None:
+        """_TOOL_PRIORITY should have exactly 6 entries."""
+        assert len(server_mod._TOOL_PRIORITY) == 6
 
     def test_priority_order(self) -> None:
         """Tools should be in correct priority order."""
@@ -26,8 +26,9 @@ class TestToolPriority:
             "enhance_prompt",
             "get_quality_standards",
             "get_quality_trends",
+            "scan_conventions",
         ]
-        assert server_mod._TOOL_PRIORITY == expected
+        assert expected == server_mod._TOOL_PRIORITY
 
     def test_all_tools_registered(self) -> None:
         """All priority tools should be registered in the MCP server."""
@@ -67,13 +68,13 @@ class TestToolBudgetFiltering:
 
     @pytest.mark.asyncio
     async def test_no_env_var_keeps_all(self) -> None:
-        """Without MIRDAN_TOOL_BUDGET, all 5 tools should remain."""
+        """Without MIRDAN_TOOL_BUDGET, all 6 tools should remain."""
         env = os.environ.copy()
         env.pop("MIRDAN_TOOL_BUDGET", None)
         with patch.dict(os.environ, env, clear=True):
             async with server_mod._lifespan(server_mod.mcp):
                 remaining = set(server_mod.mcp._tool_manager._tools.keys())
-                assert len(remaining) == 5
+                assert len(remaining) == 6
 
     @pytest.mark.asyncio
     async def test_invalid_env_var_keeps_all(self) -> None:
@@ -81,7 +82,7 @@ class TestToolBudgetFiltering:
         with patch.dict(os.environ, {"MIRDAN_TOOL_BUDGET": "not-a-number"}):
             async with server_mod._lifespan(server_mod.mcp):
                 remaining = set(server_mod.mcp._tool_manager._tools.keys())
-                assert len(remaining) == 5
+                assert len(remaining) == 6
 
     @pytest.mark.asyncio
     async def test_budget_three_keeps_top_three(self) -> None:
@@ -109,7 +110,7 @@ class TestToolBudgetFiltering:
         with patch.dict(os.environ, {"MIRDAN_TOOL_BUDGET": ""}):
             async with server_mod._lifespan(server_mod.mcp):
                 remaining = set(server_mod.mcp._tool_manager._tools.keys())
-                assert len(remaining) == 5
+                assert len(remaining) == 6
 
 
 class TestPlatformProfile:

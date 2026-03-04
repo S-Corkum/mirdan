@@ -11,6 +11,9 @@ Routes:
 - ``mirdan plugin`` → plugin management (export)
 - ``mirdan report`` → project quality report
 - ``mirdan fix`` → auto-fix code quality violations
+- ``mirdan gate`` → quality gate for changed files
+- ``mirdan profile`` → manage quality profiles
+- ``mirdan export`` → export results (SARIF, badge, JSON)
 """
 
 from __future__ import annotations
@@ -40,6 +43,12 @@ def main() -> None:
         _report(args[1:])
     elif args[0] == "fix":
         _fix(args[1:])
+    elif args[0] == "gate":
+        _gate(args[1:])
+    elif args[0] == "profile":
+        _profile(args[1:])
+    elif args[0] == "export":
+        _export(args[1:])
     elif args[0] in ("--help", "-h"):
         _print_help()
     elif args[0] in ("--version", "-V"):
@@ -113,6 +122,27 @@ def _fix(args: list[str]) -> None:
     run_fix(args)
 
 
+def _gate(args: list[str]) -> None:
+    """Run quality gate on changed files."""
+    from mirdan.cli.gate_command import run_gate
+
+    run_gate(args)
+
+
+def _profile(args: list[str]) -> None:
+    """Manage quality profiles."""
+    from mirdan.cli.profile_command import run_profile
+
+    run_profile(args)
+
+
+def _export(args: list[str]) -> None:
+    """Export validation results."""
+    from mirdan.cli.export_command import run_export
+
+    run_export(args)
+
+
 def _print_help() -> None:
     """Print CLI usage help."""
     from mirdan import __version__
@@ -132,6 +162,9 @@ def _print_help() -> None:
     print("  plugin     Plugin management (export)")
     print("  report     Generate project quality report")
     print("  fix        Auto-fix code quality violations")
+    print("  gate       Quality gate — validate all changed files")
+    print("  profile    Manage quality profiles (list, suggest, apply)")
+    print("  export     Export results (sarif, badge, json)")
     print()
     print("Options:")
     print("  -h, --help     Show this help")

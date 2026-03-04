@@ -114,7 +114,11 @@ These rules apply to all AI agents working in this codebase:
 """
 
     def _language_section(self, detected: DetectedProject) -> str:
-        """Generate language-specific guidance."""
+        """Generate language-specific guidance.
+
+        When a QualityStandards instance is available, includes
+        language-specific rules from the standards database.
+        """
         lang = detected.primary_language or "python"
         frameworks = detected.frameworks or []
 
@@ -127,6 +131,25 @@ These rules apply to all AI agents working in this codebase:
         if frameworks:
             lines.append(f"\n### Frameworks: {', '.join(frameworks)}")
             lines.extend(f"- Follow {fw} best practices and patterns" for fw in frameworks)
+
+        # Include language standards if available
+        if self._standards is not None:
+            standards_data = self._standards.get_all_standards(
+                language=lang, category="style"
+            )
+            if standards_data:
+                lines.append(f"\n### {lang.title()} Standards")
+                for items in standards_data.values():
+                    if isinstance(items, list):
+                        for item in items[:5]:
+                            if isinstance(item, dict):
+                                desc = item.get("description", item.get("message", ""))
+                                rule_id = item.get("id", "")
+                                if desc:
+                                    entry = f"- **{rule_id}**: {desc}" if rule_id else f"- {desc}"
+                                    lines.append(entry)
+                            elif isinstance(item, str):
+                                lines.append(f"- {item}")
 
         lines.append("")
         return "\n".join(lines)
@@ -144,9 +167,13 @@ These rules apply to all AI agents working in this codebase:
 
 ### Important (Should Fix)
 - Use HTTPS for all external requests (SEC006)
-- Enable SSL certificate verification (SEC007)
-- Use parameterized queries (SEC008)
+- Validate and sanitize all user input (SEC007)
+- Use parameterized queries for database operations (SEC008)
 - Apply principle of least privilege (SEC009)
+- Log security events without exposing sensitive data (SEC010)
+- No Cypher injection — use parameterized graph queries (SEC011)
+- No Gremlin injection — use parameterized traversals (SEC012)
+- Use bcrypt or argon2 for password hashing, never MD5/SHA (SEC013)
 """
 
     def _workflow_section(self, platform: str) -> str:
@@ -196,6 +223,8 @@ These rules apply to all AI agents working in this codebase:
 - `/mirdan:code`: Quality-guided code generation
 - `/mirdan:debug`: Quality-aware debugging
 - `/mirdan:review`: Code review with quality standards
+- `/mirdan:plan`: Quality-gated implementation planning
+- `/mirdan:quality`: On-demand quality validation and trends
 """
 
 

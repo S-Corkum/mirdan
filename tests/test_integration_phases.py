@@ -211,17 +211,16 @@ class TestAdvancedHooks:
         hooks = self._load_hooks(tmp_path, detected)
         assert "PreCompact" in hooks
 
-    def test_post_tool_use_uses_prompt(
+    def test_post_tool_use_has_command_and_prompt(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         post_tool = hooks.get("PostToolUse", [])
         assert len(post_tool) > 0
-        # Should use prompt-type hooks
-        for entry in post_tool:
-            hook_list = entry.get("hooks", [])
-            for hook in hook_list:
-                assert hook.get("type") == "prompt"
+        # Should have both command and prompt type hooks
+        hook_types = [h["type"] for h in post_tool[0]["hooks"]]
+        assert "command" in hook_types
+        assert "prompt" in hook_types
 
 
 # ---------------------------------------------------------------------------

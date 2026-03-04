@@ -23,19 +23,37 @@ class CursorHookStringency(Enum):
     """Hook stringency levels for Cursor hooks.json generation."""
 
     MINIMAL = "minimal"  # 2 events: afterFileEdit, stop
-    STANDARD = "standard"  # 3 events: + preToolUse
-    COMPREHENSIVE = "comprehensive"  # 4 events: + beforeSubmitPrompt
+    STANDARD = "standard"  # 5 events: + preToolUse, postToolUse, sessionStart
+    COMPREHENSIVE = "comprehensive"  # All events (~16)
 
 
 # Events for each stringency level
 CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
     CursorHookStringency.MINIMAL: ["afterFileEdit", "stop"],
-    CursorHookStringency.STANDARD: ["afterFileEdit", "preToolUse", "stop"],
+    CursorHookStringency.STANDARD: [
+        "afterFileEdit",
+        "preToolUse",
+        "postToolUse",
+        "sessionStart",
+        "stop",
+    ],
     CursorHookStringency.COMPREHENSIVE: [
         "afterFileEdit",
         "preToolUse",
+        "postToolUse",
+        "postToolUseFailure",
         "stop",
+        "sessionStart",
+        "sessionEnd",
         "beforeSubmitPrompt",
+        "subagentStart",
+        "subagentStop",
+        "beforeShellExecution",
+        "afterShellExecution",
+        "beforeMCPExecution",
+        "afterMCPExecution",
+        "preCompact",
+        "afterAgentResponse",
     ],
 }
 
@@ -148,11 +166,193 @@ def _hook_before_submit_prompt() -> list[dict]:
     ]
 
 
+def _hook_post_tool_use() -> list[dict]:
+    """postToolUse: Validate after tool execution."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "A tool was just used. If code was written or edited,"
+                " call mcp__mirdan__validate_code_quality on the changed"
+                " code. Fix any errors immediately."
+            ),
+        }
+    ]
+
+
+def _hook_post_tool_use_failure() -> list[dict]:
+    """postToolUseFailure: Handle failed tool calls."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "A tool call just failed. Analyze the error before"
+                " retrying. Consider an alternative approach rather"
+                " than repeating the same call."
+            ),
+        }
+    ]
+
+
+def _hook_session_start() -> list[dict]:
+    """sessionStart: Initialize quality context for new session."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "mirdan quality context is active. For coding tasks:"
+                " 1) Call mcp__mirdan__enhance_prompt for quality requirements."
+                " 2) After writing code, call mcp__mirdan__validate_code_quality."
+                " 3) Fix all errors before marking complete."
+            ),
+        }
+    ]
+
+
+def _hook_session_end() -> list[dict]:
+    """sessionEnd: Persist quality summary at session end."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "Session ending. Verify all changed files were validated"
+                " with mcp__mirdan__validate_code_quality and no"
+                " unresolved errors remain."
+            ),
+        }
+    ]
+
+
+def _hook_subagent_start() -> list[dict]:
+    """subagentStart: Pass quality context to subagents."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "You are a subagent. mirdan quality standards are active."
+                " Validate any code with mcp__mirdan__validate_code_quality"
+                " before returning results."
+            ),
+        }
+    ]
+
+
+def _hook_subagent_stop() -> list[dict]:
+    """subagentStop: Review subagent output quality."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "Review the subagent's output. If code was written,"
+                " ensure it was validated with"
+                " mcp__mirdan__validate_code_quality."
+            ),
+        }
+    ]
+
+
+def _hook_before_shell_execution() -> list[dict]:
+    """beforeShellExecution: Security check before shell commands."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "A shell command is about to execute. Check for:"
+                " 1) Command injection risks (unsanitized input)."
+                " 2) Destructive operations (rm -rf, git reset --hard)."
+                " 3) Overly broad permissions."
+            ),
+        }
+    ]
+
+
+def _hook_after_shell_execution() -> list[dict]:
+    """afterShellExecution: Review shell command results."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "A shell command completed. Review the output for"
+                " errors or warnings that might affect code quality."
+            ),
+        }
+    ]
+
+
+def _hook_before_mcp_execution() -> list[dict]:
+    """beforeMCPExecution: Context before MCP tool calls."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "An MCP tool is about to be called. If calling"
+                " mirdan tools, ensure correct parameters are set"
+                " (check_security, language, session_id)."
+            ),
+        }
+    ]
+
+
+def _hook_after_mcp_execution() -> list[dict]:
+    """afterMCPExecution: Review MCP tool results."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "An MCP tool call completed. If mirdan validation"
+                " returned errors, fix them before continuing."
+            ),
+        }
+    ]
+
+
+def _hook_pre_compact() -> list[dict]:
+    """preCompact: Preserve quality state before compaction."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "Context is being compacted. Preserve mirdan quality"
+                " state: session_id, task_type, language, security"
+                " sensitivity, last validation score, and open"
+                " violations. Restore by calling enhance_prompt"
+                " after compaction."
+            ),
+        }
+    ]
+
+
+def _hook_after_agent_response() -> list[dict]:
+    """afterAgentResponse: Quality check on agent responses."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "Agent response generated. If code was included,"
+                " ensure it was validated with"
+                " mcp__mirdan__validate_code_quality before presenting."
+            ),
+        }
+    ]
+
+
 _CURSOR_HOOK_GENERATORS: dict[str, object] = {
     "afterFileEdit": _hook_after_file_edit,
     "preToolUse": _hook_pre_tool_use,
+    "postToolUse": _hook_post_tool_use,
+    "postToolUseFailure": _hook_post_tool_use_failure,
     "stop": _hook_stop,
+    "sessionStart": _hook_session_start,
+    "sessionEnd": _hook_session_end,
     "beforeSubmitPrompt": _hook_before_submit_prompt,
+    "subagentStart": _hook_subagent_start,
+    "subagentStop": _hook_subagent_stop,
+    "beforeShellExecution": _hook_before_shell_execution,
+    "afterShellExecution": _hook_after_shell_execution,
+    "beforeMCPExecution": _hook_before_mcp_execution,
+    "afterMCPExecution": _hook_after_mcp_execution,
+    "preCompact": _hook_pre_compact,
+    "afterAgentResponse": _hook_after_agent_response,
 }
 
 
@@ -506,6 +706,9 @@ _AGENTS_SEC_RULES = """
 | SEC008 | Use parameterized queries for database operations | Important |
 | SEC009 | Apply principle of least privilege | Important |
 | SEC010 | Log security events without exposing sensitive data | Important |
+| SEC011 | No Cypher injection — use parameterized graph queries | Important |
+| SEC012 | No Gremlin injection — use parameterized traversals | Important |
+| SEC013 | Use bcrypt or argon2 for password hashing, never MD5/SHA | Important |
 """
 
 _AGENTS_THRESHOLDS = """

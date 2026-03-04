@@ -1,0 +1,20 @@
+principles:
+  - Use Row Level Security (RLS) policies for all tables to enforce access control
+  - Generate TypeScript types from database schema with supabase gen types
+  - Use Supabase Auth helpers for framework-specific session management
+  - Prefer database functions and triggers over client-side business logic
+  - Use realtime subscriptions only for data that genuinely needs live updates
+  - Organize Edge Functions with shared modules for common utilities
+  - Use storage policies to control file upload permissions per bucket
+
+forbidden:
+  - Tables without RLS policies — service role key bypasses RLS but clients must not
+  - Exposing service_role key in client-side code
+  - Raw SQL in client code when Supabase client methods suffice
+  - Missing type generation after schema changes
+  - Storing sensitive data in public storage buckets
+
+patterns:
+  query: "supabase.from('table').select('*').eq('column', value)"
+  rls_policy: "CREATE POLICY policy ON table FOR SELECT USING (auth.uid() = user_id)"
+  auth: "supabase.auth.signInWithOAuth({ provider: 'github' })"

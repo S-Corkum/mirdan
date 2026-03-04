@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mirdan.models import Violation
+    from mirdan.models import ValidationResult, Violation
 
 
 @dataclass
@@ -414,6 +414,34 @@ class AutoFixer:
                     applied.append(fix)
 
         return code, applied
+
+    # Security and critical AI rules eligible for quick_fix
+    _QUICK_FIX_RULES = {
+        "SEC001", "SEC002", "SEC003", "SEC004", "SEC005",
+        "SEC006", "SEC007", "SEC008",
+        "AI001", "AI007", "AI008",
+    }
+
+    def quick_fix(self, result: ValidationResult) -> list[FixResult]:
+        """Get high-confidence fixes for security and critical AI violations.
+
+        Only returns fixes with confidence >= 0.8 for rules in the
+        security (SEC*) and critical AI (AI001, AI007, AI008) categories.
+
+        Args:
+            result: Validation result containing violations to fix.
+
+        Returns:
+            List of high-confidence fix suggestions.
+        """
+        fixes: list[FixResult] = []
+        for violation in result.violations:
+            if violation.id not in self._QUICK_FIX_RULES:
+                continue
+            fix = self.get_fix_for_violation(violation)
+            if fix and fix.confidence >= 0.8:
+                fixes.append(fix)
+        return fixes
 
     @staticmethod
     def get_fixable_rules() -> list[str]:

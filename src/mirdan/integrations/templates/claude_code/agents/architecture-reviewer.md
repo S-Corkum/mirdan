@@ -2,7 +2,9 @@
 name: architecture-reviewer
 description: "Review code architecture for structural quality issues"
 model: sonnet
+maxTurns: 8
 background: true
+mcpServers: mirdan
 tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Glob, Grep
 ---
 

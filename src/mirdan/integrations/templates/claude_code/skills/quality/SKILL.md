@@ -1,6 +1,7 @@
 ---
 name: quality
 description: "On-demand code quality validation with mirdan"
+argument-hint: "File path or --trends"
 model: inherit
 context: fork
 allowed-tools: mcp__mirdan__validate_code_quality, mcp__mirdan__validate_quick, mcp__mirdan__get_quality_standards, mcp__mirdan__get_quality_trends, Read, Glob, Grep

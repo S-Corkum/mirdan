@@ -1,14 +1,13 @@
 """Hook template generator for Claude Code hook lifecycle.
 
 Generates hooks.json configurations covering the full Claude Code
-hook event lifecycle: UserPromptSubmit, PreToolUse, PostToolUse, Stop,
-SessionStart, SessionStop, SubagentStart, SubagentStop, PreCompact,
-Notification.
+hook event lifecycle with 17 supported events across 4 hook types
+(prompt, command, agent, http).
 
 Supports three stringency levels:
 - minimal: PostToolUse + Stop (2 hooks)
 - standard: UserPromptSubmit + PreToolUse + PostToolUse + Stop + SubagentStart (5 hooks)
-- comprehensive: All 7 enforcement hooks (full lifecycle)
+- comprehensive: All enforcement hooks including new March 2026 events
 """
 
 from __future__ import annotations
@@ -24,8 +23,8 @@ class HookStringency(Enum):
     """Hook stringency levels controlling how many hooks are generated."""
 
     MINIMAL = "minimal"  # 2 hooks: PostToolUse, Stop
-    STANDARD = "standard"  # 5 hooks: UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStart
-    COMPREHENSIVE = "comprehensive"  # 7 hooks: full enforcement lifecycle
+    STANDARD = "standard"  # 5 hooks: core enforcement
+    COMPREHENSIVE = "comprehensive"  # Full enforcement lifecycle
 
 
 # Events for each stringency level
@@ -42,9 +41,18 @@ STRINGENCY_EVENTS: dict[HookStringency, list[str]] = {
         "UserPromptSubmit",
         "PreToolUse",
         "PostToolUse",
+        "PostToolUseFailure",
         "Stop",
+        "SessionStart",
         "PreCompact",
         "SubagentStart",
+        "SubagentStop",
+        "TaskCompleted",
+        "TeammateIdle",
+        "PermissionRequest",
+        "ConfigChange",
+        "WorktreeCreate",
+        "WorktreeRemove",
     ],
 }
 
@@ -71,11 +79,12 @@ class HookConfig:
     notification_hooks: bool = False
 
 
-# All supported Claude Code hook events
+# All supported Claude Code hook events (17 total, March 2026)
 ALL_HOOK_EVENTS = [
     "UserPromptSubmit",
     "PreToolUse",
     "PostToolUse",
+    "PostToolUseFailure",
     "Stop",
     "SessionStart",
     "SessionStop",
@@ -83,6 +92,12 @@ ALL_HOOK_EVENTS = [
     "SubagentStop",
     "PreCompact",
     "Notification",
+    "PermissionRequest",
+    "TaskCompleted",
+    "TeammateIdle",
+    "ConfigChange",
+    "WorktreeCreate",
+    "WorktreeRemove",
 ]
 
 
@@ -92,6 +107,11 @@ class HookTemplateGenerator:
     Each hook event has a dedicated method that returns the hook
     definition. The generate() method assembles all enabled hooks
     into a complete hooks.json structure.
+
+    Supports multiple hook types:
+    - prompt: Injects text into the LLM context
+    - command: Runs a shell command
+    - agent: Spawns a background agent
     """
 
     def __init__(
@@ -123,11 +143,11 @@ class HookTemplateGenerator:
         self,
         stringency: HookStringency = HookStringency.COMPREHENSIVE,
     ) -> dict[str, Any]:
-        """Generate hooks.json for Claude Code with prompt-type hooks.
+        """Generate hooks.json for Claude Code.
 
-        Uses prompt-type hooks (not command-type) for Claude Code plugin
-        compatibility. The stringency level controls how many hooks are
-        generated.
+        Uses a mix of hook types (prompt, command, agent) depending
+        on the event. The stringency level controls how many hooks
+        are generated.
 
         Args:
             stringency: Hook stringency level (minimal, standard, comprehensive).
@@ -180,6 +200,11 @@ class HookTemplateGenerator:
         if self._config.compaction_resilience and "PreCompact" not in events:
             events.append("PreCompact")
 
+        if self._config.multi_agent_awareness:
+            for ev in ("TeammateIdle", "TaskCompleted"):
+                if ev not in events:
+                    events.append(ev)
+
         if self._config.notification_hooks and "Notification" not in events:
             events.append("Notification")
 
@@ -191,6 +216,7 @@ class HookTemplateGenerator:
             "UserPromptSubmit": self._user_prompt_submit,
             "PreToolUse": self._pre_tool_use,
             "PostToolUse": self._post_tool_use,
+            "PostToolUseFailure": self._post_tool_use_failure,
             "Stop": self._stop,
             "SessionStart": self._session_start,
             "SessionStop": self._session_stop,
@@ -198,6 +224,12 @@ class HookTemplateGenerator:
             "SubagentStop": self._subagent_stop,
             "PreCompact": self._pre_compact,
             "Notification": self._notification,
+            "PermissionRequest": self._permission_request,
+            "TaskCompleted": self._task_completed,
+            "TeammateIdle": self._teammate_idle,
+            "ConfigChange": self._config_change,
+            "WorktreeCreate": self._worktree_create,
+            "WorktreeRemove": self._worktree_remove,
         }
 
     # ------------------------------------------------------------------
@@ -249,23 +281,55 @@ class HookTemplateGenerator:
     def _post_tool_use(self) -> list[dict[str, Any]]:
         """PostToolUse: Validation after Write/Edit.
 
-        Uses prompt-type hooks to invoke mirdan MCP tools for validation.
+        Uses both command-type (fast CLI validation) and prompt-type
+        (LLM-driven fix guidance) hooks for comprehensive coverage.
         """
         return [
             {
                 "matcher": "Write|Edit|MultiEdit",
                 "hooks": [
                     {
+                        "type": "command",
+                        "command": (
+                            f"{self._mirdan_cmd} validate --quick"
+                            " --file $TOOL_INPUT_FILE_PATH --format micro"
+                        ),
+                        "timeout": self._config.quick_validate_timeout,
+                    },
+                    {
                         "type": "prompt",
                         "prompt": (
-                            "Code was just written or edited. Call"
-                            " mcp__mirdan__validate_code_quality on the changed"
-                            " code with max_tokens=500 and model_tier=haiku."
-                            " If the code touches auth, input handling, SQL, or"
-                            " API endpoints, set check_security=true. Fix all"
-                            " errors (severity=error) immediately before"
-                            " continuing. Note warnings for awareness but"
-                            " continue working."
+                            "Review validation output above. Fix errors"
+                            " immediately. If you intentionally skip a"
+                            " violation, note the rule ID — frequent"
+                            " overrides inform severity tuning."
+                            " If the code touches auth, input handling,"
+                            " SQL, or API endpoints, call"
+                            " mcp__mirdan__validate_code_quality with"
+                            " check_security=true for deeper analysis."
+                        ),
+                    },
+                ],
+            }
+        ]
+
+    def _post_tool_use_failure(self) -> list[dict[str, Any]]:
+        """PostToolUseFailure: Log failed tool calls and suggest alternatives."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "A tool call just failed. Before retrying:"
+                            " 1) Analyze the error — is it a permissions issue,"
+                            " invalid input, or a real bug?"
+                            " 2) If a Write/Edit failed, check if the file path"
+                            " is correct and the content is valid."
+                            " 3) Consider an alternative approach rather than"
+                            " retrying the exact same call."
+                            " 4) If validation tools failed, proceed with caution"
+                            " and validate manually before completing."
                         ),
                     }
                 ],
@@ -273,23 +337,28 @@ class HookTemplateGenerator:
         ]
 
     def _stop(self) -> list[dict[str, Any]]:
-        """Stop: Verification gate before task completion."""
+        """Stop: Quality gate before task completion.
+
+        Uses command-type (mirdan gate) for automated pass/fail
+        and prompt-type for LLM-driven remediation if gate fails.
+        """
         return [
             {
                 "hooks": [
                     {
+                        "type": "command",
+                        "command": f"{self._mirdan_cmd} gate --format text",
+                        "timeout": 30000,
+                    },
+                    {
                         "type": "prompt",
                         "prompt": (
-                            "Before completing this task, verify quality was"
-                            " enforced: 1) Was mcp__mirdan__enhance_prompt"
-                            " called at the start? If not, call it now."
-                            " 2) Was mcp__mirdan__validate_code_quality called"
-                            " on all changed files? If not, validate now."
-                            " 3) Are there any unresolved errors from"
-                            " validation? If so, fix them. Do NOT complete the"
-                            " task if there are unresolved validation errors."
+                            "Review the quality gate output above. If FAIL:"
+                            " fix all errors, then re-run validation. If PASS:"
+                            " the task can be completed. Do NOT complete the"
+                            " task if the quality gate failed."
                         ),
-                    }
+                    },
                 ],
             }
         ]
@@ -327,7 +396,7 @@ class HookTemplateGenerator:
         ]
 
     def _subagent_start(self) -> list[dict[str, Any]]:
-        """SubagentStart: Pass quality context to subagents."""
+        """SubagentStart: Register agent and pass quality context."""
         return [
             {
                 "hooks": [
@@ -337,6 +406,9 @@ class HookTemplateGenerator:
                             "You are a subagent. mirdan quality standards are active."
                             " Validate any code you write with"
                             " mcp__mirdan__validate_code_quality before returning results."
+                            " Multi-agent coordination is active — claim files before"
+                            " validating to avoid duplicate work with other agents."
+                            " Use mcp__mirdan__get_quality_trends to check session state."
                         ),
                     }
                 ],
@@ -344,7 +416,7 @@ class HookTemplateGenerator:
         ]
 
     def _subagent_stop(self) -> list[dict[str, Any]]:
-        """SubagentStop: Validate subagent output."""
+        """SubagentStop: Release claims and validate subagent output."""
         return [
             {
                 "hooks": [
@@ -354,6 +426,8 @@ class HookTemplateGenerator:
                             "Review the subagent's output for quality."
                             " If code was written, ensure it was validated"
                             " with mcp__mirdan__validate_code_quality."
+                            " Release any file claims held by this agent"
+                            " and aggregate results for the coordination summary."
                         ),
                     }
                 ],
@@ -361,19 +435,33 @@ class HookTemplateGenerator:
         ]
 
     def _pre_compact(self) -> list[dict[str, Any]]:
-        """PreCompact: Serialize quality state before context compaction."""
+        """PreCompact: Serialize quality state before context compaction.
+
+        Includes structured format for critical quality state so the LLM
+        can preserve session scores and unresolved violations across
+        compaction boundaries.
+        """
         return [
             {
                 "hooks": [
                     {
                         "type": "prompt",
                         "prompt": (
-                            "Context is being compacted. Preserve this mirdan state:"
-                            " - Active session and its quality requirements"
-                            " - Any unresolved violations from the last validation"
-                            " - The current task type and security sensitivity"
-                            " After compaction, restore state by calling"
-                            " mcp__mirdan__enhance_prompt with the preserved context."
+                            "Context is being compacted. CRITICAL: Preserve"
+                            " mirdan quality state in your compacted context"
+                            " using this exact format:\n"
+                            "## mirdan Compacted State (Restore After Compaction)\n"
+                            "- Session: <session_id from enhance_prompt>\n"
+                            "- Task: <task_type>\n"
+                            "- Language: <detected language>\n"
+                            "- Security: sensitive|normal\n"
+                            "- Last score: <most recent validation score>\n"
+                            "- Open violations: <count of unresolved errors>\n"
+                            "- Frameworks: <comma-separated list>\n"
+                            "- Validated files: <list of files already validated>\n\n"
+                            "After compaction, restore state by calling"
+                            " mcp__mirdan__enhance_prompt with the preserved"
+                            " context to re-establish the quality session."
                         ),
                     }
                 ],
@@ -391,6 +479,133 @@ class HookTemplateGenerator:
                             "mirdan quality alert: Check if any recent code changes"
                             " introduced quality regressions. Run"
                             " mcp__mirdan__validate_code_quality on modified files."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _permission_request(self) -> list[dict[str, Any]]:
+        """PermissionRequest: Security audit before granting permissions."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "A permission is being requested. Before granting:"
+                            " 1) Verify the action is necessary for the current task."
+                            " 2) Check if the action could modify security-sensitive"
+                            " files (auth, secrets, configs)."
+                            " 3) Prefer minimal permissions — grant only what's needed."
+                            " 4) If the action involves destructive operations"
+                            " (delete, overwrite), confirm intent."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _task_completed(self) -> list[dict[str, Any]]:
+        """TaskCompleted: Generate session quality report when task finishes.
+
+        Uses command-type to run mirdan report --session and
+        prompt-type to surface unresolved issues.
+        """
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            f"{self._mirdan_cmd} report --session --format json"
+                        ),
+                        "timeout": 30000,
+                    },
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "Review the session quality report above."
+                            " If there are unresolved errors, fix them"
+                            " before considering the task complete."
+                        ),
+                    },
+                ],
+            }
+        ]
+
+    def _teammate_idle(self) -> list[dict[str, Any]]:
+        """TeammateIdle: Assign background quality validation to idle agents."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "An agent teammate is idle. Use multi-agent"
+                            " quality coordination to assign work:"
+                            " 1) Check for unassigned files that need validation."
+                            " 2) Claim an unvalidated file and run"
+                            " mcp__mirdan__validate_code_quality on it."
+                            " 3) Release the file claim with validation results."
+                            " 4) Check for quality regressions via"
+                            " mcp__mirdan__get_quality_trends."
+                            " 5) Report any new violations found."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _config_change(self) -> list[dict[str, Any]]:
+        """ConfigChange: Re-validate after config changes."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "Configuration was just changed. If .mirdan/config.yaml"
+                            " or quality-related settings were modified, call"
+                            " mcp__mirdan__enhance_prompt to refresh quality context"
+                            " with the new configuration."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _worktree_create(self) -> list[dict[str, Any]]:
+        """WorktreeCreate: Initialize quality context for new worktree."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "A new git worktree was created. Initialize mirdan"
+                            " quality context for this worktree:"
+                            " 1) Call mcp__mirdan__enhance_prompt to establish"
+                            " quality requirements for the worktree's task."
+                            " 2) Note the worktree path for file validation."
+                        ),
+                    }
+                ],
+            }
+        ]
+
+    def _worktree_remove(self) -> list[dict[str, Any]]:
+        """WorktreeRemove: Save quality summary for completed worktree."""
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "A git worktree is being removed. Before cleanup:"
+                            " 1) Verify all code in the worktree was validated."
+                            " 2) Note any unresolved quality issues for the"
+                            " main branch."
                         ),
                     }
                 ],
