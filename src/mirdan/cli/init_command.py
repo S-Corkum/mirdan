@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 
 from mirdan.cli.detect import DetectedProject, detect_project
-from mirdan.config import MirdanConfig, ProjectConfig, QualityConfig
+from mirdan.config import MirdanConfig, PlatformProfile, ProjectConfig, QualityConfig
 
 
 def run_init(args: list[str]) -> None:
@@ -23,24 +23,42 @@ def run_init(args: list[str]) -> None:
     install_hooks = False
     force_cursor = False
     force_claude_code = False
+    force_all = False
     upgrade = False
+    quality_profile = ""
     directory = Path.cwd()
     remaining: list[str] = []
 
-    for arg in args:
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--hooks":
             install_hooks = True
         elif arg == "--cursor":
             force_cursor = True
         elif arg == "--claude-code":
             force_claude_code = True
+        elif arg == "--all":
+            force_all = True
         elif arg == "--upgrade":
             upgrade = True
+        elif arg.startswith("--quality-profile"):
+            if "=" in arg:
+                quality_profile = arg.split("=", 1)[1]
+            elif i + 1 < len(args):
+                i += 1
+                quality_profile = args[i]
         elif arg in ("--help", "-h"):
             _print_init_help()
             sys.exit(0)
         else:
             remaining.append(arg)
+        i += 1
+
+    # --all implies both platforms
+    if force_all:
+        force_cursor = True
+        force_claude_code = True
 
     if remaining:
         directory = Path(remaining[0])
@@ -71,7 +89,7 @@ def run_init(args: list[str]) -> None:
     platform = _determine_platform(detected, force_cursor, force_claude_code)
 
     # Step 2: Generate config (platform-aware defaults)
-    config = _build_config(detected, platform)
+    config = _build_config(detected, platform, quality_profile=quality_profile)
     config_dir = directory / ".mirdan"
     config_dir.mkdir(parents=True, exist_ok=True)
     config_path = config_dir / "config.yaml"
@@ -161,12 +179,17 @@ def _print_detection(detected: DetectedProject) -> None:
     print()
 
 
-def _build_config(detected: DetectedProject, platform: str = "generic") -> MirdanConfig:
+def _build_config(
+    detected: DetectedProject,
+    platform: str = "generic",
+    quality_profile: str = "",
+) -> MirdanConfig:
     """Build a MirdanConfig from detected project info.
 
     Args:
         detected: Auto-detected project metadata.
         platform: Platform profile ("cursor", "claude-code", "generic").
+        quality_profile: Named quality profile (e.g. "enterprise").
     """
     project = ProjectConfig(
         name=detected.project_name,
@@ -180,7 +203,29 @@ def _build_config(detected: DetectedProject, platform: str = "generic") -> Mirda
         documentation="moderate",
         testing="strict",
     )
-    return MirdanConfig(project=project, quality=quality)
+
+    # Build platform profile
+    if platform == "cursor":
+        plat = PlatformProfile(
+            name="cursor",
+            context_level="none",
+            tool_budget_aware=True,
+        )
+    elif platform == "claude-code":
+        plat = PlatformProfile(
+            name="claude-code",
+            context_level="auto",
+            tool_budget_aware=False,
+        )
+    else:
+        plat = PlatformProfile()
+
+    config = MirdanConfig(project=project, quality=quality, platform=plat)
+
+    if quality_profile:
+        config.quality_profile = quality_profile
+
+    return config
 
 
 def _write_config(config: MirdanConfig, path: Path, platform: str = "generic") -> None:
@@ -193,19 +238,14 @@ def _write_config(config: MirdanConfig, path: Path, platform: str = "generic") -
         "quality": data["quality"],
     }
 
-    # Platform-specific defaults
-    if platform == "cursor":
-        output["platform"] = {
-            "name": "cursor",
-            "context_level": "none",  # Cursor gathers its own context
-            "tool_budget_aware": True,  # 4-tool mode for 40-tool limit
-        }
-    elif platform == "claude-code":
-        output["platform"] = {
-            "name": "claude-code",
-            "context_level": "auto",  # Claude Code benefits from context gathering
-            "tool_budget_aware": False,
-        }
+    # Write platform profile from config
+    plat_data = config.platform.model_dump()
+    if plat_data["name"] != "generic":
+        output["platform"] = plat_data
+
+    # Write quality profile if non-default
+    if config.quality_profile and config.quality_profile != "default":
+        output["quality_profile"] = config.quality_profile
 
     with path.open("w") as f:
         yaml.dump(output, f, default_flow_style=False, sort_keys=False)
@@ -237,9 +277,14 @@ def _create_rules_template(rules_dir: Path, detected: DetectedProject) -> None:
 
 
 def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
-    """Generate .cursor/rules/ .mdc files, AGENTS.md, and BUGBOT.md."""
+    """Generate Cursor configuration: hooks, rules, agents, and MCP config."""
     from mirdan.core.quality_standards import QualityStandards
-    from mirdan.integrations.cursor import generate_cursor_agents, generate_cursor_rules
+    from mirdan.integrations.cursor import (
+        generate_cursor_agents,
+        generate_cursor_hooks,
+        generate_cursor_mcp_json,
+        generate_cursor_rules,
+    )
 
     # Try to use dynamic generation with QualityStandards
     try:
@@ -247,17 +292,28 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     except Exception:
         standards = None
 
-    rules_dir = directory / ".cursor" / "rules"
+    cursor_dir = directory / ".cursor"
+
+    # Generate hooks.json (only if not exists — respect user customizations)
+    hooks_path = generate_cursor_hooks(cursor_dir)
+    if hooks_path:
+        print(f"  Created {hooks_path}")
+
+    # Generate .cursor/rules/*.mdc
+    rules_dir = cursor_dir / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
     generated = generate_cursor_rules(rules_dir, detected, standards=standards)
     for path in generated:
         print(f"  Created {path}")
 
     # Generate AGENTS.md and BUGBOT.md
-    cursor_dir = directory / ".cursor"
     agent_paths = generate_cursor_agents(cursor_dir, detected, standards=standards)
     for path in agent_paths:
         print(f"  Created {path}")
+
+    # Generate .cursor/mcp.json
+    mcp_path = generate_cursor_mcp_json(cursor_dir)
+    print(f"  Created {mcp_path}")
 
 
 def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
@@ -494,8 +550,10 @@ def _print_init_help() -> None:
     print("Usage: mirdan init [directory] [options]")
     print()
     print("Options:")
-    print("  --hooks        Install hook scripts for auto-validation")
-    print("  --cursor       Use Cursor platform profile")
-    print("  --claude-code  Use Claude Code platform profile")
-    print("  --upgrade      Upgrade existing config (merge new fields, regenerate)")
-    print("  -h, --help     Show this help")
+    print("  --hooks                  Install hook scripts for auto-validation")
+    print("  --cursor                 Use Cursor platform profile")
+    print("  --claude-code            Use Claude Code platform profile")
+    print("  --all                    Set up both Cursor and Claude Code")
+    print("  --quality-profile NAME   Set quality profile (e.g. enterprise, startup)")
+    print("  --upgrade                Upgrade existing config (merge new fields, regenerate)")
+    print("  -h, --help               Show this help")

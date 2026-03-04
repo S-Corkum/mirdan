@@ -151,7 +151,7 @@ def generate_mcp_json(project_dir: Path) -> Path:
     mcp_json_path = project_dir / ".mcp.json"
 
     # Detect installation method
-    command, args = _detect_mirdan_command()
+    command, args = detect_mirdan_command()
 
     config = {
         "mcpServers": {
@@ -215,7 +215,7 @@ def export_plugin(output_dir: Path) -> Path:
         json.dump(plugin_json, f, indent=2)
 
     # Copy MCP config
-    command, args = _detect_mirdan_command()
+    command, args = detect_mirdan_command()
     mcp_config = {
         "mcpServers": {
             "mirdan": {
@@ -301,7 +301,7 @@ def _generate_hooks(project_dir: Path) -> Path | None:
         HookTemplateGenerator,
     )
 
-    command, _args = _detect_mirdan_command()
+    command, _args = detect_mirdan_command()
     mirdan_cmd = command if not _args else f"{command} {' '.join(_args)}"
 
     generator = HookTemplateGenerator(mirdan_command=mirdan_cmd)
@@ -378,7 +378,7 @@ def _get_templates_package() -> Traversable | None:
         return None
 
 
-def _detect_mirdan_command() -> tuple[str, list[str]]:
+def detect_mirdan_command() -> tuple[str, list[str]]:
     """Detect how mirdan is installed and return (command, args)."""
     import shutil as _shutil
 
@@ -401,3 +401,58 @@ def _get_version() -> str:
         return __version__
     except ImportError:
         return "0.1.0"
+
+
+# ---------------------------------------------------------------------------
+# Platform Adapter
+# ---------------------------------------------------------------------------
+
+
+class ClaudeCodeAdapter:
+    """Platform adapter for Claude Code integration.
+
+    Delegates to existing public functions, providing an alternative
+    entry point via the PlatformAdapter interface.
+    """
+
+    def __init__(
+        self,
+        project_dir: Path,
+        detected: DetectedProject,
+        standards: object | None = None,
+    ) -> None:
+        self.project_dir = project_dir
+        self.detected = detected
+        self.standards = standards
+
+    def generate_hooks(self) -> list[Path]:
+        """Generate Claude Code hooks and rules."""
+        return generate_claude_code_config(self.project_dir, self.detected)
+
+    def generate_rules(self) -> list[Path]:
+        """Generate .claude/rules/ enforcement files."""
+        return generate_rules(self.project_dir, self.detected)
+
+    def generate_agents(self) -> list[Path]:
+        """Generate .claude/agents/ markdown files."""
+        return generate_agents(self.project_dir, self.detected)
+
+    def generate_skills(self) -> list[Path]:
+        """Generate .claude/skills/ SKILL.md files."""
+        return generate_skills(self.project_dir, self.detected)
+
+    def generate_mcp_config(self) -> Path | None:
+        """Generate .mcp.json with mirdan MCP server configuration."""
+        return generate_mcp_json(self.project_dir)
+
+    def generate_all(self) -> list[Path]:
+        """Call all generators, return all created paths."""
+        paths: list[Path] = []
+        paths.extend(self.generate_hooks())
+        paths.extend(self.generate_rules())
+        paths.extend(self.generate_agents())
+        paths.extend(self.generate_skills())
+        mcp = self.generate_mcp_config()
+        if mcp:
+            paths.append(mcp)
+        return paths

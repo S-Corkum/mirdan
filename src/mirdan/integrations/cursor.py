@@ -1,12 +1,164 @@
-"""Generate Cursor IDE .mdc rule files for mirdan integration."""
+"""Generate Cursor IDE configuration files for mirdan integration.
+
+Supports .cursor/rules/*.mdc, .cursor/AGENTS.md, .cursor/BUGBOT.md,
+.cursor/hooks.json, and .cursor/mcp.json generation.
+"""
 
 from __future__ import annotations
 
+import json
+from enum import Enum
 from importlib.resources import files
 from pathlib import Path
 
 from mirdan.cli.detect import DetectedProject
 from mirdan.core.quality_standards import QualityStandards
+
+# ---------------------------------------------------------------------------
+# Cursor Hook Stringency
+# ---------------------------------------------------------------------------
+
+
+class CursorHookStringency(Enum):
+    """Hook stringency levels for Cursor hooks.json generation."""
+
+    MINIMAL = "minimal"  # 2 events: afterFileEdit, stop
+    STANDARD = "standard"  # 3 events: + preToolUse
+    COMPREHENSIVE = "comprehensive"  # 4 events: + beforeSubmitPrompt
+
+
+# Events for each stringency level
+CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
+    CursorHookStringency.MINIMAL: ["afterFileEdit", "stop"],
+    CursorHookStringency.STANDARD: ["afterFileEdit", "preToolUse", "stop"],
+    CursorHookStringency.COMPREHENSIVE: [
+        "afterFileEdit",
+        "preToolUse",
+        "stop",
+        "beforeSubmitPrompt",
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Cursor Hooks Generation
+# ---------------------------------------------------------------------------
+
+
+def generate_cursor_hooks(
+    cursor_dir: Path,
+    stringency: CursorHookStringency = CursorHookStringency.COMPREHENSIVE,
+) -> Path | None:
+    """Generate .cursor/hooks.json with prompt-type hooks.
+
+    Produces Cursor 1.7+ hooks.json with prompt hooks that invoke
+    mirdan MCP tools for quality enforcement.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+        stringency: Hook stringency level controlling event count.
+
+    Returns:
+        Path to created hooks.json, or None if file already exists.
+    """
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+    hooks_path = cursor_dir / "hooks.json"
+
+    # Respect user customizations — skip if already exists
+    if hooks_path.exists():
+        return None
+
+    events = CURSOR_STRINGENCY_EVENTS[stringency]
+    hooks: dict[str, list[dict]] = {}
+
+    for event in events:
+        generator = _CURSOR_HOOK_GENERATORS.get(event)
+        if generator:
+            hooks[event] = generator()
+
+    config = {"version": 1, "hooks": hooks}
+
+    with hooks_path.open("w") as f:
+        json.dump(config, f, indent=2)
+
+    return hooks_path
+
+
+def _hook_after_file_edit() -> list[dict]:
+    """afterFileEdit: Validate changed code quality."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "The file {file_path} was just edited. Call"
+                " mcp__mirdan__validate_code_quality on the changed code to"
+                " check for quality violations. Fix any errors found."
+            ),
+        }
+    ]
+
+
+def _hook_pre_tool_use() -> list[dict]:
+    """preToolUse: Security-aware reminder before Write/Edit."""
+    return [
+        {
+            "type": "prompt",
+            "matcher": "Write|Edit",
+            "prompt": (
+                "Before writing/editing files, consider: security"
+                " implications (SQL injection, command injection, hardcoded"
+                " secrets), quality requirements from the current task"
+                " context. If this edit touches auth/security code, be"
+                " especially careful."
+            ),
+        }
+    ]
+
+
+def _hook_stop() -> list[dict]:
+    """stop: Verification gate before task completion."""
+    return [
+        {
+            "type": "prompt",
+            "loop_limit": 3,
+            "prompt": (
+                "Before completing this task, verify:"
+                " 1) All changed files were validated with"
+                " mcp__mirdan__validate_code_quality."
+                " 2) No unresolved errors remain."
+                " 3) Security-sensitive code was reviewed."
+                " If any files weren't validated, call"
+                " validate_code_quality now."
+            ),
+        }
+    ]
+
+
+def _hook_before_submit_prompt() -> list[dict]:
+    """beforeSubmitPrompt: Inject quality context."""
+    return [
+        {
+            "type": "prompt",
+            "prompt": (
+                "Before processing this request, consider calling"
+                " mcp__mirdan__enhance_prompt to understand quality"
+                " requirements and get framework-specific guidance."
+            ),
+        }
+    ]
+
+
+_CURSOR_HOOK_GENERATORS: dict[str, object] = {
+    "afterFileEdit": _hook_after_file_edit,
+    "preToolUse": _hook_pre_tool_use,
+    "stop": _hook_stop,
+    "beforeSubmitPrompt": _hook_before_submit_prompt,
+}
+
+
+# ---------------------------------------------------------------------------
+# Rule Generation (existing)
+# ---------------------------------------------------------------------------
 
 
 def generate_cursor_rules(
@@ -271,7 +423,7 @@ def _generate_static_rules(rules_dir: Path, detected: DetectedProject) -> list[P
 
 
 # ---------------------------------------------------------------------------
-# AGENTS.md / BUGBOT.md generation
+# AGENTS.md / BUGBOT.md generation (enhanced for v0.4.0)
 # ---------------------------------------------------------------------------
 
 
@@ -279,45 +431,194 @@ def _generate_agents_md(
     detected: DetectedProject,
     standards: QualityStandards | None,
 ) -> str:
-    """Generate AGENTS.md content for Cursor background agents.
+    """Generate enhanced AGENTS.md for Cursor background agents.
 
-    Delegates to the cross-platform AgentsMDGenerator with Cursor overlay.
+    Delegates to AgentsMDGenerator for base content, then appends
+    enhanced sections: quality checkpoints, AI/SEC rules inline,
+    and quality thresholds.
     """
     from mirdan.integrations.agents_md import AgentsMDGenerator
 
     generator = AgentsMDGenerator(standards=standards)
-    return generator.generate(detected, platform="cursor")
+    base_content = generator.generate(detected, platform="cursor")
+
+    # Append enhanced sections for v0.4.0
+    enhanced = (
+        base_content
+        + _AGENTS_QUALITY_CHECKPOINTS
+        + _AGENTS_AI_RULES
+        + _AGENTS_SEC_RULES
+        + _AGENTS_THRESHOLDS
+    )
+
+    return enhanced
+
+
+_AGENTS_QUALITY_CHECKPOINTS = """
+## Mandatory Quality Checkpoints
+
+### Before Writing Code
+- Call `mcp__mirdan__enhance_prompt` to get quality requirements for the task
+- Review the `quality_requirements` and `touches_security` fields in the response
+
+### After Every File Edit
+- Call `mcp__mirdan__validate_code_quality` on all changed files
+- Fix any violations with severity "error" immediately
+- Note warnings for awareness
+
+### Before PR / Completion
+- Verify quality score >= 0.7 for all changed files
+- Ensure no unresolved errors remain from validation
+- Security-sensitive code must pass with `check_security=true`
+
+### Periodic (Every 30 Minutes)
+- Run `validate_code_quality` on all recently modified files
+- Check for quality regressions introduced during the session
+"""
+
+_AGENTS_AI_RULES = """
+## AI Quality Rules (Inline Reference)
+
+| Rule | Description | Severity |
+|------|-------------|----------|
+| AI001 | No placeholder code (`raise NotImplementedError`, `pass` with TODO) | Error |
+| AI002 | No hallucinated imports (verify all imports exist in dependencies) | Warning |
+| AI003 | No over-engineering (unnecessary abstractions for single-use code) | Warning |
+| AI004 | No duplicate code blocks (extract shared logic) | Warning |
+| AI005 | Consistent error handling patterns within each file | Warning |
+| AI006 | Prefer lightweight alternatives for simple operations | Info |
+| AI007 | No security theater (`hash()` on passwords, always-true validators) | Error |
+| AI008 | No injection vulnerabilities (f-string SQL, eval, exec with user input) | Error |
+"""
+
+_AGENTS_SEC_RULES = """
+## Security Standards (Inline Reference)
+
+| Rule | Description | Severity |
+|------|-------------|----------|
+| SEC001 | No hardcoded secrets or API keys | Critical |
+| SEC002 | No SQL injection via string concatenation | Critical |
+| SEC003 | No command injection via unsanitized input | Critical |
+| SEC004 | No path traversal vulnerabilities | Critical |
+| SEC005 | No insecure deserialization (pickle.loads on untrusted data) | Critical |
+| SEC006 | Use HTTPS for all external requests | Important |
+| SEC007 | Validate and sanitize all user input | Important |
+| SEC008 | Use parameterized queries for database operations | Important |
+| SEC009 | Apply principle of least privilege | Important |
+| SEC010 | Log security events without exposing sensitive data | Important |
+"""
+
+_AGENTS_THRESHOLDS = """
+## Quality Thresholds
+
+- **Minimum passing score**: 0.7
+- Do NOT mark a task complete if any changed file has quality score below 0.7
+- If `validate_code_quality` returns errors, fix them before proceeding
+- Security-critical files (auth, API endpoints, input handling) require score >= 0.8
+"""
 
 
 def _generate_bugbot_md(
     detected: DetectedProject,
     standards: QualityStandards | None,
 ) -> str:
-    """Generate BUGBOT.md content for Cursor BugBot PR reviews."""
-    return """# BugBot — mirdan Security Standards
+    """Generate enhanced BUGBOT.md with structured detection rules and regex patterns."""
+    return """# BugBot — mirdan Quality Standards
 
-## Security Review Priorities
-When reviewing pull requests, check for these security issues:
+> Auto-generated by mirdan. Regenerate with `mirdan init --upgrade`.
 
-### Critical (Block PR)
-- **AI007**: Security theater patterns (hash() on passwords, always-true validators)
-- **AI008**: Injection vulnerabilities (f-string SQL, eval/exec with user input)
-- Hardcoded secrets or API keys
-- SQL injection via string concatenation
-- Command injection via unsanitized input
-- Path traversal vulnerabilities
-- Insecure deserialization
+## Blocking Bugs (Severity: Critical)
 
-### Important (Request Changes)
-- Missing input validation on external data
-- HTTP instead of HTTPS for external requests
-- Overly broad exception handling hiding errors
-- Missing authentication/authorization checks
+These patterns MUST block the PR. They indicate incomplete, insecure, or broken code.
 
-### Best Practice (Comment)
-- Using heavy libraries for simple operations
-- Inconsistent error handling patterns
-- Missing type annotations on public APIs
+### AI001 — Placeholder Code
+```regex
+NotImplementedError
+pass\\s*#\\s*TODO
+raise NotImplementedError
+```
+
+### AI008 — Injection Vulnerabilities
+```regex
+f["'].*\\{.*\\}.*["']
+```
+Flag when found in SQL query context, `eval()`, `exec()`, or `os.system()` calls.
+
+### SEC001 — Hardcoded Secrets
+```regex
+(?:password|api_key|secret|token|auth)\\s*=\\s*["'][^"']+["']
+```
+
+### SEC002 — SQL Injection
+```regex
+f["']SELECT.*\\{
+"SELECT.*"\\s*\\+
+```
+
+### SEC003 — Command Injection
+```regex
+os\\.system\\(
+subprocess\\.(?:call|run)\\(.*shell\\s*=\\s*True
+```
+Flag when combined with user-controlled input or f-strings.
+
+## Request Changes (Severity: Warning)
+
+These patterns should trigger a change request in the review.
+
+### AI003 — Over-Engineering
+- Excessive abstraction layers for single-use code
+- Generic type parameters on classes used once
+- Factory patterns for single implementations
+
+### AI007 — Security Theater
+```regex
+hash\\(
+md5
+```
+Flag `hash()` when used for passwords. Flag `md5` when used for authentication.
+
+### SEC006 — Insecure HTTP
+```regex
+http://(?!localhost|127\\.0\\.0\\.1)
+```
+
+### SEC007 — Missing Input Validation
+- External data used without validation or sanitization
+- User input passed directly to database queries
+
+### SEC008 — Non-Parameterized Queries
+```regex
+cursor\\.execute\\(f["']
+cursor\\.execute\\(.*%.*%
+```
+
+### SEC009 — Excessive Privileges
+- Overly broad permissions or roles
+- `chmod 777` or equivalent
+
+### SEC010 — Sensitive Data in Logs
+```regex
+log(?:ger)?\\.(?:info|debug|warning|error)\\(.*(?:password|secret|token|key)
+```
+
+## Best Practice (Severity: Info)
+
+These patterns are advisory and should be mentioned as comments.
+
+### AI004 — Code Duplication
+- Three or more nearly identical code blocks that should be extracted
+
+### AI005 — Inconsistent Error Handling
+- Mixed patterns: some functions use exceptions, others return error codes
+
+### AI006 — Heavy Imports for Simple Operations
+- Using pandas for simple CSV reading
+- Using requests for a single GET call when urllib suffices
+
+### Documentation
+- Public APIs missing docstrings or type annotations
+- Complex functions (>15 lines) without inline comments explaining logic
 """
 
 
@@ -332,3 +633,109 @@ def _load_templates() -> dict[str, str]:
     except (ModuleNotFoundError, FileNotFoundError, TypeError):
         pass
     return templates
+
+
+# ---------------------------------------------------------------------------
+# Cursor MCP Config Generation
+# ---------------------------------------------------------------------------
+
+
+def generate_cursor_mcp_json(cursor_dir: Path) -> Path:
+    """Generate .cursor/mcp.json with mirdan MCP server configuration.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+
+    Returns:
+        Path to the generated mcp.json file.
+    """
+    from mirdan.integrations.claude_code import detect_mirdan_command
+
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+    mcp_json_path = cursor_dir / "mcp.json"
+
+    command, args = detect_mirdan_command()
+
+    config: dict = {
+        "mcpServers": {
+            "mirdan": {
+                "type": "stdio",
+                "command": command,
+                "args": args,
+                "env": {"MIRDAN_TOOL_BUDGET": "3"},
+            }
+        }
+    }
+
+    # If mcp.json already exists, merge rather than overwrite
+    if mcp_json_path.exists():
+        try:
+            existing = json.loads(mcp_json_path.read_text())
+            if "mcpServers" in existing:
+                existing["mcpServers"]["mirdan"] = config["mcpServers"]["mirdan"]
+                config = existing
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+    with mcp_json_path.open("w") as f:
+        json.dump(config, f, indent=2)
+
+    return mcp_json_path
+
+
+# ---------------------------------------------------------------------------
+# Platform Adapter
+# ---------------------------------------------------------------------------
+
+
+class CursorAdapter:
+    """Platform adapter for Cursor IDE integration.
+
+    Delegates to existing public functions, providing a unified
+    entry point for generating all Cursor configuration files.
+    """
+
+    def __init__(
+        self,
+        project_dir: Path,
+        detected: DetectedProject,
+        standards: QualityStandards | None = None,
+        hook_stringency: CursorHookStringency = CursorHookStringency.COMPREHENSIVE,
+    ) -> None:
+        self.project_dir = project_dir
+        self.detected = detected
+        self.standards = standards
+        self.hook_stringency = hook_stringency
+
+    def generate_hooks(self) -> list[Path]:
+        """Generate .cursor/hooks.json."""
+        cursor_dir = self.project_dir / ".cursor"
+        result = generate_cursor_hooks(cursor_dir, self.hook_stringency)
+        return [result] if result else []
+
+    def generate_rules(self) -> list[Path]:
+        """Generate .cursor/rules/*.mdc files."""
+        rules_dir = self.project_dir / ".cursor" / "rules"
+        rules_dir.mkdir(parents=True, exist_ok=True)
+        return generate_cursor_rules(rules_dir, self.detected, self.standards)
+
+    def generate_agents(self) -> list[Path]:
+        """Generate .cursor/AGENTS.md and .cursor/BUGBOT.md."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_agents(cursor_dir, self.detected, self.standards)
+
+    def generate_mcp_config(self) -> Path | None:
+        """Generate .cursor/mcp.json."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_mcp_json(cursor_dir)
+
+    def generate_all(self) -> list[Path]:
+        """Call all generators, return all created paths."""
+        paths: list[Path] = []
+        paths.extend(self.generate_hooks())
+        paths.extend(self.generate_rules())
+        paths.extend(self.generate_agents())
+        mcp = self.generate_mcp_config()
+        if mcp:
+            paths.append(mcp)
+        return paths

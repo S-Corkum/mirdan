@@ -148,6 +148,20 @@ class ThresholdsConfig(BaseModel):
     arch_max_class_methods: int = Field(default=10, description="Max methods per class")
 
 
+class PlatformProfile(BaseModel):
+    """Platform profile for IDE-specific configuration."""
+
+    name: str = Field(default="generic", description="Platform name (cursor, claude-code, generic)")
+    context_level: str = Field(
+        default="auto",
+        description="Context gathering level",
+    )
+    tool_budget_aware: bool = Field(
+        default=False,
+        description="Respect tool budget limits",
+    )
+
+
 class HookConfig(BaseModel):
     """Configuration for Claude Code hook generation."""
 
@@ -222,6 +236,7 @@ class MirdanConfig(BaseModel):
     tokens: TokenConfig = Field(default_factory=TokenConfig)
     linters: LinterOrcConfig = Field(default_factory=LinterOrcConfig)
     hooks: HookConfig = Field(default_factory=HookConfig)
+    platform: PlatformProfile = Field(default_factory=PlatformProfile)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

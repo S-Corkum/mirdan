@@ -3,6 +3,7 @@
 import contextlib
 import json
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -69,6 +70,16 @@ class _Components:
 
 _components: _Components | None = None
 
+# Tool priority order for budget-aware filtering.
+# When MIRDAN_TOOL_BUDGET is set, only the top N tools are kept.
+_TOOL_PRIORITY = [
+    "validate_code_quality",
+    "validate_quick",
+    "enhance_prompt",
+    "get_quality_standards",
+    "get_quality_trends",
+]
+
 
 def _get_components() -> _Components:
     """Get or create the singleton component set."""
@@ -114,6 +125,26 @@ async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
     """Manage server lifecycle: startup initialization and shutdown cleanup."""
     # Startup: eagerly initialize components
     _get_components()
+
+    # Apply tool budget filtering if MIRDAN_TOOL_BUDGET is set.
+    # At import time, all 5 tools are registered via @mcp.tool() so .fn access
+    # works in tests. When the server actually starts (lifespan runs), excess
+    # tools are pruned based on priority order.
+    budget_str = os.environ.get("MIRDAN_TOOL_BUDGET")
+    if budget_str is not None and budget_str != "":
+        try:
+            budget = int(budget_str)
+        except ValueError:
+            budget = -1  # invalid value → keep all tools
+        if budget >= 0:
+            keep = set(_TOOL_PRIORITY[:budget])
+            to_remove = [
+                name for name in list(app._tool_manager._tools)
+                if name not in keep
+            ]
+            for name in to_remove:
+                del app._tool_manager._tools[name]
+
     yield
     # Shutdown: cleanup MCP client connections
     if _components is not None:

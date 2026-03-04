@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-04
+
+### Added
+
+- **Platform Adapter Architecture** — Abstract `PlatformAdapter` base class for unified IDE integrations:
+  - `PlatformAdapter` ABC with `generate_hooks()`, `generate_rules()`, `generate_agents()`, `generate_mcp_config()`, `generate_all()`
+  - `ClaudeCodeAdapter` wrapping existing Claude Code generation functions
+  - `CursorAdapter` wrapping existing + new Cursor generation functions
+  - New module: `src/mirdan/integrations/base.py`
+
+- **Cursor Hooks Generation** — Full Cursor 1.7+ hooks.json support:
+  - `CursorHookStringency` enum: minimal (2), standard (3), comprehensive (4) events
+  - `generate_cursor_hooks()` producing `.cursor/hooks.json` with `version: 1`
+  - Events: `afterFileEdit` (validate), `preToolUse` (security reminder), `stop` (verification gate with `loop_limit`), `beforeSubmitPrompt` (quality context)
+  - All hooks use prompt type for LLM evaluation
+  - Idempotent: skips if hooks.json already exists (respects user customizations)
+
+- **Enhanced AGENTS.md for Cursor** — Quality enforcement for background agents:
+  - Mandatory Quality Checkpoints: before writing, after edit, before PR, periodic (30 min)
+  - AI Quality Rules (AI001-AI008) inline reference table
+  - Security Standards (SEC001-SEC010) inline reference table
+  - Quality Thresholds: minimum 0.7 score, 0.8 for security-critical files
+
+- **Enhanced BUGBOT.md** — Structured detection rules with regex patterns:
+  - Blocking Bugs: AI001, AI008, SEC001, SEC002, SEC003 with regex patterns
+  - Request Changes: AI003, AI007, SEC006-SEC010
+  - Best Practice: AI004-AI006, documentation guidance
+  - Regex patterns in fenced code blocks for BugBot pattern matching
+
+- **Cursor MCP Config Generation** — `.cursor/mcp.json` with mirdan server:
+  - `generate_cursor_mcp_json()` auto-detecting mirdan installation method
+  - Includes `MIRDAN_TOOL_BUDGET` env var for tool count limiting
+  - Merges with existing mcp.json without overwriting other servers
+
+- **Tool Budget Strategy** — Environment-variable-controlled tool filtering:
+  - `MIRDAN_TOOL_BUDGET` env var limits exposed tools by priority order
+  - `_TOOL_PRIORITY` list: validate_code_quality > validate_quick > enhance_prompt > get_quality_standards > get_quality_trends
+  - Filtering happens at lifespan startup, preserving `@mcp.tool()` registration for tests
+  - Budget=0 exposes no tools, Budget=2 exposes top 2, unset keeps all 5
+
+- **PlatformProfile Model** — Typed platform configuration:
+  - `PlatformProfile` Pydantic model with `name`, `context_level`, `tool_budget_aware`
+  - Added to `MirdanConfig` as `platform` field
+  - `_write_config()` uses `config.platform.model_dump()` instead of hardcoded dicts
+
+- **New CLI Flags** for `mirdan init`:
+  - `--quality-profile NAME` — Set named quality profile (e.g. enterprise, startup)
+  - `--all` — Set up both Cursor and Claude Code configurations
+  - `--cursor` now generates hooks.json + mcp.json in addition to rules/agents
+
+- **Public API**: `_detect_mirdan_command()` renamed to `detect_mirdan_command()` for cross-module reuse
+
+### Changed
+
+- `_setup_cursor()` now generates hooks.json and mcp.json alongside rules and agents
+- `_build_config()` accepts `quality_profile` parameter and constructs `PlatformProfile`
+- `_write_config()` uses `config.platform.model_dump()` instead of inline platform dicts
+- BUGBOT.md now has structured rules with regex patterns (was basic text)
+- AGENTS.md now includes quality checkpoints, AI/SEC rules, and threshold sections
+
+### Stats
+
+- 1615 total tests (up from 1544)
+- 71 new v0.4.0 tests covering platform adapters, cursor hooks, enhanced agents/bugbot, tool budget, CLI flags
+
 ## [0.3.0] - 2026-03-03
 
 ### Added
@@ -428,6 +493,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality standards for 6 languages
 - Integration guides for Claude Desktop, VS Code, Cursor
 
+[0.4.0]: https://github.com/S-Corkum/mirdan/compare/0.3.0...0.4.0
+[0.3.0]: https://github.com/S-Corkum/mirdan/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/S-Corkum/mirdan/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/S-Corkum/mirdan/compare/0.0.7...0.1.0
 [0.0.7]: https://github.com/S-Corkum/mirdan/compare/0.0.6...0.0.7

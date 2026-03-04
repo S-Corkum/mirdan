@@ -451,6 +451,86 @@ class TestAgentsMdGeneration:
         assert "Python" in content
 
 
+class TestV040InitFlags:
+    """Tests for v0.4.0 init flags: --quality-profile, --all, cursor hooks/mcp."""
+
+    def test_quality_profile_flag(self, tmp_path: Path) -> None:
+        """--quality-profile should set config.quality_profile."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--quality-profile", "enterprise", str(tmp_path)])
+
+        import yaml
+
+        config_path = tmp_path / ".mirdan" / "config.yaml"
+        data = yaml.safe_load(config_path.read_text())
+        assert data.get("quality_profile") == "enterprise"
+
+    def test_quality_profile_equals_syntax(self, tmp_path: Path) -> None:
+        """--quality-profile=startup should also work."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--quality-profile=startup", str(tmp_path)])
+
+        import yaml
+
+        config_path = tmp_path / ".mirdan" / "config.yaml"
+        data = yaml.safe_load(config_path.read_text())
+        assert data.get("quality_profile") == "startup"
+
+    def test_all_flag_runs_both_setups(self, tmp_path: Path) -> None:
+        """--all should set up both Cursor and Claude Code."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--all", str(tmp_path)])
+
+        # Cursor files should exist
+        assert (tmp_path / ".cursor" / "hooks.json").exists()
+        assert (tmp_path / ".cursor" / "AGENTS.md").exists()
+        # Claude Code files should exist
+        assert (tmp_path / ".mcp.json").exists()
+
+    def test_cursor_generates_hooks_json(self, tmp_path: Path) -> None:
+        """--cursor should generate .cursor/hooks.json."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--cursor", str(tmp_path)])
+
+        hooks_path = tmp_path / ".cursor" / "hooks.json"
+        assert hooks_path.exists()
+        data = json.loads(hooks_path.read_text())
+        assert data["version"] == 1
+
+    def test_cursor_generates_mcp_json(self, tmp_path: Path) -> None:
+        """--cursor should generate .cursor/mcp.json."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--cursor", str(tmp_path)])
+
+        mcp_path = tmp_path / ".cursor" / "mcp.json"
+        assert mcp_path.exists()
+        data = json.loads(mcp_path.read_text())
+        assert "mirdan" in data["mcpServers"]
+
+    def test_cursor_platform_profile_in_config(self, tmp_path: Path) -> None:
+        """--cursor should write platform profile to config."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
+
+        with patch("builtins.input", return_value=""):
+            run_init(["--cursor", str(tmp_path)])
+
+        import yaml
+
+        config_path = tmp_path / ".mirdan" / "config.yaml"
+        data = yaml.safe_load(config_path.read_text())
+        assert data.get("platform", {}).get("name") == "cursor"
+
+
 class TestClaudeCodeInit:
     """Tests for Claude Code-specific init with v0.2.0 features."""
 
