@@ -1,24 +1,106 @@
 # Mirdan
 
-AI Code Quality Orchestrator - Automatically transforms developer prompts into high-quality, structured requests that maximize AI coding assistant capabilities.
+AI Code Quality Orchestrator — prevent AI slop before it reaches your codebase.
+
+[![PyPI version](https://img.shields.io/pypi/v/mirdan.svg)](https://pypi.org/project/mirdan/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## The Problem
 
 AI coding assistants produce "slop" not because the models are incapable, but because developers provide prompts that lack context, structure, and quality constraints. Research shows properly structured prompts achieve 15-74% better results.
 
+The result: placeholder functions, hallucinated imports, hardcoded secrets, over-engineered abstractions, and code that looks right but fails in production.
+
 ## The Solution
 
-Mirdan is an MCP server that intercepts prompts, automatically enhances them with quality requirements, codebase context, and architectural patterns, then intelligently orchestrates other available MCPs to ground the AI in reality.
+Mirdan is an MCP server that intercepts your workflow at two critical points:
+
+1. **Before you code** — `enhance_prompt` enriches your task with quality requirements, security constraints, and framework-specific standards
+2. **After you code** — `validate_code_quality` catches AI slop patterns, security vulnerabilities, and style violations before they land
+
+Combined with automatic IDE hooks, mirdan enforces quality invisibly — you just code normally.
 
 ## Features
 
-- **Intent Analysis**: Classifies task type (generation, refactor, debug, review, test)
-- **Quality Injection**: Applies language-specific coding standards and security requirements
-- **Architecture Validation**: AST-based detection of function complexity, deep nesting, and import hygiene
-- **Plan Validation**: Validates implementation plans for grounding, completeness, and cheap-model readiness
-- **Prompt Composition**: Structures prompts using proven frameworks (Role/Goal/Constraints)
-- **MCP Orchestration**: Recommends which tools to use for context gathering
-- **Verification Checklists**: Generates task-specific verification steps
+### 6 MCP Tools
+
+| Tool | Purpose |
+|------|---------|
+| `enhance_prompt` | Entry point — enriches prompts with quality requirements and tool recommendations |
+| `validate_code_quality` | Exit gate — validates code against security, architecture, AI quality, and style rules |
+| `validate_quick` | Fast validation (<500ms) for hook integration — security-critical rules only |
+| `get_quality_standards` | Retrieve language/framework-specific quality standards |
+| `get_quality_trends` | Quality score trends, forecasting, and regression detection |
+| `scan_conventions` | Discover implicit codebase conventions and generate custom rules |
+
+### 12 CLI Commands
+
+| Command | Purpose |
+|---------|---------|
+| `mirdan serve` | Start the MCP server (default when running bare `mirdan`) |
+| `mirdan init` | Initialize project — generates config, hooks, rules, IDE integrations |
+| `mirdan validate` | Validate code quality from the command line |
+| `mirdan gate` | Quality gate for CI/CD — exit code 0 (pass) or 1 (fail) |
+| `mirdan fix` | Auto-fix violations with `--dry-run`, `--auto`, `--staged` |
+| `mirdan scan` | Scan codebase to discover conventions |
+| `mirdan profile` | Manage quality profiles — `list`, `suggest`, `apply` |
+| `mirdan export` | Export results — `--format sarif\|badge\|json` |
+| `mirdan report` | Generate quality reports — `--session`, `--compact-state`, `--format` |
+| `mirdan standards` | View quality standards for a language |
+| `mirdan checklist` | View verification checklists for a task type |
+| `mirdan plugin` | Plugin management — `export` for standalone distribution |
+
+### Validation Engine
+
+- **8 AI quality rules** (AI001–AI008) — placeholder detection, hallucinated imports, over-engineering, duplicate code, injection vulnerabilities
+- **13 security rules** (SEC001–SEC013) — hardcoded secrets, SQL injection, command injection, SSL bypass, JWT bypass, graph DB injection
+- **Language rules** — Python (PY001–PY013), JavaScript (JS001–JS005), TypeScript (TS001–TS005), Go (GO001–GO003), Java (JV001–JV007), Rust (RS001–RS002)
+- **RAG/ML rules** (RAG001–RAG002) — chunk overlap, deprecated loaders
+- **31 auto-fixable rules** with template and pattern-based fixes
+- **61 total validation rules**
+
+### 6 Languages, 33 Framework Standards
+
+**Languages:** Python, TypeScript, JavaScript, Go, Java, Rust
+
+**Frameworks:** React, React Native, Next.js, Nuxt, Vue, SvelteKit, Astro, Flutter, Tailwind, FastAPI, Django, Express, NestJS, Echo, Gin, Spring Boot, Micronaut, Quarkus, Drizzle, Neo4j, Supabase, Convex, Pinecone, Qdrant, Milvus, Weaviate, ChromaDB, FAISS, LangChain, LangGraph, CrewAI, DSPy, tRPC
+
+### 7 Quality Profiles
+
+| Profile | Focus |
+|---------|-------|
+| `default` | Balanced quality for general-purpose projects |
+| `startup` | Move fast with essential safety nets |
+| `enterprise` | Maximum enforcement for enterprise codebases |
+| `fintech` | Financial-grade security and correctness |
+| `library` | High-quality public API with documentation focus |
+| `data-science` | Flexible for exploration, strict on data handling |
+| `prototype` | Minimal enforcement for rapid prototyping |
+
+### IDE Integration
+
+- **Claude Code** — hooks (up to 15 events), 5 skills, 5 agents, quality rules
+- **Cursor** — hooks (up to 16 events), rules (.mdc), AGENTS.md, BUGBOT.md
+- **Claude Desktop** — MCP server configuration
+- **Any MCP client** — standard MCP stdio transport
+
+### Quality Intelligence
+
+- Violation explanations with fix suggestions
+- Quality forecasting and regression detection
+- Convention discovery and custom rule generation
+- Session tracking with historical trend analysis
+- Cross-project intelligence (with enyal MCP)
+
+### CI/CD
+
+- SARIF 2.1.0 export for GitHub Code Scanning
+- GitHub Actions workflow generation
+- Pre-commit hook configuration
+- Quality badge generation
+
+---
 
 ## Installation
 
@@ -43,336 +125,385 @@ mirdan --help
 ### From Source (Development)
 
 ```bash
-# Clone the repository
 git clone https://github.com/S-Corkum/mirdan.git
 cd mirdan
-
-# Install dependencies
 uv sync
-
-# Run from source
 uv run mirdan
 ```
+
+---
 
 ## Quick Start
 
 ```bash
-# 1. Add mirdan to Claude Code
-claude mcp add mirdan -- uvx mirdan
+# Install
+pip install mirdan
 
-# 2. Verify connection
-# In Claude Code, run: /mcp
-# Mirdan should appear in the connected servers list
+# Initialize for your IDE
+mirdan init --claude-code    # Claude Code
+mirdan init --cursor         # Cursor
+mirdan init --all            # Both
+
+# That's it. Quality gates are now automatic.
 ```
 
-**Next steps:** See the [Claude Code Integration](#claude-code-integration) section below for automatic orchestration setup.
+After `mirdan init`, your IDE automatically:
+- Enhances prompts with quality requirements before coding
+- Validates code against security and quality rules after every edit
+- Runs a final quality gate before task completion
 
-For other MCP clients (Cursor, Claude Desktop), see [MCP Configuration Reference](#mcp-configuration-reference).
+### Manual Usage
 
----
-
-## Claude Code Integration
-
-Claude Code provides multiple integration points for maximizing mirdan's effectiveness. This section covers all available methods from simple to advanced.
-
-### Automatic Orchestration
-
-Mirdan works best when it automatically enhances every coding task. Claude Code offers several integration levels:
-
-| Level | Method | Effort | Enforcement |
-|-------|--------|--------|-------------|
-| **Basic** | CLAUDE.md | Copy-paste | Soft (instructions) |
-| **Standard** | CLAUDE.md + Slash Commands | Copy-paste | Medium (explicit trigger) |
-| **Advanced** | CLAUDE.md + Hooks | Configuration | Hard (automatic checks) |
-| **Enterprise** | Managed Settings + Hooks | IT deployment | Mandatory |
-
----
-
-### Level 1: CLAUDE.md Instructions (Recommended Start)
-
-Add these instructions to your project's `CLAUDE.md` file. Claude will automatically follow them for all coding tasks.
-
-**File location:** `./CLAUDE.md` (project) or `~/.claude/CLAUDE.md` (global)
-
-```markdown
-## Mirdan Code Quality Orchestration
-
-When performing ANY coding task (writing, editing, debugging, refactoring code), follow this workflow:
-
-### 1. Entry Point (REQUIRED)
-Before writing any code, call `mcp__mirdan__enhance_prompt` with the task description.
-
-Use the response to guide your work:
-- `detected_frameworks` → query context7 for documentation if unfamiliar
-- `touches_security` → use stricter validation in step 3
-- `quality_requirements` → follow these during implementation
-- `tool_recommendations` → use suggested MCPs for context gathering
-
-### 2. Implementation
-Write code following the quality_requirements from step 1.
-
-### 3. Exit Gate (REQUIRED)
-Before marking any coding task complete, call `mcp__mirdan__validate_code_quality` with your code.
-- Set `check_security=true` if `touches_security` was true in step 1
-- If validation fails, fix all violations and re-validate
-- Code is NOT complete until validation passes
-
-### 4. Verification
-Call `mcp__mirdan__get_verification_checklist` for the task type and execute each item.
-```
-
----
-
-### Level 2: Slash Commands (Explicit Control)
-
-Create custom slash commands for different workflows. Slash commands provide explicit triggers with full context.
-
-#### `/code` - General Coding Tasks
-
-**File:** `.claude/commands/code.md`
-
-```markdown
----
-description: Execute coding task with mirdan quality orchestration
-allowed-tools: Read, Edit, Write, Bash(*), Grep, Glob
----
-
-Execute this coding task with full mirdan orchestration:
-
-$ARGUMENTS
-
-## Workflow
-
-1. **Entry Gate**: Call `mcp__mirdan__enhance_prompt` with the task above
-2. **Context Gathering**:
-   - Use `detected_frameworks` to query context7 for documentation
-   - Use `tool_recommendations` for additional MCP calls
-3. **Implementation**: Follow `quality_requirements` during coding
-4. **Exit Gate**: Call `mcp__mirdan__validate_code_quality` on completed code
-   - Set `check_security=true` if `touches_security` was true
-   - Fix violations and re-validate until passed
-5. **Verification**: Call `mcp__mirdan__get_verification_checklist` and complete each item
-
-Code is NOT complete until validation passes and checklist is done.
-```
-
-**Usage:**
 ```bash
-/code implement user authentication with JWT tokens
-```
+# Validate a file
+mirdan validate --file src/auth.py
 
-#### `/debug` - Debugging Tasks
+# Validate staged changes
+mirdan validate --staged
 
-**File:** `.claude/commands/debug.md`
+# Auto-fix violations
+mirdan fix --file src/auth.py
 
-```markdown
----
-description: Debug issue with mirdan quality gates
-allowed-tools: Read, Edit, Write, Bash(*), Grep, Glob
----
+# Quality gate (CI/CD)
+mirdan gate
 
-Debug this issue with mirdan orchestration:
+# Discover conventions
+mirdan scan --directory src/
 
-$ARGUMENTS
-
-## Workflow
-
-1. **Classify**: Call `mcp__mirdan__analyze_intent` to understand security implications
-2. **Investigate**: Analyze the issue thoroughly
-3. **Fix**: Implement the fix
-4. **Validate**: Call `mcp__mirdan__validate_code_quality` with `check_security=true`
-   (bugs often have security implications)
-5. **Verify**: Call `mcp__mirdan__get_verification_checklist(task_type="debug")` and complete each item
-
-Fix is NOT complete until validation passes.
-```
-
-#### `/review` - Code Review
-
-**File:** `.claude/commands/review.md`
-
-```markdown
----
-description: Review code with mirdan quality standards
-allowed-tools: Read, Grep, Glob
----
-
-Review this code with mirdan quality standards:
-
-$ARGUMENTS
-
-## Workflow
-
-1. **Standards**: Call `mcp__mirdan__get_quality_standards` for the detected language
-2. **Validate**: Call `mcp__mirdan__validate_code_quality` on the code
-3. **Checklist**: Call `mcp__mirdan__get_verification_checklist(task_type="review")`
-4. **Report**: Provide findings organized by:
-   - Security issues (critical)
-   - Quality violations
-   - Improvement suggestions
+# Export SARIF for GitHub Code Scanning
+mirdan export --format sarif > results.sarif
 ```
 
 ---
 
-### Level 3: Hooks (Automatic Enforcement)
+## MCP Tools Reference
 
-Hooks provide automatic enforcement without requiring explicit commands. They run before or after specific tool calls.
+### enhance_prompt
 
-#### Pre-Implementation Reminder
+Entry point for all coding tasks. Enriches a prompt with quality requirements, security constraints, and tool recommendations.
 
-Reminds to use mirdan before writing code. Add to `.claude/settings.json`:
+```
+Parameters:
+  prompt (required)     — The coding task description
+  task_type             — generation|refactor|debug|review|test|planning|auto
+  context_level         — minimal|auto|comprehensive
+  max_tokens            — Token budget (0=unlimited)
+  model_tier            — auto|opus|sonnet|haiku
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Before modifying code, ensure you've called mcp__mirdan__enhance_prompt for the current task. Have you done this?",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
+Returns:
+  detected_language     — Primary language detected
+  detected_frameworks   — Frameworks to query docs for
+  touches_security      — Whether task involves security-sensitive code
+  quality_requirements  — Constraints to follow during implementation
+  tool_recommendations  — Which MCPs to call for context
+  verification_steps    — Checklist before marking complete
 ```
 
-#### Post-Implementation Validation Gate
+### validate_code_quality
 
-Automatically prompts for validation after code changes:
+Exit gate — validates code against quality standards. Supports standard validation, diff mode, and multi-implementation comparison.
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Code was just modified. Run mcp__mirdan__validate_code_quality on the changes before proceeding. If security-related code, use check_security=true.",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
+```
+Parameters:
+  code (required)       — Code to validate
+  language              — python|typescript|javascript|rust|go|java|auto
+  check_security        — Validate against security standards (default: true)
+  check_architecture    — Validate against architecture standards (default: true)
+  check_style           — Validate against style standards (default: true)
+  severity_threshold    — error|warning|info
+  input_type            — code|diff|compare
+  session_id            — Session ID from enhance_prompt
+  max_tokens            — Token budget
+  model_tier            — Target model tier
+
+Returns:
+  passed                — Whether validation passed
+  score                 — Quality score (0.0–1.0)
+  violations            — List of rule violations with details
+  summary               — Human-readable summary
 ```
 
-#### Combined Hooks Configuration
+### validate_quick
 
-**File:** `.claude/settings.json`
+Fast security-only validation (<500ms target) for hook integration. Runs SEC001–SEC013, AI001, and AI008 only.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '🔷 Mirdan code quality orchestration active'",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Ensure mcp__mirdan__enhance_prompt was called for this task before writing code.",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Code modified. Call mcp__mirdan__validate_code_quality before proceeding.",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
+```
+Parameters:
+  code (required)       — Code to validate
+  language              — Language override (auto-detected by default)
+  max_tokens            — Token budget
+  model_tier            — Target model tier
+```
+
+### get_quality_standards
+
+Look up quality standards for a language/framework combination.
+
+```
+Parameters:
+  language (required)   — Programming language
+  framework             — Framework name (optional)
+  category              — security|architecture|style|all
+```
+
+### get_quality_trends
+
+Quality score trends from stored validation history. Reads from `.mirdan/history/`.
+
+```
+Parameters:
+  project_path          — Project directory
+  days                  — Number of days to analyze
+  format                — Output format
+```
+
+### scan_conventions
+
+Scan a codebase to discover implicit conventions and patterns. Aggregates results into convention entries.
+
+```
+Parameters:
+  directory (required)  — Directory to scan
+  language              — Language filter
 ```
 
 ---
 
-### Level 4: Project Rules (Path-Specific Enforcement)
+## CLI Reference
 
-Use `.claude/rules/` for path-specific quality requirements.
+### `mirdan init`
 
-#### Security-Critical Paths
+Initialize mirdan for a project. Detects language, frameworks, and IDE, then generates configuration and integration files.
 
-**File:** `.claude/rules/security.md`
-
-```markdown
----
-paths: ["**/auth/**", "**/security/**", "**/crypto/**", "**/*token*", "**/*session*"]
----
-
-# Security-Critical Code Rules
-
-This file is in a security-sensitive path. STRICT validation required.
-
-## Mandatory Workflow
-
-1. Call `mcp__mirdan__enhance_prompt` - task WILL be flagged as `touches_security=true`
-2. Call `mcp__mirdan__get_quality_standards` with security focus
-3. Implement with security-first mindset
-4. Call `mcp__mirdan__validate_code_quality` with:
-   - `check_security=true` (REQUIRED)
-   - Address ALL security findings before completion
-5. Complete full verification checklist
-
-NO EXCEPTIONS. Security code is not complete until validation passes with zero security findings.
+```bash
+mirdan init [directory] [flags]
 ```
 
-#### API Code Rules
+| Flag | Description |
+|------|-------------|
+| `--claude-code` | Generate Claude Code integration (hooks, rules, skills, agents) |
+| `--cursor` | Generate Cursor integration (hooks, rules, AGENTS.md, BUGBOT.md) |
+| `--all` | Generate both Claude Code and Cursor integrations |
+| `--quality-profile NAME` | Set quality profile (e.g., `enterprise`, `startup`) |
+| `--learn` | Scan codebase and generate custom rules from discovered conventions |
+| `--upgrade` | Upgrade existing config — merges new fields, regenerates integration files |
+| `--hooks` | Install hook scripts for auto-validation |
 
-**File:** `.claude/rules/api.md`
+### `mirdan validate`
 
-```markdown
----
-paths: ["**/api/**", "**/routes/**", "**/endpoints/**", "**/handlers/**"]
----
+Validate code quality from the command line.
 
-# API Code Rules
+```bash
+mirdan validate --file src/main.py
+mirdan validate --staged           # Validate git staged changes
+mirdan validate --stdin             # Read from stdin
+mirdan validate --diff              # Validate unified diff
+mirdan validate --quick             # Security-only fast mode
+mirdan validate --lint              # Include linter results
+mirdan validate --format json       # Output format
+```
 
-API code requires input validation and error handling verification.
+### `mirdan gate`
 
-## Workflow
+Quality gate for CI/CD pipelines. Validates all changed files and exits with code 0 (pass) or 1 (fail).
 
-1. `mcp__mirdan__enhance_prompt` - include "API endpoint" in task description
-2. `mcp__mirdan__get_quality_standards` for the language
-3. Implement with:
-   - Input validation for all external data
-   - Proper error responses
-   - Authentication/authorization checks
-4. `mcp__mirdan__validate_code_quality` with `check_security=true`
-5. Complete verification checklist
+```bash
+mirdan gate                        # Check all changed files
+```
+
+### `mirdan fix`
+
+Auto-fix violations using template and pattern-based fixes.
+
+```bash
+mirdan fix --file src/main.py      # Fix a specific file
+mirdan fix --staged                # Fix staged changes
+mirdan fix --auto                  # Apply fixes automatically
+mirdan fix --dry-run               # Show what would be fixed
+```
+
+### `mirdan profile`
+
+Manage quality profiles.
+
+```bash
+mirdan profile list                # List all available profiles
+mirdan profile suggest [dir]       # Suggest a profile based on codebase analysis
+mirdan profile apply enterprise    # Apply a named profile
+```
+
+### `mirdan export`
+
+Export validation results in various formats.
+
+```bash
+mirdan export --format sarif       # SARIF 2.1.0 for GitHub Code Scanning
+mirdan export --format badge       # Quality badge
+mirdan export --format json        # JSON results
+```
+
+### `mirdan report`
+
+Generate quality reports with session history.
+
+```bash
+mirdan report                      # Full quality report
+mirdan report --session ID         # Report for a specific session
+mirdan report --compact-state      # Compact state summary
+mirdan report --format json        # JSON output
+```
+
+### `mirdan scan`
+
+Scan codebase to discover conventions.
+
+```bash
+mirdan scan --directory src/
+```
+
+### `mirdan standards`
+
+View quality standards for a language.
+
+```bash
+mirdan standards --language python
+```
+
+### `mirdan checklist`
+
+View verification checklists for a task type.
+
+```bash
+mirdan checklist --task-type review
+```
+
+### `mirdan plugin`
+
+Plugin management for standalone distribution.
+
+```bash
+mirdan plugin export --output-dir ./mirdan-plugin
+mirdan plugin export --cursor      # Cursor-specific export
+mirdan plugin export --all         # All platforms
 ```
 
 ---
 
-### Project Settings
+## Quality Profiles
 
-Configure mirdan-related settings in `.claude/settings.json`:
+Each profile defines enforcement levels across 6 dimensions scored 0.0–1.0:
+
+| Profile | Security | Architecture | Testing | Documentation | AI Slop | Performance |
+|---------|----------|-------------|---------|--------------|---------|-------------|
+| **default** | 0.7 | 0.5 | 0.7 | 0.5 | 0.7 | 0.5 |
+| **startup** | 0.7 | 0.3 | 0.5 | 0.2 | 0.8 | 0.3 |
+| **enterprise** | 1.0 | 0.9 | 0.9 | 0.8 | 1.0 | 0.7 |
+| **fintech** | 1.0 | 0.8 | 1.0 | 0.7 | 1.0 | 0.8 |
+| **library** | 0.8 | 0.9 | 0.9 | 0.9 | 0.8 | 0.7 |
+| **data-science** | 0.7 | 0.3 | 0.5 | 0.5 | 0.6 | 0.4 |
+| **prototype** | 0.5 | 0.2 | 0.2 | 0.1 | 0.5 | 0.2 |
+
+Scale: **0.0–0.3** permissive | **0.3–0.7** moderate | **0.7–1.0** strict
+
+Select a profile during init or apply later:
+
+```bash
+mirdan init --quality-profile enterprise
+mirdan profile apply fintech
+```
+
+---
+
+## Validation Rules
+
+### AI Quality Rules (AI001–AI008)
+
+| Rule | Name | Severity | Description |
+|------|------|----------|-------------|
+| AI001 | ai-placeholder-code | error | Detects `raise NotImplementedError`, `pass` with TODO/FIXME (skips `@abstractmethod`) |
+| AI002 | hallucinated-imports | warning | Flags imports not in stdlib or project dependencies |
+| AI003 | over-engineering-detection | warning | Detects unnecessary abstractions and over-complex implementations |
+| AI004 | duplicate-code-block | warning | Detects duplicate or near-duplicate code blocks |
+| AI005 | inconsistent-error-handling | warning | Detects inconsistent error handling patterns |
+| AI006 | unnecessary-heavy-imports | info | Detects heavy library imports where lighter alternatives exist |
+| AI007 | security-theater-detection | warning | Detects false-positive security patterns with no actual protection |
+| AI008 | injection-fstring | error | Catches f-string SQL injection, `eval`/`exec`/`os.system` with f-strings |
+
+AI001 and AI008 run in both full and quick validation modes (security-critical).
+
+### Security Rules (SEC001–SEC013)
+
+| Rule | Name | Description |
+|------|------|-------------|
+| SEC001 | hardcoded-api-key | Hardcoded API keys |
+| SEC002 | hardcoded-password | Hardcoded passwords |
+| SEC003 | aws-access-key | AWS access keys (AKIA prefix) |
+| SEC004 | sql-concat-python | SQL via string concatenation (Python) |
+| SEC005 | sql-fstring-python | SQL via f-strings (Python) |
+| SEC006 | sql-template-js | SQL via template literals (JavaScript) |
+| SEC007 | ssl-verify-disabled | Disabled SSL/TLS verification |
+| SEC008 | shell-format-injection | Shell command injection via string formatting |
+| SEC009 | shell-fstring-injection | Shell command injection via f-strings |
+| SEC010 | jwt-no-verify | JWT verification disabled |
+| SEC011 | cypher-fstring-injection | Neo4j Cypher injection via f-strings |
+| SEC012 | cypher-concat-injection | Neo4j Cypher injection via string concatenation |
+| SEC013 | gremlin-fstring-injection | Gremlin query injection via f-strings |
+
+### Language Rules
+
+| Language | Rules | Key Checks |
+|----------|-------|------------|
+| Python | PY001–PY013 | `eval`/`exec`, bare except, mutable defaults, deprecated typing, unsafe pickle/yaml, subprocess shell, wildcard imports |
+| JavaScript | JS001–JS005 | `var` usage, `eval`, `document.write`, innerHTML, child_process.exec |
+| TypeScript | TS001–TS005 | `eval`, Function constructor, `@ts-ignore`, `as any`, innerHTML |
+| Go | GO001–GO003 | Ignored errors, `panic()`, SQL via fmt.Sprintf |
+| Java | JV001–JV007 | String ==, generic Exception, System.exit, empty catch, Runtime.exec, unsafe deserialization, XMLDecoder |
+| Rust | RS001–RS002 | `.unwrap()`, empty `.expect()` |
+
+### RAG/ML Rules
+
+| Rule | Name | Description |
+|------|------|-------------|
+| RAG001 | chunk-overlap-zero | Zero overlap in RAG chunk splitting |
+| RAG002 | deprecated-langchain-loader | Deprecated LangChain loaders |
+
+### Auto-Fixable Rules
+
+31 rules support automatic fixes via `mirdan fix`: AI001, AI003, AI006, AI007, AI008, SEC001–SEC008, PY003–PY006, PY008, PY009, PY011, PY012, JS001–JS003, TS001, TS004, RS001, RS002, GO001, GO002, JAVA001.
+
+---
+
+## IDE Integration
+
+### Claude Code
+
+```bash
+mirdan init --claude-code
+```
+
+Generates:
+
+| File | Purpose |
+|------|---------|
+| `.mcp.json` | Registers mirdan as MCP server |
+| `.claude/hooks.json` | Automatic quality hooks |
+| `.claude/rules/mirdan-*.md` | Path-specific quality rules |
+| `.claude/skills/mirdan/*.md` | 5 slash command skills |
+| `.claude/agents/*.md` | 5 specialized agents |
+
+**5 Skills:** `/mirdan:code`, `/mirdan:debug`, `/mirdan:review`, `/mirdan:plan`, `/mirdan:quality`
+
+**5 Agents:** `quality-gate`, `security-audit`, `test-quality`, `convention-check`, `architecture-reviewer`
+
+**Hook stringency levels:**
+
+| Level | Events | Best For |
+|-------|--------|----------|
+| MINIMAL | 2 (PostToolUse, Stop) | Low-friction onboarding |
+| STANDARD | 5 (+ UserPromptSubmit, PreToolUse, SubagentStart) | Daily development |
+| COMPREHENSIVE | 15 (full lifecycle) | Teams, production projects |
+
+**Project settings (`.claude/settings.json`):**
 
 ```json
 {
@@ -382,367 +513,50 @@ Configure mirdan-related settings in `.claude/settings.json`:
       "mcp__mirdan__validate_code_quality",
       "mcp__mirdan__validate_quick",
       "mcp__mirdan__get_quality_standards",
-      "mcp__mirdan__get_quality_trends"
+      "mcp__mirdan__get_quality_trends",
+      "mcp__mirdan__scan_conventions"
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["mirdan"]
-}
-```
-
----
-
-### Enterprise Deployment
-
-For organization-wide mirdan enforcement, IT can deploy managed configuration.
-
-#### Managed MCP Configuration
-
-**File (macOS):** `/Library/Application Support/ClaudeCode/managed-mcp.json`
-**File (Linux):** `/etc/claude-code/managed-mcp.json`
-**File (Windows):** `C:\Program Files\ClaudeCode\managed-mcp.json`
-
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "command": "uvx",
-      "args": ["mirdan"]
-    }
-  }
-}
-```
-
-#### Managed Settings (Enforcement)
-
-**File:** Same paths as above, but `managed-settings.json`
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "Company policy: Use mcp__mirdan__enhance_prompt before coding and mcp__mirdan__validate_code_quality after.",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  },
-  "allowManagedHooksOnly": true
-}
-```
-
----
-
-### Which Approach Should I Use?
-
-| Scenario | Recommended Setup |
-|----------|-------------------|
-| **Individual developer, trying mirdan** | Level 1 (CLAUDE.md only) |
-| **Individual developer, daily use** | Level 1 + Level 2 (CLAUDE.md + slash commands) |
-| **Team project** | Level 1 + Level 3 (CLAUDE.md + hooks) |
-| **Security-sensitive project** | All levels including path-specific rules |
-| **Enterprise/regulated environment** | Level 4 (managed settings + hooks) |
-
-**Recommended progression:**
-1. Start with CLAUDE.md (copy-paste, immediate benefit)
-2. Add `/code` slash command for explicit control
-3. Add hooks when you want automatic enforcement
-4. Add path-specific rules for security-critical code
-
----
-
-### Cursor: Full Integration (Cursor 1.7+)
-
-Cursor's [Project Rules](https://cursor.com/docs/context/rules), [Hooks](https://cursor.com/docs/agent/hooks), and [AGENTS.md](https://cursor.com/docs/context/agents-md) provide a complete quality orchestration surface. mirdan leverages all three for **invisible quality enforcement** — you just code normally, mirdan handles the rest.
-
-#### Automatic Setup (Recommended)
-
-```bash
-mirdan init --cursor
-```
-
-This generates everything needed for automatic quality enforcement:
-
-| Generated | Path | Purpose |
-|-----------|------|---------|
-| Hooks | `.cursor/hooks.json` | Prompt-based hooks for afterFileEdit, preToolUse, stop, beforeSubmitPrompt |
-| MCP config | `.cursor/mcp.json` | Registers mirdan as MCP server with tool budget |
-| Project rules | `.cursor/rules/*.mdc` | Language-specific quality standards (code quality, security, debug) |
-| AGENTS.md | `AGENTS.md` | Quality checkpoints, AI/security rules, quality thresholds for agents |
-| BUGBOT.md | `BUGBOT.md` | Structured PR review rules with regex pattern matching |
-
-After init, quality gates fire automatically with zero manual effort.
-
-#### What Gets Generated
-
-**`.cursor/hooks.json`** — Prompt-type hooks that fire automatically:
-
-| Event | What It Does |
-|-------|-------------|
-| `afterFileEdit` | Calls `validate_code_quality` on changed code, fixes any errors |
-| `preToolUse` | Security review before Write/Edit operations (SQL injection, secrets, command injection) |
-| `stop` | Final quality gate — verifies all changed files were validated before task completion |
-| `beforeSubmitPrompt` | Suggests calling `enhance_prompt` for quality requirements |
-
-Hook stringency levels control how many events are active:
-
-| Level | Events | Best For |
-|-------|--------|----------|
-| `MINIMAL` | afterFileEdit, stop | Low-friction onboarding |
-| `STANDARD` | + preToolUse | Daily development |
-| `COMPREHENSIVE` | + beforeSubmitPrompt | Teams, production projects |
-
-**`.cursor/mcp.json`** — MCP server registration with tool budget:
-
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["mirdan", "serve"],
-      "env": {"MIRDAN_TOOL_BUDGET": "3"}
-    }
-  }
-}
-```
-
-The `MIRDAN_TOOL_BUDGET` env var limits exposed tools by priority (useful for Cursor's tool slot limits):
-
-| Budget | Tools Exposed |
-|--------|--------------|
-| 2 | validate_code_quality, validate_quick |
-| 3 | + enhance_prompt |
-| 4 | + get_quality_standards |
-| 5 | All tools (default when unset) |
-
-**`AGENTS.md`** — Enhanced with quality enforcement sections:
-
-- **Mandatory Quality Checkpoints**: Before writing code, after every file edit, before PR/completion
-- **AI Quality Rules (AI001–AI008)**: Inline rule descriptions with severity levels
-- **Security Standards (SEC001–SEC010)**: Critical and important security rules
-- **Quality Thresholds**: Code cannot be marked complete if quality score < 0.7
-
-**`BUGBOT.md`** — Structured PR review rules for Cursor's BugBot:
-
-- **Blocking Bugs** (severity: critical): AI001 placeholders, AI008 injection, SEC001–SEC003 hardcoded secrets/SQL injection/command injection with regex patterns
-- **Request Changes** (severity: warning): AI003 over-abstraction, AI007 weak crypto, SEC006–SEC010
-- **Best Practice** (severity: info): AI004–AI006 duplication/error handling, documentation
-
-#### Granular Project Rules
-
-For fine-grained control, `mirdan init --cursor` also generates focused rules in `.cursor/rules/`:
-
-**`.cursor/rules/mirdan-code-quality/RULE.md`** — Auto-attaches on code files:
-
-```markdown
----
-description: Code quality orchestration for all code modifications
-globs: ["*.py", "*.ts", "*.tsx", "*.js", "*.jsx", "*.go", "*.rs", "*.java", "*.rb"]
-alwaysApply: false
----
-# Mirdan Code Quality Gate
-
-When modifying code files:
-
-## Entry Point
-Call `mirdan.enhance_prompt` with task description. Use response for:
-- `detected_frameworks` → query documentation if unfamiliar
-- `touches_security` → enables strict validation
-- `quality_requirements` → constraints during implementation
-
-## Exit Gate (REQUIRED)
-Before completion:
-1. Call `mirdan.validate_code_quality` on your code
-2. Set `check_security=true` if touches_security was true
-3. Fix all violations and re-validate until passed
-```
-
-**`.cursor/rules/mirdan-security/RULE.md`** — Auto-attaches on auth/security paths:
-
-```markdown
----
-description: Strict security validation for authentication and authorization code
-globs: ["**/auth/**", "**/security/**", "**/crypto/**", "**/*token*", "**/*session*"]
-alwaysApply: false
----
-# Mirdan Security Gate
-
-Code in security-sensitive paths requires STRICT validation:
-
-1. `mirdan.validate_code_quality` with `check_security=true` and `severity_threshold="info"`
-2. Resolve ALL security violations before completion
-```
-
-#### How Rules & Hooks Work Together
-
-| Your Action | What Fires | Why |
-|-------------|-----------|-----|
-| Edit `api/routes.py` | `afterFileEdit` hook + mirdan-code-quality rule | Hook validates; rule provides context |
-| Edit `src/auth/login.ts` | `afterFileEdit` hook + code-quality + security rules | Hook + both rules activate |
-| Say "debug this error" | mirdan-debug rule | Description matches intent |
-| Complete a task | `stop` hook | Final quality gate verifies all files validated |
-| Submit a prompt | `beforeSubmitPrompt` hook | Suggests enhance_prompt for quality context |
-
-#### Cursor Feature Integration
-
-**Debug Mode**: mirdan augments Cursor's hypothesis-driven debugging. `enhance_prompt` classifies the bug, `validate_code_quality` ensures fixes don't introduce new vulnerabilities.
-
-**Plan Mode**: When using Plan Mode, `enhance_prompt` at planning stage surfaces security considerations. When delegating steps to parallel agents, each follows mirdan-code-quality rules.
-
-**Background Agents**: mirdan hooks and AGENTS.md provide guardrails for autonomous agents, ensuring quality even without human oversight.
-
-**BugBot PR Reviews**: BUGBOT.md gives BugBot structured detection rules with regex patterns, catching placeholder code, injection vulnerabilities, and hardcoded secrets automatically.
-
-### Automatic Setup with `mirdan init`
-
-The fastest way to integrate mirdan with your IDE:
-
-```bash
-# Cursor (hooks + rules + AGENTS.md + BUGBOT.md + MCP config)
-mirdan init --cursor
-
-# Claude Code (hooks + rules + skills + agents + MCP config)
-mirdan init --claude-code
-
-# Both platforms at once
-mirdan init --all
-```
-
-#### Cursor Setup (`mirdan init --cursor`)
-
-| Generated | Path | Purpose |
-|-----------|------|---------|
-| Hooks | `.cursor/hooks.json` | Prompt hooks: afterFileEdit, preToolUse, stop, beforeSubmitPrompt |
-| MCP config | `.cursor/mcp.json` | Registers mirdan MCP server with tool budget |
-| Project rules | `.cursor/rules/*.mdc` | Language-specific quality standards |
-| AGENTS.md | `AGENTS.md` | Quality checkpoints + inline AI/security rules |
-| BUGBOT.md | `BUGBOT.md` | Structured PR review rules with regex patterns |
-
-#### Claude Code Setup (`mirdan init --claude-code`)
-
-| Generated | Path | Purpose |
-|-----------|------|---------|
-| MCP config | `.mcp.json` | Registers mirdan as MCP server |
-| Hooks | `.claude/hooks.json` | Auto-validates edits (PostToolUse) and final output (Stop) |
-| Quality rules | `.claude/rules/mirdan-*.md` | Language-specific quality standards |
-| Skills | `.claude/skills/{code,debug,review}/SKILL.md` | `/mirdan:code`, `/mirdan:debug`, `/mirdan:review` |
-| Agent | `.claude/agents/quality-gate.md` | Background quality validation subagent |
-
-#### Additional Flags
-
-| Flag | Effect |
-|------|--------|
-| `--all` | Run both `--cursor` and `--claude-code` setup |
-| `--quality-profile PROFILE` | Set quality profile (e.g., `enterprise`, `startup`) |
-
-After init, quality gates fire automatically with zero manual effort.
-
-#### Plugin Distribution
-
-mirdan can also be exported as a standalone Claude Code plugin:
-
-```bash
-mirdan plugin export --output-dir ./mirdan-plugin
-# Install with: claude --plugin-dir ./mirdan-plugin
-```
-
-### Available Tools (5)
-
-#### enhance_prompt
-
-Automatically enhance a coding prompt with quality requirements and tool recommendations.
-
-#### get_quality_standards
-
-Retrieve quality standards for a language/framework combination.
-
-#### validate_code_quality
-
-Validate generated code against quality standards. Checks for security issues, architecture patterns, AI-specific quality rules, and language-specific style violations.
-
-#### validate_quick
-
-Fast validation mode (<500ms) for hook integration. Runs only security-critical rules (SEC001-SEC013, AI001, AI008).
-
-#### get_quality_trends
-
-Get quality score trends across validation sessions.
-
-### AI Quality Rules
-
-mirdan includes AI-specific quality rules that catch issues unique to AI-generated code:
-
-| Rule | Severity | Description |
-|------|----------|-------------|
-| **AI001** | error | Placeholder detection — catches `raise NotImplementedError`, `pass` with TODO/FIXME comments (skips `@abstractmethod`) |
-| **AI002** | warning | Hallucinated import detection — flags imports not found in Python stdlib or project dependencies |
-| **AI008** | error | Injection vulnerability — catches f-string SQL, `eval`/`exec`/`os.system`/`subprocess` with f-strings |
-
-AI001 and AI008 run in both full and quick validation modes (security-critical).
-
-## MCP Configuration Reference
-
-Mirdan works with any MCP-compatible client. This section provides quick configuration for each client.
-
-> **Note:** For Claude Code users, see the comprehensive [Claude Code Integration](#claude-code-integration) section above for advanced setup including hooks, slash commands, and enterprise deployment.
-
-### Claude Code (Quick Reference)
-
-**CLI setup (recommended):**
-```bash
-claude mcp add mirdan -- uvx mirdan
-```
-
-**Or manual configuration:**
-
-| Scope | File |
-|-------|------|
-| Project (team-shared) | `.mcp.json` |
-| User (personal) | `~/.claude.json` |
-
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "command": "uvx",
-      "args": ["mirdan"]
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-**File locations:**
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-**Configuration:**
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "command": "uvx",
-      "args": ["mirdan"]
-    }
   }
 }
 ```
 
 ### Cursor
 
-**File locations:**
-- Global: `~/.cursor/mcp.json`
-- Project: `.cursor/mcp.json`
+```bash
+mirdan init --cursor
+```
 
-**Configuration:**
+Generates:
+
+| File | Purpose |
+|------|---------|
+| `.cursor/mcp.json` | MCP server registration with tool budget |
+| `.cursor/hooks.json` | Prompt hooks for automatic enforcement |
+| `.cursor/rules/*.mdc` | Language-specific quality rules |
+| `AGENTS.md` | Quality checkpoints + inline AI/security rules |
+| `BUGBOT.md` | Structured PR review rules with regex patterns |
+
+**Hook stringency levels:**
+
+| Level | Events | Best For |
+|-------|--------|----------|
+| MINIMAL | 2 (afterFileEdit, stop) | Low-friction onboarding |
+| STANDARD | 5 (+ preToolUse, postToolUse, sessionStart) | Daily development |
+| COMPREHENSIVE | 16 (all events) | Teams, production projects |
+
+**Tool budget** — Cursor has tool slot limits. The `MIRDAN_TOOL_BUDGET` env var controls which tools are exposed:
+
+| Budget | Tools Exposed |
+|--------|--------------|
+| 2 | validate_code_quality, validate_quick |
+| 3 | + enhance_prompt |
+| 4 | + get_quality_standards |
+| 5+ | All tools (default) |
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
 ```json
 {
   "mcpServers": {
@@ -754,39 +568,260 @@ claude mcp add mirdan -- uvx mirdan
 }
 ```
 
-**UI setup:** File → Preferences → Cursor Settings → MCP
+### Any MCP Client
 
-### From Source (Development)
+Mirdan uses standard MCP stdio transport:
 
-If running from a local clone instead of PyPI:
+```json
+{
+  "mcpServers": {
+    "mirdan": {
+      "command": "uvx",
+      "args": ["mirdan"]
+    }
+  }
+}
+```
+
+For development installs:
 
 ```json
 {
   "mcpServers": {
     "mirdan": {
       "command": "uv",
-      "args": ["--directory", "/absolute/path/to/mirdan", "run", "mirdan"]
+      "args": ["--directory", "/path/to/mirdan", "run", "mirdan"]
     }
   }
 }
 ```
 
+### Enterprise Deployment
+
+For organization-wide enforcement via managed configuration:
+
+**File (macOS):** `/Library/Application Support/ClaudeCode/managed-mcp.json`
+**File (Linux):** `/etc/claude-code/managed-mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "mirdan": {
+      "command": "uvx",
+      "args": ["mirdan"]
+    }
+  }
+}
+```
+
+---
+
 ## Configuration
 
-Create a `.mirdan/config.yaml` in your project:
+Create `.mirdan/config.yaml` in your project (auto-generated by `mirdan init`):
 
 ```yaml
 version: "1.0"
 
+# Project metadata (auto-detected)
 project:
   name: "MyApp"
-  primary_language: "typescript"
-  frameworks: ["next.js", "prisma"]
+  type: "application"              # application|library|tool|data
+  primary_language: "python"
+  frameworks: ["fastapi", "react"]
 
+# Quality enforcement levels
 quality:
-  security: "strict"
+  security: "strict"               # strict|moderate|permissive
   architecture: "moderate"
+  documentation: "moderate"
+  testing: "strict"
+  framework: "moderate"
+  language: "moderate"
+  custom_rules_dir: ".mirdan/rules"
+
+# Named quality profile (overrides quality section)
+quality_profile: "default"
+
+# IDE platform profile
+platform:
+  name: "claude-code"              # generic|cursor|claude-code
+  context_level: "auto"            # auto|none
+  tool_budget_aware: false
+
+# MCP orchestration
+orchestration:
+  prefer_mcps: ["context7", "filesystem"]
+  auto_invoke: []
+  gather_timeout: 10.0
+  gatherer_timeout: 3.0
+  auto_memory: false
+  auto_memory_threshold: 0.8
+
+# Enhancement behavior
+enhancement:
+  mode: "auto"                     # auto|confirm|manual
+  verbosity: "balanced"            # minimal|balanced|comprehensive
+  include_verification: true
+  include_tool_hints: true
+
+# Plan validation (for cheap model handoff)
+planning:
+  target_model: "haiku"            # haiku|flash|cheap|capable
+  min_grounding_score: 0.9
+  min_completeness_score: 0.9
+  min_clarity_score: 0.95
+  require_research_notes: true
+  require_step_grounding: true
+  require_verification_per_step: true
+  reject_vague_language: true
+  max_words_per_step_detail: 100
+
+# Token budgets
+tokens:
+  default_max_tokens: 0            # 0=unlimited
+  compact_threshold: 4000
+  minimal_threshold: 1000
+  micro_threshold: 200
+
+# Centralized thresholds
+thresholds:
+  severity_error_weight: 0.25
+  severity_warning_weight: 0.08
+  severity_info_weight: 0.02
+  arch_max_function_length: 30
+  arch_max_file_length: 300
+  arch_max_nesting_depth: 4
+  arch_max_class_methods: 10
+
+# External linter orchestration
+linters:
+  enabled_linters: []              # Empty = auto-detect
+  auto_detect: true
+  timeout: 30.0
+  ruff_args: []
+  eslint_args: []
+  mypy_args: []
+
+# Hook generation settings
+hooks:
+  enabled_events: ["PreToolUse", "PostToolUse", "Stop"]
+  quick_validate_timeout: 5000
+  auto_fix_suggestions: true
+  compaction_resilience: false
+  multi_agent_awareness: false
+  session_hooks: false
+  notification_hooks: false
+
+# Session management
+session:
+  ttl_seconds: 1800               # 30 minutes
+  max_sessions: 100
 ```
+
+---
+
+## CI/CD Integration
+
+### GitHub Actions
+
+`mirdan init` generates `.github/workflows/mirdan.yml`. You can also create it manually:
+
+```yaml
+name: Mirdan Quality Gate
+on: [pull_request]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - run: uv pip install mirdan --system
+      - run: mirdan gate
+```
+
+### SARIF Export for GitHub Code Scanning
+
+```yaml
+- run: mirdan export --format sarif > results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+### Quality Badges
+
+```bash
+mirdan export --format badge > .mirdan/badge.json
+```
+
+### Pre-commit Hooks
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: mirdan
+        name: mirdan quality gate
+        entry: mirdan validate --staged --quick
+        language: system
+        types: [python]
+```
+
+---
+
+## Advanced Features
+
+### Convention Discovery (`--learn`)
+
+Scan your codebase to discover implicit conventions and generate custom rules:
+
+```bash
+mirdan init --learn
+# or standalone:
+mirdan scan --directory src/
+```
+
+Discovers naming patterns, import styles, docstring conventions, and recurring patterns. Generates `.mirdan/rules/conventions.yaml` with custom rules derived from your actual code.
+
+### Quality Forecasting and Regression Detection
+
+`get_quality_trends` analyzes validation history from `.mirdan/history/` to:
+- Track quality scores over time
+- Forecast quality trajectory
+- Detect regressions between sessions
+- Calculate pass rates and trend direction
+
+### Session Tracking
+
+Each `enhance_prompt` call creates a session. Pass the `session_id` to `validate_code_quality` to track quality across the full task lifecycle.
+
+### Multi-Agent Coordination
+
+AGENTS.md and hook configurations provide guardrails for autonomous agents (Cursor Background Agents, Claude Code subagents), ensuring quality enforcement without human oversight.
+
+### Cross-Project Intelligence
+
+When combined with [enyal](https://github.com/S-Corkum/enyal) (persistent knowledge graph MCP), mirdan can:
+- Store project conventions as knowledge entries
+- Recall patterns across projects
+- Build a cross-project quality knowledge base
+
+### Violation Explanations
+
+Validation results include detailed explanations for each violation: what the rule checks, why it matters, and how to fix it.
+
+### Upgrade Existing Projects
+
+```bash
+mirdan init --upgrade
+```
+
+Merges new configuration fields into existing `.mirdan/config.yaml`, regenerates integration files, and preserves your customizations.
+
+---
 
 ## Troubleshooting
 
@@ -810,7 +845,7 @@ quality:
 
 ### Debug Logging
 
-Enable verbose output for troubleshooting:
+Enable verbose output:
 
 ```json
 {
@@ -831,8 +866,12 @@ Enable verbose output for troubleshooting:
 | Issue | Solution |
 |-------|----------|
 | `command not found: uvx` | Install uv: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| Server starts but no tools appear | Restart Claude Code after config changes |
+| Server starts but no tools appear | Restart your IDE after config changes |
 | Python version error | Ensure Python 3.11+ is installed |
+| Hook not firing | Check hook stringency level — MINIMAL only fires 2 events |
+| Tool budget limiting tools | Set `MIRDAN_TOOL_BUDGET=5` or remove the env var |
+
+---
 
 ## Development
 
@@ -848,6 +887,8 @@ uv run pytest
 # Run the server locally
 uv run mirdan
 ```
+
+---
 
 ## License
 
