@@ -46,7 +46,7 @@ class TestManifestParser:
         assert "react" in names
         assert "next" in names
         assert "typescript" in names
-        ts_pkg = [p for p in packages if p.name == "typescript"][0]
+        ts_pkg = next(p for p in packages if p.name == "typescript")
         assert ts_pkg.is_dev is True
         assert ts_pkg.ecosystem == "npm"
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 
 def generate_github_action(project_dir: Path) -> Path | None:
@@ -129,7 +130,7 @@ def generate_quality_badge(score: float) -> str:
     )
 
 
-def generate_pr_comment(result: dict) -> str:
+def generate_pr_comment(result: dict[str, Any]) -> str:
     """Generate a markdown PR comment from a validation result.
 
     Args:

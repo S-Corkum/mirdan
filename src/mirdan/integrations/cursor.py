@@ -7,9 +7,11 @@ Supports .cursor/rules/*.mdc, .cursor/AGENTS.md, .cursor/BUGBOT.md,
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from enum import Enum
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 from mirdan.cli.detect import DetectedProject
 from mirdan.core.quality_standards import QualityStandards
@@ -87,7 +89,7 @@ def generate_cursor_hooks(
         return None
 
     events = CURSOR_STRINGENCY_EVENTS[stringency]
-    hooks: dict[str, list[dict]] = {}
+    hooks: dict[str, list[dict[str, str | int]]] = {}
 
     for event in events:
         generator = _CURSOR_HOOK_GENERATORS.get(event)
@@ -102,7 +104,7 @@ def generate_cursor_hooks(
     return hooks_path
 
 
-def _hook_after_file_edit() -> list[dict]:
+def _hook_after_file_edit() -> list[dict[str, str | int]]:
     """afterFileEdit: Validate changed code quality."""
     return [
         {
@@ -116,7 +118,7 @@ def _hook_after_file_edit() -> list[dict]:
     ]
 
 
-def _hook_pre_tool_use() -> list[dict]:
+def _hook_pre_tool_use() -> list[dict[str, str | int]]:
     """preToolUse: Security-aware reminder before Write/Edit."""
     return [
         {
@@ -133,7 +135,7 @@ def _hook_pre_tool_use() -> list[dict]:
     ]
 
 
-def _hook_stop() -> list[dict]:
+def _hook_stop() -> list[dict[str, str | int]]:
     """stop: Verification gate before task completion."""
     return [
         {
@@ -152,7 +154,7 @@ def _hook_stop() -> list[dict]:
     ]
 
 
-def _hook_before_submit_prompt() -> list[dict]:
+def _hook_before_submit_prompt() -> list[dict[str, str | int]]:
     """beforeSubmitPrompt: Inject quality context."""
     return [
         {
@@ -166,7 +168,7 @@ def _hook_before_submit_prompt() -> list[dict]:
     ]
 
 
-def _hook_post_tool_use() -> list[dict]:
+def _hook_post_tool_use() -> list[dict[str, str | int]]:
     """postToolUse: Validate after tool execution."""
     return [
         {
@@ -180,7 +182,7 @@ def _hook_post_tool_use() -> list[dict]:
     ]
 
 
-def _hook_post_tool_use_failure() -> list[dict]:
+def _hook_post_tool_use_failure() -> list[dict[str, str | int]]:
     """postToolUseFailure: Handle failed tool calls."""
     return [
         {
@@ -194,7 +196,7 @@ def _hook_post_tool_use_failure() -> list[dict]:
     ]
 
 
-def _hook_session_start() -> list[dict]:
+def _hook_session_start() -> list[dict[str, str | int]]:
     """sessionStart: Initialize quality context for new session."""
     return [
         {
@@ -209,7 +211,7 @@ def _hook_session_start() -> list[dict]:
     ]
 
 
-def _hook_session_end() -> list[dict]:
+def _hook_session_end() -> list[dict[str, str | int]]:
     """sessionEnd: Persist quality summary at session end."""
     return [
         {
@@ -223,7 +225,7 @@ def _hook_session_end() -> list[dict]:
     ]
 
 
-def _hook_subagent_start() -> list[dict]:
+def _hook_subagent_start() -> list[dict[str, str | int]]:
     """subagentStart: Pass quality context to subagents."""
     return [
         {
@@ -237,7 +239,7 @@ def _hook_subagent_start() -> list[dict]:
     ]
 
 
-def _hook_subagent_stop() -> list[dict]:
+def _hook_subagent_stop() -> list[dict[str, str | int]]:
     """subagentStop: Review subagent output quality."""
     return [
         {
@@ -251,7 +253,7 @@ def _hook_subagent_stop() -> list[dict]:
     ]
 
 
-def _hook_before_shell_execution() -> list[dict]:
+def _hook_before_shell_execution() -> list[dict[str, str | int]]:
     """beforeShellExecution: Security check before shell commands."""
     return [
         {
@@ -266,7 +268,7 @@ def _hook_before_shell_execution() -> list[dict]:
     ]
 
 
-def _hook_after_shell_execution() -> list[dict]:
+def _hook_after_shell_execution() -> list[dict[str, str | int]]:
     """afterShellExecution: Review shell command results."""
     return [
         {
@@ -279,7 +281,7 @@ def _hook_after_shell_execution() -> list[dict]:
     ]
 
 
-def _hook_before_mcp_execution() -> list[dict]:
+def _hook_before_mcp_execution() -> list[dict[str, str | int]]:
     """beforeMCPExecution: Context before MCP tool calls."""
     return [
         {
@@ -293,7 +295,7 @@ def _hook_before_mcp_execution() -> list[dict]:
     ]
 
 
-def _hook_after_mcp_execution() -> list[dict]:
+def _hook_after_mcp_execution() -> list[dict[str, str | int]]:
     """afterMCPExecution: Review MCP tool results."""
     return [
         {
@@ -306,7 +308,7 @@ def _hook_after_mcp_execution() -> list[dict]:
     ]
 
 
-def _hook_pre_compact() -> list[dict]:
+def _hook_pre_compact() -> list[dict[str, str | int]]:
     """preCompact: Preserve quality state before compaction."""
     return [
         {
@@ -322,7 +324,7 @@ def _hook_pre_compact() -> list[dict]:
     ]
 
 
-def _hook_after_agent_response() -> list[dict]:
+def _hook_after_agent_response() -> list[dict[str, str | int]]:
     """afterAgentResponse: Quality check on agent responses."""
     return [
         {
@@ -336,7 +338,7 @@ def _hook_after_agent_response() -> list[dict]:
     ]
 
 
-_CURSOR_HOOK_GENERATORS: dict[str, object] = {
+_CURSOR_HOOK_GENERATORS: dict[str, Callable[[], list[dict[str, str | int]]]] = {
     "afterFileEdit": _hook_after_file_edit,
     "preToolUse": _hook_pre_tool_use,
     "postToolUse": _hook_post_tool_use,
@@ -882,7 +884,7 @@ def generate_cursor_mcp_json(cursor_dir: Path) -> Path:
 
     command, args = detect_mirdan_command()
 
-    config: dict = {
+    config: dict[str, Any] = {
         "mcpServers": {
             "mirdan": {
                 "type": "stdio",

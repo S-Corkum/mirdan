@@ -1,7 +1,7 @@
 """Tests for auto-fix generation in code validator."""
 
 from mirdan.config import MirdanConfig
-from mirdan.core.auto_fixer import AutoFixer, TEMPLATE_FIXES
+from mirdan.core.auto_fixer import TEMPLATE_FIXES, AutoFixer
 from mirdan.core.code_validator import AUTO_FIX_TEMPLATES, CodeValidator
 from mirdan.core.quality_standards import QualityStandards
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 from mirdan.config import SemanticConfig
 from mirdan.core.semantic_analyzer import SemanticAnalyzer
-from mirdan.models import AnalysisProtocol, SemanticCheck, Violation
+from mirdan.models import SemanticCheck, Violation
 
 
 class TestSemanticAnalyzer:

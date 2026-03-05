@@ -85,7 +85,9 @@ class QualityDashboard:
             "summary": {
                 "total": sum(values),
                 "categories": len(labels),
-                "top_category": max(categories, key=categories.get) if categories else None,
+                "top_category": (
+                    max(categories, key=lambda k: categories[k]) if categories else None
+                ),
             },
         }
 

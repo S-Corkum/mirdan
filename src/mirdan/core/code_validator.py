@@ -8,7 +8,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -1102,7 +1102,7 @@ class CodeValidator:
 
     def generate_semantic_checks(
         self, code: str, language: str, violations: list[Violation],
-    ) -> list:
+    ) -> list[Any]:
         """Generate semantic review questions (does not affect quality score)."""
         if not self._semantic_analyzer:
             return []

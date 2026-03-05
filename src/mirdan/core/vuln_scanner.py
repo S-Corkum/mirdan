@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from mirdan.models import PackageInfo, VulnFinding
 
@@ -32,7 +33,7 @@ class VulnCache:
     def __init__(self, cache_path: Path, ttl: int = 86400) -> None:
         self._path = cache_path
         self._ttl = ttl
-        self._data: dict[str, dict] = {}
+        self._data: dict[str, dict[str, Any]] = {}
         self._load()
 
     def _cache_key(self, pkg: PackageInfo) -> str:
@@ -113,7 +114,7 @@ class VulnScanner:
         """Synchronous OSV API batch query."""
         queries = []
         for pkg in packages:
-            q: dict = {"package": {"name": pkg.name, "ecosystem": pkg.ecosystem}}
+            q: dict[str, Any] = {"package": {"name": pkg.name, "ecosystem": pkg.ecosystem}}
             if pkg.version:
                 q["version"] = pkg.version
             queries.append(q)
@@ -134,7 +135,7 @@ class VulnScanner:
         return all_findings
 
     def _execute_batch(
-        self, queries: list[dict], packages: list[PackageInfo]
+        self, queries: list[dict[str, Any]], packages: list[PackageInfo]
     ) -> list[VulnFinding]:
         """Execute a single batch request to OSV API."""
         body = json.dumps({"queries": queries}).encode()
@@ -156,7 +157,7 @@ class VulnScanner:
         return findings
 
     def _parse_vulns(
-        self, pkg: PackageInfo, vulns: list[dict]
+        self, pkg: PackageInfo, vulns: list[dict[str, Any]]
     ) -> list[VulnFinding]:
         """Parse OSV vulnerability entries into VulnFindings."""
         findings: list[VulnFinding] = []
@@ -184,7 +185,7 @@ class VulnScanner:
             )
         return findings
 
-    def _extract_severity(self, vuln: dict) -> str:
+    def _extract_severity(self, vuln: dict[str, Any]) -> str:
         """Extract severity from OSV vulnerability data."""
         # Try CVSS score from severity array
         for sev in vuln.get("severity", []):
@@ -223,11 +224,11 @@ class VulnScanner:
 
         return "medium"
 
-    def _extract_fixed_version(self, vuln: dict, ecosystem: str) -> str:
+    def _extract_fixed_version(self, vuln: dict[str, Any], ecosystem: str) -> str:
         """Extract the fixed version from affected ranges."""
         for affected in vuln.get("affected", []):
             for rng in affected.get("ranges", []):
                 for event in rng.get("events", []):
                     if "fixed" in event:
-                        return event["fixed"]
+                        return str(event["fixed"])
         return ""

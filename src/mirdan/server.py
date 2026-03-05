@@ -36,7 +36,14 @@ from mirdan.core.semantic_analyzer import SemanticAnalyzer
 from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
 from mirdan.core.vuln_scanner import VulnScanner
-from mirdan.models import ComparisonEntry, ComparisonResult, Intent, KnowledgeEntry, ModelTier, TaskType
+from mirdan.models import (
+    ComparisonEntry,
+    ComparisonResult,
+    Intent,
+    KnowledgeEntry,
+    ModelTier,
+    TaskType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +161,7 @@ def _get_components() -> _Components:
 
     # Initialize new components for semantic validation and dependency scanning
     manifest_parser = ManifestParser(project_dir=project_dir)
-    cache_dir = (project_dir / ".mirdan" / "cache") if project_dir else Path(".mirdan/cache")
+    cache_dir = project_dir / ".mirdan" / "cache"
     vuln_scanner = VulnScanner(cache_dir=cache_dir, ttl=config.dependencies.osv_cache_ttl)
     semantic_analyzer = SemanticAnalyzer(config=config.semantic)
 

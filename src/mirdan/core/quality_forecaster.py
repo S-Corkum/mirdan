@@ -6,6 +6,7 @@ quality scores, detect regressions, and calculate improvement velocity.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -198,8 +199,8 @@ class QualityForecaster:
 
 
 def _linear_regression(
-    x: list[int | float],
-    y: list[float],
+    x: Sequence[int | float],
+    y: Sequence[float],
 ) -> tuple[float, float]:
     """Simple linear regression returning (slope, intercept).
 
@@ -226,8 +227,8 @@ def _linear_regression(
 
 
 def _r_squared(
-    x: list[int | float],
-    y: list[float],
+    x: Sequence[int | float],
+    y: Sequence[float],
     slope: float,
     intercept: float,
 ) -> float:

@@ -51,16 +51,18 @@ def run_export(args: list[str]) -> None:
 def _export_sarif(output_path: Path | None) -> None:
     """Export validation results as SARIF."""
     from mirdan.core.code_validator import CodeValidator
+    from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.sarif import SARIFExporter
 
-    validator = CodeValidator()
+    standards = QualityStandards()
+    validator = CodeValidator(standards=standards)
     # Validate changed files (from git diff)
     changed = _get_changed_files()
     if not changed:
         print("No changed files to validate.")
         return
 
-    all_violations: list[dict] = []
+    all_violations: list[dict[str, object]] = []
     total_score = 0.0
     for fpath in changed:
         path = Path(fpath)
@@ -70,7 +72,7 @@ def _export_sarif(output_path: Path | None) -> None:
             code = path.read_text()
         except OSError:
             continue
-        result = validator.validate(code, file_path=str(path))
+        result = validator.validate(code)
         for v in result.violations:
             vd = v.to_dict()
             vd["file"] = str(path)
@@ -99,7 +101,7 @@ def _export_badge() -> None:
 
     persistence = QualityPersistence()
     trends = persistence.get_trends(days=30)
-    score = trends.avg_score if trends and trends.avg_score else 0.0
+    score = trends.avg_score if trends.avg_score else 0.0
     url = generate_quality_badge(score)
     print(f"Badge URL: {url}")
     print(f"Markdown: ![mirdan quality]({url})")
@@ -108,14 +110,16 @@ def _export_badge() -> None:
 def _export_json(output_path: Path | None) -> None:
     """Export validation results as JSON."""
     from mirdan.core.code_validator import CodeValidator
+    from mirdan.core.quality_standards import QualityStandards
 
-    validator = CodeValidator()
+    standards = QualityStandards()
+    validator = CodeValidator(standards=standards)
     changed = _get_changed_files()
     if not changed:
         print("No changed files to validate.")
         return
 
-    results: list[dict] = []
+    results: list[dict[str, object]] = []
     for fpath in changed:
         path = Path(fpath)
         if not path.exists():
@@ -124,7 +128,7 @@ def _export_json(output_path: Path | None) -> None:
             code = path.read_text()
         except OSError:
             continue
-        result = validator.validate(code, file_path=str(path))
+        result = validator.validate(code)
         results.append({
             "file": str(path),
             "score": result.score,
