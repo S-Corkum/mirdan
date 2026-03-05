@@ -1,5 +1,6 @@
 """Mirdan MCP Server - AI Code Quality Orchestrator."""
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -13,6 +14,7 @@ from typing import Any
 from fastmcp import FastMCP
 
 from mirdan.config import MirdanConfig
+from mirdan.core.active_orchestrator import ActiveOrchestrator
 from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
@@ -34,7 +36,7 @@ from mirdan.core.semantic_analyzer import SemanticAnalyzer
 from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
 from mirdan.core.vuln_scanner import VulnScanner
-from mirdan.models import ComparisonEntry, ComparisonResult, Intent, ModelTier, TaskType
+from mirdan.models import ComparisonEntry, ComparisonResult, Intent, KnowledgeEntry, ModelTier, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +80,16 @@ class _Components:
     manifest_parser: ManifestParser
     vuln_scanner: VulnScanner
     semantic_analyzer: SemanticAnalyzer
+    active_orchestrator: ActiveOrchestrator
     config: MirdanConfig
 
 
 _components: _Components | None = None
+
+# Strong references to fire-and-forget background tasks.
+# Without this, asyncio tasks can be garbage-collected mid-execution.
+# See: https://docs.python.org/3/library/asyncio-task.html#creating-tasks
+_background_tasks: set[asyncio.Task[Any]] = set()
 
 # Tool priority order for budget-aware filtering.
 # When MIRDAN_TOOL_BUDGET is set, only the top N tools are kept.
@@ -150,12 +158,14 @@ def _get_components() -> _Components:
     vuln_scanner = VulnScanner(cache_dir=cache_dir, ttl=config.dependencies.osv_cache_ttl)
     semantic_analyzer = SemanticAnalyzer(config=config.semantic)
 
+    context_aggregator = ContextAggregator(config)
+
     _components = _Components(
         intent_analyzer=IntentAnalyzer(config.project),
         quality_standards=quality_standards,
         prompt_composer=PromptComposer(quality_standards, config=config.enhancement),
         mcp_orchestrator=MCPOrchestrator(config.orchestration),
-        context_aggregator=ContextAggregator(config),
+        context_aggregator=context_aggregator,
         code_validator=CodeValidator(
             quality_standards,
             config=config.quality,
@@ -182,6 +192,7 @@ def _get_components() -> _Components:
         manifest_parser=manifest_parser,
         vuln_scanner=vuln_scanner,
         semantic_analyzer=semantic_analyzer,
+        active_orchestrator=ActiveOrchestrator(context_aggregator.registry),
         config=config,
     )
     return _components
@@ -327,15 +338,7 @@ async def enhance_prompt(
         frameworks=intent.frameworks,
     )
     if knowledge_entries:
-        auto_mem = c.config.orchestration.auto_memory
-        threshold = c.config.orchestration.auto_memory_threshold
-        entries_out = []
-        for e in knowledge_entries:
-            d = e.to_dict()
-            if auto_mem and e.confidence >= threshold:
-                d["auto_store"] = True
-            entries_out.append(d)
-        result_dict["knowledge_entries"] = entries_out
+        result_dict["knowledge_entries"] = _process_knowledge_entries(knowledge_entries, c)
 
     # Detect environment for context
     env_info = detect_environment()
@@ -485,15 +488,7 @@ async def validate_code_quality(
     # Add knowledge entries for enyal storage
     knowledge_entries = c.knowledge_producer.extract_from_validation(result)
     if knowledge_entries:
-        auto_mem = c.config.orchestration.auto_memory
-        threshold = c.config.orchestration.auto_memory_threshold
-        entries_out = []
-        for e in knowledge_entries:
-            d = e.to_dict()
-            if auto_mem and e.confidence >= threshold:
-                d["auto_store"] = True
-            entries_out.append(d)
-        output["knowledge_entries"] = entries_out
+        output["knowledge_entries"] = _process_knowledge_entries(knowledge_entries, c)
 
     # Add verification checklist to output (absorbs get_verification_checklist)
     intent = Intent(
@@ -877,6 +872,55 @@ async def scan_dependencies(
 # ---------------------------------------------------------------------------
 # Utility
 # ---------------------------------------------------------------------------
+
+
+def _process_knowledge_entries(
+    entries: list[KnowledgeEntry],
+    components: _Components,
+) -> list[dict[str, Any]]:
+    """Serialize knowledge entries, flag for client, and schedule server-side storage.
+
+    When auto_memory is False (default): sets auto_store=True on entries above
+    the confidence threshold, signaling the client to store them via enyal.
+
+    When auto_memory is True: schedules fire-and-forget server-side storage
+    via ActiveOrchestrator and does NOT set auto_store (preventing double-storage).
+    """
+    config = components.config.orchestration
+    entries_out = []
+    for e in entries:
+        d = e.to_dict()
+        if not config.auto_memory and e.confidence >= config.auto_memory_threshold:
+            d["auto_store"] = True
+        entries_out.append(d)
+
+    if config.auto_memory:
+        coro = _auto_store_knowledge(
+            components.active_orchestrator,
+            entries,
+            config.auto_memory_threshold,
+        )
+        task = asyncio.create_task(coro)
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+
+    return entries_out
+
+
+async def _auto_store_knowledge(
+    orchestrator: ActiveOrchestrator,
+    entries: list[KnowledgeEntry],
+    threshold: float,
+) -> None:
+    """Fire-and-forget wrapper for auto-memory storage.
+
+    Prevents 'Task exception was never retrieved' warnings from
+    asyncio.create_task by catching and logging any errors.
+    """
+    try:
+        await orchestrator.store_knowledge(entries, threshold)
+    except Exception:
+        logger.debug("Auto-memory storage failed", exc_info=True)
 
 
 def _parse_model_tier(tier: str) -> ModelTier:

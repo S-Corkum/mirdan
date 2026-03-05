@@ -42,6 +42,11 @@ class ContextAggregator:
         self._registry = MCPClientRegistry(config)
         self._gatherers = self._create_gatherers()
 
+    @property
+    def registry(self) -> MCPClientRegistry:
+        """Expose registry for ActiveOrchestrator construction."""
+        return self._registry
+
     def _create_gatherers(self) -> list[BaseGatherer]:
         """Create all available gatherers.
 

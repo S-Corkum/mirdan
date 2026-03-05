@@ -1,9 +1,10 @@
 """Enyal gatherer for project memory and conventions."""
 
 import logging
+from typing import Any
 
 from mirdan.core.gatherers.base import BaseGatherer, GathererResult
-from mirdan.models import ContextBundle, Intent, TaskType
+from mirdan.models import ContextBundle, EntityType, Intent, TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -76,19 +77,28 @@ class EnyalGatherer(BaseGatherer):
         query = self._build_query(intent)
         result_limit = DEPTH_RESULT_LIMITS.get(depth, 5)
 
+        # Extract file_path from intent entities for scope-weighted search
+        file_path = None
+        for entity in intent.entities:
+            if entity.type == EntityType.FILE_PATH:
+                file_path = entity.value
+                break
+
         existing_patterns: list[str] = []
 
         try:
             async with client:
+                args: dict[str, Any] = {
+                    "query": query,
+                    "limit": result_limit,
+                    "min_confidence": 0.3,
+                }
+                if file_path:
+                    args["file_path"] = file_path
+
                 result = await client.call_tool(
                     "enyal_recall",
-                    {
-                        "input": {
-                            "query": query,
-                            "limit": result_limit,
-                            "min_confidence": 0.3,
-                        }
-                    },
+                    {"input": args},
                 )
 
                 if result.content:

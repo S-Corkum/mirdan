@@ -449,7 +449,10 @@ class TestActiveOrchestratorStoreKnowledge:
         assert mock_registry.call_tools_parallel.called
         calls = mock_registry.call_tools_parallel.call_args[0][0]
         assert len(calls) == 1
-        assert calls[0].arguments["content"] == "high"
+        assert calls[0].arguments["input"]["content"] == "high"
+        assert calls[0].arguments["input"]["source"] == "mirdan:auto-memory"
+        assert calls[0].arguments["input"]["check_duplicate"] is True
+        assert calls[0].arguments["input"]["auto_link"] is True
 
 
 # ── 3E: Convention-Aware Validation ──────────────────────────────────

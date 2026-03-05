@@ -193,15 +193,16 @@ class ActiveOrchestrator:
             if entry.confidence < min_confidence:
                 continue
 
-            arguments = entry.to_dict()
-            arguments["check_duplicate"] = True
-            arguments["auto_link"] = True
+            inner = entry.to_dict()
+            inner["check_duplicate"] = True
+            inner["auto_link"] = True
+            inner["source"] = "mirdan:auto-memory"
 
             calls.append(
                 MCPToolCall(
                     mcp_name="enyal",
                     tool_name="enyal_remember",
-                    arguments=arguments,
+                    arguments={"input": inner},
                 )
             )
 
