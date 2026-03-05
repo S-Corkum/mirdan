@@ -878,3 +878,130 @@ class TestAI002MultiLanguage:
         violations = checker.check(code, "go")
         ai002 = [v for v in violations if v.id == "AI002"]
         assert len(ai002) == 1
+
+
+# ---------------------------------------------------------------------------
+# SEC014: Vulnerable Dependency Detection
+# ---------------------------------------------------------------------------
+
+
+class TestSEC014VulnerableDependency:
+    """Tests for SEC014 — vulnerable dependency via cached vuln findings."""
+
+    def test_sec014_cached_vuln_generates_violation(self, tmp_path: Path) -> None:
+        """A cached vuln finding for an imported package should produce SEC014."""
+        from unittest.mock import MagicMock
+
+        from mirdan.models import PackageInfo, VulnFinding
+
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = [
+            PackageInfo(name="requests", version="2.31.0", ecosystem="PyPI", source="test")
+        ]
+
+        mock_scanner = MagicMock()
+        mock_scanner.check_cached.return_value = [
+            VulnFinding(
+                package="requests",
+                version="2.31.0",
+                ecosystem="PyPI",
+                vuln_id="CVE-2024-1234",
+                severity="high",
+                summary="Test vuln",
+                fixed_version="2.32.0",
+            )
+        ]
+
+        checker = AIQualityChecker(
+            manifest_parser=mock_parser, vuln_scanner=mock_scanner
+        )
+        code = "import requests\nrequests.get('https://example.com')\n"
+        violations = checker.check(code, "python")
+        sec014 = [v for v in violations if v.id == "SEC014"]
+        assert len(sec014) == 1
+        assert "requests" in sec014[0].message
+        assert sec014[0].severity == "error"  # high → error
+
+    def test_sec014_no_cache_no_violation(self, tmp_path: Path) -> None:
+        """Empty cache should produce no SEC014 violations."""
+        from unittest.mock import MagicMock
+
+        from mirdan.models import PackageInfo
+
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = [
+            PackageInfo(name="requests", version="2.31.0", ecosystem="PyPI", source="test")
+        ]
+        mock_scanner = MagicMock()
+        mock_scanner.check_cached.return_value = []
+
+        checker = AIQualityChecker(
+            manifest_parser=mock_parser, vuln_scanner=mock_scanner
+        )
+        code = "import requests\n"
+        violations = checker.check(code, "python")
+        sec014 = [v for v in violations if v.id == "SEC014"]
+        assert len(sec014) == 0
+
+    def test_sec014_unrelated_import_no_violation(self, tmp_path: Path) -> None:
+        """Cached vuln for 'requests' but code imports 'flask' → no SEC014."""
+        from unittest.mock import MagicMock
+
+        from mirdan.models import PackageInfo, VulnFinding
+
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = [
+            PackageInfo(name="requests", version="2.31.0", ecosystem="PyPI", source="test"),
+            PackageInfo(name="flask", version="3.0.0", ecosystem="PyPI", source="test"),
+        ]
+        mock_scanner = MagicMock()
+        mock_scanner.check_cached.return_value = [
+            VulnFinding(
+                package="requests",
+                version="2.31.0",
+                ecosystem="PyPI",
+                vuln_id="CVE-2024-1234",
+                severity="high",
+                summary="Test vuln",
+                fixed_version="2.32.0",
+            )
+        ]
+
+        checker = AIQualityChecker(
+            manifest_parser=mock_parser, vuln_scanner=mock_scanner
+        )
+        code = "import flask\napp = flask.Flask(__name__)\n"
+        violations = checker.check(code, "python")
+        sec014 = [v for v in violations if v.id == "SEC014"]
+        assert len(sec014) == 0
+
+    def test_sec014_also_in_check_quick(self, tmp_path: Path) -> None:
+        """SEC014 should also fire in check_quick (zero-cost cache lookup)."""
+        from unittest.mock import MagicMock
+
+        from mirdan.models import PackageInfo, VulnFinding
+
+        mock_parser = MagicMock()
+        mock_parser.parse.return_value = [
+            PackageInfo(name="requests", version="2.31.0", ecosystem="PyPI", source="test")
+        ]
+        mock_scanner = MagicMock()
+        mock_scanner.check_cached.return_value = [
+            VulnFinding(
+                package="requests",
+                version="2.31.0",
+                ecosystem="PyPI",
+                vuln_id="CVE-2024-1234",
+                severity="high",
+                summary="Test vuln",
+                fixed_version="2.32.0",
+            )
+        ]
+
+        checker = AIQualityChecker(
+            manifest_parser=mock_parser, vuln_scanner=mock_scanner
+        )
+        code = "import requests\n"
+        violations = checker.check_quick(code, "python")
+        sec014 = [v for v in violations if v.id == "SEC014"]
+        assert len(sec014) == 1

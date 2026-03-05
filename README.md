@@ -23,7 +23,7 @@ Combined with automatic IDE hooks, mirdan enforces quality invisibly — you jus
 
 ## Features
 
-### 6 MCP Tools
+### 7 MCP Tools
 
 | Tool | Purpose |
 |------|---------|
@@ -32,6 +32,7 @@ Combined with automatic IDE hooks, mirdan enforces quality invisibly — you jus
 | `validate_quick` | Fast validation (<500ms) for hook integration — security-critical rules only |
 | `get_quality_standards` | Retrieve language/framework-specific quality standards |
 | `get_quality_trends` | Quality score trends, forecasting, and regression detection |
+| `scan_dependencies` | Scan project dependencies for known vulnerabilities (OSV database) |
 | `scan_conventions` | Discover implicit codebase conventions and generate custom rules |
 
 ### 12 CLI Commands
@@ -41,9 +42,9 @@ Combined with automatic IDE hooks, mirdan enforces quality invisibly — you jus
 | `mirdan serve` | Start the MCP server (default when running bare `mirdan`) |
 | `mirdan init` | Initialize project — generates config, hooks, rules, IDE integrations |
 | `mirdan validate` | Validate code quality from the command line |
-| `mirdan gate` | Quality gate for CI/CD — exit code 0 (pass) or 1 (fail) |
+| `mirdan gate` | Quality gate for CI/CD — exit code 0 (pass) or 1 (fail), `--include-dependencies` for vuln check |
 | `mirdan fix` | Auto-fix violations with `--dry-run`, `--auto`, `--staged` |
-| `mirdan scan` | Scan codebase to discover conventions |
+| `mirdan scan` | Scan codebase to discover conventions or `--dependencies` for vulnerability scanning |
 | `mirdan profile` | Manage quality profiles — `list`, `suggest`, `apply` |
 | `mirdan export` | Export results — `--format sarif\|badge\|json` |
 | `mirdan report` | Generate quality reports — `--session`, `--compact-state`, `--format` |
@@ -54,11 +55,11 @@ Combined with automatic IDE hooks, mirdan enforces quality invisibly — you jus
 ### Validation Engine
 
 - **8 AI quality rules** (AI001–AI008) — placeholder detection, hallucinated imports, over-engineering, duplicate code, injection vulnerabilities
-- **13 security rules** (SEC001–SEC013) — hardcoded secrets, SQL injection, command injection, SSL bypass, JWT bypass, graph DB injection
+- **14 security rules** (SEC001–SEC014) — hardcoded secrets, SQL injection, command injection, SSL bypass, JWT bypass, graph DB injection, vulnerable dependencies
 - **Language rules** — Python (PY001–PY013), JavaScript (JS001–JS005), TypeScript (TS001–TS005), Go (GO001–GO003), Java (JV001–JV007), Rust (RS001–RS002)
 - **RAG/ML rules** (RAG001–RAG002) — chunk overlap, deprecated loaders
-- **31 auto-fixable rules** with template and pattern-based fixes
-- **61 total validation rules**
+- **32 auto-fixable rules** with template and pattern-based fixes
+- **62 total validation rules**
 
 ### 6 Languages, 33 Framework Standards
 
@@ -225,7 +226,7 @@ Returns:
 
 ### validate_quick
 
-Fast security-only validation (<500ms target) for hook integration. Runs SEC001–SEC013, AI001, and AI008 only.
+Fast security-only validation (<500ms target) for hook integration. Runs SEC001–SEC014, AI001, and AI008 only.
 
 ```
 Parameters:
@@ -255,6 +256,16 @@ Parameters:
   project_path          — Project directory
   days                  — Number of days to analyze
   format                — Output format
+```
+
+### scan_dependencies
+
+Scan project dependencies for known vulnerabilities via the [OSV database](https://osv.dev). Supports PyPI, npm, crates.io, Go, and Maven ecosystems. Results are cached for 24 hours.
+
+```
+Parameters:
+  project_dir           — Project directory (default: current)
+  ecosystems            — Filter by ecosystem (PyPI, npm, crates.io, Go, Maven)
 ```
 
 ### scan_conventions
@@ -309,6 +320,7 @@ Quality gate for CI/CD pipelines. Validates all changed files and exits with cod
 
 ```bash
 mirdan gate                        # Check all changed files
+mirdan gate --include-dependencies # Also check for vulnerable dependencies
 ```
 
 ### `mirdan fix`
@@ -355,10 +367,11 @@ mirdan report --format json        # JSON output
 
 ### `mirdan scan`
 
-Scan codebase to discover conventions.
+Scan codebase to discover conventions or check dependencies for vulnerabilities.
 
 ```bash
-mirdan scan --directory src/
+mirdan scan --directory src/        # Discover conventions
+mirdan scan --dependencies          # Scan dependencies for CVEs
 ```
 
 ### `mirdan standards`
@@ -431,7 +444,7 @@ mirdan profile apply fintech
 
 AI001 and AI008 run in both full and quick validation modes (security-critical).
 
-### Security Rules (SEC001–SEC013)
+### Security Rules (SEC001–SEC014)
 
 | Rule | Name | Description |
 |------|------|-------------|
@@ -448,6 +461,7 @@ AI001 and AI008 run in both full and quick validation modes (security-critical).
 | SEC011 | cypher-fstring-injection | Neo4j Cypher injection via f-strings |
 | SEC012 | cypher-concat-injection | Neo4j Cypher injection via string concatenation |
 | SEC013 | gremlin-fstring-injection | Gremlin query injection via f-strings |
+| SEC014 | vulnerable-dependency | Package has known CVE — upgrade to patched version |
 
 ### Language Rules
 
@@ -808,6 +822,19 @@ When combined with [enyal](https://github.com/S-Corkum/enyal) (persistent knowle
 - Store project conventions as knowledge entries
 - Recall patterns across projects
 - Build a cross-project quality knowledge base
+
+### Semantic Validation
+
+`validate_code_quality` returns `semantic_checks` — targeted review questions generated from code patterns. These guide the LLM to investigate specific concerns like taint propagation, auth flow ordering, and resource management. For security-critical code, an `analysis_protocol` provides a structured framework for deep analysis.
+
+### Dependency Vulnerability Scanning
+
+`scan_dependencies` checks project dependencies against the [OSV database](https://osv.dev) (free, no API key). Supports PyPI, npm, crates.io, Go, and Maven ecosystems. Results are cached for 24 hours.
+
+```bash
+mirdan gate --include-dependencies    # Quality gate + vuln check
+mirdan scan --dependencies            # Standalone dependency scan
+```
 
 ### Violation Explanations
 

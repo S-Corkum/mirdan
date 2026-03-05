@@ -23,14 +23,17 @@ from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.knowledge_producer import KnowledgeProducer
 from mirdan.core.linter_orchestrator import create_linter_runner, merge_linter_violations
 from mirdan.core.linter_runner import LinterRunner
+from mirdan.core.manifest_parser import ManifestParser
 from mirdan.core.orchestrator import MCPOrchestrator
 from mirdan.core.output_formatter import OutputFormatter
 from mirdan.core.plan_validator import PlanValidator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_persistence import QualityPersistence
 from mirdan.core.quality_standards import QualityStandards
+from mirdan.core.semantic_analyzer import SemanticAnalyzer
 from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
+from mirdan.core.vuln_scanner import VulnScanner
 from mirdan.models import ComparisonEntry, ComparisonResult, Intent, ModelTier, TaskType
 
 logger = logging.getLogger(__name__)
@@ -72,6 +75,9 @@ class _Components:
     auto_fixer: AutoFixer
     convention_extractor: ConventionExtractor
     violation_explainer: Any  # ViolationExplainer (lazy import)
+    manifest_parser: ManifestParser
+    vuln_scanner: VulnScanner
+    semantic_analyzer: SemanticAnalyzer
     config: MirdanConfig
 
 
@@ -85,6 +91,7 @@ _TOOL_PRIORITY = [
     "enhance_prompt",
     "get_quality_standards",
     "get_quality_trends",
+    "scan_dependencies",
     "scan_conventions",
 ]
 
@@ -137,6 +144,12 @@ def _get_components() -> _Components:
         # Cursor: prefer full mode (larger context, MCP Apps can render)
         compact_threshold = min(compact_threshold, 2000)
 
+    # Initialize new components for semantic validation and dependency scanning
+    manifest_parser = ManifestParser(project_dir=project_dir)
+    cache_dir = (project_dir / ".mirdan" / "cache") if project_dir else Path(".mirdan/cache")
+    vuln_scanner = VulnScanner(cache_dir=cache_dir, ttl=config.dependencies.osv_cache_ttl)
+    semantic_analyzer = SemanticAnalyzer(config=config.semantic)
+
     _components = _Components(
         intent_analyzer=IntentAnalyzer(config.project),
         quality_standards=quality_standards,
@@ -148,6 +161,9 @@ def _get_components() -> _Components:
             config=config.quality,
             thresholds=config.thresholds,
             project_dir=project_dir,
+            semantic_analyzer=semantic_analyzer,
+            manifest_parser=manifest_parser,
+            vuln_scanner=vuln_scanner,
         ),
         plan_validator=PlanValidator(config.planning, thresholds=config.thresholds),
         session_manager=SessionManager(config.session),
@@ -163,6 +179,9 @@ def _get_components() -> _Components:
         auto_fixer=AutoFixer(),
         convention_extractor=ConventionExtractor(config),
         violation_explainer=_create_violation_explainer(),
+        manifest_parser=manifest_parser,
+        vuln_scanner=vuln_scanner,
+        semantic_analyzer=semantic_analyzer,
         config=config,
     )
     return _components
@@ -432,6 +451,27 @@ async def validate_code_quality(
     c.session_tracker.record_validation(result, file_path=file_path, session=session)
 
     output = result.to_dict(severity_threshold=severity_threshold)
+
+    # Generate semantic review questions (Layer 1)
+    if c.config.semantic.enabled:
+        semantic_checks = c.code_validator.generate_semantic_checks(
+            code=code,
+            language=result.language_detected,
+            violations=result.violations,
+        )
+        if semantic_checks:
+            output["semantic_checks"] = [s.to_dict() for s in semantic_checks]
+
+        # Layer 3: Analysis protocol for security-critical code
+        if resolved_security and c.config.semantic.analysis_protocol != "none":
+            protocol = c.semantic_analyzer.generate_analysis_protocol(
+                code=code,
+                language=result.language_detected,
+                violations=result.violations,
+                semantic_checks=semantic_checks if semantic_checks else [],
+            )
+            if protocol:
+                output["analysis_protocol"] = protocol.to_dict()
 
     # Include session quality summary if session is active
     if session and session.validation_count > 0:
@@ -777,6 +817,61 @@ async def scan_conventions(
 
     result = c.convention_extractor.scan(scan_dir, language=language)
     return result.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Core Tool 6: scan_dependencies
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def scan_dependencies(
+    project_path: str = ".",
+    ecosystem: str = "auto",
+) -> dict[str, Any]:
+    """Scan project dependencies for known vulnerabilities.
+
+    Queries the OSV database (free, no API key) to check all dependencies
+    against known CVEs. Results are cached per config (default: 24 hours).
+
+    Args:
+        project_path: Project directory containing dependency manifests
+        ecosystem: Filter by ecosystem (auto|PyPI|npm|crates.io|Go|Maven)
+
+    Returns:
+        Scan results with packages checked and vulnerabilities found
+    """
+    c = _get_components()
+    scan_dir = Path(project_path).resolve()
+
+    if not scan_dir.is_dir():
+        return {"error": f"Not a directory: {project_path}"}
+
+    packages = c.manifest_parser.parse(scan_dir)
+    if ecosystem != "auto":
+        packages = [p for p in packages if p.ecosystem == ecosystem]
+
+    if not packages:
+        return {
+            "packages_scanned": 0,
+            "vulnerabilities_found": 0,
+            "message": "No dependency manifests found",
+            "findings": [],
+        }
+
+    findings = await c.vuln_scanner.scan(packages)
+
+    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for f in findings:
+        severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1
+
+    return {
+        "packages_scanned": len(packages),
+        "vulnerabilities_found": len(findings),
+        "severity_counts": severity_counts,
+        "findings": [f.to_dict() for f in findings],
+        "ecosystems_checked": list({p.ecosystem for p in packages}),
+    }
 
 
 # ---------------------------------------------------------------------------

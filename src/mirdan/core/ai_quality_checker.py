@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    pass
+    from mirdan.core.manifest_parser import ManifestParser
+    from mirdan.core.vuln_scanner import VulnScanner
 
 from mirdan.core.code_validator import _build_skip_regions, _is_in_skip_region
 from mirdan.models import Violation
@@ -162,8 +163,15 @@ class AIQualityChecker:
         AI008: Injection vulnerability via f-string interpolation
     """
 
-    def __init__(self, project_dir: Path | None = None) -> None:
+    def __init__(
+        self,
+        project_dir: Path | None = None,
+        manifest_parser: ManifestParser | None = None,
+        vuln_scanner: VulnScanner | None = None,
+    ) -> None:
         self._project_dir = project_dir
+        self._manifest_parser = manifest_parser
+        self._vuln_scanner = vuln_scanner
         self._project_deps: frozenset[str] | None = None
         if project_dir:
             self._project_deps = self._load_project_deps(project_dir)
@@ -196,11 +204,12 @@ class AIQualityChecker:
         violations.extend(self._check_ai006_heavy_imports(code, language, skip_regions))
         violations.extend(self._check_ai007_security_theater(code, language, skip_regions))
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
+        violations.extend(self._check_sec014_vulnerable_deps(code, language))
 
         return violations
 
     def check_quick(self, code: str, language: str) -> list[Violation]:
-        """Run only critical AI rules (AI001, AI007, AI008).
+        """Run only critical AI rules (AI001, AI007, AI008) and SEC014.
 
         Args:
             code: Source code to check.
@@ -218,6 +227,7 @@ class AIQualityChecker:
         violations.extend(self._check_ai001_placeholders(code, language, skip_regions))
         violations.extend(self._check_ai007_security_theater(code, language, skip_regions))
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
+        violations.extend(self._check_sec014_vulnerable_deps(code, language))
 
         return violations
 
@@ -386,6 +396,62 @@ class AIQualityChecker:
 
     # Rust imports
     _RE_RUST_USE = re.compile(r"^\s*use\s+(\w+)::", re.MULTILINE)
+
+    def _extract_imports(self, code: str, language: str) -> set[str]:
+        """Extract imported module names from code (shared by AI002 and SEC014)."""
+        imports: set[str] = set()
+        if language in ("python", "auto"):
+            for m in self._RE_IMPORT.finditer(code):
+                imports.add(m.group(1))
+            for m in self._RE_FROM_IMPORT.finditer(code):
+                mod = m.group(1)
+                if mod != "." and not mod.startswith(".") and mod != "__future__":
+                    imports.add(mod)
+        elif language in ("typescript", "javascript"):
+            for m in self._RE_TS_IMPORT_FROM.finditer(code):
+                imports.add(self._extract_npm_package_name(m.group(1)))
+            for m in self._RE_TS_REQUIRE.finditer(code):
+                imports.add(self._extract_npm_package_name(m.group(1)))
+        return imports
+
+    def _check_sec014_vulnerable_deps(
+        self, code: str, language: str,
+    ) -> list[Violation]:
+        """Check if imported packages have known cached vulnerabilities."""
+        if not self._vuln_scanner or not self._manifest_parser:
+            return []
+
+        imports = self._extract_imports(code, language)
+        if not imports:
+            return []
+
+        packages = self._manifest_parser.parse()
+        cached_findings = self._vuln_scanner.check_cached(packages)
+        if not cached_findings:
+            return []
+
+        violations: list[Violation] = []
+        import_names_lower = {n.split(".")[0].lower() for n in imports}
+        for finding in cached_findings:
+            pkg_import_name = finding.package.replace("-", "_").lower()
+            if pkg_import_name in import_names_lower:
+                sev = "error" if finding.severity in ("critical", "high") else "warning"
+                violations.append(Violation(
+                    id="SEC014",
+                    rule="vulnerable-dependency",
+                    category="security",
+                    severity=sev,
+                    message=(
+                        f"Package '{finding.package}' v{finding.version} has "
+                        f"vulnerability {finding.vuln_id}: {finding.summary[:100]}"
+                    ),
+                    suggestion=(
+                        f"Upgrade to v{finding.fixed_version}"
+                        if finding.fixed_version
+                        else "Check advisory for remediation"
+                    ),
+                ))
+        return violations
 
     def _check_ai002_hallucinated_imports(
         self, code: str, language: str,
@@ -611,40 +677,40 @@ class AIQualityChecker:
     def _load_project_deps(self, project_dir: Path) -> frozenset[str]:
         """Load project dependency names from manifests.
 
-        Supports: pyproject.toml, requirements.txt, package.json, go.mod, Cargo.toml.
-        Returns normalized top-level package names.
+        If a ManifestParser was injected, delegates to it for manifest parsing.
+        Otherwise falls back to inline parsing. Always adds common transitive
+        packages and local package names to prevent AI002 false positives.
         """
         deps: set[str] = set()
 
-        # Python: pyproject.toml
-        pyproject = project_dir / "pyproject.toml"
-        if pyproject.exists():
-            deps.update(self._parse_pyproject_deps(pyproject))
+        if self._manifest_parser:
+            # Delegate manifest parsing to ManifestParser
+            packages = self._manifest_parser.parse(project_dir)
+            deps.update(p.name for p in packages)
+        else:
+            # Fallback: original inline parsing
+            pyproject = project_dir / "pyproject.toml"
+            if pyproject.exists():
+                deps.update(self._parse_pyproject_deps(pyproject))
 
-        # Python: requirements.txt
-        requirements = project_dir / "requirements.txt"
-        if requirements.exists():
-            deps.update(self._parse_requirements_deps(requirements))
+            requirements = project_dir / "requirements.txt"
+            if requirements.exists():
+                deps.update(self._parse_requirements_deps(requirements))
 
-        # TypeScript/JavaScript: package.json
-        package_json = project_dir / "package.json"
-        if package_json.exists():
-            deps.update(self._parse_package_json_deps(package_json))
+            package_json = project_dir / "package.json"
+            if package_json.exists():
+                deps.update(self._parse_package_json_deps(package_json))
 
-        # Go: go.mod
-        go_mod = project_dir / "go.mod"
-        if go_mod.exists():
-            deps.update(self._parse_go_mod_deps(go_mod))
+            go_mod = project_dir / "go.mod"
+            if go_mod.exists():
+                deps.update(self._parse_go_mod_deps(go_mod))
 
-        # Rust: Cargo.toml
-        cargo_toml = project_dir / "Cargo.toml"
-        if cargo_toml.exists():
-            deps.update(self._parse_cargo_toml_deps(cargo_toml))
+            cargo_toml = project_dir / "Cargo.toml"
+            if cargo_toml.exists():
+                deps.update(self._parse_cargo_toml_deps(cargo_toml))
 
-        # Add common transitive dependencies
+        # CRITICAL: Always include these — they prevent AI002 false positives
         deps.update(_COMMON_TRANSITIVE_PACKAGES)
-
-        # Also add the project's own package name
         deps.update(self._find_local_packages(project_dir))
 
         return frozenset(deps)

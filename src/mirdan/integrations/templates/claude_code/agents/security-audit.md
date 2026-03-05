@@ -30,7 +30,7 @@ Activate when files match these patterns:
    - `severity_threshold="warning"`
    - `max_tokens=500`
 4. For each violation found, note:
-   - The rule ID (SEC001-SEC013, AI007, AI008)
+   - The rule ID (SEC001-SEC014, AI007, AI008)
    - The exact line and code
    - The fix recommendation
 

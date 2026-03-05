@@ -709,6 +709,7 @@ _AGENTS_SEC_RULES = """
 | SEC011 | No Cypher injection — use parameterized graph queries | Important |
 | SEC012 | No Gremlin injection — use parameterized traversals | Important |
 | SEC013 | Use bcrypt or argon2 for password hashing, never MD5/SHA | Important |
+| SEC014 | No vulnerable dependencies — upgrade packages with known CVEs | Important |
 """
 
 _AGENTS_THRESHOLDS = """
@@ -803,6 +804,28 @@ cursor\\.execute\\(.*%.*%
 ### SEC010 — Sensitive Data in Logs
 ```regex
 log(?:ger)?\\.(?:info|debug|warning|error)\\(.*(?:password|secret|token|key)
+```
+
+### SEC011 — Cypher Injection
+```regex
+f["']\\s*MATCH|f["']\\s*CREATE|f["']\\s*MERGE|\\.run\\(f["']
+```
+
+### SEC012 — Gremlin Injection
+```regex
+f["']\\s*g\\.V|f["']\\s*g\\.E|\\.submit\\(f["']
+```
+
+### SEC013 — Weak Password Hashing
+```regex
+hashlib\\.(?:md5|sha1|sha256)\\(.*password
+md5\\(.*password
+```
+
+### SEC014 — Vulnerable Dependencies
+```regex
+# Advisory: Check dependencies against known CVE databases
+# No single regex — use `pip audit`, `safety check`, or `npm audit`
 ```
 
 ## Best Practice (Severity: Info)

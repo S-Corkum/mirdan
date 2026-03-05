@@ -1558,3 +1558,33 @@ class TestLanguageSpecificCommentBehavior:
         for i in range(0, len(regions), 2):
             region_text = code[regions[i] : regions[i + 1]]
             assert not region_text.startswith("/*")
+
+
+# ---------------------------------------------------------------------------
+# Semantic Checks Integration
+# ---------------------------------------------------------------------------
+
+
+class TestSemanticChecksIntegration:
+    """Tests for semantic_analyzer integration in CodeValidator."""
+
+    def test_generate_semantic_checks_returns_checks(self) -> None:
+        """With a semantic_analyzer, should return checks for security patterns."""
+        from mirdan.config import SemanticConfig
+        from mirdan.core.semantic_analyzer import SemanticAnalyzer
+
+        standards = QualityStandards()
+        analyzer = SemanticAnalyzer(config=SemanticConfig(enabled=True))
+        cv = CodeValidator(standards, semantic_analyzer=analyzer)
+        code = 'cursor.execute(f"SELECT * FROM users WHERE id={uid}")'
+        checks = cv.generate_semantic_checks(code, "python", [])
+        assert len(checks) >= 1
+        assert any(c.concern == "sql" for c in checks)
+
+    def test_generate_semantic_checks_disabled(self) -> None:
+        """Without a semantic_analyzer, should return empty list."""
+        standards = QualityStandards()
+        cv = CodeValidator(standards)
+        code = 'cursor.execute(f"SELECT * FROM users WHERE id={uid}")'
+        checks = cv.generate_semantic_checks(code, "python", [])
+        assert checks == []

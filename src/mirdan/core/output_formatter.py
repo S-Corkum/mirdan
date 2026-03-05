@@ -236,7 +236,7 @@ class OutputFormatter:
             }
             for v in violations
         ]
-        return {
+        result = {
             "passed": data.get("passed", True),
             "score": data.get("score", 1.0),
             "language_detected": data.get("language_detected", ""),
@@ -244,6 +244,10 @@ class OutputFormatter:
             "violations": compact_violations,
             "summary": data.get("summary", ""),
         }
+        # Include semantic_checks (limited to top 3 in compact mode)
+        if "semantic_checks" in data:
+            result["semantic_checks"] = data["semantic_checks"][:3]
+        return result
 
     def _minimal_validation(self, data: dict[str, Any]) -> dict[str, Any]:
         """Minimal validation: pass/fail and score only."""

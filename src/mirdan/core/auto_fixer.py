@@ -199,6 +199,11 @@ TEMPLATE_FIXES: dict[str, tuple[str, str, float]] = {
         "Replace injection-vulnerable pattern",
         0.90,
     ),
+    "SEC014": (
+        "# Upgrade vulnerable dependency — see violation suggestion for target version",
+        "Upgrade vulnerable dependency to patched version",
+        0.5,
+    ),
 }
 
 

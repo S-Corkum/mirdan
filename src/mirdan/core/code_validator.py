@@ -19,6 +19,9 @@ from mirdan.models import ValidationResult, Violation
 
 if TYPE_CHECKING:
     from mirdan.config import ThresholdsConfig
+    from mirdan.core.manifest_parser import ManifestParser
+    from mirdan.core.semantic_analyzer import SemanticAnalyzer
+    from mirdan.core.vuln_scanner import VulnScanner
 
 logger = logging.getLogger(__name__)
 
@@ -718,6 +721,9 @@ class CodeValidator:
         config: QualityConfig | None = None,
         thresholds: ThresholdsConfig | None = None,
         project_dir: Path | None = None,
+        semantic_analyzer: SemanticAnalyzer | None = None,
+        manifest_parser: ManifestParser | None = None,
+        vuln_scanner: VulnScanner | None = None,
     ):
         """Initialize validator with quality standards.
 
@@ -726,17 +732,27 @@ class CodeValidator:
             config: Optional quality config for stringency levels
             thresholds: Optional thresholds for score calculation
             project_dir: Optional project directory for AI002 import verification
+            semantic_analyzer: Optional semantic analyzer for review questions
+            manifest_parser: Optional manifest parser for dependency scanning
+            vuln_scanner: Optional vulnerability scanner for SEC014
         """
         self.standards = standards
         self._config = config
         self._thresholds = thresholds
+        self._semantic_analyzer = semantic_analyzer
+        self._manifest_parser = manifest_parser
+        self._vuln_scanner = vuln_scanner
         self._language_detector = LanguageDetector(thresholds=thresholds)
         self._compiled_rules = self._compile_rules()
 
-        # AI-specific quality checker
+        # AI-specific quality checker (forwards manifest_parser/vuln_scanner)
         from mirdan.core.ai_quality_checker import AIQualityChecker
 
-        self._ai_checker = AIQualityChecker(project_dir)
+        self._ai_checker = AIQualityChecker(
+            project_dir,
+            manifest_parser=manifest_parser,
+            vuln_scanner=vuln_scanner,
+        )
 
         # Load custom rules if configured
         if config and config.custom_rules_dir:
@@ -1083,6 +1099,14 @@ class CodeValidator:
             standards_checked=standards_checked,
             limitations=limitations,
         )
+
+    def generate_semantic_checks(
+        self, code: str, language: str, violations: list[Violation],
+    ) -> list:
+        """Generate semantic review questions (does not affect quality score)."""
+        if not self._semantic_analyzer:
+            return []
+        return self._semantic_analyzer.generate_checks(code, language, violations)
 
     def _check_framework_rules(self, code: str, detected_lang: str) -> list[Violation]:
         """Run framework-specific validation rules.

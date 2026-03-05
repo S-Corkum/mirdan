@@ -696,3 +696,42 @@ class TestLazyInitialization:
         result1 = _get_components()
         result2 = _get_components()
         assert result1 is result2
+
+    def test_components_have_new_fields(self) -> None:
+        """_Components should include manifest_parser, vuln_scanner, semantic_analyzer."""
+        from mirdan.server import _get_components
+
+        c = _get_components()
+        assert c.manifest_parser is not None
+        assert c.vuln_scanner is not None
+        assert c.semantic_analyzer is not None
+
+
+class TestValidateCodeQualitySemanticChecks:
+    """Tests for semantic_checks in validate_code_quality response."""
+
+    def setup_method(self) -> None:
+        """Reset components singleton."""
+        import mirdan.server as server_mod
+
+        server_mod._components = None
+
+    def teardown_method(self) -> None:
+        import mirdan.server as server_mod
+
+        server_mod._components = None
+
+    def test_validate_code_quality_includes_semantic_checks(self) -> None:
+        """Code with SQL patterns should include semantic_checks in response."""
+        import mirdan.server as server_mod
+        from mirdan.server import validate_code_quality
+
+        server_mod._get_components()
+        fn = validate_code_quality.fn
+
+        import asyncio
+
+        code = 'cursor.execute(f"SELECT * FROM users WHERE id={uid}")\n'
+        result = asyncio.run(fn(code, language="python"))
+        assert "semantic_checks" in result
+        assert len(result["semantic_checks"]) >= 1

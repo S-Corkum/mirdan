@@ -21,6 +21,32 @@ class QualityConfig(BaseModel):
     )
 
 
+class SemanticConfig(BaseModel):
+    """Semantic validation configuration."""
+
+    enabled: bool = Field(default=True, description="Enable semantic analysis")
+    analysis_protocol: str = Field(
+        default="security",
+        pattern="^(none|security|comprehensive)$",
+        description="When to generate structured analysis protocols",
+    )
+
+
+class DependencyConfig(BaseModel):
+    """Dependency vulnerability scanning configuration."""
+
+    enabled: bool = Field(default=True, description="Enable dependency scanning")
+    osv_cache_ttl: int = Field(default=86400, description="OSV cache TTL in seconds")
+    scan_on_gate: bool = Field(
+        default=True, description="Include dep scan in mirdan gate"
+    )
+    fail_on_severity: str = Field(
+        default="high",
+        pattern="^(critical|high|medium|low|none)$",
+        description="Minimum severity to fail quality gate",
+    )
+
+
 class MCPClientConfig(BaseModel):
     """Configuration for connecting to an external MCP server."""
 
@@ -245,6 +271,8 @@ class MirdanConfig(BaseModel):
     linters: LinterOrcConfig = Field(default_factory=LinterOrcConfig)
     hooks: HookConfig = Field(default_factory=HookConfig)
     platform: PlatformProfile = Field(default_factory=PlatformProfile)
+    semantic: SemanticConfig = Field(default_factory=SemanticConfig)
+    dependencies: DependencyConfig = Field(default_factory=DependencyConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod

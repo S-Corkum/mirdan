@@ -289,3 +289,73 @@ class TestOutputFormatterEdgeCases:
         data = {"key": "value"}
         result = formatter.format_enhanced_prompt(data, max_tokens=0, model_tier=ModelTier.AUTO)
         assert result == data
+
+
+class TestSemanticChecksInOutput:
+    """Tests for semantic_checks in validation output formatting."""
+
+    def test_compact_validation_includes_semantic_checks(self) -> None:
+        """Compact mode should include semantic_checks limited to 3."""
+        formatter = OutputFormatter()
+        data = {
+            "passed": True,
+            "score": 0.95,
+            "language_detected": "python",
+            "violations_count": {},
+            "violations": [],
+            "summary": "OK",
+            "semantic_checks": [
+                {"concern": "sql", "question": "Q1"},
+                {"concern": "auth", "question": "Q2"},
+                {"concern": "crypto", "question": "Q3"},
+                {"concern": "file_io", "question": "Q4"},
+            ],
+        }
+        result = formatter.format_validation_result(data, max_tokens=2000)
+        assert "semantic_checks" in result
+        assert len(result["semantic_checks"]) <= 3
+
+    def test_compact_validation_without_semantic_checks(self) -> None:
+        """Compact mode should not error when semantic_checks is absent."""
+        formatter = OutputFormatter()
+        data = {
+            "passed": True,
+            "score": 0.95,
+            "language_detected": "python",
+            "violations_count": {},
+            "violations": [],
+            "summary": "OK",
+        }
+        result = formatter.format_validation_result(data, max_tokens=2000)
+        assert "semantic_checks" not in result
+
+    def test_minimal_validation_excludes_semantic_checks(self) -> None:
+        """Minimal mode should not include semantic_checks."""
+        formatter = OutputFormatter()
+        data = {
+            "passed": True,
+            "score": 0.95,
+            "language_detected": "python",
+            "violations_count": {},
+            "violations": [],
+            "summary": "OK",
+            "semantic_checks": [{"concern": "sql", "question": "Q1"}],
+        }
+        result = formatter.format_validation_result(data, max_tokens=500)
+        assert "semantic_checks" not in result
+
+    def test_full_validation_preserves_semantic_checks(self) -> None:
+        """Full mode should preserve semantic_checks as-is."""
+        formatter = OutputFormatter()
+        checks = [{"concern": "sql", "question": "Q1"}]
+        data = {
+            "passed": True,
+            "score": 0.95,
+            "language_detected": "python",
+            "violations_count": {},
+            "violations": [],
+            "summary": "OK",
+            "semantic_checks": checks,
+        }
+        result = formatter.format_validation_result(data, max_tokens=0)
+        assert result.get("semantic_checks") == checks

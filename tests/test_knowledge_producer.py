@@ -300,3 +300,37 @@ class TestKnowledgeEntryFormat:
         entries = kp.extract_from_validation(result)
         quality_entries = [e for e in entries if "high-quality" in e.tags]
         assert quality_entries == []
+
+
+class TestDependencyKnowledge:
+    """Tests for dependency vulnerability knowledge extraction."""
+
+    def test_extract_dependency_knowledge_from_sec014(self) -> None:
+        """SEC014 violations should produce a KnowledgeEntry with correct tags."""
+        kp = KnowledgeProducer()
+        violations = [
+            _make_violation(
+                rule_id="SEC014",
+                rule="vulnerable-dependency",
+                category="security",
+                severity="error",
+                message="Package 'requests' v2.31.0 has vulnerability CVE-2024-1234: Test vuln",
+                suggestion="Upgrade to v2.32.0",
+            )
+        ]
+        result = _make_result(passed=False, score=0.5, violations=violations)
+        entries = kp.extract_from_validation(result)
+        dep_entries = [e for e in entries if "dependencies" in e.tags]
+        assert len(dep_entries) >= 1
+        assert "requests" in dep_entries[0].content
+        assert dep_entries[0].content_type == "fact"
+        assert "vulnerabilities" in dep_entries[0].tags
+
+    def test_no_sec014_no_dependency_knowledge(self) -> None:
+        """Without SEC014 violations, no dependency knowledge is produced."""
+        kp = KnowledgeProducer()
+        violations = [_make_violation()]  # PY001, not SEC014
+        result = _make_result(passed=True, violations=violations)
+        entries = kp.extract_from_validation(result)
+        dep_entries = [e for e in entries if "dependencies" in e.tags]
+        assert dep_entries == []

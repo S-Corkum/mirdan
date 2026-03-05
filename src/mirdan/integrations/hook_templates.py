@@ -121,6 +121,7 @@ class HookTemplateGenerator:
     ) -> None:
         self._config = config or HookConfig()
         self._mirdan_cmd = mirdan_command
+        self._current_stringency: HookStringency | None = None
 
     def generate(self) -> dict[str, Any]:
         """Generate complete hooks.json configuration.
@@ -157,6 +158,7 @@ class HookTemplateGenerator:
         """
         hooks: dict[str, list[dict[str, Any]]] = {}
         events = STRINGENCY_EVENTS[stringency]
+        self._current_stringency = stringency
 
         for event in events:
             generator = self._event_generators().get(event)
@@ -165,6 +167,7 @@ class HookTemplateGenerator:
                 if hook_def:
                     hooks[event] = hook_def
 
+        self._current_stringency = None
         return {"hooks": hooks}
 
     def generate_and_write(self, hooks_path: Path) -> Path:
@@ -283,8 +286,9 @@ class HookTemplateGenerator:
 
         Uses both command-type (fast CLI validation) and prompt-type
         (LLM-driven fix guidance) hooks for comprehensive coverage.
+        Includes dependency manifest change detection at STANDARD+.
         """
-        return [
+        hooks: list[dict[str, Any]] = [
             {
                 "matcher": "Write|Edit|MultiEdit",
                 "hooks": [
@@ -310,8 +314,34 @@ class HookTemplateGenerator:
                         ),
                     },
                 ],
-            }
+            },
         ]
+
+        # Dependency manifest change detection (STANDARD+ stringency)
+        is_standard_plus = self._current_stringency in (
+            HookStringency.STANDARD,
+            HookStringency.COMPREHENSIVE,
+        )
+        if is_standard_plus:
+            hooks.append(
+                {
+                    "matcher": "Write|Edit",
+                    "hooks": [
+                        {
+                            "type": "prompt",
+                            "prompt": (
+                                "If the file just modified is a dependency manifest"
+                                " (package.json, pyproject.toml, Cargo.toml, go.mod,"
+                                " requirements.txt, pom.xml), call"
+                                " mcp__mirdan__scan_dependencies to check for"
+                                " vulnerabilities in the updated dependencies."
+                            ),
+                        }
+                    ],
+                }
+            )
+
+        return hooks
 
     def _post_tool_use_failure(self) -> list[dict[str, Any]]:
         """PostToolUseFailure: Log failed tool calls and suggest alternatives."""

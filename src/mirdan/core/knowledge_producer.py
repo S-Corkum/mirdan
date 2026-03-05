@@ -45,6 +45,9 @@ class KnowledgeProducer:
         # Extract language convention insights
         entries.extend(self._extract_convention_insights(result))
 
+        # Extract dependency vulnerability knowledge
+        entries.extend(self._extract_dependency_knowledge(result, file_path))
+
         return entries
 
     def extract_from_intent(
@@ -192,6 +195,37 @@ class KnowledgeProducer:
                 )
 
         return entries
+
+    def _extract_dependency_knowledge(
+        self,
+        result: ValidationResult,
+        file_path: str,
+    ) -> list[KnowledgeEntry]:
+        """Extract dependency vulnerability knowledge."""
+        sec014_violations = [v for v in result.violations if v.id == "SEC014"]
+        if not sec014_violations:
+            return []
+        pattern_key = f"vuln_deps:{file_path or 'project'}"
+        if pattern_key in self._seen_patterns:
+            return []
+        self._seen_patterns.add(pattern_key)
+        packages = set()
+        for v in sec014_violations:
+            if "'" in v.message:
+                packages.add(v.message.split("'")[1])
+        return [
+            KnowledgeEntry(
+                content=(
+                    f"Vulnerable dependencies detected: {', '.join(sorted(packages))}. "
+                    "Run mirdan scan --dependencies for details."
+                ),
+                content_type="fact",
+                tags=["security", "dependencies", "vulnerabilities"],
+                scope="project",
+                scope_path=file_path or "",
+                confidence=0.95,
+            )
+        ]
 
     def reset_session(self) -> None:
         """Reset session-level deduplication."""

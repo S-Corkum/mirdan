@@ -29,6 +29,7 @@ Call `mcp__mirdan__validate_code_quality` with `check_security=true` on this fil
 - **SEC011**: No Gremlin injection — use parameterized traversals
 - **SEC012**: Validate all input at system boundaries
 - **SEC013**: Use bcrypt or argon2 for password hashing, never MD5/SHA for passwords
+- **SEC014**: No vulnerable dependencies — upgrade packages with known CVEs
 
 ## Before Writing Security Code
 

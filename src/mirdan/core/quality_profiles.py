@@ -29,6 +29,8 @@ class QualityProfile:
     documentation: float = 0.5
     ai_slop_detection: float = 0.7
     performance: float = 0.5
+    semantic: float = 0.5
+    dependency_security: float = 0.7
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_stringency(self, value: float) -> str:
@@ -51,6 +53,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.5,
         ai_slop_detection=0.7,
         performance=0.5,
+        semantic=0.5,
+        dependency_security=0.7,
     ),
     "startup": QualityProfile(
         name="startup",
@@ -61,6 +65,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.2,
         ai_slop_detection=0.8,
         performance=0.3,
+        semantic=0.3,
+        dependency_security=0.5,
     ),
     "enterprise": QualityProfile(
         name="enterprise",
@@ -71,6 +77,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.8,
         ai_slop_detection=1.0,
         performance=0.7,
+        semantic=0.9,
+        dependency_security=1.0,
     ),
     "fintech": QualityProfile(
         name="fintech",
@@ -81,6 +89,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.7,
         ai_slop_detection=1.0,
         performance=0.8,
+        semantic=1.0,
+        dependency_security=1.0,
     ),
     "library": QualityProfile(
         name="library",
@@ -91,6 +101,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.9,
         ai_slop_detection=0.8,
         performance=0.7,
+        semantic=0.7,
+        dependency_security=0.8,
     ),
     "data-science": QualityProfile(
         name="data-science",
@@ -101,6 +113,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.5,
         ai_slop_detection=0.6,
         performance=0.4,
+        semantic=0.3,
+        dependency_security=0.5,
     ),
     "prototype": QualityProfile(
         name="prototype",
@@ -111,6 +125,8 @@ BUILTIN_PROFILES: dict[str, QualityProfile] = {
         documentation=0.1,
         ai_slop_detection=0.5,
         performance=0.2,
+        semantic=0.0,
+        dependency_security=0.3,
     ),
 }
 
@@ -165,6 +181,25 @@ def apply_profile(profile: QualityProfile, config: dict[str, Any]) -> dict[str, 
     quality["architecture"] = profile.to_stringency(profile.architecture)
     quality["testing"] = profile.to_stringency(profile.testing)
     quality["documentation"] = profile.to_stringency(profile.documentation)
+
+    # Semantic validation
+    semantic = config.setdefault("semantic", {})
+    semantic["enabled"] = profile.semantic >= 0.3
+    semantic["analysis_protocol"] = (
+        "comprehensive" if profile.semantic >= 0.8
+        else "security" if profile.semantic >= 0.5
+        else "none"
+    )
+
+    # Dependency scanning
+    dependencies = config.setdefault("dependencies", {})
+    dependencies["enabled"] = profile.dependency_security >= 0.3
+    dependencies["scan_on_gate"] = profile.dependency_security >= 0.5
+    dependencies["fail_on_severity"] = (
+        "medium" if profile.dependency_security >= 0.8
+        else "high" if profile.dependency_security >= 0.5
+        else "critical"
+    )
 
     return config
 

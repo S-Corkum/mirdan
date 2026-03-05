@@ -174,6 +174,7 @@ These rules apply to all AI agents working in this codebase:
 - No Cypher injection — use parameterized graph queries (SEC011)
 - No Gremlin injection — use parameterized traversals (SEC012)
 - Use bcrypt or argon2 for password hashing, never MD5/SHA (SEC013)
+- No vulnerable dependencies — upgrade packages with known CVEs (SEC014)
 """
 
     def _workflow_section(self, platform: str) -> str:

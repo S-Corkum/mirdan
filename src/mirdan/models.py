@@ -460,6 +460,94 @@ class CompactState:
 
 
 @dataclass
+class SemanticCheck:
+    """A semantic review question for the calling LLM to investigate."""
+
+    concern: str  # e.g. sql, auth, crypto, file_io, network
+    question: str  # Specific, actionable question with line numbers
+    severity: str  # critical, warning, info
+    related_violation: str = ""  # Rule ID that triggered this (e.g., "SEC004")
+    focus_lines: list[int] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "concern": self.concern,
+            "question": self.question,
+            "severity": self.severity,
+        }
+        if self.related_violation:
+            result["related_violation"] = self.related_violation
+        if self.focus_lines:
+            result["focus_lines"] = self.focus_lines
+        return result
+
+
+@dataclass
+class AnalysisProtocol:
+    """Structured protocol for the LLM to self-execute deep analysis."""
+
+    type: str  # security_flow_analysis, auth_completeness, data_handling
+    focus_areas: list[dict[str, Any]] = field(default_factory=list)
+    response_format: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self.type,
+            "focus_areas": self.focus_areas,
+            "response_format": self.response_format,
+        }
+
+
+@dataclass
+class PackageInfo:
+    """A dependency package parsed from a manifest."""
+
+    name: str
+    version: str
+    ecosystem: str  # PyPI, npm, crates.io, Go, Maven
+    source: str  # File it was parsed from
+    is_dev: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "ecosystem": self.ecosystem,
+            "source": self.source,
+            "is_dev": self.is_dev,
+        }
+
+
+@dataclass
+class VulnFinding:
+    """A vulnerability found in a dependency."""
+
+    package: str
+    version: str
+    ecosystem: str
+    vuln_id: str  # CVE or OSV ID
+    severity: str  # critical, high, medium, low
+    summary: str
+    fixed_version: str = ""
+    advisory_url: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "package": self.package,
+            "version": self.version,
+            "ecosystem": self.ecosystem,
+            "vuln_id": self.vuln_id,
+            "severity": self.severity,
+            "summary": self.summary,
+        }
+        if self.fixed_version:
+            result["fixed_version"] = self.fixed_version
+        if self.advisory_url:
+            result["advisory_url"] = self.advisory_url
+        return result
+
+
+@dataclass
 class Violation:
     """A code quality violation detected during validation."""
 

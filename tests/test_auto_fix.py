@@ -1,6 +1,7 @@
 """Tests for auto-fix generation in code validator."""
 
 from mirdan.config import MirdanConfig
+from mirdan.core.auto_fixer import AutoFixer, TEMPLATE_FIXES
 from mirdan.core.code_validator import AUTO_FIX_TEMPLATES, CodeValidator
 from mirdan.core.quality_standards import QualityStandards
 
@@ -119,3 +120,17 @@ def process():
         py011 = [v for v in result.violations if v.id == "PY011"]
         assert len(py011) >= 1
         assert "pathlib" in py011[0].fix_code
+
+
+class TestSEC014AutoFix:
+    """Tests for SEC014 auto-fix behavior."""
+
+    def test_sec014_fix_available(self) -> None:
+        """SEC014 should have a TEMPLATE_FIXES entry with confidence=0.5."""
+        assert "SEC014" in TEMPLATE_FIXES
+        _fix_code, _fix_desc, confidence = TEMPLATE_FIXES["SEC014"]
+        assert confidence == 0.5
+
+    def test_sec014_not_in_quick_fix_rules(self) -> None:
+        """SEC014 should NOT be in AutoFixer._QUICK_FIX_RULES (confidence < 0.8)."""
+        assert "SEC014" not in AutoFixer._QUICK_FIX_RULES

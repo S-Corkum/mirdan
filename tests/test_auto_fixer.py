@@ -277,9 +277,13 @@ class TestCoverageAndMetadata:
         assert report["total_fixable_rules"] > 0
 
     def test_template_fixes_have_high_confidence(self) -> None:
-        """All template fixes should have >= 0.7 confidence."""
+        """All template fixes should have >= 0.7 confidence (except SEC014)."""
         for rule_id, (_, _, confidence) in TEMPLATE_FIXES.items():
-            assert confidence >= 0.7, f"{rule_id} has low confidence {confidence}"
+            if rule_id == "SEC014":
+                # SEC014 is intentionally 0.5 — dependency upgrade, not code fix
+                assert confidence >= 0.4, f"{rule_id} has too low confidence {confidence}"
+            else:
+                assert confidence >= 0.7, f"{rule_id} has low confidence {confidence}"
 
     def test_pattern_fixes_have_valid_regex(self, fixer: AutoFixer) -> None:
         """All pattern fixes should have compiled regex patterns."""

@@ -92,6 +92,10 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         "Missing rate limiting allows brute-force attacks"
         " and resource exhaustion."
     ),
+    "SEC014": (
+        "Using dependencies with known vulnerabilities exposes"
+        " the application to attacks that have public exploits."
+    ),
     # AI quality rules
     "AI001": (
         "Placeholder or TODO code left by AI indicates"

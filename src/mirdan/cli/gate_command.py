@@ -84,6 +84,35 @@ def run_gate(args: list[str]) -> None:
     files_validated = len(file_results)
     avg_score = total_score / files_validated if files_validated else 1.0
 
+    # Dependency vulnerability check
+    include_deps = "--include-dependencies" in args or "--include-deps" in args
+    if include_deps or config.dependencies.scan_on_gate:
+        import asyncio
+
+        from mirdan.core.manifest_parser import ManifestParser
+        from mirdan.core.vuln_scanner import VulnScanner
+
+        project_dir = Path.cwd()
+        manifest_parser = ManifestParser(project_dir=project_dir)
+        packages = manifest_parser.parse()
+        if packages:
+            vuln_scanner = VulnScanner(
+                cache_dir=project_dir / ".mirdan" / "cache",
+                ttl=config.dependencies.osv_cache_ttl,
+            )
+            findings = asyncio.run(vuln_scanner.scan(packages))
+            sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+            fail_threshold = sev_order.get(config.dependencies.fail_on_severity, 1)
+            blocking = [
+                f for f in findings if sev_order.get(f.severity, 4) <= fail_threshold
+            ]
+            if blocking:
+                print(
+                    f"FAIL: {len(blocking)} dependency vulnerabilities at or above "
+                    f"'{config.dependencies.fail_on_severity}' severity"
+                )
+                sys.exit(1)
+
     if total_errors == 0:
         _output_pass(files_validated, avg_score, output_format, file_results)
         sys.exit(0)
@@ -179,6 +208,9 @@ def _parse_gate_args(args: list[str]) -> dict[str, Any]:
         if arg == "--format" and i + 1 < len(args):
             parsed["format"] = args[i + 1]
             i += 2
+        elif arg in ("--include-dependencies", "--include-deps"):
+            parsed["include_deps"] = True
+            i += 1
         elif arg in ("--help", "-h"):
             parsed["help"] = True
             i += 1
@@ -195,7 +227,9 @@ def _print_gate_help() -> None:
     print("Returns exit code 0 (pass) or 1 (fail).")
     print()
     print("Options:")
-    print("  --format FORMAT    Output format (text|json)")
-    print("  -h, --help         Show this help")
+    print("  --format FORMAT              Output format (text|json)")
+    print("  --include-dependencies       Also scan for vulnerable dependencies")
+    print("  --include-deps               Alias for --include-dependencies")
+    print("  -h, --help                   Show this help")
     print()
     print("Exit codes: 0=pass, 1=fail")

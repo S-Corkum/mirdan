@@ -17,6 +17,9 @@ def run_scan(args: list[str]) -> None:
     Args:
         args: CLI arguments after ``scan``.
     """
+    if "--dependencies" in args or "--deps" in args:
+        return _run_dependency_scan(args)
+
     parsed = _parse_args(args)
 
     if parsed.get("error"):
@@ -98,6 +101,52 @@ def _save_conventions(result: ScanResult, path: Path) -> None:
     print(f"Conventions saved to {path}")
 
 
+def _run_dependency_scan(args: list[str]) -> None:
+    """Scan project dependencies for vulnerabilities."""
+    import asyncio
+
+    from mirdan.config import MirdanConfig
+    from mirdan.core.manifest_parser import ManifestParser
+    from mirdan.core.vuln_scanner import VulnScanner
+
+    config = MirdanConfig.find_config()
+
+    # Parse --directory if provided
+    project_dir = Path()
+    if "--directory" in args:
+        idx = args.index("--directory")
+        if idx + 1 < len(args):
+            project_dir = Path(args[idx + 1])
+
+    parser = ManifestParser(project_dir=project_dir)
+    packages = parser.parse()
+
+    if not packages:
+        print("No dependency manifests found.")
+        return
+
+    print(f"Scanning {len(packages)} packages...")
+    scanner = VulnScanner(
+        cache_dir=project_dir / ".mirdan" / "cache",
+        ttl=config.dependencies.osv_cache_ttl,
+    )
+    findings = asyncio.run(scanner.scan(packages))
+
+    if not findings:
+        print(f"No vulnerabilities found in {len(packages)} packages.")
+        return
+
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    print(f"\nFound {len(findings)} vulnerabilities:\n")
+    for f in sorted(findings, key=lambda x: sev_order.get(x.severity, 4)):
+        badge = {"critical": "CRIT", "high": "HIGH", "medium": "MED", "low": "LOW"}.get(
+            f.severity, "???"
+        )
+        fix_str = f" → fix: {f.fixed_version}" if f.fixed_version else ""
+        print(f"  [{badge}] {f.package}@{f.version}: {f.vuln_id}{fix_str}")
+        print(f"         {f.summary[:80]}")
+
+
 def _parse_args(args: list[str]) -> dict[str, str]:
     """Parse scan subcommand arguments."""
     parsed: dict[str, str] = {}
@@ -138,4 +187,7 @@ def _print_scan_help() -> None:
     print("Options:")
     print("  --language LANG    Language filter (python|typescript|javascript|auto)")
     print("  --format FORMAT    Output format (text|json)")
+    print("  --dependencies     Scan dependencies for known vulnerabilities")
+    print("  --deps             Alias for --dependencies")
+    print("  --directory DIR    Project directory (default: current)")
     print("  -h, --help         Show this help")
