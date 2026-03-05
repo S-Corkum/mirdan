@@ -359,6 +359,70 @@ class TestRAGPatternDetection:
             assert result.passed  # warnings don't fail
 
 
+class TestSDKDeprecatedPatternDetection:
+    """Tests for OAI001 and ANT001 deprecated SDK pattern detection (added in 1.1.0)."""
+
+    def test_oai001_catches_deprecated_openai_completion(self, validator: CodeValidator) -> None:
+        """Should catch deprecated openai.ChatCompletion.create() call."""
+        code = 'response = openai.ChatCompletion.create(model="gpt-4", messages=messages)'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "OAI001" for v in result.violations)
+
+    def test_oai001_is_error_severity(self, validator: CodeValidator) -> None:
+        """OAI001 should be an error (not warning) since the API was removed."""
+        code = "openai.ChatCompletion.create(model=model, messages=messages)"
+        result = validator.validate(code, language="python")
+        violations = [v for v in result.violations if v.id == "OAI001"]
+        assert violations
+        assert violations[0].severity == "error"
+
+    def test_oai001_does_not_flag_modern_usage(self, validator: CodeValidator) -> None:
+        """Should not flag client.chat.completions.create() modern usage."""
+        code = "response = client.chat.completions.create(model='gpt-4o', messages=messages)"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "OAI001" for v in result.violations)
+
+    def test_ant001_catches_deprecated_anthropic_completion(self, validator: CodeValidator) -> None:
+        """Should catch deprecated client.completions.create() call."""
+        code = 'response = client.completions.create(model="claude-2", prompt=prompt)'
+        result = validator.validate(code, language="python")
+        assert any(v.id == "ANT001" for v in result.violations)
+
+    def test_ant001_is_error_severity(self, validator: CodeValidator) -> None:
+        """ANT001 should be an error since the API was removed."""
+        code = "client.completions.create(model=model, prompt=prompt)"
+        result = validator.validate(code, language="python")
+        violations = [v for v in result.violations if v.id == "ANT001"]
+        assert violations
+        assert violations[0].severity == "error"
+
+    def test_ant001_does_not_flag_messages_api(self, validator: CodeValidator) -> None:
+        """Should not flag client.messages.create() modern usage."""
+        code = "response = client.messages.create(model='claude-sonnet-4-6', messages=messages)"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "ANT001" for v in result.violations)
+
+    def test_sa001_catches_legacy_session_query(self, validator: CodeValidator) -> None:
+        """Should catch SQLAlchemy 1.x session.query() pattern."""
+        code = "users = session.query(User).filter(User.active == True).all()"
+        result = validator.validate(code, language="python")
+        assert any(v.id == "SA001" for v in result.violations)
+
+    def test_sa001_is_warning_severity(self, validator: CodeValidator) -> None:
+        """SA001 should be a warning (not error) since 1.x style still works with compatibility shim."""
+        code = "result = session.query(User).all()"
+        result = validator.validate(code, language="python")
+        violations = [v for v in result.violations if v.id == "SA001"]
+        assert violations
+        assert violations[0].severity == "warning"
+
+    def test_sa001_does_not_flag_modern_select(self, validator: CodeValidator) -> None:
+        """Should not flag session.execute(select(...)) modern style."""
+        code = "result = await session.execute(select(User).where(User.active == True))"
+        result = validator.validate(code, language="python")
+        assert not any(v.id == "SA001" for v in result.violations)
+
+
 class TestGraphInjectionDetection:
     """Tests for graph query injection detection."""
 

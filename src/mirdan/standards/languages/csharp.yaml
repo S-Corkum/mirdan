@@ -1,0 +1,29 @@
+# Standards for C# 13 / .NET 9 - verified 2026-03-05
+principles:
+  - Enable nullable reference types in .csproj (<Nullable>enable</Nullable>) and eliminate all nullable warnings
+  - Use primary constructors (C# 12+) for simple classes that only need property initialization
+  - Use records for immutable data transfer objects - they provide value equality and with-expressions for free
+  - Use async Task<T> for all async methods - never async void except for event handlers
+  - Use pattern matching with switch expressions to replace multi-branch if-else chains
+  - Implement IDisposable and IAsyncDisposable using the using declaration pattern not try/finally
+  - Use LINQ with awareness of deferred execution - call ToList() or ToArray() when eager evaluation is needed
+  - Use the using declaration (C# 8+) instead of using blocks for disposable resources in methods
+  - Apply the required keyword on record and class properties that must be set during initialization
+  - Use file-scoped namespace declarations to reduce indentation and boilerplate
+
+forbidden:
+  - async void methods except for event handlers - they swallow exceptions silently
+  - Thread.Sleep() in async code - use await Task.Delay() to avoid blocking a thread pool thread
+  - catch (Exception) without rethrowing or structured logging - bare catch hides errors
+  - Mutable public fields - always use properties with appropriate access modifiers
+  - var for non-obvious return types - use explicit types when the right side is not a constructor or cast
+  - String concatenation in loops - use StringBuilder or string interpolation with join
+  - Not disposing IDisposable resources - always use using or register with DI container as scoped/transient
+
+patterns:
+  record_dto: "public record UserDto(int Id, string Name, string Email);"
+  primary_constructor: "public class UserService(IUserRepository repo, ILogger<UserService> logger) { ... }"
+  pattern_matching: "string category = status switch { Status.Active => \"active\", Status.Inactive => \"inactive\", _ => \"unknown\" };"
+  async_pattern: "public async Task<User?> GetUserAsync(int id, CancellationToken ct) { return await _repo.FindAsync(id, ct); }"
+  using_declaration: "await using var connection = await _connectionFactory.CreateAsync(ct);"
+  nullable_check: "if (result is not null && result.IsValid) { ... }"

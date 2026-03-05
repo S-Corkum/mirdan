@@ -31,7 +31,10 @@ _HASH_COMMENT_LANGUAGES = frozenset({"python", "ruby", "perl", "shell", "bash"})
 
 # Languages that support /* */ block comments
 _BLOCK_COMMENT_LANGUAGES = frozenset(
-    {"typescript", "javascript", "java", "go", "rust", "c", "cpp", "c++", "c#", "kotlin", "swift"}
+    {
+        "typescript", "javascript", "java", "go", "rust",
+        "c", "cpp", "c++", "c#", "kotlin", "swift", "csharp",
+    }
 )
 
 # Languages that support `` ` `` template literals
@@ -381,6 +384,36 @@ class CodeValidator:
                 " restart. Not suitable for production",
                 "Use PostgresSaver(conn_string) or SqliteSaver for"
                 " persistent checkpointing in production",
+            ),
+            (
+                "OAI001",
+                "deprecated-openai-completion",
+                r"\bopenai\.ChatCompletion\.create\s*\(",
+                "error",
+                "openai.ChatCompletion.create() is removed in openai>=1.0"
+                " - use client.chat.completions.create()",
+                "Migrate to: client = openai.OpenAI();"
+                " client.chat.completions.create(model=..., messages=...)",
+            ),
+            (
+                "ANT001",
+                "deprecated-anthropic-completion",
+                r"\bclient\.completions\.create\s*\(",
+                "error",
+                "client.completions.create() is removed in anthropic>=0.20"
+                " - use client.messages.create()",
+                "Migrate to: client.messages.create(model=...,"
+                " messages=[{\"role\": \"user\", \"content\": ...}])",
+            ),
+            (
+                "SA001",
+                "sqlalchemy-legacy-query",
+                r"\bsession\.query\s*\(",
+                "warning",
+                "session.query() is the SQLAlchemy 1.x style"
+                " - use session.execute(select(...)) for 2.0+",
+                "Replace with: result = await session.execute("
+                "select(User).where(User.id == user_id))",
             ),
             (
                 "RAG001",

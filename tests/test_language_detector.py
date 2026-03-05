@@ -296,3 +296,30 @@ def hello():
         # Should work with default thresholds
         lang, _ = detector.detect("def foo(): pass")
         assert lang == "python"
+
+
+class TestCSharpDetection:
+    """Tests for C# language detection added in 1.1.0."""
+
+    def test_detects_csharp_from_namespace(self) -> None:
+        """Should detect C# from namespace keyword."""
+        code = "namespace MyApp.Services { public class UserService : IUserService { } }"
+        detector = LanguageDetector()
+        lang, confidence = detector.detect(code)
+        assert lang == "csharp"
+        assert confidence in ("high", "medium")
+
+    def test_detects_csharp_from_async_task(self) -> None:
+        """Should detect C# from async Task return type."""
+        code = "public async Task<IActionResult> GetUser(int id) { return Ok(user); }"
+        detector = LanguageDetector()
+        lang, _ = detector.detect(code)
+        assert lang == "csharp"
+
+    def test_detects_csharp_from_aspnet_attributes(self) -> None:
+        """Should detect C# from ASP.NET controller attributes."""
+        code = "[ApiController]\n[Route('api/[controller]')]\npublic class UsersController : ControllerBase { }"
+        detector = LanguageDetector()
+        lang, confidence = detector.detect(code)
+        assert lang == "csharp"
+        assert confidence in ("high", "medium")

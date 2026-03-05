@@ -677,3 +677,103 @@ class TestRAGStandards:
         result = standards.get_for_framework("qdrant")
         assert "principles" in result
         assert "forbidden" in result
+
+
+class TestAIFrameworkStandards:
+    """Tests for AI framework standards added in 1.1.0."""
+
+    @pytest.mark.parametrize(
+        "framework",
+        [
+            "anthropic-sdk",
+            "openai-sdk",
+            "vercel-ai",
+            "llamaindex",
+            "autogen",
+            "instructor",
+            "pydantic-ai",
+            "haystack",
+            "openai-agents",
+            "mcp-server",
+        ],
+    )
+    def test_ai_framework_has_required_keys(self, framework: str) -> None:
+        """All AI framework standards should have principles, forbidden, and patterns."""
+        standards = QualityStandards()
+        result = standards.get_for_framework(framework)
+        assert "principles" in result, f"{framework} missing 'principles'"
+        assert "forbidden" in result, f"{framework} missing 'forbidden'"
+        assert len(result["principles"]) >= 5, f"{framework} has fewer than 5 principles"
+        assert len(result["forbidden"]) >= 3, f"{framework} has fewer than 3 forbidden items"
+
+
+class TestCSharpLanguageStandards:
+    """Tests for C# language support added in 1.1.0."""
+
+    def test_get_for_language_csharp(self) -> None:
+        """Should return C# language standards."""
+        standards = QualityStandards()
+        result = standards.get_for_language("csharp")
+        assert "principles" in result
+        assert len(result["principles"]) >= 5
+
+    def test_get_for_framework_aspnetcore(self) -> None:
+        """Should return ASP.NET Core framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("aspnetcore")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert len(result["principles"]) >= 5
+
+
+class TestORMStandards:
+    """Tests for ORM framework standards added in 1.1.0."""
+
+    def test_get_for_framework_prisma(self) -> None:
+        """Should return Prisma framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("prisma")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert len(result["principles"]) >= 5
+
+    def test_get_for_framework_sqlalchemy(self) -> None:
+        """Should return SQLAlchemy framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("sqlalchemy")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert len(result["principles"]) >= 5
+
+
+class TestPhase4Standards:
+    """Tests for Phase 4 (Rust web + versioned) standards added in 1.1.0."""
+
+    def test_get_for_framework_axum(self) -> None:
+        """Should return Axum framework standards."""
+        standards = QualityStandards()
+        result = standards.get_for_framework("axum")
+        assert "principles" in result
+        assert "forbidden" in result
+        assert len(result["principles"]) >= 5
+
+
+class TestStructuralFrameworkStandards:
+    """Tests for Phase 5 structural framework standards added in 1.1.0."""
+
+    @pytest.mark.parametrize(
+        "framework",
+        [
+            "zustand",
+            "tanstack-query",
+            "graphql",
+            "opentelemetry",
+        ],
+    )
+    def test_structural_framework_has_required_keys(self, framework: str) -> None:
+        """All structural framework standards should have principles and forbidden."""
+        standards = QualityStandards()
+        result = standards.get_for_framework(framework)
+        assert "principles" in result, f"{framework} missing 'principles'"
+        assert "forbidden" in result, f"{framework} missing 'forbidden'"
+        assert len(result["principles"]) >= 5, f"{framework} has fewer than 5 principles"

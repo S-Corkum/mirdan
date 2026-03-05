@@ -1,0 +1,25 @@
+# Standards for Axum >= 0.7 - verified 2026-03-05
+principles:
+  - Use State<T> extractor for shared application state - pass via Router::with_state() at the router level
+  - Use axum::extract::* (Path, Query, Json, Form) for request data extraction with automatic validation
+  - Apply Tower middleware via ServiceBuilder for cross-cutting concerns (auth, logging, rate limiting)
+  - Use #[debug_handler] attribute during development for clearer async handler compile errors
+  - Implement IntoResponse for custom response types to integrate cleanly with Axum's type system
+  - Handle errors by returning Result<impl IntoResponse, impl IntoResponse> from handlers
+  - Use tokio::task::spawn_blocking for CPU-intensive or blocking operations inside async handlers
+  - Nest routers with Router::nest() for modular route organization
+
+forbidden:
+  - Blocking operations (file I/O, database sync calls) directly inside async handlers - use spawn_blocking
+  - Using Extension for application state that could use State<T> - Extension is for third-party middleware only
+  - Panicking inside handlers - unhandled panics terminate the connection; return Result instead
+  - Not using #[debug_handler] during development - async trait bounds produce cryptic errors without it
+  - Sharing mutable state without Arc<RwLock<T>> or Arc<Mutex<T>> in State<T>
+
+patterns:
+  router_with_state: "let app = Router::new().route('/users', get(list_users).post(create_user)).with_state(AppState { db: pool })"
+  handler: "async fn get_user(State(state): State<AppState>, Path(id): Path<i64>) -> Result<Json<User>, StatusCode> { state.db.find_user(id).await.map(Json).ok_or(StatusCode::NOT_FOUND) }"
+  middleware: "let app = ServiceBuilder::new().layer(TraceLayer::new_for_http()).layer(auth_layer).service(router)"
+  custom_response: "impl IntoResponse for AppError { fn into_response(self) -> Response { (StatusCode::INTERNAL_SERVER_ERROR, Json(self.to_json())).into_response() } }"
+  spawn_blocking: "let result = tokio::task::spawn_blocking(|| heavy_computation(data)).await?;"
+  nested_router: "let api = Router::new().nest('/users', users_router).nest('/posts', posts_router);"

@@ -1,0 +1,25 @@
+# Standards for TanStack Query >= 5.0 - verified 2026-03-05
+principles:
+  - Use useQuery({ queryKey, queryFn }) for all data fetching - never fetch in useEffect
+  - Structure queryKey as a hierarchical array (e.g. users list vs single user by id) for fine-grained cache invalidation
+  - Configure staleTime to match data freshness requirements - default is 0 (always refetch on mount)
+  - Use useMutation({ mutationFn, onSuccess }) and invalidate related queries in onSuccess to keep UI consistent
+  - Set gcTime (garbage collection time, renamed from cacheTime in v5) appropriately for memory management
+  - Call queryClient.invalidateQueries with the affected queryKey after mutations to trigger background refetch
+  - Wrap the app with QueryClientProvider and create the QueryClient instance once outside the component tree
+  - Use enabled: false to disable automatic query execution and trigger manually with refetch()
+
+forbidden:
+  - cacheTime option - renamed to gcTime in TanStack Query v5
+  - Fetching data in useEffect instead of useQuery - bypasses caching, deduplication, and background refetch
+  - Not providing queryKey as an array - single string keys bypass hierarchical invalidation
+  - Not calling queryClient.invalidateQueries() after mutations that change server state
+  - Creating QueryClient inside a component - causes a new client on every render
+
+patterns:
+  query: "const { data, isLoading, error } = useQuery({ queryKey: ['users', userId], queryFn: () => fetchUser(userId), staleTime: 5 * 60 * 1000 })"
+  mutation: "const { mutate } = useMutation({ mutationFn: createUser, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }) })"
+  query_client_setup: "const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 2 } } })"
+  provider: "<QueryClientProvider client={queryClient}><App /></QueryClientProvider>"
+  manual_refetch: "const { data, refetch } = useQuery({ queryKey: ['search', term], queryFn: () => search(term), enabled: !!term })"
+  prefetch: "await queryClient.prefetchQuery({ queryKey: ['user', id], queryFn: () => fetchUser(id) })"

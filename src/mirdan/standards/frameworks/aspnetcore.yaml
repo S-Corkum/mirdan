@@ -1,0 +1,26 @@
+# Standards for ASP.NET Core >= 8.0 - verified 2026-03-05
+principles:
+  - Prefer Minimal API (app.MapGet/MapPost) for new endpoints - use controllers only for complex routing needs
+  - Always inject ILogger<T> via constructor injection - never use Console.WriteLine in production code
+  - Register services with the appropriate lifetime: singleton for stateless, scoped for per-request, transient for lightweight
+  - Accept CancellationToken in all async endpoints to support graceful cancellation on client disconnect
+  - Return typed results (Results.Ok(dto), Results.NotFound(), TypedResults.*) for proper OpenAPI schema generation
+  - Use the [ApiController] attribute with ControllerBase for controller-based APIs to enable automatic model validation
+  - Configure middleware order correctly: UseExceptionHandler -> UseHttpsRedirection -> UseAuthentication -> UseAuthorization -> MapControllers
+  - Use IOptions<T> pattern for typed configuration injection instead of IConfiguration directly
+
+forbidden:
+  - Console.WriteLine or Debug.WriteLine in production code - use ILogger<T>
+  - Service locator anti-pattern: injecting IServiceProvider into constructors and calling GetService<T>
+  - Blocking .Result or .Wait() on async Tasks in request handlers - causes thread pool starvation
+  - Not using CancellationToken in database queries and HTTP calls inside request handlers
+  - Returning raw Exception.Message strings to clients - log internally and return structured error responses
+  - Controller methods with logic beyond routing and response shaping - extract to services
+
+patterns:
+  minimal_api: "app.MapGet('/users/{id}', async (int id, IUserService svc, CancellationToken ct) => { var user = await svc.GetAsync(id, ct); return user is null ? Results.NotFound() : Results.Ok(user); })"
+  controller_action: "public async Task<ActionResult<UserDto>> GetUser(int id, CancellationToken ct) { var user = await _service.GetAsync(id, ct); return user is null ? NotFound() : Ok(_mapper.Map<UserDto>(user)); }"
+  di_registration: "builder.Services.AddScoped<IUserService, UserService>(); builder.Services.Configure<AppSettings>(builder.Configuration.GetSection('AppSettings'));"
+  middleware_order: "app.UseExceptionHandler('/error'); app.UseHttpsRedirection(); app.UseAuthentication(); app.UseAuthorization();"
+  options_pattern: "public class UserService(IOptions<AppSettings> settings, ILogger<UserService> logger) { ... }"
+  typed_results: "return TypedResults.Ok(new UserDto(user.Id, user.Name));"

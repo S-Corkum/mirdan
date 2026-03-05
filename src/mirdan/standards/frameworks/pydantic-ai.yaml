@@ -1,0 +1,25 @@
+# Standards for PydanticAI >= 0.0.13 - verified 2026-03-05
+principles:
+  - Always specify result_type on Agent to get strongly-typed structured output - untyped agents lose the main benefit
+  - Use RunContext[Deps] for dependency injection - pass database connections, HTTP clients, config via deps
+  - Register tools with @agent.tool and use RunContext as the first parameter for access to deps and usage
+  - Use agent.run_sync() only in scripts and tests - use agent.run() with await in async application code
+  - Raise ModelRetry(message) inside a tool to signal the model to retry with corrected input
+  - Use agent.run_stream() for streaming responses in user-facing applications
+  - Handle UnexpectedModelBehavior for cases where the model produces unexpected structured output
+  - Compose complex workflows by calling agents from within tool functions (agent-as-tool pattern)
+
+forbidden:
+  - Not specifying result_type=Model on Agent - defaults to str, bypassing structured output
+  - Using global state inside tool functions instead of RunContext.deps - breaks concurrency and testability
+  - Calling agent.run_sync() in async request handlers - blocks the event loop
+  - Not handling UnexpectedModelBehavior in production - model can fail to produce valid structured output
+  - Registering tools with mutable default arguments in their parameters
+
+patterns:
+  typed_agent: "agent = Agent(model='claude-sonnet-4-6', result_type=ResponseModel, system_prompt='You are...')"
+  with_deps: "agent = Agent(model=model, deps_type=MyDeps, result_type=MyResult)"
+  tool_definition: "@agent.tool\nasync def search_database(ctx: RunContext[MyDeps], query: str) -> list[str]:\n    return await ctx.deps.db.search(query)"
+  run_async: "result = await agent.run(user_message, deps=MyDeps(db=db, client=http_client))"
+  model_retry: "raise ModelRetry('The ID you provided does not exist, please use a valid ID from the list')"
+  streaming: "async with agent.run_stream(prompt, deps=deps) as response:\n    async for chunk in response.stream_text():\n        yield chunk"

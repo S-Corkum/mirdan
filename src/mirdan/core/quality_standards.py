@@ -93,7 +93,7 @@ class QualityStandards:
             return {}
 
         # Load language standards
-        languages = ["typescript", "python", "javascript", "rust", "go", "java"]
+        languages = ["typescript", "python", "javascript", "rust", "go", "java", "csharp"]
         for lang in languages:
             lang_file = standards_pkg.joinpath("languages", f"{lang}.yaml")
             standards[lang] = self._load_yaml_file(lang_file, lang)

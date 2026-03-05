@@ -1,0 +1,26 @@
+# Standards for GraphQL API Design - verified 2026-03-05
+principles:
+  - Use DataLoader for all relationship resolvers to batch and cache database calls and eliminate N+1 queries
+  - Set maximum query depth (typically 5-10) and query complexity limits to prevent denial-of-service attacks
+  - Validate and authorize in the context function before resolvers run - never trust resolver args as safe
+  - Use input types for all mutation arguments - never use flat scalar arguments for mutations with multiple fields
+  - Return connection types (edges/nodes/pageInfo) for paginated lists following the Relay Connection spec
+  - Use GraphQLError with an extensions field for structured error responses including error codes
+  - Use schema-first (SDL) for better tooling and cross-team collaboration; use code-first only for complex schemas
+  - Implement field-level authorization checks for sensitive fields using directives or middleware
+
+forbidden:
+  - Relationship resolvers without DataLoader - causes N+1 database queries per list item
+  - Allowing unlimited query depth - enables recursive query attacks
+  - Exposing raw database/internal error messages in production GraphQL errors
+  - Not authenticating WebSocket connections for subscriptions
+  - Wildcard CORS in production GraphQL endpoints - restrict to known origins
+  - Introspection enabled in production without authentication
+
+patterns:
+  dataloader: "const userLoader = new DataLoader<number, User>(async (ids) => loadUsersByIds(ids)); context.loaders = { user: userLoader }"
+  resolver_with_loader: "posts: async (user, _, { loaders }) => loaders.post.loadMany(user.postIds)"
+  mutation_input: "type CreateUserInput { name: String! email: String! role: UserRole! }\ntype Mutation { createUser(input: CreateUserInput!): UserPayload! }"
+  connection_type: "type UserConnection { edges: [UserEdge!]! pageInfo: PageInfo! totalCount: Int! }"
+  depth_limit: "validationRules: [depthLimit(6), createComplexityLimitRule(1000)]"
+  graphql_error: "throw new GraphQLError('Not authorized', { extensions: { code: 'UNAUTHORIZED', field: 'email' } })"

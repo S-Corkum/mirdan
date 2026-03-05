@@ -116,6 +116,23 @@ class TestVersionAwareStandards:
 
     def test_get_for_framework_with_version_no_versioned_file(self, tmp_path: Path) -> None:
         """Should fall back to generic when versioned file doesn't exist."""
+        # Use vue@4.0.0 — no vue-4.yaml exists, so this tests the fallback path
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            json.dumps(
+                {
+                    "dependencies": {"vue": "^4.0.0"},
+                }
+            )
+        )
+
+        standards = QualityStandards(project_dir=tmp_path)
+        # vue-4.yaml doesn't exist, should fall back to vue.yaml
+        result = standards.get_for_framework("vue")
+        assert isinstance(result, dict)
+
+    def test_react19_versioned_standards_loaded(self, tmp_path: Path) -> None:
+        """Should merge react-19.yaml on top of react.yaml for React 19 projects."""
         pkg = tmp_path / "package.json"
         pkg.write_text(
             json.dumps(
@@ -126,9 +143,39 @@ class TestVersionAwareStandards:
         )
 
         standards = QualityStandards(project_dir=tmp_path)
-        # react-19.yaml doesn't exist, should fall back to react.yaml
         result = standards.get_for_framework("react")
+        # react-19.yaml adds React 19-specific principles — merged result should be a non-empty dict
         assert isinstance(result, dict)
+        assert "principles" in result
+        # React 19 principles mention the compiler or use() hook or Server Actions
+        principles_text = " ".join(result["principles"]).lower()
+        assert any(
+            keyword in principles_text
+            for keyword in ("compiler", "use()", "server action", "useoptimistic", "useactionstate")
+        )
+
+    def test_nextjs15_versioned_standards_loaded(self, tmp_path: Path) -> None:
+        """Should merge next.js-15.yaml on top of next.js standards for Next.js 15 projects."""
+        # Detection uses exact key match: "next.js" in package.json deps
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            json.dumps(
+                {
+                    "dependencies": {"next.js": "^15.0.0"},
+                }
+            )
+        )
+
+        standards = QualityStandards(project_dir=tmp_path)
+        result = standards.get_for_framework("next.js")
+        assert isinstance(result, dict)
+        assert "principles" in result
+        # Next.js 15 principles mention async params or after()
+        principles_text = " ".join(result["principles"]).lower()
+        assert any(
+            keyword in principles_text
+            for keyword in ("params", "await", "after()", "turbopack", "fetch()")
+        )
 
     def test_project_dir_passed_to_standards(self, tmp_path: Path) -> None:
         """QualityStandards should accept and store project_dir."""

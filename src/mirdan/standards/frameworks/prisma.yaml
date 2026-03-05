@@ -1,0 +1,25 @@
+# Standards for Prisma >= 5.0 - verified 2026-03-05
+principles:
+  - Use a singleton PrismaClient instance - never create a new PrismaClient per request (connection limit exhaustion)
+  - Use prisma.$transaction() for multi-model operations that must succeed or fail atomically
+  - Use Prisma-generated types (Prisma.UserWhereInput, Prisma.UserCreateInput) for query parameters - never hand-roll types
+  - Use prisma.$queryRaw only with Prisma.sql template tag to prevent SQL injection
+  - Always call prisma.$disconnect() in cleanup code (process exit handlers, test teardown)
+  - Use select or include explicitly to avoid over-fetching - Prisma returns all scalar fields by default
+  - Use findUniqueOrThrow() and findFirstOrThrow() to eliminate null checks when the record must exist
+  - Use cursor-based pagination (cursor + take) for large result sets instead of offset-based
+
+forbidden:
+  - Creating a new PrismaClient() inside a request handler or function - causes connection pool exhaustion
+  - prisma.$queryRaw with string interpolation - use Prisma.sql template tag only
+  - Not awaiting Prisma client method calls - returns a Promise that appears to succeed silently
+  - Using findMany without a where clause on large tables in production - always paginate
+  - Running prisma db push in production - always use prisma migrate deploy
+
+patterns:
+  singleton: "const prisma = new PrismaClient(); export { prisma };"
+  transaction: "const [order, payment] = await prisma.$transaction([prisma.order.create({data: orderData}), prisma.payment.create({data: paymentData})])"
+  typed_query: "async function getUsers(filter: Prisma.UserWhereInput): Promise<User[]> { return prisma.user.findMany({ where: filter }) }"
+  safe_raw: "const users = await prisma.$queryRaw<User[]>(Prisma.sql`SELECT * FROM users WHERE email = ${email}`)"
+  with_select: "await prisma.user.findMany({ select: { id: true, name: true, email: true }, where: { active: true } })"
+  pagination: "await prisma.post.findMany({ take: 20, cursor: { id: lastId }, skip: 1, orderBy: { createdAt: 'desc' } })"

@@ -1,0 +1,25 @@
+# Standards for Vercel AI SDK >= 4.0 - verified 2026-03-05
+principles:
+  - Use streamText() for streaming text responses in server routes and API handlers
+  - Use generateText() for non-streaming text when the full response is needed before acting
+  - Use generateObject() with a Zod schema for structured data extraction - avoids prompt engineering for JSON
+  - Define tools with the tool() helper providing description, parameters (Zod schema), and execute function
+  - Use multi-step tool calling with maxSteps to allow the model to chain tool calls automatically
+  - Configure providers via createOpenAI(), createAnthropic(), createMistral() for provider-specific options
+  - Use the onFinish callback to log token usage, finish reason, and persist conversation state
+  - Use useChat() and useCompletion() React hooks for client-side streaming with automatic state management
+
+forbidden:
+  - Mixing raw provider SDKs with Vercel AI SDK abstractions in the same module - pick one abstraction layer
+  - Not handling error states in useChat/useCompletion hooks - always render error.message when error is set
+  - Streaming long responses without toDataStreamResponse() - use the proper streaming response format for Next.js
+  - Using experimental_ prefixed APIs in production without checking stability status
+  - Blocking streaming with await generateText() when the UI expects streaming
+
+patterns:
+  stream_text: "const result = await streamText({ model: openai('gpt-4o'), messages, tools }); return result.toDataStreamResponse()"
+  generate_object: "const { object } = await generateObject({ model, schema: z.object({...}), prompt })"
+  tool_definition: "tool({ description: '...', parameters: z.object({ query: z.string() }), execute: async ({ query }) => ... })"
+  use_chat_hook: "const { messages, input, handleSubmit, isLoading, error } = useChat({ api: '/api/chat' })"
+  multi_step: "await generateText({ model, tools, maxSteps: 5, messages })"
+  on_finish: "onFinish: ({ usage, finishReason }) => { logTokens(usage.totalTokens); }"

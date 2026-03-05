@@ -1,0 +1,25 @@
+# Standards for AutoGen >= 0.4 - verified 2026-03-05
+principles:
+  - Always set max_turns on ConversableAgent or initiate_chat to prevent infinite conversation loops
+  - Use config_list for LLM configuration to support multiple model fallbacks
+  - Define is_termination_msg as a callable that returns True when the conversation should end
+  - Use human_input_mode="NEVER" for fully automated pipelines and "TERMINATE" for interactive use
+  - Use GroupChat with speaker_selection_method="auto" for dynamic multi-agent orchestration
+  - Validate all tool outputs in UserProxyAgent.code_execution_config before passing back to agents
+  - Use AssistantAgent for LLM-powered agents and UserProxyAgent for code execution and human proxy roles
+  - Log conversation history and costs via ConversationLogger for production observability
+
+forbidden:
+  - Not setting max_turns or is_termination_msg - risks infinite loops burning API budget
+  - Hardcoding LLM config with a single model - always use config_list for fallback support
+  - Enabling code_execution_config with unsafe paths or without a Docker container in production
+  - Using global state shared between agents - pass state through messages or use a shared Memory object
+  - Nesting GroupChatManager inside another GroupChatManager without clear handoff conditions
+
+patterns:
+  config_list: "config_list = autogen.config_list_from_json('OAI_CONFIG_LIST', filter_dict={'model': ['gpt-4o']})"
+  assistant_agent: "assistant = AssistantAgent(name='assistant', llm_config={'config_list': config_list})"
+  termination: "is_termination_msg=lambda msg: 'TERMINATE' in msg.get('content', '')"
+  group_chat: "group = GroupChat(agents=[agent1, agent2], messages=[], max_round=10); manager = GroupChatManager(groupchat=group, llm_config=llm_config)"
+  initiate: "user_proxy.initiate_chat(assistant, message=task, max_turns=10)"
+  tool_registration: "assistant.register_tool(name='search', description='...', func=search_fn)"

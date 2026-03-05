@@ -515,3 +515,69 @@ class TestWordBoundaryFixes:
         """'create a React component' should still detect javascript."""
         intent = analyzer.analyze("create a React component")
         assert intent.primary_language == "javascript"
+
+
+class TestAIFrameworkDetection:
+    """Tests for AI framework detection added in 1.1.0."""
+
+    def test_detects_anthropic_sdk(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect Anthropic SDK from import pattern."""
+        intent = analyzer.analyze("implement tool use with the anthropic sdk using client.messages.create")
+        assert "anthropic-sdk" in intent.frameworks
+
+    def test_detects_openai_sdk(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect OpenAI SDK from client pattern."""
+        intent = analyzer.analyze("use openai client.chat.completions to call gpt-4o")
+        assert "openai-sdk" in intent.frameworks
+
+    def test_detects_mcp_server(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect MCP server from fastmcp pattern."""
+        intent = analyzer.analyze("create a fastmcp tool with @mcp.tool decorator")
+        assert "mcp-server" in intent.frameworks
+
+    def test_detects_pydantic_ai(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect pydantic-ai from RunContext pattern."""
+        intent = analyzer.analyze("build an agent using RunContext from pydantic_ai")
+        assert "pydantic-ai" in intent.frameworks
+
+
+class TestCSharpDetection:
+    """Tests for C# language detection added in 1.1.0."""
+
+    def test_detects_csharp_language(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect C# language from explicit mention."""
+        intent = analyzer.analyze("create a C# class with async Task methods")
+        assert intent.primary_language == "csharp"
+
+    def test_detects_dotnet(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect C# from .NET mention."""
+        intent = analyzer.analyze("build a .NET web API with Blazor frontend")
+        assert intent.primary_language == "csharp"
+
+
+class TestPhase4FrameworkDetection:
+    """Tests for Phase 4 framework detection added in 1.1.0."""
+
+    def test_detects_axum(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect Axum framework."""
+        intent = analyzer.analyze("create axum Router with State extractor and IntoResponse")
+        assert "axum" in intent.frameworks
+
+    def test_detects_sqlalchemy(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect SQLAlchemy from AsyncSession pattern."""
+        intent = analyzer.analyze("use SQLAlchemy AsyncSession for database queries with DeclarativeBase")
+        assert "sqlalchemy" in intent.frameworks
+
+
+class TestPhase5FrameworkDetection:
+    """Tests for Phase 5 framework detection added in 1.1.0."""
+
+    def test_detects_graphql(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect GraphQL from schema patterns."""
+        intent = analyzer.analyze("define a GraphQL schema with type Query and gql template")
+        assert "graphql" in intent.frameworks
+
+    def test_detects_opentelemetry(self, analyzer: IntentAnalyzer) -> None:
+        """Should detect OpenTelemetry from TracerProvider."""
+        intent = analyzer.analyze("add opentelemetry tracing with TracerProvider and span context")
+        assert "opentelemetry" in intent.frameworks

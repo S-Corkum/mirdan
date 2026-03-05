@@ -1,0 +1,24 @@
+# Standards for Instructor >= 1.0 - verified 2026-03-05
+principles:
+  - Use instructor.from_openai(openai.OpenAI()) or instructor.from_anthropic(anthropic.Anthropic()) for client patching
+  - Always pass a Pydantic BaseModel as response_model - never pass dict or primitive types
+  - Set max_retries for production use to handle model validation failures with automatic retry
+  - Use Partial[Model] for streaming structured output with partial object construction
+  - Add field validators and model_validators to enforce business rules beyond type checking
+  - Use Field(description="...") on all Pydantic fields to improve model accuracy - instructor injects these into the prompt
+  - Use instructor.from_anthropic() with anthropic>=0.20 and instructor>=1.0 for Claude structured outputs
+  - Always handle ValidationError for cases where max_retries is exhausted
+
+forbidden:
+  - instructor.patch() - deprecated, replaced by instructor.from_openai()/from_anthropic() in 1.0
+  - Using dict as response_model - loses type safety and retry validation
+  - Not setting max_retries in production - one retry is the minimum; model occasionally produces invalid JSON
+  - Putting all fields in one flat model when nested models would be clearer - use nested Pydantic models
+  - Ignoring the _raw_response attribute when debugging - it contains the unmodified model response
+
+patterns:
+  openai_client: "client = instructor.from_openai(openai.OpenAI()); result = client.chat.completions.create(model='gpt-4o', response_model=MyModel, messages=messages)"
+  anthropic_client: "client = instructor.from_anthropic(anthropic.Anthropic()); result = client.messages.create(model='claude-sonnet-4-6', response_model=MyModel, max_tokens=1024, messages=messages)"
+  with_retries: "client.chat.completions.create(..., max_retries=3)"
+  partial_streaming: "for partial in client.chat.completions.create_partial(model=model, response_model=MyModel, messages=messages):\n    update_ui(partial)"
+  validated_model: "class UserExtraction(BaseModel):\n    name: str = Field(description='Full name of the person')\n    email: EmailStr\n    @field_validator('email')\n    def validate_email_domain(cls, v): ..."

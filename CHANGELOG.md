@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-05
+
+### Added
+
+- **10 AI Framework Standards** — YAML standards for: anthropic-sdk, openai-sdk, vercel-ai, llamaindex, autogen, instructor, pydantic-ai, haystack, openai-agents, mcp-server
+- **C# Language Support** — `csharp.yaml` language standards (C# 13 / .NET 9), LanguageDetector patterns, IntentAnalyzer language detection, `_BLOCK_COMMENT_LANGUAGES` support
+- **ASP.NET Core Framework** — `aspnetcore.yaml` standards for Minimal API, DI patterns, middleware ordering
+- **ORM Standards** — `prisma.yaml` (Prisma 5.x) and `sqlalchemy.yaml` (SQLAlchemy 2.0 async style)
+- **Axum Framework** — `axum.yaml` standards for Rust web development with Tower middleware
+- **Versioned Standards** — `react-19.yaml` (React Compiler, use() hook, Server Actions) and `next.js-15.yaml` (async params, stable after())
+- **State Management** — `zustand.yaml` (Zustand 5 with immer/devtools/persist) and `tanstack-query.yaml` (TanStack Query v5 with gcTime rename)
+- **GraphQL Standards** — `graphql.yaml` covering DataLoader, query depth limits, schema-first patterns
+- **OpenTelemetry Standards** — `opentelemetry.yaml` covering TracerProvider, BatchSpanProcessor, semantic conventions
+- **Compiled Validation Rules** — OAI001 (deprecated openai.ChatCompletion.create), ANT001 (deprecated client.completions.create), SA001 (SQLAlchemy 1.x session.query)
+
+### Changed
+
+- IntentAnalyzer detects 18 new frameworks: anthropic-sdk, openai-sdk, vercel-ai, llamaindex, autogen, instructor, pydantic-ai, haystack, openai-agents, mcp-server, aspnetcore, sqlalchemy, axum, zustand, tanstack-query, graphql, opentelemetry, and csharp language
+- LanguageDetector detects C# from namespace, async Task, and ASP.NET attributes
+- `quality_standards.py` languages list includes csharp
+
+---
+
 ## [0.4.0] - 2026-03-04
 
 ### Added

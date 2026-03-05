@@ -1,0 +1,21 @@
+# Next.js 15 versioned override - verified 2026-03-05
+# This file ONLY contains Next.js 15-specific changes that override nextjs.yaml
+# Base nextjs.yaml is loaded first, then these keys override/extend it
+
+principles:
+  - params and searchParams props in pages and layouts are now Promises - always await them
+  - Use the stable after() function from next/server for post-response work (replaces unstable_after)
+  - Turbopack is now stable for development - use next dev --turbopack for faster HMR
+  - Use @next/codemod upgrade latest to run automatic migration codemods between Next.js versions
+  - fetch() responses are no longer cached by default in Next.js 15 - explicitly set cache to force-cache when caching is desired
+
+forbidden:
+  - Synchronously accessing params without await - breaks with Next.js 15 async params (results in Promise object)
+  - unstable_after - use the stable after() from next/server instead
+  - Assuming fetch() is cached - Next.js 15 changed the default to no-store; always be explicit about caching intent
+
+patterns:
+  async_params: "export default async function Page({ params }: { params: Promise<{ id: string }> }) { const { id } = await params; ... }"
+  after_usage: "import { after } from 'next/server'; export default async function Page() { after(async () => { await analytics.track('page_view'); }); ... }"
+  explicit_cache: "const data = await fetch(url, { cache: 'force-cache', next: { revalidate: 3600 } });"
+  no_cache: "const data = await fetch(url, { cache: 'no-store' }); // always fresh"

@@ -1,0 +1,25 @@
+# Standards for Zustand >= 5.0 - verified 2026-03-05
+principles:
+  - Use create() with functional updater callbacks passed to set() to produce new state - never mutate the current state object directly
+  - Use the slice pattern for large stores: combine independent slices with create() for separation of concerns
+  - Apply the immer middleware when you need structural sharing with deeply nested state mutations
+  - Use the devtools middleware in development for Redux DevTools integration and time-travel debugging
+  - Use the persist middleware with explicit storage and partialize to selectively persist only needed state
+  - Use subscribeWithSelector middleware and subscribe() for non-React subscribers with fine-grained control
+  - Select only needed state from the store to prevent unnecessary re-renders: const count = useStore(s => s.count)
+  - Use the shallow comparator from zustand/shallow for object/array selectors to prevent infinite re-renders
+
+forbidden:
+  - Mutating state directly inside set() - always use functional update pattern set(state => ({...}))
+  - Not using shallow comparator when selecting object or array values - causes re-renders on every state change
+  - Subscribing to the entire store in components - always use a selector to extract only needed fields
+  - Storing derived data in the store that should be computed in selectors or with useMemo
+  - Initializing store state with non-serializable values (functions, class instances) when using persist middleware
+
+patterns:
+  basic_store: "const useStore = create<StoreState>((set) => ({ count: 0, increment: () => set(state => ({ count: state.count + 1 })) }))"
+  slice_pattern: "const createUserSlice: StateCreator<UserSlice & PostSlice, [], [], UserSlice> = (set) => ({ user: null, setUser: (user) => set({ user }) })"
+  with_immer: "const useStore = create<State>()(immer((set) => ({ items: [], addItem: (item) => set(state => { state.items.push(item) }) })))"
+  with_devtools: "const useStore = create<State>()(devtools(persist(storeSlice, { name: 'app-store', partialize: (s) => ({ user: s.user }) })))"
+  shallow_selector: "const { name, email } = useStore(useShallow(state => ({ name: state.user.name, email: state.user.email })))"
+  subscribe: "const unsub = useStore.subscribe(state => state.count, (count) => console.log('Count changed:', count))"

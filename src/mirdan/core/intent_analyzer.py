@@ -114,6 +114,14 @@ class IntentAnalyzer:
         "rust": [(r"\brust\b", 5), (r"\.rs$", 4), (r"\bcargo\b", 3)],
         "go": [(r"\bgolang\b", 5), (r"\.go$", 4), (r"\bgo\b", 3)],
         "java": [(r"\bjava\b", 5), (r"\.java$", 4), (r"\bspring\b", 3), (r"\bmaven\b", 3)],
+        "csharp": [
+            (r"\bc#", 5),          # c# is non-word after #, no trailing \b needed
+            (r"\.net\b", 4),       # .net — no leading \b since . is non-word
+            (r"\bcsharp\b", 5),
+            (r"\.cs\b", 4),
+            (r"\basp\.net\b", 3),
+            (r"\blazor\b", 3),
+        ],
     }
 
     # Framework detection
@@ -135,6 +143,98 @@ class IntentAnalyzer:
         "weaviate": [r"\bweaviate\b", r"\bWeaviateClient\b"],
         "milvus": [r"\bmilvus\b", r"\bMilvusClient\b", r"\bpymilvus\b"],
         "qdrant": [r"\bqdrant\b", r"\bQdrantClient\b"],
+        "anthropic-sdk": [
+            r"\bimport\s+anthropic\b",
+            r"from\s+anthropic\s+import",
+            r"\bclient\.messages\.create\b",
+        ],
+        "openai-sdk": [
+            r"\bimport\s+openai\b",
+            r"from\s+openai\s+import",
+            r"\bclient\.chat\.completions\b",
+        ],
+        "vercel-ai": [
+            r"from\s+['\"]ai['\"]",
+            r"\bstreamText\b",
+            r"\bgenerateText\b",
+            r"\bgenerateObject\b",
+        ],
+        "llamaindex": [
+            r"\bllama[_-]?index\b",
+            r"\bVectorStoreIndex\b",
+            r"\bQueryEngine\b",
+            r"\bLlamaIndex\b",
+        ],
+        "autogen": [r"\bimport\s+autogen\b", r"\bConversableAgent\b", r"\bGroupChatManager\b"],
+        "instructor": [
+            r"\bimport\s+instructor\b",
+            r"\binstructor\.from_\w+\b",
+            r"\bresponse_model\b",
+        ],
+        "pydantic-ai": [
+            r"from\s+pydantic_ai\s+import",
+            r"\bpydantic[_\-]ai\b",
+            r"\bRunContext\b",
+        ],
+        "haystack": [
+            r"\bimport\s+haystack\b",
+            r"from\s+haystack\s+import",
+            r"\bPipeline\b.*\bComponent\b",
+        ],
+        "openai-agents": [
+            r"from\s+openai_agents\s+import",
+            r"@function_tool\b",
+            r"\bRunner\.run\b",
+        ],
+        "mcp-server": [
+            r"from\s+fastmcp\s+import",
+            r"@mcp\.tool",
+            r"@mcp\.resource",
+            r"\bmcp\.run\b",
+        ],
+        "aspnetcore": [
+            r"\basp\.net\s*core\b",
+            r"\bIActionResult\b",
+            r"\bControllerBase\b",
+            r"\bapp\.MapGet\b",
+            r"\[ApiController\]",
+        ],
+        "sqlalchemy": [
+            r"\bsqlalchemy\b",
+            r"from\s+sqlalchemy\s+import",
+            r"\bDeclarativeBase\b",
+            r"\bAsyncSession\b",
+        ],
+        "axum": [
+            r"\baxum\b",
+            r"\bRouter::new\b",
+            r"from\s+axum\s+import",
+            r"\buse\s+axum::",
+            r"\bIntoResponse\b",
+        ],
+        "zustand": [
+            r"from\s+['\"]zustand['\"]",
+            r"\bcreateStore\b",
+            r"\bcreate\s*\(\s*\(set\b",
+        ],
+        "tanstack-query": [
+            r"@tanstack/react-query",
+            r"\buseQuery\b",
+            r"\bqueryKey\b",
+            r"\bQueryClient\b",
+        ],
+        "graphql": [
+            r"\bgraphql\b",
+            r"\btype\s+Query\s*\{",
+            r"\btype\s+Mutation\s*\{",
+            r"\bgql\b",
+        ],
+        "opentelemetry": [
+            r"\bopentelemetry\b",
+            r"from\s+opentelemetry",
+            r"\bTracerProvider\b",
+            r"\btracer\.start",
+        ],
     }
 
     # RAG-related keywords

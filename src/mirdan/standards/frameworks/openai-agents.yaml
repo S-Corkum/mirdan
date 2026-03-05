@@ -1,0 +1,25 @@
+# Standards for OpenAI Agents SDK (openai-agents >= 0.0.3) - verified 2026-03-05
+principles:
+  - Define Agent with name, instructions, and tools list - all three are required for well-functioning agents
+  - Use @function_tool decorator for tool registration - it automatically generates JSON schema from the function signature and docstring
+  - Use Runner.run(agent, input) for async execution and Runner.run_sync() only in scripts and tests
+  - Define output_type on Agent for structured output - the runner will validate the model's response against the type
+  - Use handoff() to transfer control between specialized agents in a multi-agent workflow
+  - Apply InputGuardrail and OutputGuardrail for safety checks on untrusted user input and model output
+  - Use RunContext.usage to track token consumption across multi-step agent runs
+  - Avoid sharing mutable state between agents - use RunContext and pass data through tool return values
+
+forbidden:
+  - Agents without a defined output_type for production use - untyped output loses validation guarantees
+  - Not setting guardrails for agents exposed to untrusted user input
+  - Using global variables for cross-agent state - use RunContext or tool return values
+  - Not handling MaxTurnsExceeded exception from Runner.run() - agents can loop without bound
+  - Tools that perform side effects without idempotency - the model may call tools multiple times
+
+patterns:
+  agent_definition: "agent = Agent(name='Researcher', instructions='You research topics thoroughly.', tools=[search_tool], output_type=ResearchReport)"
+  function_tool: "@function_tool\nasync def search_web(query: str) -> str:\n    '''Search the web for information about a topic.'''\n    return await fetch_results(query)"
+  run_agent: "result = await Runner.run(agent, input='Analyze the market for...'); print(result.final_output)"
+  multi_agent: "triage_agent = Agent(name='Triage', instructions='Route to specialists', handoffs=[researcher, writer])"
+  guardrail: "agent = Agent(name='Safe Agent', guardrails=[InputGuardrail(guardrail_fn), OutputGuardrail(output_fn)])"
+  handoff: "from agents import handoff; handoffs=[handoff(specialist_agent, tool_name_override='consult_specialist')]"

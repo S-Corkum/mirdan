@@ -1,0 +1,24 @@
+# React 19 versioned override - verified 2026-03-05
+# This file ONLY contains React 19-specific changes that override react.yaml
+# Base react.yaml is loaded first, then these keys override/extend it
+
+principles:
+  - React Compiler (automatic memoization) - do not wrap simple values in useMemo or useCallback manually
+  - Use the use() hook to read Promises and Context values inside render - replaces manual useEffect for data fetching patterns
+  - Use Server Actions with the "use server" directive for form mutations and data operations
+  - Use useOptimistic() to show optimistic UI state while a Server Action is pending
+  - Use useActionState() (replaces useFormState from react-dom) to manage form action state and pending/error/result
+  - Use useFormStatus() inside form children to access the parent form's submission state
+
+forbidden:
+  - useFormState from react-dom - renamed to useActionState in React 19
+  - Manual useMemo/useCallback wrapping of simple values - React Compiler handles this automatically
+  - ref as a regular prop is now supported - do not wrap in forwardRef when passing ref from parent
+  - Using ReactDOM.render() - removed in React 19, use createRoot() from react-dom/client
+
+patterns:
+  server_action: "'use server'\nexport async function createUser(formData: FormData) { const name = formData.get('name'); await db.user.create({ data: { name } }); revalidatePath('/users'); }"
+  use_hook: "const data = use(dataPromise); // reads a Promise or Context in render"
+  optimistic: "const [optimisticUsers, addOptimisticUser] = useOptimistic(users, (state, newUser) => [...state, newUser]);"
+  action_state: "const [state, formAction, isPending] = useActionState(createUserAction, initialState);"
+  form_status: "function SubmitButton() { const { pending } = useFormStatus(); return <button disabled={pending}>Submit</button>; }"

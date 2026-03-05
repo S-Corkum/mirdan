@@ -499,10 +499,10 @@ class TestFrameworkStandards:
         assert "patterns" in result, f"Missing patterns for {framework}"
 
     def test_total_framework_count(self) -> None:
-        """Should have 24 original + 9 new = 33 framework standards."""
+        """Should have 33 original + 20 new (1.1.0 expansion) = 53 framework standards."""
         from importlib.resources import files
 
         standards_pkg = files("mirdan.standards")
         frameworks_dir = standards_pkg.joinpath("frameworks")
         yaml_files = [f for f in frameworks_dir.iterdir() if f.name.endswith(".yaml")]
-        assert len(yaml_files) == 33
+        assert len(yaml_files) == 53

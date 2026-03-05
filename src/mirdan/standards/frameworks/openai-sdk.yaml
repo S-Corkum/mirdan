@@ -1,0 +1,25 @@
+# Standards for OpenAI Python SDK >= 1.0 - verified 2026-03-05
+principles:
+  - Use the typed client pattern: client = openai.OpenAI(); client.chat.completions.create()
+  - Use AsyncOpenAI for async contexts to avoid blocking the event loop
+  - Use structured outputs via client.beta.chat.completions.parse() with a Pydantic model for type-safe responses
+  - Use the tools parameter for function/tool calling - define tool schemas with JSON Schema
+  - Stream responses with stream=True and iterate chunks for long completions to improve perceived latency
+  - Handle rate limits (429) and server errors (5xx) with exponential backoff and jitter
+  - Set timeout and max_retries on the client constructor for production resilience
+  - Use response_format for JSON mode only when structured outputs (Pydantic parse) is not available
+
+forbidden:
+  - openai.ChatCompletion.create() or openai.Completion.create() - removed in SDK 1.0, use client.chat.completions.create()
+  - Module-level openai.api_key assignment - use environment variables and pass via openai.OpenAI(api_key=...)
+  - Ignoring finish_reason in responses - always check for "stop" vs "length" vs "tool_calls" to detect truncation
+  - Not handling openai.RateLimitError and openai.APIStatusError in production
+  - Creating a new client instance per request - instantiate once and reuse
+
+patterns:
+  basic_chat: "response = client.chat.completions.create(model='gpt-4o', messages=[{'role': 'user', 'content': prompt}])"
+  structured_output: "response = client.beta.chat.completions.parse(model='gpt-4o', messages=messages, response_format=MyPydanticModel)"
+  tool_calling: "tools=[{'type': 'function', 'function': {'name': 'fn_name', 'description': '...', 'parameters': schema}}]"
+  streaming: "with client.chat.completions.stream(model=model, messages=messages) as stream:\n    for chunk in stream:\n        yield chunk.choices[0].delta.content or ''"
+  async_usage: "client = AsyncOpenAI(); response = await client.chat.completions.create(...)"
+  resilient_client: "client = openai.OpenAI(timeout=30.0, max_retries=3)"

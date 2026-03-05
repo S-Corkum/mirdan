@@ -91,6 +91,14 @@ class LanguageDetector:
             (r"\bthrows\s+\w+Exception", 2),  # throws clause
             (r"@(Service|Component|Repository|Controller|RestController)\b", 3),  # Spring
         ],
+        "csharp": [
+            (r"\bnamespace\s+\w+", 5),  # namespace keyword — strong C# signal
+            (r"\busing\s+System\b", 4),  # .NET core namespace
+            (r"\bpublic\s+class\s+\w+\s*:", 3),  # class with inheritance (colon, not extends)
+            (r"\basync\s+Task\b", 3),  # async Task return type
+            (r"\[HttpGet\]|\[HttpPost\]|\[ApiController\]", 4),  # ASP.NET attributes
+            (r"\bvar\s+\w+\s*=\s*new\b", 2),  # var + new instantiation
+        ],
     }
 
     def detect(self, code: str) -> tuple[str, str]:

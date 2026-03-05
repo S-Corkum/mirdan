@@ -1,0 +1,24 @@
+# Standards for FastMCP >= 2.0 (MCP Server development) - verified 2026-03-05
+principles:
+  - Every tool function must have a docstring - LLMs use the docstring to decide when and how to invoke the tool
+  - Use Pydantic models or typed function parameters for tool inputs - FastMCP generates JSON schema automatically
+  - Use @mcp.resource() for read-only data endpoints and @mcp.tool() for mutating or side-effect operations
+  - Use the lifespan context manager for startup/shutdown: database connections, HTTP clients, caches
+  - Accept Context as the last parameter in tools to report progress via ctx.report_progress() for long operations
+  - Validate all external inputs in tool functions - MCP tools are called by LLMs with potentially malformed data
+  - Return structured data (dict or Pydantic model) from tools rather than raw strings when possible
+  - Name tools with verb-noun convention (search_documents, create_user) for clear LLM invocation intent
+
+forbidden:
+  - Tool functions without docstrings - LLMs will not know when to use the tool correctly
+  - Global mutable state outside the lifespan context manager - breaks concurrent tool calls
+  - Using resources for operations with side effects - resources must be idempotent reads
+  - Not handling exceptions in tool functions - unhandled exceptions terminate the MCP session
+  - Returning raw exception messages to clients - log internally, return user-friendly error descriptions
+
+patterns:
+  tool_definition: "@mcp.tool()\ndef search_documents(query: str, limit: int = 10) -> list[dict]:\n    '''Search documents by semantic similarity. Returns ranked matches with metadata.'''\n    return vector_store.search(query, k=limit)"
+  resource_definition: "@mcp.resource('config://settings')\ndef get_settings() -> dict:\n    '''Returns current application configuration settings.'''\n    return load_config()"
+  lifespan: "@asynccontextmanager\nasync def lifespan(server):\n    server.db = await Database.connect(DATABASE_URL)\n    yield\n    await server.db.close()"
+  with_context: "@mcp.tool()\nasync def process_file(path: str, ctx: Context) -> str:\n    '''Process a large file with progress reporting.'''\n    await ctx.report_progress(0, 100)\n    result = await process(path)\n    await ctx.report_progress(100, 100)\n    return result"
+  server_startup: "mcp = FastMCP('MyServer', lifespan=lifespan); mcp.run(transport='stdio')"

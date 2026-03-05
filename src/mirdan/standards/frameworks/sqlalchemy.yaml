@@ -1,0 +1,26 @@
+# Standards for SQLAlchemy >= 2.0 - verified 2026-03-05
+principles:
+  - Use SQLAlchemy 2.0 style: session.execute(select(Model)) instead of session.query(Model)
+  - Use DeclarativeBase as the base class for all ORM models with Mapped[T] type annotations
+  - Use AsyncSession with async_sessionmaker for async applications - never block with sync session in async code
+  - Use session.scalar() for single values and session.scalars() for lists instead of .execute().scalars().all()
+  - Always use context managers for session lifecycle (async with async_session() as session) - never hold a session across requests
+  - Use relationship() with explicit lazy loading strategy - never rely on default lazy loading in async code
+  - Define indexes on columns used in WHERE clauses using Index() or mapped_column(index=True)
+  - Use selectinload() or joinedload() explicitly for relationship loading - avoid N+1 queries
+
+forbidden:
+  - session.query() - the 1.x style is removed in 2.0; use session.execute(select(Model))
+  - engine.execute() - removed in SQLAlchemy 2.0; use session.execute() or connection.execute()
+  - Not closing sessions - always use context managers or try/finally with session.close()
+  - Accessing relationship attributes outside a session context - causes DetachedInstanceError
+  - Using lazy="dynamic" on relationships in async mode - incompatible with async sessions
+  - String-based column references in filter() - use the mapped attribute directly (User.id == id)
+
+patterns:
+  model_definition: "class User(DeclarativeBase):\n    __tablename__ = 'users'\n    id: Mapped[int] = mapped_column(primary_key=True)\n    name: Mapped[str] = mapped_column(String(255), nullable=False)\n    posts: Mapped[list['Post']] = relationship(back_populates='author', lazy='selectin')"
+  async_session_factory: "async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)"
+  select_query: "async with async_session() as session:\n    result = await session.scalars(select(User).where(User.active == True).order_by(User.name))\n    users = result.all()"
+  insert: "async with async_session() as session:\n    session.add(User(name=name, email=email))\n    await session.commit()"
+  with_eager_load: "stmt = select(Post).options(selectinload(Post.tags)).where(Post.published == True)"
+  upsert: "stmt = insert(User).values(**data).on_conflict_do_update(index_elements=['email'], set_=data)"

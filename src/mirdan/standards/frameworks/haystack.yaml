@@ -1,0 +1,25 @@
+# Standards for Haystack >= 2.0 (haystack-ai) - verified 2026-03-05
+principles:
+  - Use the @component decorator for all custom components - bare classes without it are not pipeline-compatible
+  - Define run() with typed parameters and decorate the return type with @component.output_types for type safety
+  - Connect components with pipeline.connect("component_a.output_name", "component_b.input_name")
+  - Use Pipeline.run() with a dict of initial inputs keyed by "component_name.input_name"
+  - Use InMemoryDocumentStore for development and Elasticsearch/OpenSearch stores for production
+  - Apply DocumentCleaner and DocumentSplitter in indexing pipelines before embedding
+  - Use SentenceTransformersTextEmbedder for open-source embeddings or OpenAITextEmbedder for API embeddings
+  - Serialize pipelines to YAML with pipeline.dump() for reproducibility and version control
+
+forbidden:
+  - Mixing Haystack 1.x (haystack) and 2.x (haystack-ai) imports in the same project
+  - Creating custom components without the @component decorator - they will not be pipeline-compatible
+  - Not defining run() return type with @component.output_types - breaks type checking and IDE support
+  - Calling component methods directly instead of through Pipeline.run() - bypasses the pipeline contract
+  - Using deprecated Pipeline.add_node() (Haystack 1.x) - use Pipeline.add_component()
+
+patterns:
+  component_definition: "@component\nclass MyRetriever:\n    @component.output_types(documents=list[Document])\n    def run(self, query: str, top_k: int = 5) -> dict:\n        return {'documents': self.store.query(query, top_k=top_k)}"
+  pipeline_assembly: "pipeline = Pipeline(); pipeline.add_component('embedder', embedder); pipeline.add_component('retriever', retriever); pipeline.connect('embedder.embedding', 'retriever.query_embedding')"
+  pipeline_run: "result = pipeline.run({'embedder': {'text': query}}); documents = result['retriever']['documents']"
+  rag_pipeline: "Pipeline with [TextEmbedder -> InMemoryEmbeddingRetriever -> PromptBuilder -> OpenAIGenerator]"
+  indexing: "Pipeline with [DocumentCleaner -> DocumentSplitter -> SentenceTransformersDocumentEmbedder -> InMemoryDocumentStore.write_documents]"
+  serialization: "pipeline.dump(fp); pipeline = Pipeline.load(fp)"

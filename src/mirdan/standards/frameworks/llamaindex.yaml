@@ -1,0 +1,25 @@
+# Standards for LlamaIndex >= 0.10 - verified 2026-03-05
+principles:
+  - Use VectorStoreIndex.from_documents() for standard RAG index creation with document chunking
+  - Set similarity_top_k explicitly on retrievers - the default of 2 is too low for most production use cases
+  - Use QueryPipeline for complex multi-step retrieval workflows with rerankers and postprocessors
+  - Use async query methods (aquery, aretrieve) for production API handlers to avoid blocking
+  - Use NodePostprocessor (SimilarityPostprocessor, MetadataReplacementPostprocessor) for post-retrieval filtering
+  - Apply SentenceSplitter with explicit chunk_size and chunk_overlap - do not rely on defaults
+  - Persist indexes to avoid re-embedding on restart: VectorStoreIndex.from_vector_store(vector_store)
+  - Use Settings global config for model and embedding model rather than per-node config
+
+forbidden:
+  - GPTVectorStoreIndex, GPTListIndex, or other GPT-prefixed class names - renamed in llama-index 0.9, removed in 0.10
+  - Calling query_engine.query() synchronously in async request handlers - use await query_engine.aquery()
+  - Not setting chunk_overlap - zero overlap loses context at chunk boundaries
+  - Using SimpleDirectoryReader without specifying file_extractor for binary formats (PDF, DOCX)
+  - Re-creating the index from documents on every request - always persist and reload
+
+patterns:
+  index_creation: "index = VectorStoreIndex.from_documents(documents, transformations=[SentenceSplitter(chunk_size=512, chunk_overlap=64)])"
+  query_engine: "query_engine = index.as_query_engine(similarity_top_k=5, node_postprocessors=[SimilarityPostprocessor(cutoff=0.7)])"
+  async_query: "response = await query_engine.aquery(user_query)"
+  pipeline: "pipeline = QueryPipeline(chain=[retriever, reranker, response_synthesizer])"
+  persistence: "index.storage_context.persist(persist_dir='./storage'); index = load_index_from_storage(StorageContext.from_defaults(persist_dir='./storage'))"
+  settings: "Settings.llm = Anthropic(model='claude-sonnet-4-6'); Settings.embed_model = OpenAIEmbedding(model='text-embedding-3-small')"
