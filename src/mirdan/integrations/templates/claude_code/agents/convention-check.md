@@ -1,11 +1,8 @@
 ---
-name: ai-slop-detector
+name: convention-check
 description: "PROACTIVELY detect AI-generated code quality issues"
 model: haiku
 maxTurns: 5
-background: true
-memory: project
-skills: quality
 tools: mcp__mirdan__validate_code_quality, Read, Glob, Grep
 ---
 

@@ -221,7 +221,7 @@ mirdan profile suggest                # Let mirdan recommend one
 mirdan init --claude-code
 ```
 
-Generates `.mcp.json`, hooks, rules, 5 skills (`/mirdan:code`, `/mirdan:debug`, `/mirdan:review`, `/mirdan:plan`, `/mirdan:quality`), and 5 agents (quality-gate, security-audit, test-quality, convention-check, architecture-reviewer).
+Generates `.mcp.json`, hooks, rules, 7 skills (`/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, `/gate`), and 5 agents (quality-gate, security-audit, test-quality, convention-check, architecture-reviewer).
 
 Hook stringency levels control how aggressively mirdan intervenes:
 
@@ -237,7 +237,7 @@ Hook stringency levels control how aggressively mirdan intervenes:
 mirdan init --cursor
 ```
 
-Generates `.cursor/mcp.json`, hooks, `.mdc` rules, `AGENTS.md`, and `BUGBOT.md` for structured PR review.
+Generates `.cursor/mcp.json`, hooks, `.mdc` rules (always-on, security, planning, debug, agent, and language-specific), `AGENTS.md`, `BUGBOT.md`, and `.cursor/commands/*.md` slash command files for Cursor's `/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, and `/gate` workflows.
 
 Cursor has tool slot limits. Set `MIRDAN_TOOL_BUDGET` to control which tools are exposed (2 = validation only, 5+ = all tools).
 
@@ -280,7 +280,7 @@ For organization-wide enforcement via managed configuration:
 
 ### GitHub Actions
 
-`mirdan init` generates a workflow, or create one manually:
+Add this workflow to `.github/workflows/mirdan.yml`:
 
 ```yaml
 name: Mirdan Quality Gate
@@ -560,7 +560,7 @@ Discover implicit codebase conventions and generate custom rules.
 git clone https://github.com/S-Corkum/mirdan.git
 cd mirdan
 uv sync --all-extras
-uv run pytest               # 1932 tests
+uv run pytest               # 1987 tests
 uv run mirdan               # Run server locally
 ```
 

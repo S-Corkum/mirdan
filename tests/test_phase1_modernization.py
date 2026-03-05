@@ -160,7 +160,7 @@ class TestOverlaySkills:
         detected = DetectedProject(primary_language="python")
         gen = AgentsMDGenerator()
         output = gen.generate(detected, platform="claude-code")
-        assert "/mirdan:plan" in output
+        assert "/plan" in output
 
     def test_overlay_has_quality(self):
         from mirdan.cli.detect import DetectedProject
@@ -169,7 +169,7 @@ class TestOverlaySkills:
         detected = DetectedProject(primary_language="python")
         gen = AgentsMDGenerator()
         output = gen.generate(detected, platform="claude-code")
-        assert "/mirdan:quality" in output
+        assert "/quality" in output
 
 
 # ---------------------------------------------------------------------------
@@ -356,21 +356,25 @@ class TestAgentFrontmatter:
         content = (agents_pkg / "quality-gate.md").read_text()
         assert "maxTurns: 10" in content
 
-    def test_security_audit_isolation(self, agents_pkg):
+    def test_security_audit_no_isolation(self, agents_pkg):
+        """isolation: worktree is not a valid Claude Code field — must be absent."""
         content = (agents_pkg / "security-audit.md").read_text()
-        assert "isolation: worktree" in content
+        assert "isolation:" not in content
 
-    def test_test_quality_skills(self, agents_pkg):
+    def test_test_quality_no_skills(self, agents_pkg):
+        """skills: is not a valid Claude Code agent field — must be absent."""
         content = (agents_pkg / "test-quality.md").read_text()
-        assert "skills: quality, code" in content
+        assert "skills:" not in content
 
-    def test_convention_check_memory(self, agents_pkg):
+    def test_convention_check_no_memory(self, agents_pkg):
+        """memory: is not a valid Claude Code agent field — must be absent."""
         content = (agents_pkg / "convention-check.md").read_text()
-        assert "memory: project" in content
+        assert "memory:" not in content
 
-    def test_architecture_reviewer_mcp_servers(self, agents_pkg):
+    def test_architecture_reviewer_no_mcp_servers(self, agents_pkg):
+        """mcpServers: is not a valid Claude Code agent field — must be absent."""
         content = (agents_pkg / "architecture-reviewer.md").read_text()
-        assert "mcpServers: mirdan" in content
+        assert "mcpServers:" not in content
 
 
 # ---------------------------------------------------------------------------

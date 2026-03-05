@@ -3,7 +3,7 @@ name: code
 description: "Enhanced coding with automatic mirdan quality orchestration"
 argument-hint: "Describe what to build"
 model: inherit
-allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__validate_quick, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__validate_quick, mcp__enyal__enyal_recall, mcp__enyal__enyal_remember, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # /code — Quality-Orchestrated Coding

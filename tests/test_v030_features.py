@@ -250,17 +250,20 @@ class TestSpecializedAgents:
         content = (agents_dir / "architecture-reviewer.md").read_text()
         assert "model: sonnet" in content
 
-    def test_quality_validator_has_background(self, agents_dir: Path) -> None:
+    def test_quality_validator_no_background(self, agents_dir: Path) -> None:
+        """background: is not a valid Claude Code agent field — must be absent."""
         content = (agents_dir / "quality-gate.md").read_text()
-        assert "background: true" in content
+        assert "background:" not in content
 
-    def test_quality_validator_has_memory(self, agents_dir: Path) -> None:
+    def test_quality_validator_no_memory(self, agents_dir: Path) -> None:
+        """memory: is not a valid Claude Code agent field — must be absent."""
         content = (agents_dir / "quality-gate.md").read_text()
-        assert "memory: project" in content
+        assert "memory:" not in content
 
-    def test_test_auditor_has_memory(self, agents_dir: Path) -> None:
+    def test_test_auditor_no_memory(self, agents_dir: Path) -> None:
+        """memory: is not a valid Claude Code agent field — must be absent."""
         content = (agents_dir / "test-quality.md").read_text()
-        assert "memory: project" in content
+        assert "memory:" not in content
 
     def test_agents_reference_current_tools(self, agents_dir: Path) -> None:
         for agent_file in agents_dir.iterdir():

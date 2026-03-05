@@ -478,6 +478,18 @@ def _generate_dynamic_rules(
     path.write_text(planning_content)
     generated.append(path)
 
+    # Debug rule (always)
+    debug_content = _build_debug_mdc()
+    path = rules_dir / "mirdan-debug.mdc"
+    path.write_text(debug_content)
+    generated.append(path)
+
+    # Agent rule (always)
+    agent_content = _build_agent_mdc()
+    path = rules_dir / "mirdan-agent.mdc"
+    path.write_text(agent_content)
+    generated.append(path)
+
     return generated
 
 
@@ -568,20 +580,94 @@ alwaysApply: true
 
 
 def _build_planning_mdc() -> str:
-    """Build the planning .mdc rule."""
+    """Build the planning .mdc rule — description-based, activates in Plan Mode."""
     return """---
-description: "mirdan planning standards"
-globs: "**/*.md"
+description: "mirdan planning standards — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
+alwaysApply: false
 ---
 
 # mirdan Planning Standards
 
-When creating implementation plans:
-- Every step must reference verified files (Read them first)
+When creating implementation plans, enforce anti-hallucination standards.
+
+## Documentation Lookup
+Use `@Docs [library-name]` to look up current API documentation before writing plan steps.
+Accurate API knowledge prevents phantom method calls in plan steps.
+
+## MCP Entry Point
+Call `mcp__mirdan__enhance_prompt` with the plan description at task start to generate
+quality requirements, detect security sensitivity, and surface tool recommendations.
+
+## Plan Quality Requirements
+- Every step must reference verified files (read them first)
 - Include exact line numbers and function names
-- Specify verification method for each step
 - No vague language ("should", "probably", "maybe")
 - Each step must be atomic (single action)
+- Every step must have a verification method
+
+## Plan Mode Integration
+When working in Cursor Plan Mode, a task list is generated before execution.
+Each task should map to exactly one step. Mermaid diagrams are supported
+for visualizing dependencies between steps.
+"""
+
+
+def _build_debug_mdc() -> str:
+    """Build the debug .mdc rule — description-based, activates in Debug Mode."""
+    return """---
+description: "mirdan quality standards for debugging — activate when investigating bugs, errors, or unexpected behavior in Debug Mode"
+alwaysApply: false
+---
+
+# mirdan Debug Mode Standards
+
+When debugging, mirdan helps prevent fixes that introduce new problems.
+
+## Documentation Lookup
+Use `@Docs [library-name]` to look up correct API behavior before assuming a bug.
+Incorrect assumptions about library behavior are a common source of phantom fixes.
+
+## Debug Workflow
+1. Call `mcp__mirdan__enhance_prompt` with the bug description
+2. Check if a similar issue was previously solved (use project memory/history)
+3. Trace the actual error path through verified code — read files first
+4. Hypothesize root cause, not just symptoms
+5. Apply the minimal fix
+6. Call `mcp__mirdan__validate_code_quality` on the changed files
+
+## Fix Quality Standards
+- Root cause addressed, not just symptoms
+- Fix must not introduce new violations — validate after fixing
+- Regression test considered for the fixed behavior
+- No silent exception swallowing in the fix
+"""
+
+
+def _build_agent_mdc() -> str:
+    """Build the agent .mdc rule — description-based, activates for Background Agents."""
+    return """---
+description: "mirdan quality standards for autonomous agent execution — activate for Background Agents, multi-agent runs, and autonomous task execution"
+alwaysApply: false
+---
+
+# mirdan Agent Mode Standards
+
+Background agents and autonomous task runners must follow stricter quality gates.
+
+## Mandatory Agent Checkpoints
+- Call `mcp__mirdan__enhance_prompt` at task start to establish quality context
+- Validate every file edit with `mcp__mirdan__validate_code_quality` before proceeding
+- Quality score must be >= 0.7 before marking any step complete
+- Security-sensitive files require score >= 0.8 with `check_security=true`
+
+## Multi-Agent Coordination
+- Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
+- Do not duplicate validation work already performed in the session
+
+## Autonomous Completion Gate
+- Before returning results: run validation on all changed files
+- If any file has unresolved errors: fix before surfacing results
+- Include quality summary in task completion report
 """
 
 
@@ -619,6 +705,16 @@ def _generate_static_rules(rules_dir: Path, detected: DetectedProject) -> list[P
     if "mirdan-planning.mdc" in templates:
         path = rules_dir / "mirdan-planning.mdc"
         path.write_text(templates["mirdan-planning.mdc"])
+        generated.append(path)
+
+    if "mirdan-debug.mdc" in templates:
+        path = rules_dir / "mirdan-debug.mdc"
+        path.write_text(templates["mirdan-debug.mdc"])
+        generated.append(path)
+
+    if "mirdan-agent.mdc" in templates:
+        path = rules_dir / "mirdan-agent.mdc"
+        path.write_text(templates["mirdan-agent.mdc"])
         generated.append(path)
 
     return generated
@@ -850,6 +946,203 @@ These patterns are advisory and should be mentioned as comments.
 """
 
 
+# ---------------------------------------------------------------------------
+# Cursor Commands Generation (.cursor/commands/*.md)
+# ---------------------------------------------------------------------------
+
+_COMMAND_CODE = """\
+# /code — Quality-Orchestrated Coding
+
+Execute coding tasks with automatic quality enforcement via mirdan.
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the task to get quality requirements,
+   detected language, and security sensitivity.
+
+2. Use `@Docs [library-name]` to look up current API documentation for any
+   libraries involved in this task.
+
+3. Follow the `quality_requirements` from enhance_prompt as constraints during
+   implementation.
+
+4. After writing code, call `mcp__mirdan__validate_code_quality` on changed files.
+   Set `check_security=true` if `touches_security` was flagged.
+
+5. Fix all errors before marking complete. Note warnings for review.
+"""
+
+_COMMAND_DEBUG = """\
+# /debug — Quality-Aware Debugging
+
+Debug issues with mirdan quality analysis to prevent introducing new problems.
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the bug description to get context.
+
+2. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
+   incorrect assumptions about library APIs.
+
+3. Read relevant code and trace the actual error path before forming hypotheses.
+
+4. Apply the minimal fix targeting the root cause, not just symptoms.
+
+5. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
+   does not introduce new violations.
+"""
+
+_COMMAND_REVIEW = """\
+# /review — Code Review with Quality Standards
+
+Review code against mirdan quality standards.
+
+## Workflow
+
+1. Call `mcp__mirdan__get_quality_standards` for the language/framework to establish
+   review criteria.
+
+2. Read each changed file. Check for:
+   - AI quality rules: AI001 (placeholders), AI002 (hallucinated imports),
+     AI007 (security theater), AI008 (injection vulnerabilities)
+   - Security rules: SEC001-SEC014
+   - Architecture rules: ARCH001-ARCH005
+
+3. Call `mcp__mirdan__validate_code_quality` with `check_security=true` on
+   security-sensitive files.
+
+4. Report findings grouped by severity: errors (must fix), warnings (should fix).
+"""
+
+_COMMAND_PLAN = """\
+# /plan — Quality-Gated Implementation Planning
+
+Create implementation plans with anti-hallucination standards.
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the planning task to detect frameworks
+   and quality requirements.
+
+2. Use `@Docs [library-name]` to look up current API documentation for each
+   library involved — never plan around assumed APIs.
+
+3. Read all files that will be modified before writing plan steps. Cite exact
+   line numbers and function names.
+
+4. Each plan step must include:
+   - Exact file path (verified to exist)
+   - Specific action with details
+   - Verification method
+   - Grounding (which tool confirmed the facts)
+
+5. No vague language: "should", "probably", "maybe" are not allowed in steps.
+"""
+
+_COMMAND_QUALITY = """\
+# /quality — On-Demand Quality Validation
+
+Run mirdan quality validation on demand.
+
+## Workflow
+
+1. Identify files to validate — changed files, staged files, or specific path.
+
+2. Call `mcp__mirdan__validate_code_quality` on each file:
+   - Use `check_security=true` for auth, input handling, database, or API code
+   - Use `severity_threshold="info"` for comprehensive results
+
+3. Call `mcp__mirdan__get_quality_trends` to check session-wide quality trends.
+
+4. Report findings:
+   - Errors (must fix before completing)
+   - Warnings (should fix, note if deferring)
+   - Overall quality score
+"""
+
+_COMMAND_SCAN = """\
+# /scan — Convention Scanner
+
+Scan the codebase for quality violations and convention patterns.
+
+## Workflow
+
+1. Identify files to scan — all source files, or scope by argument (path or language).
+
+2. Call `mcp__mirdan__scan_conventions` to discover patterns and violations.
+
+3. Call `mcp__mirdan__get_quality_standards` for the project language to verify
+   findings against defined rules.
+
+4. Report:
+   - Violations by rule ID and count
+   - New patterns discovered
+   - Conventions that diverge from standards
+
+5. If new high-confidence conventions are discovered, store them for future reference.
+"""
+
+_COMMAND_GATE = """\
+# /gate — Quality Gate
+
+Run the full quality gate before committing or completing a task.
+
+## Workflow
+
+1. Find all changed files: uncommitted changes and staged files.
+
+2. Call `mcp__mirdan__validate_code_quality` on each changed file.
+   Use `check_security=true` for any file touching auth, input, SQL, or APIs.
+
+3. Check that every file passes with quality score >= 0.7.
+   Security-critical files require score >= 0.8.
+
+4. Fix all errors. For warnings, note rule IDs and justification if deferring.
+
+5. Re-validate after fixes to confirm PASS status.
+
+6. Only mark the task complete after all files pass the quality gate.
+"""
+
+_CURSOR_COMMANDS: dict[str, str] = {
+    "code.md": _COMMAND_CODE,
+    "debug.md": _COMMAND_DEBUG,
+    "review.md": _COMMAND_REVIEW,
+    "plan.md": _COMMAND_PLAN,
+    "quality.md": _COMMAND_QUALITY,
+    "scan.md": _COMMAND_SCAN,
+    "gate.md": _COMMAND_GATE,
+}
+
+
+def generate_cursor_commands(cursor_dir: Path) -> list[Path]:
+    """Generate .cursor/commands/*.md files for Cursor slash commands.
+
+    Creates plain Markdown command files (no frontmatter) for each mirdan
+    workflow. These are injected as prompt context when the user types
+    /code, /debug, /review, /plan, /quality, /scan, or /gate in Cursor.
+
+    Existing files are preserved — this function is idempotent per file.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+
+    Returns:
+        List of newly created command file paths (excludes pre-existing files).
+    """
+    commands_dir = cursor_dir / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+
+    created: list[Path] = []
+    for filename, content in _CURSOR_COMMANDS.items():
+        dest = commands_dir / filename
+        if not dest.exists():
+            dest.write_text(content)
+            created.append(dest)
+
+    return created
+
+
 def _load_templates() -> dict[str, str]:
     """Load .mdc templates from the package templates directory."""
     templates: dict[str, str] = {}
@@ -957,12 +1250,18 @@ class CursorAdapter:
         cursor_dir = self.project_dir / ".cursor"
         return generate_cursor_mcp_json(cursor_dir)
 
+    def generate_commands(self) -> list[Path]:
+        """Generate .cursor/commands/*.md files."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_commands(cursor_dir)
+
     def generate_all(self) -> list[Path]:
         """Call all generators, return all created paths."""
         paths: list[Path] = []
         paths.extend(self.generate_hooks())
         paths.extend(self.generate_rules())
         paths.extend(self.generate_agents())
+        paths.extend(self.generate_commands())
         mcp = self.generate_mcp_config()
         if mcp:
             paths.append(mcp)

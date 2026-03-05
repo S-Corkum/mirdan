@@ -1,11 +1,8 @@
 ---
-name: test-auditor
+name: test-quality
 description: "Audit test quality for meaningful coverage and correctness"
 model: haiku
 maxTurns: 8
-background: true
-memory: project
-skills: quality, code
 tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, Read, Glob, Grep
 ---
 

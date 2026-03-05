@@ -45,6 +45,7 @@ class CursorPluginExporter:
         self._write_rules(output_dir, detected)
         self._write_agents(output_dir, detected)
         self._write_hooks(output_dir)
+        self._write_commands(output_dir)
 
         return output_dir
 
@@ -105,3 +106,8 @@ class CursorPluginExporter:
         )
 
         generate_cursor_hooks(output_dir, CursorHookStringency.COMPREHENSIVE)
+
+    def _write_commands(self, output_dir: Path) -> None:
+        from mirdan.integrations.cursor import generate_cursor_commands
+
+        generate_cursor_commands(output_dir)

@@ -1,27 +1,28 @@
 ---
-description: Mirdan planning protocol for implementation plans
-globs:
+description: "mirdan planning standards — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
 alwaysApply: false
 ---
 
-# Planning Protocol (via Mirdan)
+# mirdan Planning Standards
 
-When creating implementation plans, use mirdan to ensure plan quality.
+When creating implementation plans, enforce anti-hallucination standards.
 
-## Before Planning
+## Documentation Lookup
+Use `@Docs [library-name]` to look up current API documentation before writing plan steps.
+Accurate API knowledge prevents phantom method calls in plan steps.
 
-Call `mcp__mirdan__enhance_prompt` with the planning task to get:
-- Detected frameworks (research with context7)
-- Quality requirements (use as constraints)
-- Security implications (plan for validation)
+## MCP Entry Point
+Call `mcp__mirdan__enhance_prompt` with the plan description at task start to generate
+quality requirements, detect security sensitivity, and surface tool recommendations.
 
-## Plan Validation
+## Plan Quality Requirements
+- Every step must reference verified files (read them first)
+- Include exact line numbers and function names
+- No vague language ("should", "probably", "maybe")
+- Each step must be atomic (single action)
+- Every step must have a verification method
 
-After writing the plan, validate with:
-```
-mcp__mirdan__validate_plan_quality(plan, target_model="haiku")
-```
-
-Address all issues flagged by the validator before presenting the plan.
-Plans must be grounded in verified facts — no step should reference files,
-functions, or APIs without tool verification.
+## Plan Mode Integration
+When working in Cursor Plan Mode, a task list is generated before execution.
+Each task should map to exactly one step. Mermaid diagrams are supported
+for visualizing dependencies between steps.

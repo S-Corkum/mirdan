@@ -114,7 +114,7 @@ class TestClaudeCodeOverlay:
     def test_claude_code_mentions_skills(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
         """Claude Code overlay should mention skills."""
         content = generator.generate(detected, platform="claude-code")
-        assert "mirdan:code" in content
+        assert "/code" in content
 
 
 class TestGenerateAndWrite:

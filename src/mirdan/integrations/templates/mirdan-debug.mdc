@@ -1,0 +1,26 @@
+---
+description: "mirdan quality standards for debugging — activate when investigating bugs, errors, or unexpected behavior in Debug Mode"
+alwaysApply: false
+---
+
+# mirdan Debug Mode Standards
+
+When debugging, mirdan helps prevent fixes that introduce new problems.
+
+## Documentation Lookup
+Use `@Docs [library-name]` to look up correct API behavior before assuming a bug.
+Incorrect assumptions about library behavior are a common source of phantom fixes.
+
+## Debug Workflow
+1. Call `mcp__mirdan__enhance_prompt` with the bug description
+2. Check if a similar issue was previously solved (use project memory/history)
+3. Trace the actual error path through verified code — read files first
+4. Hypothesize root cause, not just symptoms
+5. Apply the minimal fix
+6. Call `mcp__mirdan__validate_code_quality` on the changed files
+
+## Fix Quality Standards
+- Root cause addressed, not just symptoms
+- Fix must not introduce new violations — validate after fixing
+- Regression test considered for the fixed behavior
+- No silent exception swallowing in the fix

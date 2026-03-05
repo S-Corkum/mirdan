@@ -221,11 +221,13 @@ These rules apply to all AI agents working in this codebase:
 - `mcp__mirdan__get_quality_standards`: Language/framework standards
 
 ### Skills & Agents
-- `/mirdan:code`: Quality-guided code generation
-- `/mirdan:debug`: Quality-aware debugging
-- `/mirdan:review`: Code review with quality standards
-- `/mirdan:plan`: Quality-gated implementation planning
-- `/mirdan:quality`: On-demand quality validation and trends
+- `/code`: Quality-guided code generation
+- `/debug`: Quality-aware debugging
+- `/review`: Code review with quality standards
+- `/plan`: Quality-gated implementation planning
+- `/quality`: On-demand quality validation and trends
+- `/scan`: Convention scanning and codebase analysis
+- `/gate`: Quality gate check before commits or task completion
 """
 
 

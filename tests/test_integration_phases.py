@@ -139,15 +139,17 @@ class TestSpecializedAgents:
         paths = generate_agents(tmp_path, detected)
         assert len(paths) == 5
 
-    def test_most_agents_have_memory_project(
+    def test_agents_have_no_unsupported_attrs(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         from mirdan.integrations.claude_code import generate_agents
 
         paths = generate_agents(tmp_path, detected)
-        agents_with_memory = sum(1 for p in paths if "memory: project" in p.read_text())
-        # Most agents have memory: project (quality-gate, security-audit, test-quality)
-        assert agents_with_memory >= 3
+        unsupported = ("background:", "memory:", "skills:", "isolation:", "mcpServers:")
+        for path in paths:
+            content = path.read_text()
+            for attr in unsupported:
+                assert attr not in content, f"{path.name} contains unsupported attr: {attr}"
 
     def test_security_audit_uses_haiku(self, tmp_path: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.claude_code import generate_agents
@@ -331,27 +333,7 @@ class TestDynamicCursorRules:
 
 
 class TestGithubCIIntegration:
-    """Tests for GitHub Action and pre-commit (Steps 23-24)."""
-
-    def test_github_action_generated(self, tmp_path: Path) -> None:
-        from mirdan.integrations.github_ci import generate_github_action
-
-        path = generate_github_action(tmp_path)
-        assert path is not None
-        assert path.exists()
-        assert path.name == "mirdan.yml"
-        content = path.read_text()
-        assert "mirdan" in content
-
-    def test_github_action_not_overwritten(self, tmp_path: Path) -> None:
-        from mirdan.integrations.github_ci import generate_github_action
-
-        # Create first
-        path = generate_github_action(tmp_path)
-        assert path is not None
-        # Second call should return None (don't overwrite)
-        result = generate_github_action(tmp_path)
-        assert result is None
+    """Tests for pre-commit config generation."""
 
     def test_precommit_config_generated(self, tmp_path: Path) -> None:
         from mirdan.integrations.github_ci import generate_precommit_config
@@ -463,50 +445,37 @@ class TestFrameworkVersionAwareness:
 # ---------------------------------------------------------------------------
 
 
-class TestInitCIWiring:
-    """Tests for CI/CD integration in init flow."""
+class TestInitPrecommitWiring:
+    """Tests for pre-commit integration in init flow."""
 
-    def test_setup_ci_generates_github_action(self, tmp_path: Path) -> None:
+    def test_setup_precommit_generates_config(self, tmp_path: Path) -> None:
         from mirdan.cli.detect import DetectedProject
-        from mirdan.cli.init_command import _setup_ci
+        from mirdan.cli.init_command import _setup_precommit
 
         detected = DetectedProject(project_type="python")
-        # Create .git dir to trigger GitHub Action generation
-        (tmp_path / ".git").mkdir()
-
-        _setup_ci(tmp_path, detected)
-        workflow = tmp_path / ".github" / "workflows" / "mirdan.yml"
-        assert workflow.exists()
-
-    def test_setup_ci_generates_precommit(self, tmp_path: Path) -> None:
-        from mirdan.cli.detect import DetectedProject
-        from mirdan.cli.init_command import _setup_ci
-
-        detected = DetectedProject(project_type="python")
-
-        _setup_ci(tmp_path, detected)
+        _setup_precommit(tmp_path, detected)
         precommit = tmp_path / ".pre-commit-config.yaml"
         assert precommit.exists()
 
-    def test_setup_ci_idempotent(self, tmp_path: Path) -> None:
-        """Running CI setup twice should not fail."""
+    def test_setup_precommit_idempotent(self, tmp_path: Path) -> None:
+        """Running pre-commit setup twice should not fail."""
         from mirdan.cli.detect import DetectedProject
-        from mirdan.cli.init_command import _setup_ci
+        from mirdan.cli.init_command import _setup_precommit
+
+        detected = DetectedProject(project_type="python")
+        _setup_precommit(tmp_path, detected)
+        # Second call — should not overwrite
+        _setup_precommit(tmp_path, detected)
+        assert (tmp_path / ".pre-commit-config.yaml").exists()
+
+    def test_no_github_action_created(self, tmp_path: Path) -> None:
+        """mirdan init must not create GitHub Actions workflows."""
+        from mirdan.cli.detect import DetectedProject
+        from mirdan.cli.init_command import _setup_precommit
 
         detected = DetectedProject(project_type="python")
         (tmp_path / ".git").mkdir()
-        _setup_ci(tmp_path, detected)
-        # Second call — github action should not be overwritten
-        _setup_ci(tmp_path, detected)
-        assert (tmp_path / ".github" / "workflows" / "mirdan.yml").exists()
-
-    def test_setup_ci_no_git_dir_skips_github_action(self, tmp_path: Path) -> None:
-        from mirdan.cli.detect import DetectedProject
-        from mirdan.cli.init_command import _setup_ci
-
-        detected = DetectedProject(project_type="python")
-        # No .git dir
-        _setup_ci(tmp_path, detected)
+        _setup_precommit(tmp_path, detected)
         workflow = tmp_path / ".github" / "workflows" / "mirdan.yml"
         assert not workflow.exists()
 

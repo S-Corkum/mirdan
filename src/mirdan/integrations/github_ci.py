@@ -1,34 +1,15 @@
-"""Generate GitHub CI/CD integration files for mirdan."""
+"""Generate CI/CD integration files for mirdan.
+
+GitHub Action workflow creation was intentionally removed — mirdan is an
+AI coding quality tool, not a CI system. Use pre-commit for local enforcement
+and integrate mirdan's MCP server directly in your AI coding workflows.
+"""
 
 from __future__ import annotations
 
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
-
-
-def generate_github_action(project_dir: Path) -> Path | None:
-    """Generate .github/workflows/mirdan.yml from template.
-
-    Args:
-        project_dir: The project root directory.
-
-    Returns:
-        Path to the generated workflow file, or None if template not found.
-    """
-    workflows_dir = project_dir / ".github" / "workflows"
-    workflows_dir.mkdir(parents=True, exist_ok=True)
-
-    dest = workflows_dir / "mirdan.yml"
-    if dest.exists():
-        return None  # Don't overwrite existing workflows
-
-    content = _load_action_template()
-    if content is None:
-        return None
-
-    dest.write_text(content)
-    return dest
 
 
 def generate_precommit_config(project_dir: Path) -> Path | None:
@@ -50,16 +31,6 @@ def generate_precommit_config(project_dir: Path) -> Path | None:
 
     dest.write_text(content)
     return dest
-
-
-def _load_action_template() -> str | None:
-    """Load the GitHub Action template."""
-    try:
-        templates_pkg = files("mirdan.integrations.templates")
-        template = templates_pkg / "github-action.yml"
-        return template.read_text()
-    except (ModuleNotFoundError, FileNotFoundError, TypeError):
-        return None
 
 
 def generate_sarif_workflow(project_dir: Path) -> Path | None:

@@ -35,14 +35,14 @@ def detected() -> DetectedProject:
 class TestGenerateSkills:
     """Tests for skill file generation."""
 
-    def test_creates_five_skills(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_creates_seven_skills(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
-        assert len(paths) == 5
+        assert len(paths) == 7
 
     def test_skill_names(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
         names = {p.parent.name for p in paths}
-        assert names == {"code", "debug", "review", "plan", "quality"}
+        assert names == {"code", "debug", "review", "plan", "quality", "scan", "gate"}
 
     def test_skills_are_valid_markdown(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
@@ -106,11 +106,15 @@ class TestGenerateAgents:
             assert "name:" in content, f"{path.name} missing name"
             assert "model:" in content, f"{path.name} missing model"
 
-    def test_most_agents_have_memory_field(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_no_agents_have_unsupported_fields(self, tmp_path: Path, detected: DetectedProject) -> None:
+        """memory:, background:, skills:, isolation:, mcpServers: are not valid Claude Code agent fields."""
         paths = generate_agents(tmp_path, detected)
-        agents_with_memory = sum(1 for p in paths if "memory: project" in p.read_text())
-        # Most agents have memory: project (quality-gate, security-audit, test-quality)
-        assert agents_with_memory >= 3
+        for path in paths:
+            content = path.read_text()
+            assert "memory:" not in content, f"{path.name} has unsupported memory: field"
+            assert "background:" not in content, f"{path.name} has unsupported background: field"
+            assert "isolation:" not in content, f"{path.name} has unsupported isolation: field"
+            assert "mcpServers:" not in content, f"{path.name} has unsupported mcpServers: field"
 
     def test_quality_gate_references_mirdan_tools(
         self, tmp_path: Path, detected: DetectedProject

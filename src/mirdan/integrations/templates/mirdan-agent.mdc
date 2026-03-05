@@ -1,0 +1,23 @@
+---
+description: "mirdan quality standards for autonomous agent execution — activate for Background Agents, multi-agent runs, and autonomous task execution"
+alwaysApply: false
+---
+
+# mirdan Agent Mode Standards
+
+Background agents and autonomous task runners must follow stricter quality gates.
+
+## Mandatory Agent Checkpoints
+- Call `mcp__mirdan__enhance_prompt` at task start to establish quality context
+- Validate every file edit with `mcp__mirdan__validate_code_quality` before proceeding
+- Quality score must be >= 0.7 before marking any step complete
+- Security-sensitive files require score >= 0.8 with `check_security=true`
+
+## Multi-Agent Coordination
+- Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
+- Do not duplicate validation work already performed in the session
+
+## Autonomous Completion Gate
+- Before returning results: run validation on all changed files
+- If any file has unresolved errors: fix before surfacing results
+- Include quality summary in task completion report

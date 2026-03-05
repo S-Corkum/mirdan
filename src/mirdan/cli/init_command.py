@@ -125,8 +125,8 @@ def run_init(args: list[str]) -> None:
     # Step 5: Generate root AGENTS.md (cross-platform standard)
     _setup_agents_md(directory, detected, platform)
 
-    # Step 6: CI/CD integration files
-    _setup_ci(directory, detected)
+    # Step 6: pre-commit configuration
+    _setup_precommit(directory, detected)
 
     # Step 7: Hook installation (auto-install for explicit platform profiles)
     if install_hooks or force_cursor or force_claude_code:
@@ -326,6 +326,7 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.cursor import (
         generate_cursor_agents,
+        generate_cursor_commands,
         generate_cursor_hooks,
         generate_cursor_mcp_json,
         generate_cursor_rules,
@@ -354,6 +355,11 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     # Generate AGENTS.md and BUGBOT.md
     agent_paths = generate_cursor_agents(cursor_dir, detected, standards=standards)
     for path in agent_paths:
+        print(f"  Created {path}")
+
+    # Generate .cursor/commands/*.md
+    command_paths = generate_cursor_commands(cursor_dir)
+    for path in command_paths:
         print(f"  Created {path}")
 
     # Generate .cursor/mcp.json
@@ -399,7 +405,7 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
     print("  Claude Code configured! mirdan will validate edits automatically.")
     print("  Workflow rule installed — no CLAUDE.md mirdan instructions needed.")
     if skill_paths:
-        print("  Skills installed: /mirdan:code, /mirdan:debug, /mirdan:review")
+        print("  Skills installed: /code, /debug, /review, /plan, /quality, /scan, /gate")
 
 
 def _setup_agents_md(
@@ -468,18 +474,10 @@ def _run_upgrade(directory: Path) -> None:
     print("  - AGENTS.md updated")
 
 
-def _setup_ci(directory: Path, detected: DetectedProject) -> None:
-    """Generate CI/CD integration files (GitHub Action, pre-commit config)."""
-    from mirdan.integrations.github_ci import generate_github_action, generate_precommit_config
+def _setup_precommit(directory: Path, detected: DetectedProject) -> None:
+    """Generate pre-commit configuration."""
+    from mirdan.integrations.github_ci import generate_precommit_config
 
-    # GitHub Action workflow
-    git_dir = directory / ".git"
-    if git_dir.is_dir():
-        action_path = generate_github_action(directory)
-        if action_path:
-            print(f"  Created {action_path}")
-
-    # pre-commit config
     precommit_path = generate_precommit_config(directory)
     if precommit_path:
         print(f"  Created {precommit_path}")
