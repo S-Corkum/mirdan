@@ -7,7 +7,7 @@ AI Code Quality Orchestrator — prevent AI slop before it reaches your codebase
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```bash
-pip install mirdan
+uv tool install mirdan
 mirdan init --claude-code   # or --cursor, or --all
 # Done. Quality enforcement is now automatic.
 ```
@@ -61,8 +61,14 @@ The AI gets structured guidance instead of a bare prompt, producing better code 
 ### Install
 
 ```bash
-pip install mirdan       # or: uv pip install mirdan --system
+uv tool install mirdan
 ```
+
+> **Homebrew Python users:** If you installed Python via Homebrew, you may need the `--break-system-packages` flag when using `uv pip install` instead:
+> ```bash
+> uv pip install mirdan --system --break-system-packages
+> ```
+> Using `uv tool install` (recommended above) avoids this issue entirely since it installs into an isolated environment.
 
 ### Set Up Your IDE
 
