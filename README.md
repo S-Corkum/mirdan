@@ -21,7 +21,7 @@ AI coding assistants generate code fast, but without guardrails they produce **s
 Mirdan fixes this by intercepting your AI workflow at two points:
 
 1. **Before coding** — `enhance_prompt` enriches your task with quality requirements, security constraints, and framework-specific standards so the AI produces better code from the start
-2. **After coding** — `validate_code_quality` catches what slipped through: 62 rules covering security vulnerabilities, AI-specific antipatterns, and language best practices
+2. **After coding** — `validate_code_quality` catches what slipped through: 64 rules covering security vulnerabilities, AI-specific antipatterns, and language best practices
 
 Once installed, it runs invisibly through IDE hooks. You just code normally.
 
@@ -61,7 +61,8 @@ The AI gets structured guidance instead of a bare prompt, producing better code 
 ### Install
 
 ```bash
-uv tool install mirdan
+uv tool install mirdan           # Core
+uv tool install 'mirdan[ast]'   # + tree-sitter for TS/JS AST analysis
 ```
 
 > **Homebrew Python users:** If you installed Python via Homebrew, you may need the `--break-system-packages` flag when using `uv pip install` instead:
@@ -118,7 +119,7 @@ Mirdan is an [MCP server](https://modelcontextprotocol.io/) — it connects to A
 │  Mirdan MCP Server                               │
 │                                                  │
 │  enhance_prompt         → Quality requirements   │
-│  validate_code_quality  → 62 rules, scoring      │
+│  validate_code_quality  → 64 rules, scoring      │
 │  validate_quick         → Fast security checks   │
 │  get_quality_standards  → Language/framework ref  │
 │  get_quality_trends     → Historical analysis    │
@@ -131,7 +132,7 @@ Mirdan is an [MCP server](https://modelcontextprotocol.io/) — it connects to A
 
 ## Validation Rules
 
-Mirdan ships with **62 rules** across 10 categories. No external services required — all rules run locally.
+Mirdan ships with **64 rules** across 10 categories. No external services required — all rules run locally.
 
 ### AI Quality (AI001–AI008)
 
@@ -164,14 +165,16 @@ Rules that catch patterns unique to AI-generated code:
 
 | Language | Rules | Key Checks |
 |----------|-------|------------|
-| Python | PY001–PY013 | eval/exec, bare except, mutable defaults, deprecated typing, unsafe pickle/yaml, subprocess shell |
+| Python | PY001–PY015 | eval/exec, bare except, mutable defaults, deprecated typing, unsafe pickle/yaml, subprocess shell, dead imports, unreachable code |
 | JavaScript | JS001–JS005 | `var`, eval, document.write, innerHTML, child_process.exec |
 | TypeScript | TS001–TS005 | eval, Function constructor, @ts-ignore, `as any`, innerHTML |
 | Go | GO001–GO003 | Ignored errors, panic(), SQL via fmt.Sprintf |
 | Java | JV001–JV007 | String ==, generic Exception, System.exit, Runtime.exec, unsafe deserialization |
 | Rust | RS001–RS002 | .unwrap(), empty .expect() |
 
-Plus **ARCH001–003** (function length, file length, nesting depth), **RAG001–002** (chunk overlap, deprecated loaders).
+Plus **ARCH001–003** / **TSARCH001–004** (function length, file length, nesting depth, missing return types), **RAG001–002** (chunk overlap, deprecated loaders).
+
+Python rules PY001–PY004 use **AST-based validation** — eliminating false positives from strings and comments. When `mirdan[ast]` is installed, TypeScript/JavaScript architecture checks use **tree-sitter** for accurate function length, nesting depth, and return type analysis.
 
 **32 rules** support automatic fixes via `mirdan fix`.
 
@@ -366,6 +369,12 @@ thresholds:
   severity_warning_weight: 0.08
   arch_max_function_length: 30
   arch_max_file_length: 300
+  # Per-file threshold overrides (glob patterns)
+  file_overrides:
+    - pattern: "tests/**"
+      arch_max_function_length: 60
+    - pattern: "scripts/**"
+      arch_max_file_length: 500
 
 # Hook behavior
 hooks:
@@ -379,6 +388,41 @@ See the full configuration reference in [docs/configuration.md](docs/configurati
 ---
 
 ## Advanced Features
+
+### AST-Based Validation
+
+Python rules PY001–PY004 are verified via the `ast` module, eliminating false positives from eval/exec in strings, bare except in comments, etc. Two additional AST rules ship in 1.4.0:
+
+- **PY014** (dead-import) — detects unused imports, respecting `TYPE_CHECKING` blocks, `__all__`, and aliased imports
+- **PY015** (unreachable-code) — detects code after `return`/`raise`/`break`/`continue`, skipping `finally` blocks
+
+For TypeScript/JavaScript, install the optional `ast` extra to enable tree-sitter parsing:
+
+```bash
+uv tool install 'mirdan[ast]'
+```
+
+This gives accurate function length, nesting depth, and missing return type detection instead of regex approximation. Falls back gracefully to regex when tree-sitter is not installed.
+
+### Full-File Diff Validation
+
+When validating diffs (via hooks or `validate_code_quality` with `input_type="diff"`), mirdan reads the full file from disk when available. This enables architecture checks (function length, nesting depth) that require full-file context. Violations are filtered to changed lines only, and file-scope rules (file-too-long) are excluded from diff results.
+
+### Adaptive File-Path Thresholds
+
+Override thresholds for specific file patterns using `file_overrides` in your config:
+
+```yaml
+thresholds:
+  arch_max_function_length: 30
+  file_overrides:
+    - pattern: "tests/**"
+      arch_max_function_length: 60    # Tests can be longer
+    - pattern: "migrations/**"
+      arch_max_file_length: 1000      # Migration files are naturally long
+```
+
+Patterns use glob syntax and are matched against file paths. Overrides only replace the fields they specify — all other thresholds inherit from the base config.
 
 ### Convention Discovery
 
@@ -586,9 +630,9 @@ Discover implicit codebase conventions and generate custom rules.
 ```bash
 git clone https://github.com/S-Corkum/mirdan.git
 cd mirdan
-uv sync --all-extras
-uv run pytest               # 2034 tests
-uv run mirdan               # Run server locally
+uv sync --all-extras         # Includes tree-sitter for TS/JS AST
+uv run pytest                # 2132 tests
+uv run mirdan                # Run server locally
 ```
 
 ---
