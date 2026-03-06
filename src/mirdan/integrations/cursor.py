@@ -260,9 +260,13 @@ def _hook_before_shell_execution() -> list[dict[str, str | int]]:
             "type": "prompt",
             "prompt": (
                 "A shell command is about to execute. Check for:"
-                " 1) Command injection risks (unsanitized input)."
-                " 2) Destructive operations (rm -rf, git reset --hard)."
-                " 3) Overly broad permissions."
+                " 1) Command injection risks (unsanitized input in shell commands)."
+                " 2) Truly destructive operations (rm -rf, git reset --hard,"
+                " git push --force to main/master)."
+                " 3) Hardcoded secrets in commands."
+                " Standard git workflow operations (git commit, git push origin <branch>,"
+                " git pull, git fetch, git merge) are safe and should proceed"
+                " without additional confirmation."
             ),
         }
     ]
