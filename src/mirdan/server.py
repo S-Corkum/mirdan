@@ -5,7 +5,6 @@ import contextlib
 import json
 import logging
 import os
-import yaml
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
+import yaml
 from fastmcp import FastMCP
 
 from mirdan.config import MirdanConfig
@@ -46,6 +46,7 @@ from mirdan.models import (
     ModelTier,
     SessionContext,
     TaskType,
+    ValidationResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -504,6 +505,11 @@ async def validate_code_quality(
         session_id, language=language, check_security=check_security
     )
 
+    # Resolve per-file threshold overrides
+    resolved_thresholds = None
+    if file_path and c.config.thresholds.file_overrides:
+        resolved_thresholds = c.config.thresholds.resolve_for_file(file_path)
+
     _t0 = perf_counter()
     result = c.code_validator.validate(
         code=code,
@@ -511,6 +517,7 @@ async def validate_code_quality(
         check_security=resolved_security,
         check_architecture=check_architecture,
         check_style=check_style,
+        thresholds=resolved_thresholds,
     )
     _t_validate = perf_counter() - _t0
 
@@ -685,13 +692,100 @@ async def _handle_diff(
         session_id, language=language, check_security=check_security
     )
 
-    result = c.code_validator.validate(
-        code=added_code,
-        language=resolved_language,
-        check_security=resolved_security,
-        check_architecture=False,  # Architecture checks need full file context
-        check_style=True,
-    )
+    # Attempt full-file validation when files are resolvable on disk.
+    # Full files enable architecture checks and reduce false positives.
+    project_dir = Path.cwd()
+    file_scope_rules = {"ARCH002", "TSARCH002"}
+    full_file_violations: list[Any] = []
+    fallback_files: list[str] = []
+
+    for diff_file in parsed.files_changed:
+        full_path = project_dir / diff_file
+        if full_path.exists():
+            try:
+                file_code = full_path.read_text(encoding="utf-8")
+                changed_lines = set(parsed.get_changed_line_numbers(diff_file))
+                file_result = c.code_validator.validate(
+                    code=file_code,
+                    language=resolved_language,
+                    check_security=resolved_security,
+                    check_architecture=True,
+                    check_style=True,
+                )
+                # Filter to changed lines only, excluding file-scope rules
+                for v in file_result.violations:
+                    if v.id in file_scope_rules:
+                        continue
+                    if v.line is not None and v.line in changed_lines:
+                        full_file_violations.append(v)
+            except (OSError, UnicodeDecodeError):
+                fallback_files.append(diff_file)
+        else:
+            fallback_files.append(diff_file)
+
+    # For files not found on disk, fall back to added-lines-only validation
+    fallback_result = None
+    if fallback_files:
+        # Filter added_code to only include lines from fallback files
+        fallback_code_parts: list[str] = []
+        fallback_line_mapping: dict[int, tuple[str, int]] = {}
+        current_line = 1
+        for extracted_line, (fpath, orig_line) in line_mapping.items():
+            if fpath in fallback_files:
+                # Get the line content from added_code
+                added_lines = added_code.split("\n")
+                if extracted_line <= len(added_lines):
+                    fallback_code_parts.append(added_lines[extracted_line - 1])
+                    fallback_line_mapping[current_line] = (fpath, orig_line)
+                    current_line += 1
+
+        if fallback_code_parts:
+            fallback_code = "\n".join(fallback_code_parts)
+            fallback_result = c.code_validator.validate(
+                code=fallback_code,
+                language=resolved_language,
+                check_security=resolved_security,
+                check_architecture=False,
+                check_style=True,
+            )
+    elif not full_file_violations and not fallback_files:
+        # All files found on disk but no violations on changed lines
+        pass
+
+    # If no files were on disk at all, use original added-lines-only approach
+    if not parsed.files_changed or (
+        not full_file_violations
+        and fallback_result is None
+        and fallback_files == list(parsed.files_changed)
+    ):
+        result = c.code_validator.validate(
+            code=added_code,
+            language=resolved_language,
+            check_security=resolved_security,
+            check_architecture=False,
+            check_style=True,
+        )
+    else:
+        # Merge full-file violations with fallback violations
+        all_violations = list(full_file_violations)
+        if fallback_result:
+            all_violations.extend(fallback_result.violations)
+
+        passed = not any(v.severity == "error" for v in all_violations)
+        # Use the first full-file result's language detection, or fallback
+        lang = resolved_language
+        score = 1.0
+        if all_violations:
+            score = c.code_validator._calculate_score(all_violations)
+
+        result = ValidationResult(
+            passed=passed,
+            score=score,
+            language_detected=lang,
+            violations=all_violations,
+            standards_checked=["full_file_diff"],
+            limitations=[],
+        )
 
     # Persist snapshot for quality trends
     try:
@@ -703,13 +797,13 @@ async def _handle_diff(
     output["files_changed"] = parsed.files_changed
     output["lines_added"] = sum(len(h.added_lines) for h in parsed.hunks)
 
-    # Remap violation line numbers to original file locations
-    if "violations" in output and line_mapping:
+    # Remap violation line numbers to original file locations for fallback violations
+    if "violations" in output and fallback_result and not full_file_violations:
         for violation in output["violations"]:
             extracted_line = violation.get("line")
             if extracted_line and extracted_line in line_mapping:
-                file_path, original_line = line_mapping[extracted_line]
-                violation["file"] = file_path
+                file_path_str, original_line = line_mapping[extracted_line]
+                violation["file"] = file_path_str
                 violation["original_line"] = original_line
                 violation["line"] = original_line
 

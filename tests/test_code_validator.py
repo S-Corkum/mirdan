@@ -1212,10 +1212,16 @@ class TestArchitectureAST:
         assert any("not available" in lim.lower() for lim in result.limitations)
 
     def test_javascript_gets_ts_js_limitation(self, validator: CodeValidator) -> None:
-        """JavaScript should get TS/JS regex heuristics limitation."""
+        """JavaScript should get TS/JS regex heuristics limitation when tree-sitter not available."""
+        from mirdan.core.ts_ast_validator import _HAS_TREE_SITTER
+
         code = "const x = 1;"
         result = validator.validate(code, language="javascript")
-        assert any("regex" in lim.lower() for lim in result.limitations)
+        if _HAS_TREE_SITTER:
+            # Tree-sitter path has no limitations
+            assert not any("regex" in lim.lower() for lim in result.limitations)
+        else:
+            assert any("regex" in lim.lower() for lim in result.limitations)
 
     def test_custom_thresholds_override_defaults(self) -> None:
         """Custom ThresholdsConfig should override default values."""

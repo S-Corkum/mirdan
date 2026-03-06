@@ -961,6 +961,7 @@ class CodeValidator:
         check_security: bool = True,
         check_architecture: bool = True,
         check_style: bool = True,
+        thresholds: ThresholdsConfig | None = None,
     ) -> ValidationResult:
         """
         Validate code against quality standards.
@@ -971,12 +972,15 @@ class CodeValidator:
             check_security: Whether to check security rules
             check_architecture: Whether to check architecture rules (reserved for future)
             check_style: Whether to check language-specific style rules
+            thresholds: Optional per-call threshold overrides (affects architecture
+                checks and score calculation only, not language detection).
 
         Returns:
             ValidationResult with violations and score
         """
         limitations: list[str] = []
         standards_checked: list[str] = []
+        effective_thresholds = thresholds or self._thresholds
 
         # Handle empty code
         if not code or not code.strip():
@@ -1043,7 +1047,9 @@ class CodeValidator:
         # Architecture checks (AST-based for Python, regex for TS/JS)
         if check_architecture:
             standards_checked.append("architecture")
-            arch_violations, arch_limitations = self._check_architecture_ast(code, detected_lang)
+            arch_violations, arch_limitations = self._check_architecture_ast(
+                code, detected_lang, thresholds=effective_thresholds
+            )
             violations.extend(arch_violations)
             limitations.extend(arch_limitations)
 
@@ -1060,9 +1066,32 @@ class CodeValidator:
             standards_checked.append("ai_quality")
             violations.extend(ai_violations)
 
+        # AST-enhanced Python validation (PY014, PY015, and AST-verified PY001/PY002/PY003/PY004)
+        if detected_lang == "python":
+            try:
+                from mirdan.core.python_ast_validator import validate_python_ast
+
+                # Collect AI002 flagged lines so PY014 can skip them
+                ai002_lines = {v.line for v in violations if v.id == "AI002"}
+
+                ast_violations, ast_checked_ids, ast_parsed = validate_python_ast(
+                    code, skip_lines=ai002_lines
+                )
+                if ast_parsed:
+                    # Remove regex violations for rules AST also checked (AST is more accurate)
+                    if ast_checked_ids:
+                        violations = [
+                            v for v in violations if v.id not in ast_checked_ids
+                        ]
+                    violations.extend(ast_violations)
+                    if ast_violations or ast_checked_ids:
+                        standards_checked.append("python_ast")
+            except Exception:
+                logger.debug("Python AST validation failed", exc_info=True)
+
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
-        score = self._calculate_score(violations)
+        score = self._calculate_score(violations, thresholds=effective_thresholds)
 
         return ValidationResult(
             passed=passed,
@@ -1159,7 +1188,10 @@ class CodeValidator:
         return check_framework_rules(code, detected_lang)
 
     def _check_architecture_ast(
-        self, code: str, detected_lang: str
+        self,
+        code: str,
+        detected_lang: str,
+        thresholds: ThresholdsConfig | None = None,
     ) -> tuple[list[Violation], list[str]]:
         """Run AST-based architecture checks.
 
@@ -1169,18 +1201,21 @@ class CodeValidator:
         Args:
             code: The code to validate
             detected_lang: Detected programming language
+            thresholds: Optional per-call threshold overrides.
 
         Returns:
             Tuple of (violations, limitations)
         """
+        effective = thresholds or self._thresholds
+
         if detected_lang in ("typescript", "javascript"):
             from mirdan.core.ts_ast_validator import TSValidationConfig, validate_ts_architecture
 
             ts_config = TSValidationConfig()
-            if self._thresholds:
-                ts_config.max_function_length = self._thresholds.arch_max_function_length
-                ts_config.max_file_length = self._thresholds.arch_max_file_length
-                ts_config.max_nesting_depth = self._thresholds.arch_max_nesting_depth
+            if effective:
+                ts_config.max_function_length = effective.arch_max_function_length
+                ts_config.max_file_length = effective.arch_max_file_length
+                ts_config.max_nesting_depth = effective.arch_max_nesting_depth
             return validate_ts_architecture(code, detected_lang, ts_config)
 
         if detected_lang != "python":
@@ -1194,11 +1229,11 @@ class CodeValidator:
         violations: list[Violation] = []
 
         # Get thresholds from config or use defaults
-        if self._thresholds:
-            max_func_length = self._thresholds.arch_max_function_length
-            max_file_length = self._thresholds.arch_max_file_length
-            max_nesting = self._thresholds.arch_max_nesting_depth
-            max_class_methods = self._thresholds.arch_max_class_methods
+        if effective:
+            max_func_length = effective.arch_max_function_length
+            max_file_length = effective.arch_max_file_length
+            max_nesting = effective.arch_max_nesting_depth
+            max_class_methods = effective.arch_max_class_methods
         else:
             max_func_length = 30
             max_file_length = 300
@@ -1419,17 +1454,22 @@ class CodeValidator:
 
         return violations
 
-    def _calculate_score(self, violations: list[Violation]) -> float:
+    def _calculate_score(
+        self,
+        violations: list[Violation],
+        thresholds: ThresholdsConfig | None = None,
+    ) -> float:
         """Calculate quality score from 0.0 to 1.0."""
         if not violations:
             return 1.0
 
         # Get weights from thresholds or use defaults
-        if self._thresholds:
+        effective = thresholds or self._thresholds
+        if effective:
             weights = {
-                "error": self._thresholds.severity_error_weight,
-                "warning": self._thresholds.severity_warning_weight,
-                "info": self._thresholds.severity_info_weight,
+                "error": effective.severity_error_weight,
+                "warning": effective.severity_warning_weight,
+                "info": effective.severity_info_weight,
             }
         else:
             weights = {"error": 0.25, "warning": 0.08, "info": 0.02}

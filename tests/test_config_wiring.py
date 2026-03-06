@@ -453,6 +453,30 @@ class TestNewConfigFields:
         assert config.quality.language == "moderate"
         assert config.project.github_owner == ""
 
+    def test_thresholds_file_overrides_default(self) -> None:
+        """Default ThresholdsConfig has empty file_overrides."""
+        t = ThresholdsConfig()
+        assert t.file_overrides == []
+
+    def test_thresholds_file_overrides_creation(self) -> None:
+        """ThresholdsConfig should accept file_overrides."""
+        from mirdan.config import FileThresholdOverride
+
+        t = ThresholdsConfig(
+            file_overrides=[
+                FileThresholdOverride(pattern="tests/**", arch_max_function_length=50),
+            ]
+        )
+        assert len(t.file_overrides) == 1
+        assert t.file_overrides[0].pattern == "tests/**"
+        assert t.file_overrides[0].arch_max_function_length == 50
+
+    def test_thresholds_backward_compatible(self) -> None:
+        """Existing configs without file_overrides still load correctly."""
+        t = ThresholdsConfig(arch_max_function_length=40)
+        assert t.arch_max_function_length == 40
+        assert t.file_overrides == []
+
 
 class TestQualityStandardsLanguageConfig:
     """Tests for language stringency affecting language principles count."""

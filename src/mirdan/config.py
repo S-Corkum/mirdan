@@ -136,6 +136,28 @@ class TokenConfig(BaseModel):
     )
 
 
+class FileThresholdOverride(BaseModel):
+    """Threshold overrides for files matching a glob pattern.
+
+    Uses fnmatch semantics: ``*`` matches everything (including ``/``),
+    ``?`` matches single char, ``[seq]`` matches chars in seq.
+
+    Examples:
+        - ``tests/**`` — all test files
+        - ``**/auth/**`` — auth directories at any depth
+        - ``src/generated/*`` — generated files in src/generated/
+    """
+
+    pattern: str = Field(description="Glob pattern for file path matching")
+    severity_error_weight: float | None = None
+    severity_warning_weight: float | None = None
+    severity_info_weight: float | None = None
+    arch_max_function_length: int | None = None
+    arch_max_file_length: int | None = None
+    arch_max_nesting_depth: int | None = None
+    arch_max_class_methods: int | None = None
+
+
 class ThresholdsConfig(BaseModel):
     """Centralized threshold values for various components.
 
@@ -180,6 +202,38 @@ class ThresholdsConfig(BaseModel):
     arch_max_file_length: int = Field(default=300, description="Max non-empty lines per file")
     arch_max_nesting_depth: int = Field(default=4, description="Max nesting depth")
     arch_max_class_methods: int = Field(default=10, description="Max methods per class")
+
+    # Per-file threshold overrides (first matching pattern wins)
+    file_overrides: list[FileThresholdOverride] = Field(
+        default_factory=list,
+        description="Per-file threshold overrides. First matching pattern wins.",
+    )
+
+    def resolve_for_file(self, file_path: str) -> "ThresholdsConfig":
+        """Return a copy with the first matching file override applied.
+
+        Uses fnmatch.fnmatch() for pattern matching. First match wins.
+        Returns self if no overrides or no match.
+
+        Args:
+            file_path: Relative file path to match against patterns.
+
+        Returns:
+            ThresholdsConfig with override values applied (or self if no match).
+        """
+        import fnmatch
+
+        for override in self.file_overrides:
+            if fnmatch.fnmatch(file_path, override.pattern):
+                overrides = {
+                    k: v
+                    for k, v in override.model_dump().items()
+                    if k != "pattern" and v is not None
+                }
+                if overrides:
+                    return self.model_copy(update=overrides)
+                return self
+        return self
 
 
 class PlatformProfile(BaseModel):

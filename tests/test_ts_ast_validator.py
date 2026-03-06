@@ -1,5 +1,7 @@
 """Tests for the TypeScript/JavaScript architecture validator."""
 
+import pytest
+
 from mirdan.core.ts_ast_validator import (
     TSValidationConfig,
     validate_ts_architecture,
@@ -157,11 +159,17 @@ class TestLimitations:
     """Tests for limitation messages."""
 
     def test_includes_limitation_message(self) -> None:
-        """Should include regex heuristics limitation."""
+        """When tree-sitter is not available, should include regex limitation."""
+        from mirdan.core.ts_ast_validator import _HAS_TREE_SITTER
+
         code = "const x = 1;"
         _, limitations = validate_ts_architecture(code)
-        assert len(limitations) >= 1
-        assert any("regex" in lim.lower() for lim in limitations)
+        if _HAS_TREE_SITTER:
+            # Tree-sitter path has no limitations
+            assert len(limitations) == 0
+        else:
+            assert len(limitations) >= 1
+            assert any("regex" in lim.lower() for lim in limitations)
 
     def test_returns_violations_and_limitations_tuple(self) -> None:
         """Should return a (violations, limitations) tuple."""
@@ -180,3 +188,108 @@ class TestConfigDefaults:
         assert config.max_function_length == 30
         assert config.max_file_length == 300
         assert config.max_nesting_depth == 4
+
+
+# ---------------------------------------------------------------------------
+# Tree-sitter-specific tests (skipped when tree-sitter not installed)
+# ---------------------------------------------------------------------------
+
+try:
+    import tree_sitter_typescript  # noqa: F401
+
+    HAS_TS = True
+except ImportError:
+    HAS_TS = False
+
+
+@pytest.mark.skipif(not HAS_TS, reason="tree-sitter not installed")
+class TestTreeSitterValidation:
+    """Tests that only run when tree-sitter is installed."""
+
+    def test_function_length_ast(self) -> None:
+        """Tree-sitter should accurately measure function length."""
+        code = (
+            "function longFunc(x: number): string {\n"
+            + "    console.log(x);\n" * 35
+            + "    return x.toString();\n"
+            + "}\n"
+        )
+        violations, _ = validate_ts_architecture(code, "typescript")
+        tsarch001 = [v for v in violations if v.id == "TSARCH001"]
+        assert len(tsarch001) == 1
+        assert "longFunc" in tsarch001[0].message
+        # AST gives exact count: 38 lines
+        assert "38 lines" in tsarch001[0].message
+
+    def test_nesting_depth_ast(self) -> None:
+        """Tree-sitter should accurately measure nesting depth."""
+        code = """function nested(x: number): void {
+    if (x > 0) {
+        for (let i = 0; i < x; i++) {
+            while (true) {
+                if (i > 5) {
+                    console.log(i);
+                }
+            }
+        }
+    }
+}"""
+        config = TSValidationConfig(max_nesting_depth=3)
+        violations, _ = validate_ts_architecture(code, "typescript", config)
+        tsarch003 = [v for v in violations if v.id == "TSARCH003"]
+        assert len(tsarch003) == 1
+        assert "nested" in tsarch003[0].message
+
+    def test_missing_return_type_ast(self) -> None:
+        """Tree-sitter should detect missing return types."""
+        code = "function noReturn(x: number) {\n    console.log(x);\n}"
+        violations, _ = validate_ts_architecture(code, "typescript")
+        tsarch004 = [v for v in violations if v.id == "TSARCH004"]
+        assert len(tsarch004) == 1
+        assert "noReturn" in tsarch004[0].message
+
+    def test_function_with_return_type_ast(self) -> None:
+        """Tree-sitter should not flag functions with return types."""
+        code = "function hasReturn(x: number): string {\n    return x.toString();\n}"
+        violations, _ = validate_ts_architecture(code, "typescript")
+        tsarch004 = [v for v in violations if v.id == "TSARCH004"]
+        assert len(tsarch004) == 0
+
+    def test_no_limitation_message(self) -> None:
+        """When tree-sitter is available, no 'install mirdan[ast]' limitation."""
+        code = "const x = 1;"
+        _, limitations = validate_ts_architecture(code)
+        assert len(limitations) == 0
+
+    def test_arrow_function_detected(self) -> None:
+        """Tree-sitter should detect arrow functions."""
+        code = (
+            "const myArrow = (x: number): void => {\n"
+            + "    console.log(x);\n" * 35
+            + "};\n"
+        )
+        violations, _ = validate_ts_architecture(code, "typescript")
+        tsarch001 = [v for v in violations if v.id == "TSARCH001"]
+        assert len(tsarch001) == 1
+        assert "myArrow" in tsarch001[0].message
+
+    def test_javascript_no_return_type_check(self) -> None:
+        """TSARCH004 should not fire for JavaScript."""
+        code = "function noReturn(x) {\n    console.log(x);\n}"
+        violations, _ = validate_ts_architecture(code, "javascript")
+        tsarch004 = [v for v in violations if v.id == "TSARCH004"]
+        assert len(tsarch004) == 0
+
+    def test_method_definition_detected(self) -> None:
+        """Tree-sitter should detect class method definitions."""
+        code = (
+            "class MyClass {\n"
+            + "    longMethod(): void {\n"
+            + "        console.log('hello');\n" * 35
+            + "    }\n"
+            + "}\n"
+        )
+        violations, _ = validate_ts_architecture(code, "typescript")
+        tsarch001 = [v for v in violations if v.id == "TSARCH001"]
+        assert len(tsarch001) == 1
+        assert "longMethod" in tsarch001[0].message
