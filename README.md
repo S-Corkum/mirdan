@@ -410,9 +410,20 @@ Supports PyPI, npm, crates.io, Go, and Maven. Results are cached for 24 hours. V
 
 `get_quality_trends` analyzes validation history to track scores over time, forecast trajectory, detect regressions between sessions, and calculate pass rates.
 
-### Session Tracking
+### Session Tracking and Feedback Loop
 
-Each `enhance_prompt` call creates a session. Pass `session_id` to subsequent `validate_code_quality` calls to track quality across the full task lifecycle.
+Each `enhance_prompt` call returns a `session_id`. Pass it to `validate_code_quality` to track quality across the full task lifecycle. Pass it back to `enhance_prompt` on the next call to close the feedback loop:
+
+```
+enhance_prompt(task)                   → session_id, enhanced_prompt
+  ↓ implement code
+validate_code_quality(code, session_id) → violations, session_context
+  ↓ fix issues, iterate
+enhance_prompt(task, session_id=...)   → persistent violations injected
+                                          as priority quality requirements
+```
+
+When a violation recurs across two or more consecutive validations, mirdan surfaces it as a priority `quality_requirement` in the next enhanced prompt — ensuring the AI addresses the root cause rather than adding new code on top of broken foundations.
 
 ### Multi-Agent Coordination
 
@@ -445,15 +456,28 @@ Parameters:
   context_level         — minimal|auto|comprehensive
   max_tokens            — Token budget (0=unlimited)
   model_tier            — auto|opus|sonnet|haiku
+  session_id            — Resume an existing session to thread validation
+                          feedback into this prompt. Persistent violations
+                          from prior validate_code_quality calls are injected
+                          as priority quality requirements.
 
 Returns:
   enhanced_prompt       — Enriched prompt with quality guidance
   detected_language     — Primary language detected
   detected_frameworks   — Frameworks to query docs for
+  task_type             — Primary detected task type
+  task_types            — All detected task types (compound detection). A
+                          prompt like "add tests for the new feature" returns
+                          ["test", "generation"] and unions verification steps
+                          from both types.
   touches_security      — Whether task involves security-sensitive code
   quality_requirements  — Constraints to follow during implementation
-  verification_steps    — Checklist before marking complete
-  tool_recommendations  — Which MCPs to call for context
+  verification_steps    — Checklist before marking complete. Compressed to a
+                          single re-validation step when a prior session passed,
+                          reducing context waste on iterative work.
+  tool_recommendations  — Which MCPs to call for context. Session-aware:
+                          targets enyal recall to failure patterns on re-calls
+                          with errors; suppresses redundant recalls after a pass.
 ```
 
 ### validate_code_quality
@@ -474,7 +498,10 @@ Parameters:
 Returns:
   passed                — Whether validation passed
   score                 — Quality score (0.0–1.0)
-  violations            — List of rule violations with details
+  violations            — List of rule violations with details. Each violation
+                          includes verifiable: false when the check is
+                          pattern-based (AI001–AI008) rather than AST-verified,
+                          so the AI knows to confirm semantically before fixing.
   semantic_checks       — Targeted review questions from code patterns
   summary               — Human-readable summary
 ```
@@ -560,7 +587,7 @@ Discover implicit codebase conventions and generate custom rules.
 git clone https://github.com/S-Corkum/mirdan.git
 cd mirdan
 uv sync --all-extras
-uv run pytest               # 1987 tests
+uv run pytest               # 2034 tests
 uv run mirdan               # Run server locally
 ```
 
