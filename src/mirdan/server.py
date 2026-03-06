@@ -5,10 +5,12 @@ import contextlib
 import json
 import logging
 import os
+import yaml
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from fastmcp import FastMCP
@@ -141,10 +143,10 @@ def _get_components() -> _Components:
         except ValueError:
             logger.warning("Unknown quality profile '%s', using default", config.quality_profile)
 
-    quality_standards = QualityStandards(config=config.quality)
-
-    # Detect project directory for AI002 import verification
+    # Detect project directory for AI002 import verification and manifest detection
     project_dir = Path.cwd()
+
+    quality_standards = QualityStandards(config=config.quality, project_dir=project_dir)
 
     # Detect environment once for output optimization (Phase 2G)
     env_info = detect_environment()
@@ -168,7 +170,7 @@ def _get_components() -> _Components:
     context_aggregator = ContextAggregator(config)
 
     _components = _Components(
-        intent_analyzer=IntentAnalyzer(config.project),
+        intent_analyzer=IntentAnalyzer(config.project, manifest_parser=manifest_parser),
         quality_standards=quality_standards,
         prompt_composer=PromptComposer(quality_standards, config=config.enhancement),
         mcp_orchestrator=MCPOrchestrator(config.orchestration),
@@ -311,6 +313,7 @@ async def enhance_prompt(
 
     # --- Standard enhancement flow ---
     # Analyze intent
+    _t0 = perf_counter()
     intent = c.intent_analyzer.analyze(prompt)
 
     # Override task type if specified
@@ -321,8 +324,9 @@ async def enhance_prompt(
     # Create session from intent
     session = c.session_manager.create_from_intent(intent)
 
-    # Get tool recommendations
+    # Get tool recommendations and store on session for compliance tracking
     tool_recommendations = c.mcp_orchestrator.suggest_tools(intent)
+    session.tool_recommendations = [r.to_dict() for r in tool_recommendations]
 
     # Gather context from configured MCPs (skip if "none")
     if context_level == "none":
@@ -350,6 +354,8 @@ async def enhance_prompt(
     # Detect environment for context
     env_info = detect_environment()
     result_dict["environment"] = env_info.to_dict()
+
+    result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
@@ -425,6 +431,7 @@ async def validate_code_quality(
         session_id, language=language, check_security=check_security
     )
 
+    _t0 = perf_counter()
     result = c.code_validator.validate(
         code=code,
         language=resolved_language,
@@ -432,6 +439,7 @@ async def validate_code_quality(
         check_architecture=check_architecture,
         check_style=check_style,
     )
+    _t_validate = perf_counter() - _t0
 
     # Run external linters if file_path provided
     if file_path:
@@ -459,6 +467,23 @@ async def validate_code_quality(
     if session_id:
         session = c.session_manager.get(session_id)
     c.session_tracker.record_validation(result, file_path=file_path, session=session)
+
+    # Compute violation delta for re-validations within a session
+    delta: dict[str, Any] = {}
+    if session and session.validation_count > 1:
+        key = file_path or ""
+        prev_violations = c.session_tracker.get_previous_violations(key)
+        curr_violations = {v.id for v in result.violations}
+        resolved = prev_violations - curr_violations
+        new_viol = curr_violations - prev_violations
+        persistence = c.session_tracker.get_violation_persistence(key)
+        if resolved:
+            delta["resolved"] = sorted(resolved)
+        if new_viol:
+            delta["new"] = sorted(new_viol)
+        persistent = {r: cnt for r, cnt in persistence.items() if cnt > 1}
+        if persistent:
+            delta["persistent"] = persistent
 
     output = result.to_dict(severity_threshold=severity_threshold)
 
@@ -492,6 +517,12 @@ async def validate_code_quality(
             "files_validated": len(session.files_validated),
         }
 
+    # Session context: violation delta and recommendation reminders
+    if delta:
+        output["session_context"] = delta
+    if session and session.tool_recommendations:
+        output["recommendation_reminders"] = session.tool_recommendations
+
     # Add knowledge entries for enyal storage
     knowledge_entries = c.knowledge_producer.extract_from_validation(result)
     if knowledge_entries:
@@ -507,6 +538,13 @@ async def validate_code_quality(
     if session:
         intent.task_type = session.task_type
     output["checklist"] = c.prompt_composer.generate_verification_steps(intent)
+    if session and session.validation_count > 1:
+        output["checklist_note"] = "Re-validation. Review session_context.resolved for progress."
+
+    output["timing_ms"] = {
+        "validation": round(_t_validate * 1000, 1),
+        "total": round((perf_counter() - _t0) * 1000, 1),
+    }
 
     # Apply token-budget-aware formatting
     tier = _parse_model_tier(model_tier)
@@ -818,6 +856,21 @@ async def scan_conventions(
         return {"error": f"Not a directory: {directory}"}
 
     result = c.convention_extractor.scan(scan_dir, language=language)
+
+    # Persist conventions for quality standards feedback loop
+    try:
+        conventions_dir = Path.cwd() / ".mirdan"
+        conventions_dir.mkdir(parents=True, exist_ok=True)
+        conventions_path = conventions_dir / "conventions.yaml"
+        conventions_data = {
+            "conventions": [e.to_dict() for e in result.conventions],
+            "language": result.language,
+        }
+        with conventions_path.open("w") as f:
+            yaml.dump(conventions_data, f, default_flow_style=False, allow_unicode=True)
+    except Exception:
+        logger.debug("Failed to persist conventions", exc_info=True)
+
     return result.to_dict()
 
 

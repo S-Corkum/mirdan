@@ -37,6 +37,28 @@ class QualityStandards:
         self.standards = self._load_default_standards()
         if standards_dir and standards_dir.exists():
             self._load_custom_standards(standards_dir)
+        self._conventions = self._load_conventions()
+
+    def _load_conventions(self) -> list[str]:
+        """Load project conventions persisted by scan_conventions."""
+        if self._project_dir is None:
+            return []
+        conventions_path = self._project_dir / ".mirdan" / "conventions.yaml"
+        if not conventions_path.exists():
+            return []
+        try:
+            with conventions_path.open() as f:
+                data = yaml.safe_load(f)
+            if not data or "conventions" not in data:
+                return []
+            return [
+                entry["content"]
+                for entry in data["conventions"]
+                if isinstance(entry, dict) and "content" in entry
+            ]
+        except Exception:
+            logger.debug("Failed to load conventions from %s", conventions_path, exc_info=True)
+            return []
 
     def _get_stringency_count(self, category: str) -> int:
         """Get the number of standards to include based on stringency level.
@@ -291,6 +313,9 @@ class QualityStandards:
         arch_standards = self.get_architecture_standards()
         if "general" in arch_standards:
             requirements.extend(arch_standards["general"][:arch_count])
+
+        # Append learned project conventions (from scan_conventions feedback loop)
+        requirements.extend(self._conventions)
 
         return requirements
 

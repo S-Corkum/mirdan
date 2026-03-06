@@ -104,6 +104,9 @@ class SessionContext:
     files_validated: list[str] = field(default_factory=list)
     last_validated_at: float = 0.0
 
+    # Tool recommendations from enhance_prompt (for compliance tracking)
+    tool_recommendations: list[dict[str, str]] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         result: dict[str, Any] = {

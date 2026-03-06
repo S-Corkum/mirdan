@@ -1,13 +1,19 @@
 """Intent Analyzer - Classifies developer prompts to understand intent."""
 
+from __future__ import annotations
+
 import logging
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from mirdan.config import ProjectConfig
 from mirdan.core.entity_extractor import EntityExtractor
 from mirdan.core.pattern_matcher import PatternMatcher
 from mirdan.models import Intent, TaskType
+
+if TYPE_CHECKING:
+    from mirdan.core.manifest_parser import ManifestParser
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +21,61 @@ logger = logging.getLogger(__name__)
 class IntentAnalyzer:
     """Analyzes developer prompts to understand intent."""
 
-    def __init__(self, config: ProjectConfig | None = None):
+    # Package name → framework name mapping for manifest-based detection.
+    # Used to discover frameworks from installed dependencies even when
+    # the user's prompt doesn't mention them explicitly.
+    PACKAGE_TO_FRAMEWORK: dict[str, str] = {
+        # Python (PyPI normalized names)
+        "fastapi": "fastapi",
+        "django": "django",
+        "flask": "flask",
+        "sqlalchemy": "sqlalchemy",
+        "langchain": "langchain",
+        "langgraph": "langgraph",
+        "chromadb": "chromadb",
+        "pinecone-client": "pinecone",
+        "faiss-cpu": "faiss",
+        "neo4j": "neo4j",
+        "weaviate-client": "weaviate",
+        "pymilvus": "milvus",
+        "qdrant-client": "qdrant",
+        "anthropic": "anthropic-sdk",
+        "openai": "openai-sdk",
+        "llama-index": "llamaindex",
+        "pyautogen": "autogen",
+        "instructor": "instructor",
+        "pydantic-ai": "pydantic-ai",
+        "haystack-ai": "haystack",
+        "opentelemetry-api": "opentelemetry",
+        # npm
+        "react": "react",
+        "next": "next.js",
+        "vue": "vue",
+        "express": "express",
+        "@prisma/client": "prisma",
+        "tailwindcss": "tailwind",
+        "@tanstack/react-query": "tanstack-query",
+        "zustand": "zustand",
+        "graphql": "graphql",
+        "@anthropic-ai/sdk": "anthropic-sdk",
+        "ai": "vercel-ai",
+        # Rust (crates.io)
+        "axum": "axum",
+    }
+
+    def __init__(
+        self,
+        config: ProjectConfig | None = None,
+        manifest_parser: ManifestParser | None = None,
+    ):
         """Initialize with optional project configuration.
 
         Args:
             config: Project config for default language/framework hints
+            manifest_parser: Optional manifest parser for dependency-based framework detection
         """
         self._config = config
+        self._manifest_parser = manifest_parser
         self._entity_extractor = EntityExtractor()
         self._task_matcher: PatternMatcher[TaskType] = PatternMatcher(
             self.TASK_PATTERNS,
@@ -322,6 +376,12 @@ class IntentAnalyzer:
 
         # Detect frameworks (use config as fallback)
         frameworks = self._detect_frameworks(prompt_lower)
+
+        # Supplement with manifest-detected frameworks
+        for fw in self._detect_frameworks_from_manifest():
+            if fw not in frameworks:
+                frameworks.append(fw)
+
         if not frameworks and self._config and self._config.frameworks:
             frameworks = list(self._config.frameworks)
 
@@ -386,6 +446,24 @@ class IntentAnalyzer:
                 if re.search(pattern, prompt, re.IGNORECASE):
                     detected.append(framework)
                     break
+        return detected
+
+    def _detect_frameworks_from_manifest(self) -> list[str]:
+        """Detect frameworks from installed dependencies via manifest parser.
+
+        Supplements regex-based detection by checking pyproject.toml,
+        package.json, etc. for known framework packages.
+
+        Returns:
+            List of framework names found in project dependencies.
+        """
+        if self._manifest_parser is None:
+            return []
+        dep_names = self._manifest_parser.get_dep_names()
+        detected: list[str] = []
+        for pkg_name, fw_name in self.PACKAGE_TO_FRAMEWORK.items():
+            if pkg_name in dep_names and fw_name not in detected:
+                detected.append(fw_name)
         return detected
 
     def _detect_framework_versions(self, frameworks: list[str]) -> dict[str, str]:

@@ -777,3 +777,73 @@ class TestStructuralFrameworkStandards:
         assert "principles" in result, f"{framework} missing 'principles'"
         assert "forbidden" in result, f"{framework} missing 'forbidden'"
         assert len(result["principles"]) >= 5, f"{framework} has fewer than 5 principles"
+
+
+class TestConventionLearning:
+    """Tests for scan_conventions feedback loop into render_for_intent (Step 6)."""
+
+    def test_load_conventions_returns_empty_without_project_dir(self) -> None:
+        standards = QualityStandards(project_dir=None)
+        assert standards._conventions == []
+
+    def test_load_conventions_returns_empty_when_file_missing(self, tmp_path: Path) -> None:
+        standards = QualityStandards(project_dir=tmp_path)
+        assert standards._conventions == []
+
+    def test_load_conventions_reads_content_from_yaml(self, tmp_path: Path) -> None:
+        import yaml
+        mirdan_dir = tmp_path / ".mirdan"
+        mirdan_dir.mkdir()
+        conventions_data = {
+            "language": "python",
+            "conventions": [
+                {"content": "Use snake_case for function names", "content_type": "convention"},
+                {"content": "Group imports: stdlib, third-party, local", "content_type": "convention"},
+            ],
+        }
+        (mirdan_dir / "conventions.yaml").write_text(
+            yaml.dump(conventions_data, default_flow_style=False)
+        )
+        standards = QualityStandards(project_dir=tmp_path)
+        assert "Use snake_case for function names" in standards._conventions
+        assert "Group imports: stdlib, third-party, local" in standards._conventions
+
+    def test_render_for_intent_includes_conventions(self, tmp_path: Path) -> None:
+        import yaml
+        from mirdan.models import Intent, TaskType
+        mirdan_dir = tmp_path / ".mirdan"
+        mirdan_dir.mkdir()
+        conventions_data = {
+            "language": "python",
+            "conventions": [
+                {"content": "Always use type annotations", "content_type": "convention"},
+            ],
+        }
+        (mirdan_dir / "conventions.yaml").write_text(
+            yaml.dump(conventions_data, default_flow_style=False)
+        )
+        standards = QualityStandards(project_dir=tmp_path)
+        intent = Intent(
+            original_prompt="add a function",
+            task_type=TaskType.GENERATION,
+            primary_language="python",
+        )
+        requirements = standards.render_for_intent(intent)
+        assert "Always use type annotations" in requirements
+
+    def test_load_conventions_skips_entries_without_content(self, tmp_path: Path) -> None:
+        import yaml
+        mirdan_dir = tmp_path / ".mirdan"
+        mirdan_dir.mkdir()
+        conventions_data = {
+            "language": "python",
+            "conventions": [
+                {"content_type": "convention"},  # missing content key
+                {"content": "Valid convention", "content_type": "convention"},
+            ],
+        }
+        (mirdan_dir / "conventions.yaml").write_text(
+            yaml.dump(conventions_data, default_flow_style=False)
+        )
+        standards = QualityStandards(project_dir=tmp_path)
+        assert standards._conventions == ["Valid convention"]

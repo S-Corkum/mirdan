@@ -24,6 +24,7 @@ class FileValidation:
     warning_count: int
     timestamp: float
     language: str = ""
+    violation_rules: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -93,6 +94,7 @@ class SessionTracker:
             warning_count=warning_count,
             timestamp=now,
             language=result.language_detected,
+            violation_rules=[v.id for v in result.violations],
         )
 
         key = record.file_path
@@ -134,6 +136,50 @@ class SessionTracker:
         if not records:
             return None
         return records[-1].score
+
+    def get_previous_violations(self, file_path: str) -> set[str]:
+        """Get violation rule IDs from the previous validation of a file.
+
+        Must be called AFTER record_validation() for the current run,
+        since records[-1] is the current and records[-2] is the previous.
+
+        Args:
+            file_path: The file path to check (empty string for inline code).
+
+        Returns:
+            Set of rule IDs from the previous validation, or empty set
+            if fewer than 2 validations exist for this file.
+        """
+        records = self._file_validations.get(file_path or "<inline>")
+        if not records or len(records) < 2:
+            return set()
+        return set(records[-2].violation_rules)
+
+    def get_violation_persistence(self, file_path: str) -> dict[str, int]:
+        """Count consecutive validations each current rule has appeared in.
+
+        Returns a count only for rules present in the most recent validation.
+
+        Args:
+            file_path: The file path to check (empty string for inline code).
+
+        Returns:
+            Mapping of rule_id -> consecutive occurrence count.
+        """
+        records = self._file_validations.get(file_path or "<inline>")
+        if not records:
+            return {}
+        current_rules = set(records[-1].violation_rules)
+        persistence: dict[str, int] = {}
+        for rule in current_rules:
+            count = 0
+            for rec in reversed(records):
+                if rule in rec.violation_rules:
+                    count += 1
+                else:
+                    break
+            persistence[rule] = count
+        return persistence
 
     def get_session_summary(self, session_id: str = "") -> SessionQualitySummary:
         """Generate a quality summary for the current session.

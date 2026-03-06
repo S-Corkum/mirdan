@@ -226,6 +226,48 @@ class TestSessionTracker:
     def test_to_snapshot_empty(self, tracker: SessionTracker) -> None:
         assert tracker.to_snapshot() is None
 
+    def test_get_previous_violations_empty_first_run(
+        self, tracker: SessionTracker, failing_result: ValidationResult,
+    ) -> None:
+        tracker.record_validation(failing_result, file_path="test.py")
+        assert tracker.get_previous_violations("test.py") == set()
+
+    def test_get_previous_violations_after_two_runs(
+        self, tracker: SessionTracker, passing_result: ValidationResult,
+        failing_result: ValidationResult,
+    ) -> None:
+        tracker.record_validation(failing_result, file_path="test.py")
+        tracker.record_validation(passing_result, file_path="test.py")
+        prev = tracker.get_previous_violations("test.py")
+        assert "SEC002" in prev
+        assert "AI001" in prev
+
+    def test_get_violation_persistence_counts_consecutive(
+        self, tracker: SessionTracker, failing_result: ValidationResult,
+    ) -> None:
+        tracker.record_validation(failing_result, file_path="test.py")
+        tracker.record_validation(failing_result, file_path="test.py")
+        persistence = tracker.get_violation_persistence("test.py")
+        assert persistence.get("SEC002") == 2
+        assert persistence.get("AI001") == 2
+
+    def test_get_violation_persistence_resets_on_fix(
+        self, tracker: SessionTracker, passing_result: ValidationResult,
+        failing_result: ValidationResult,
+    ) -> None:
+        tracker.record_validation(failing_result, file_path="test.py")
+        tracker.record_validation(passing_result, file_path="test.py")
+        persistence = tracker.get_violation_persistence("test.py")
+        assert persistence == {}
+
+    def test_violation_rules_recorded(
+        self, tracker: SessionTracker, failing_result: ValidationResult,
+    ) -> None:
+        tracker.record_validation(failing_result, file_path="test.py")
+        records = tracker._file_validations["test.py"]
+        assert "SEC002" in records[0].violation_rules
+        assert "AI001" in records[0].violation_rules
+
 
 # ---------------------------------------------------------------------------
 # 2C: Auto-Fix quick_fix
@@ -568,6 +610,43 @@ class TestServerSessionTracking:
         source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_quick"]))
         assert "quick_fix" in source
         assert "auto_fixes" in source
+
+    def test_enhance_prompt_stores_tool_recommendations(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["enhance_prompt"]))
+        assert "tool_recommendations" in source
+        assert "session.tool_recommendations" in source
+
+    def test_validate_includes_timing_ms(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "timing_ms" in source
+        assert "perf_counter" in source
+
+    def test_validate_includes_session_context_delta(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "session_context" in source
+        assert "get_previous_violations" in source
+        assert "get_violation_persistence" in source
+
+    def test_validate_includes_recommendation_reminders(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "recommendation_reminders" in source
+
+    def test_validate_includes_checklist_note_on_revalidation(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "checklist_note" in source
+
+    def test_scan_conventions_persists_yaml(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["scan_conventions"]))
+        assert "conventions.yaml" in source
+        assert "yaml.dump" in source
+
+    def test_intent_analyzer_receives_manifest_parser(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        assert "manifest_parser=manifest_parser" in source
+
+    def test_quality_standards_receives_project_dir(self) -> None:
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        assert "project_dir=project_dir" in source
 
 
 # ---------------------------------------------------------------------------

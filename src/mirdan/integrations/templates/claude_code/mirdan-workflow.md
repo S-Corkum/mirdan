@@ -11,15 +11,17 @@ description: "Mirdan quality workflow guide"
 ### Before Writing Code
 1. Call `mcp__mirdan__enhance_prompt(task_description)` to get:
    - Quality requirements for this specific task
-   - Security sensitivity detection
+   - Security sensitivity detection (`touches_security`)
    - Framework-specific guidance
-   - Tool recommendations
+   - Tool recommendations (call these MCPs)
+   - A `session_id` — **save this and pass it to every validate call**
 
 ### After Writing Code
-2. Call `mcp__mirdan__validate_code_quality(code)` to validate:
+2. Call `mcp__mirdan__validate_code_quality(code, session_id=<id>)` to validate:
    - Pass `check_security=true` if `touches_security` was flagged
    - Fix ALL errors before proceeding
-   - Warnings should be addressed when practical
+   - On re-validation, read `session_context` for delta: resolved / new / persistent
+   - Follow `recommendation_reminders` to confirm MCPs from step 1 were used
 
 ### Before Marking Complete
 3. Ensure validation passes with no errors
@@ -32,6 +34,14 @@ description: "Mirdan quality workflow guide"
 | `validate_code_quality` | Full code validation | After writing code |
 | `validate_quick` | Fast security-only check | Real-time feedback (hooks) |
 | `get_quality_standards` | Language/framework rules | Before coding in {{language}} |
+| `scan_conventions` | Discover and persist project patterns | After establishing project conventions |
+| `get_quality_trends` | Track quality over time | Periodic health checks |
+
+## Convention Learning Cycle
+
+Run `scan_conventions` after establishing code patterns in a project. Discovered conventions
+are persisted to `.mirdan/conventions.yaml` and automatically included in future
+`enhance_prompt` quality requirements — no manual configuration needed.
 
 ## Project Context
 - **Language**: {{language}}

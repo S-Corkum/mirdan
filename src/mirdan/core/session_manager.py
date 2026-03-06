@@ -165,6 +165,7 @@ class SessionManager:
             "touches_security": session.touches_security,
             "touches_rag": session.touches_rag,
             "touches_knowledge_graph": session.touches_knowledge_graph,
+            "tool_recommendations": session.tool_recommendations,
         }
 
     def restore(self, data: dict[str, Any]) -> SessionContext | None:
@@ -195,6 +196,7 @@ class SessionManager:
             touches_security=data.get("touches_security", False),
             touches_rag=data.get("touches_rag", False),
             touches_knowledge_graph=data.get("touches_knowledge_graph", False),
+            tool_recommendations=data.get("tool_recommendations", []),
             created_at=now,
             last_accessed=now,
         )

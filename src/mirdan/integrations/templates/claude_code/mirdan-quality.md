@@ -9,10 +9,17 @@ description: "Mirdan quality enforcement rules for AI-generated code"
 For ANY coding task, follow this workflow:
 
 1. **Start**: Call `mcp__mirdan__enhance_prompt` with the task description
+   - Save the returned `session_id` — pass it to every `validate_code_quality` call
+   - Follow `tool_recommendations` to call context7, sequential-thinking, enyal as suggested
 2. **Standards**: Call `mcp__mirdan__get_quality_standards` for the detected language
-3. **Implement**: Follow the quality_requirements from enhance_prompt
-4. **Validate**: Call `mcp__mirdan__validate_code_quality` on all changed code
+3. **Implement**: Follow the `quality_requirements` from enhance_prompt
+4. **Validate**: Call `mcp__mirdan__validate_code_quality(code, session_id=<id>)` on all changed code
+   - Check `session_context.resolved` — violations cleared since last run
+   - Check `session_context.new` — violations introduced since last run
+   - Check `session_context.persistent` — violations that recur across multiple runs (high priority)
+   - Follow `recommendation_reminders` to confirm suggested MCPs were called
 5. **Fix**: Resolve all errors before considering the task complete
+6. **Conventions**: Run `mcp__mirdan__scan_conventions` after establishing patterns to persist them
 
 ## AI Quality Rules (Mandatory)
 
@@ -28,3 +35,11 @@ For ANY coding task, follow this workflow:
 ## Validation Gate
 
 Code is NOT complete until `mcp__mirdan__validate_code_quality` returns a passing score with zero errors.
+
+## Reading Validation Output
+
+- `session_context.resolved` — rules fixed since last validation (positive progress)
+- `session_context.new` — rules introduced since last validation (regression, fix immediately)
+- `session_context.persistent` — rules present for N consecutive runs (deeply embedded, prioritize)
+- `recommendation_reminders` — MCPs suggested at enhance_prompt time; confirm they were called
+- `timing_ms` — diagnostic: `validation` is core analysis, `total` includes enrichment and output

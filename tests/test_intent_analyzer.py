@@ -581,3 +581,46 @@ class TestPhase5FrameworkDetection:
         """Should detect OpenTelemetry from TracerProvider."""
         intent = analyzer.analyze("add opentelemetry tracing with TracerProvider and span context")
         assert "opentelemetry" in intent.frameworks
+
+
+class TestManifestFirstDetection:
+    """Tests for manifest-first framework detection (Step 1)."""
+
+    def test_detects_fastapi_from_manifest(self) -> None:
+        """Should detect FastAPI when package is in deps, even without prompt keywords."""
+        from unittest.mock import MagicMock
+        manifest_parser = MagicMock()
+        manifest_parser.get_dep_names.return_value = {"fastapi", "uvicorn", "pydantic"}
+        analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
+        intent = analyzer.analyze("add a new endpoint")
+        assert "fastapi" in intent.frameworks
+
+    def test_detects_langchain_from_manifest(self) -> None:
+        """Should detect LangChain from manifest dependencies."""
+        from unittest.mock import MagicMock
+        manifest_parser = MagicMock()
+        manifest_parser.get_dep_names.return_value = {"langchain", "openai"}
+        analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
+        intent = analyzer.analyze("implement a retrieval pipeline")
+        assert "langchain" in intent.frameworks
+
+    def test_manifest_merges_with_prompt_detection(self) -> None:
+        """Manifest frameworks should merge with prompt-detected frameworks."""
+        from unittest.mock import MagicMock
+        manifest_parser = MagicMock()
+        manifest_parser.get_dep_names.return_value = {"sqlalchemy"}
+        analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
+        intent = analyzer.analyze("add FastAPI route for user creation")
+        assert "fastapi" in intent.frameworks
+        assert "sqlalchemy" in intent.frameworks
+
+    def test_no_manifest_parser_uses_prompt_only(self) -> None:
+        """Without manifest_parser, detection falls back to prompt-only."""
+        analyzer = IntentAnalyzer(manifest_parser=None)
+        intent = analyzer.analyze("add a new endpoint")
+        assert "fastapi" not in intent.frameworks
+
+    def test_package_to_framework_excludes_pydantic(self) -> None:
+        """pydantic alone should not map to fastapi (it's standalone)."""
+        from mirdan.core.intent_analyzer import IntentAnalyzer as IA
+        assert "pydantic" not in IA.PACKAGE_TO_FRAMEWORK
