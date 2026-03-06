@@ -188,6 +188,7 @@ class OutputFormatter:
         result: dict[str, Any] = {
             "enhanced_prompt": data.get("enhanced_prompt", ""),
             "task_type": data.get("task_type", ""),
+            "task_types": data.get("task_types", []),
             "language": data.get("language"),
             "frameworks": data.get("frameworks", []),
             "touches_security": data.get("touches_security", False),
@@ -217,6 +218,7 @@ class OutputFormatter:
         """Minimal format: just the essentials."""
         result: dict[str, Any] = {
             "task_type": data.get("task_type", ""),
+            "task_types": data.get("task_types", []),
             "language": data.get("language"),
             "touches_security": data.get("touches_security", False),
         }
@@ -227,15 +229,17 @@ class OutputFormatter:
     def _compact_validation(self, data: dict[str, Any]) -> dict[str, Any]:
         """Compact validation: violations without code_snippet/suggestion."""
         violations = data.get("violations", [])
-        compact_violations = [
-            {
+        compact_violations: list[dict[str, Any]] = []
+        for v in violations:
+            compact_v: dict[str, Any] = {
                 "id": v.get("id", ""),
                 "severity": v.get("severity", ""),
                 "message": v.get("message", ""),
                 "line": v.get("line"),
             }
-            for v in violations
-        ]
+            if not v.get("verifiable", True):
+                compact_v["verifiable"] = False
+            compact_violations.append(compact_v)
         result = {
             "passed": data.get("passed", True),
             "score": data.get("score", 1.0),

@@ -1,5 +1,6 @@
 """Prompt Composer - Assembles enhanced prompts using proven frameworks."""
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -10,6 +11,7 @@ from mirdan.models import (
     ContextBundle,
     EnhancedPrompt,
     Intent,
+    SessionContext,
     TaskType,
     ToolRecommendation,
 )
@@ -46,13 +48,16 @@ class PromptComposer:
         intent: Intent,
         context: ContextBundle,
         tool_recommendations: list[ToolRecommendation],
+        extra_requirements: Sequence[str] = (),
+        session: SessionContext | None = None,
     ) -> EnhancedPrompt:
         """Compose the final enhanced prompt."""
-        # Get quality requirements
-        quality_requirements = self.standards.render_for_intent(intent)
+        # Prepend persistent violation feedback before static standards so they
+        # survive the verbosity cap in _build_prompt_text (quality_requirements[:5]).
+        quality_requirements = list(extra_requirements) + self.standards.render_for_intent(intent)
 
-        # Generate verification steps based on task type
-        verification_steps = self.generate_verification_steps(intent)
+        # Generate verification steps based on task type, pruning when safe
+        verification_steps = self.generate_verification_steps(intent, session=session)
 
         # Build the enhanced prompt text
         enhanced_text = self._build_prompt_text(
@@ -67,7 +72,11 @@ class PromptComposer:
             verification_steps=verification_steps,
         )
 
-    def generate_verification_steps(self, intent: Intent) -> list[str]:
+    def generate_verification_steps(
+        self,
+        intent: Intent,
+        session: SessionContext | None = None,
+    ) -> list[str]:
         """Generate verification steps based on task type."""
         base_steps = [
             "Verify all imports reference actual modules in the project",
@@ -76,18 +85,29 @@ class PromptComposer:
             "Confirm the code follows existing naming conventions",
         ]
 
-        if intent.task_type == TaskType.GENERATION:
+        # Compress base checklist when prior validation passed — avoids re-asserting
+        # already-verified constraints and reduces context waste on iteration.
+        if session and session.validation_count > 0 and session.unresolved_errors == 0:
+            base_steps = [
+                "Previous validation passed — confirm changes don't introduce regressions"
+            ]
+
+        # Use task_types list for compound task detection (e.g., "add tests for the new feature"
+        # detects both TEST and GENERATION, unioning their verification steps).
+        task_type_set = set(intent.task_types) if intent.task_types else {intent.task_type}
+
+        if TaskType.GENERATION in task_type_set:
             base_steps.append("Validate that new code integrates with existing patterns")
 
-        if intent.task_type == TaskType.REFACTOR:
+        if TaskType.REFACTOR in task_type_set:
             base_steps.insert(0, "Verify all existing functionality is preserved")
             base_steps.append("Ensure no public API signatures changed without approval")
 
-        if intent.task_type == TaskType.DEBUG:
+        if TaskType.DEBUG in task_type_set:
             base_steps.insert(0, "Confirm the fix addresses the root cause, not just symptoms")
             base_steps.append("Add tests to prevent regression")
 
-        if intent.task_type == TaskType.TEST:
+        if TaskType.TEST in task_type_set:
             base_steps.extend(
                 [
                     "Ensure tests cover both happy path and edge cases",
@@ -95,7 +115,7 @@ class PromptComposer:
                 ]
             )
 
-        if intent.task_type == TaskType.PLANNING:
+        if TaskType.PLANNING in task_type_set:
             # Planning has different verification - focused on plan quality
             return [
                 "Verify every file path was confirmed with Read or Glob",

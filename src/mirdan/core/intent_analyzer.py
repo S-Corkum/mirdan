@@ -366,8 +366,9 @@ class IntentAnalyzer:
         """Analyze a prompt and return structured intent."""
         prompt_lower = prompt.lower()
 
-        # Detect task type
-        task_type = self._detect_task_type(prompt_lower)
+        # Detect task type (primary + any compound secondaries)
+        task_types = self._detect_task_types(prompt_lower)
+        task_type = task_types[0]
 
         # Detect language (use config as fallback)
         language = self._detect_language(prompt_lower)
@@ -417,6 +418,7 @@ class IntentAnalyzer:
         return Intent(
             original_prompt=prompt,
             task_type=task_type,
+            task_types=task_types,
             primary_language=language,
             frameworks=frameworks,
             framework_versions=framework_versions,
@@ -429,10 +431,26 @@ class IntentAnalyzer:
             clarifying_questions=clarifying_questions,
         )
 
-    def _detect_task_type(self, prompt: str) -> TaskType:
-        """Detect the type of task from the prompt."""
-        result = self._task_matcher.best_match(prompt, default=TaskType.UNKNOWN)
-        return result if result is not None else TaskType.UNKNOWN
+    def _detect_task_types(self, prompt: str) -> list[TaskType]:
+        """Detect all applicable task types; primary is always first.
+
+        Uses score_all() to get scores for every TaskType, then filters
+        secondaries by a medium-confidence threshold (score >= 4).
+        Returns [UNKNOWN] when no patterns match at all.
+        """
+        nonzero = {
+            t: s
+            for t, s in self._task_matcher.score_all(prompt).items()
+            if s > 0
+        }
+        if not nonzero:
+            return [TaskType.UNKNOWN]
+        primary = max(nonzero, key=lambda t: nonzero[t])
+        secondaries = sorted(
+            [t for t, s in nonzero.items() if s >= 4 and t != primary],
+            key=lambda t: -nonzero[t],
+        )
+        return [primary] + secondaries
 
     def _detect_language(self, prompt: str) -> str | None:
         """Detect the programming language from the prompt using weighted scoring."""

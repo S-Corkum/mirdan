@@ -3,7 +3,7 @@
 from typing import Any
 
 from mirdan.config import OrchestrationConfig
-from mirdan.models import Intent, TaskType, ToolRecommendation
+from mirdan.models import Intent, SessionContext, TaskType, ToolRecommendation
 
 
 class MCPOrchestrator:
@@ -40,11 +40,12 @@ class MCPOrchestrator:
         self,
         intent: Intent,
         available_mcps: list[str] | None = None,
+        session: SessionContext | None = None,
     ) -> list[ToolRecommendation]:
         """Suggest which MCP tools should be used for a given intent."""
         # Dispatch to planning-specific for PLANNING tasks
         if intent.task_type == TaskType.PLANNING:
-            return self.suggest_tools_for_planning(intent, available_mcps)
+            return self.suggest_tools_for_planning(intent, available_mcps, session)
 
         recommendations: list[ToolRecommendation] = []
 
@@ -65,17 +66,31 @@ class MCPOrchestrator:
                 )
             )
 
-        # Project context from memory
+        # Project context from memory — routing depends on session state
         if "enyal" in available_mcps:
-            recommendations.append(
-                ToolRecommendation(
-                    mcp="enyal",
-                    action="Recall project conventions and past decisions",
-                    priority="high",
-                    params={"query": "conventions decisions patterns"},
-                    reason="Apply consistent patterns from project history",
+            if session and session.validation_count > 0 and session.unresolved_errors > 0:
+                # Re-call with persistent failures: target recall to resolution patterns
+                recommendations.append(
+                    ToolRecommendation(
+                        mcp="enyal",
+                        action="Recall patterns for resolving validation failures and similar past fixes",
+                        priority="high",
+                        params={"query": "fix bug error violation resolution patterns"},
+                        reason="Targeted recall for persistent quality failures across sessions",
+                    )
                 )
-            )
+            elif not (session and session.validation_count > 0 and session.unresolved_errors == 0):
+                # First call or no session: standard convention recall
+                recommendations.append(
+                    ToolRecommendation(
+                        mcp="enyal",
+                        action="Recall project conventions and past decisions",
+                        priority="high",
+                        params={"query": "conventions decisions patterns"},
+                        reason="Apply consistent patterns from project history",
+                    )
+                )
+            # else: prior validation passed — skip generic recall (already effective)
 
         # Codebase analysis needs
         if intent.task_type in [TaskType.GENERATION, TaskType.REFACTOR]:
@@ -166,6 +181,7 @@ class MCPOrchestrator:
         self,
         intent: Intent,
         available_mcps: list[str] | None = None,
+        session: SessionContext | None = None,
     ) -> list[ToolRecommendation]:
         """Suggest tools specifically for PLANNING tasks.
 

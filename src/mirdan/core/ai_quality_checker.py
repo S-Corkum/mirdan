@@ -206,6 +206,11 @@ class AIQualityChecker:
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
         violations.extend(self._check_sec014_vulnerable_deps(code, language))
 
+        # Pattern-based AI quality checks are heuristic, not AST-verified
+        for v in violations:
+            if v.category == "ai_quality":
+                v.verifiable = False
+
         return violations
 
     def check_quick(self, code: str, language: str) -> list[Violation]:
@@ -228,6 +233,11 @@ class AIQualityChecker:
         violations.extend(self._check_ai007_security_theater(code, language, skip_regions))
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
         violations.extend(self._check_sec014_vulnerable_deps(code, language))
+
+        # Pattern-based AI quality checks are heuristic, not AST-verified
+        for v in violations:
+            if v.category == "ai_quality":
+                v.verifiable = False
 
         return violations
 

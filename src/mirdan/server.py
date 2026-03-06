@@ -44,6 +44,7 @@ from mirdan.models import (
     Intent,
     KnowledgeEntry,
     ModelTier,
+    SessionContext,
     TaskType,
 )
 
@@ -243,6 +244,35 @@ mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator", lifespan=_l
 
 
 # ---------------------------------------------------------------------------
+# Session feedback helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_persistent_violation_reqs(
+    session: SessionContext, session_tracker: SessionTracker
+) -> list[str]:
+    """Build quality requirement strings from persistent violations in session history.
+
+    Returns up to 3 requirement strings for rules that failed across 2+ consecutive
+    validations, so the next enhance_prompt call prioritizes fixing them.
+    """
+    if session.validation_count == 0 or not session.files_validated:
+        return []
+    persistence: dict[str, int] = {}
+    for file_path in session.files_validated:
+        for rule_id, count in session_tracker.get_violation_persistence(file_path).items():
+            if count >= 2:
+                persistence[rule_id] = max(persistence.get(rule_id, 0), count)
+    if not persistence:
+        return []
+    sorted_rules = sorted(persistence.items(), key=lambda x: -x[1])[:3]
+    return [
+        f"Address recurring violation {rule_id} (failed {count} consecutive validations)"
+        for rule_id, count in sorted_rules
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Core Tool 1: enhance_prompt
 # ---------------------------------------------------------------------------
 
@@ -254,6 +284,7 @@ async def enhance_prompt(
     context_level: str = "auto",
     max_tokens: int = 0,
     model_tier: str = "auto",
+    session_id: str = "",
 ) -> dict[str, Any]:
     """
     Automatically enhance a coding prompt with quality requirements,
@@ -270,6 +301,9 @@ async def enhance_prompt(
                     <=4000 produces compact output.
         model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku).
                     Haiku/Sonnet receive more compressed output.
+        session_id: Resume an existing session to thread validation feedback into this
+                    prompt. Persistent violations from prior validate_code_quality calls
+                    are injected as priority quality requirements.
 
     Returns:
         Enhanced prompt with quality requirements and tool recommendations
@@ -293,6 +327,7 @@ async def enhance_prompt(
         )
         return {
             "task_type": intent.task_type.value,
+            "task_types": [t.value for t in intent.task_types],
             "language": intent.primary_language,
             "frameworks": intent.frameworks,
             "framework_versions": intent.framework_versions,
@@ -316,16 +351,28 @@ async def enhance_prompt(
     _t0 = perf_counter()
     intent = c.intent_analyzer.analyze(prompt)
 
-    # Override task type if specified
+    # Override task type if specified — keep task_types consistent with the override
     if task_type != "auto":
         with contextlib.suppress(ValueError):
-            intent.task_type = TaskType(task_type)
+            overridden = TaskType(task_type)
+            intent.task_type = overridden
+            intent.task_types = [overridden] + [
+                t for t in intent.task_types if t != overridden
+            ]
 
-    # Create session from intent
-    session = c.session_manager.create_from_intent(intent)
+    # Load existing session for continuity or create new from intent.
+    # When session_id is provided, persistent violation history is threaded
+    # back into this prompt as priority quality requirements.
+    if session_id and (existing := c.session_manager.get(session_id)):
+        session = existing
+    else:
+        session = c.session_manager.create_from_intent(intent)
 
-    # Get tool recommendations and store on session for compliance tracking
-    tool_recommendations = c.mcp_orchestrator.suggest_tools(intent)
+    # Compute persistent violation requirements from session history (Gap 1)
+    persistent_reqs = _get_persistent_violation_reqs(session, c.session_tracker)
+
+    # Get session-aware tool recommendations and store on session for compliance tracking
+    tool_recommendations = c.mcp_orchestrator.suggest_tools(intent, session=session)
     session.tool_recommendations = [r.to_dict() for r in tool_recommendations]
 
     # Gather context from configured MCPs (skip if "none")
@@ -336,8 +383,14 @@ async def enhance_prompt(
     else:
         context = await c.context_aggregator.gather_all(intent, context_level)
 
-    # Compose enhanced prompt
-    enhanced = c.prompt_composer.compose(intent, context, tool_recommendations)
+    # Compose enhanced prompt with session feedback wired through
+    enhanced = c.prompt_composer.compose(
+        intent,
+        context,
+        tool_recommendations,
+        extra_requirements=persistent_reqs,
+        session=session,
+    )
 
     result_dict = enhanced.to_dict()
     result_dict["session_id"] = session.session_id

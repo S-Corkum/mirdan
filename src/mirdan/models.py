@@ -60,6 +60,7 @@ class Intent:
     uses_external_framework: bool = False
     ambiguity_score: float = 0.0  # 0 = clear, 1 = very ambiguous
     clarifying_questions: list[str] = field(default_factory=list)
+    task_types: list[TaskType] = field(default_factory=list)  # All detected types, primary first
 
 
 @dataclass
@@ -283,6 +284,7 @@ class EnhancedPrompt:
         return {
             "enhanced_prompt": self.enhanced_text,
             "task_type": self.intent.task_type.value,
+            "task_types": [t.value for t in self.intent.task_types] if self.intent.task_types else [self.intent.task_type.value],
             "language": self.intent.primary_language,
             "frameworks": self.intent.frameworks,
             "extracted_entities": [e.to_dict() for e in self.intent.entities],
@@ -568,6 +570,7 @@ class Violation:
     explanation: str = ""
     related_violations: list[str] = field(default_factory=list)
     historical_frequency: int = 0
+    verifiable: bool = True  # False for pattern-based heuristics (AI001-AI008)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -591,6 +594,8 @@ class Violation:
             result["related_violations"] = self.related_violations
         if self.historical_frequency > 0:
             result["historical_frequency"] = self.historical_frequency
+        if not self.verifiable:
+            result["verifiable"] = False
         return result
 
 
