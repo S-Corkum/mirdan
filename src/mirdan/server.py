@@ -253,23 +253,43 @@ def _get_persistent_violation_reqs(
 ) -> list[str]:
     """Build quality requirement strings from persistent violations in session history.
 
-    Returns up to 3 requirement strings for rules that failed across 2+ consecutive
-    validations, so the next enhance_prompt call prioritizes fixing them.
+    Returns up to 3 enriched requirement strings for rules that failed across 2+
+    consecutive validations. Each string includes the violation message, fix suggestion,
+    and last-seen line number when available — giving the LLM structured context to
+    converge on a fix faster (per Static Analysis Feedback Loop research).
     """
     if session.validation_count == 0 or not session.files_validated:
         return []
     persistence: dict[str, int] = {}
+    details: dict[str, dict[str, Any]] = {}
     for file_path in session.files_validated:
         for rule_id, count in session_tracker.get_violation_persistence(file_path).items():
             if count >= 2:
                 persistence[rule_id] = max(persistence.get(rule_id, 0), count)
+        for rule_id, detail in session_tracker.get_persistent_violation_details(
+            file_path
+        ).items():
+            if rule_id not in details:
+                details[rule_id] = detail
     if not persistence:
         return []
     sorted_rules = sorted(persistence.items(), key=lambda x: -x[1])[:3]
-    return [
-        f"Address recurring violation {rule_id} (failed {count} consecutive validations)"
-        for rule_id, count in sorted_rules
-    ]
+    reqs: list[str] = []
+    for rule_id, count in sorted_rules:
+        detail = details.get(rule_id, {})
+        msg = detail.get("message", "")
+        suggestion = detail.get("suggestion", "")
+        line = detail.get("line")
+        parts = [f"PRIORITY FIX: {rule_id}"]
+        if msg:
+            parts.append(f"({msg})")
+        parts.append(f"— failed {count} consecutive validations")
+        if line:
+            parts.append(f"at line {line}")
+        if suggestion:
+            parts.append(f". Fix: {suggestion}")
+        reqs.append(" ".join(parts))
+    return reqs
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +541,11 @@ async def validate_code_quality(
         session = c.session_manager.get(session_id)
     c.session_tracker.record_validation(result, file_path=file_path, session=session)
 
+    # Detect security regression (must be AFTER record_validation — uses records[-2])
+    _security_regression = c.session_tracker.detect_security_regression(
+        file_path, result.violations
+    )
+
     # Compute violation delta for re-validations within a session
     delta: dict[str, Any] = {}
     if session and session.validation_count > 1:
@@ -539,6 +564,27 @@ async def validate_code_quality(
             delta["persistent"] = persistent
 
     output = result.to_dict(severity_threshold=severity_threshold)
+
+    # Cross-session quality drift detection
+    baseline = c.quality_persistence.get_baseline_score()
+    if baseline is not None and baseline - result.score > 0.15:
+        output["quality_drift"] = {
+            "baseline": round(baseline, 3),
+            "current": round(result.score, 3),
+            "drift": round(baseline - result.score, 3),
+        }
+
+    # Surface security regression warning
+    if _security_regression:
+        output["security_regression"] = {
+            "warning": (
+                "Security regression: this file previously passed security checks"
+                " but now has security violations"
+            ),
+            "security_violations": [
+                v.id for v in result.violations if v.category == "security"
+            ],
+        }
 
     # Generate semantic review questions (Layer 1)
     if c.config.semantic.enabled:

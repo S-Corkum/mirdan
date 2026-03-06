@@ -13,6 +13,7 @@ Detects common AI-generated code issues that traditional linters miss:
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -206,10 +207,15 @@ class AIQualityChecker:
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
         violations.extend(self._check_sec014_vulnerable_deps(code, language))
 
-        # Pattern-based AI quality checks are heuristic, not AST-verified
+        # Pattern-based AI quality checks are heuristic (verifiable=False) unless
+        # AST analysis confirms them (AI001 in Python → verifiable=True).
+        ast_confirmed = self._get_ast_confirmed_placeholder_lines(code, language)
         for v in violations:
             if v.category == "ai_quality":
-                v.verifiable = False
+                if v.id == "AI001" and v.line in ast_confirmed:
+                    v.verifiable = True
+                else:
+                    v.verifiable = False
 
         return violations
 
@@ -234,12 +240,91 @@ class AIQualityChecker:
         violations.extend(self._check_ai008_injection(code, language, skip_regions))
         violations.extend(self._check_sec014_vulnerable_deps(code, language))
 
-        # Pattern-based AI quality checks are heuristic, not AST-verified
+        # Same single-pass verifiability logic as check()
+        ast_confirmed = self._get_ast_confirmed_placeholder_lines(code, language)
         for v in violations:
             if v.category == "ai_quality":
-                v.verifiable = False
+                if v.id == "AI001" and v.line in ast_confirmed:
+                    v.verifiable = True
+                else:
+                    v.verifiable = False
 
         return violations
+
+    # ------------------------------------------------------------------
+    # AI001: AST Verification (Python only)
+    # ------------------------------------------------------------------
+
+    def _get_ast_confirmed_placeholder_lines(
+        self, code: str, language: str
+    ) -> frozenset[int]:
+        """Return line numbers of placeholder function bodies confirmed via Python AST.
+
+        Parses the code and walks FunctionDef/AsyncFunctionDef nodes. A function
+        body is a confirmed placeholder if (after stripping an optional leading
+        docstring) it consists of a single: ``pass``, ``...`` (Ellipsis), or
+        ``raise NotImplementedError``.  Functions decorated with ``@abstractmethod``
+        are excluded.
+
+        Falls back to an empty set for non-Python code or if the code has
+        syntax errors (preserving existing regex-based heuristic behavior).
+
+        Args:
+            code: Source code to analyze.
+            language: Detected programming language.
+
+        Returns:
+            Frozenset of 1-indexed line numbers where AST-confirmed placeholders live.
+        """
+        if language not in ("python", "auto"):
+            return frozenset()
+        try:
+            tree = ast.parse(code)
+        except SyntaxError:
+            return frozenset()
+
+        confirmed: set[int] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            # Skip @abstractmethod decorated functions
+            if any(
+                (isinstance(d, ast.Name) and d.id == "abstractmethod")
+                or (isinstance(d, ast.Attribute) and d.attr == "abstractmethod")
+                for d in node.decorator_list
+            ):
+                continue
+            body = node.body
+            # Strip optional leading docstring
+            if (
+                body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)
+            ):
+                body = body[1:]
+            if len(body) != 1:
+                continue
+            stmt = body[0]
+            is_placeholder = False
+            if isinstance(stmt, ast.Pass):
+                is_placeholder = True
+            elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+                # Ellipsis: `...`
+                if stmt.value.value is ...:
+                    is_placeholder = True
+            elif isinstance(stmt, ast.Raise):
+                # raise NotImplementedError or raise NotImplementedError(...)
+                exc = stmt.exc
+                if (isinstance(exc, ast.Name) and exc.id == "NotImplementedError") or (
+                    isinstance(exc, ast.Call)
+                    and isinstance(exc.func, ast.Name)
+                    and exc.func.id == "NotImplementedError"
+                ):
+                    is_placeholder = True
+            if is_placeholder:
+                confirmed.add(stmt.lineno)
+        return frozenset(confirmed)
 
     # ------------------------------------------------------------------
     # AI001: Placeholder Detection

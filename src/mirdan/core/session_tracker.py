@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from mirdan.models import QualitySnapshot, SessionContext, ValidationResult
+from mirdan.models import QualitySnapshot, SessionContext, ValidationResult, Violation
 
 
 @dataclass
@@ -25,6 +25,7 @@ class FileValidation:
     timestamp: float
     language: str = ""
     violation_rules: list[str] = field(default_factory=list)
+    violation_details: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass
@@ -95,6 +96,15 @@ class SessionTracker:
             timestamp=now,
             language=result.language_detected,
             violation_rules=[v.id for v in result.violations],
+            violation_details={
+                v.id: {
+                    "message": v.message,
+                    "suggestion": v.suggestion,
+                    "line": v.line,
+                    "category": v.category,
+                }
+                for v in result.violations
+            },
         )
 
         key = record.file_path
@@ -253,3 +263,58 @@ class SessionTracker:
                 "warning": summary.total_warnings,
             },
         )
+
+    def get_persistent_violation_details(self, file_path: str) -> dict[str, dict[str, Any]]:
+        """Get violation details for rules that persist across 2+ consecutive validations.
+
+        Returns a mapping of rule_id -> detail dict (message, suggestion, line, category)
+        for rules present in the latest validation that also appeared in at least one
+        prior consecutive validation.
+
+        Args:
+            file_path: The file path to check (empty string for inline code).
+
+        Returns:
+            Mapping of rule_id to violation detail dict.
+        """
+        persistence = self.get_violation_persistence(file_path)
+        records = self._file_validations.get(file_path or "<inline>")
+        if not records:
+            return {}
+        latest_details = records[-1].violation_details
+        return {
+            rule_id: latest_details[rule_id]
+            for rule_id, count in persistence.items()
+            if count >= 2 and rule_id in latest_details
+        }
+
+    def detect_security_regression(
+        self, file_path: str, violations: list[Violation]
+    ) -> bool:
+        """Check if a previously security-clean file now has security violations.
+
+        Compares the previous validation's security state to the current violations.
+        Returns True only when the file has been validated at least twice AND the
+        previous validation had zero security violations AND the current has security
+        violations.
+
+        Must be called AFTER record_validation — records[-2] is previous,
+        records[-1] is current.
+
+        Args:
+            file_path: The file path to check (empty string for inline code).
+            violations: Current validation's violations.
+
+        Returns:
+            True if a security regression is detected.
+        """
+        key = file_path or "<inline>"
+        records = self._file_validations.get(key)
+        if not records or len(records) < 2:
+            return False
+        prev = records[-2]
+        had_security_before = any(
+            d.get("category") == "security" for d in prev.violation_details.values()
+        )
+        has_security_now = any(v.category == "security" for v in violations)
+        return not had_security_before and has_security_now

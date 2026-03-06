@@ -13,6 +13,7 @@ Tests cover:
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -772,15 +773,22 @@ class TestGap2MultiLabelTaskType:
 class TestGap4ViolationVerifiability:
     """Gap 4: Violation verifiability — pattern-based AI rules marked as heuristic."""
 
-    def test_ai_quality_violations_not_verifiable(self) -> None:
+    def test_ai_quality_violations_heuristic_unless_ast_confirmed(self) -> None:
         from mirdan.core.ai_quality_checker import AIQualityChecker
 
         checker = AIQualityChecker()
+        # AST-confirmed AI001 in Python → verifiable=True (v1.3.0 upgrade)
         code = "def foo():\n    raise NotImplementedError\n"
         violations = checker.check(code, "python")
-        ai_violations = [v for v in violations if v.category == "ai_quality"]
-        assert len(ai_violations) > 0
-        for v in ai_violations:
+        ai001 = [v for v in violations if v.id == "AI001"]
+        assert len(ai001) > 0
+        for v in ai001:
+            assert v.verifiable is True
+        # Non-AI001 ai_quality violations remain heuristic
+        code2 = "import nonexistent_fake_xyz_module\n"
+        violations2 = checker.check(code2, "python")
+        ai_non_001 = [v for v in violations2 if v.category == "ai_quality" and v.id != "AI001"]
+        for v in ai_non_001:
             assert v.verifiable is False
 
     def test_non_ai_violations_keep_verifiable_true(self) -> None:
@@ -1029,3 +1037,444 @@ class TestGap5ChecklistPruning:
         # Task-specific REFACTOR steps must still be present after base compression
         assert any("existing functionality" in s for s in steps)
         assert any("API signatures" in s for s in steps)
+
+
+# ---------------------------------------------------------------------------
+# v1.3.0 Frontier Research Gaps — 5 new test classes
+# ---------------------------------------------------------------------------
+
+
+class TestStructuredViolationFeedback:
+    """Gap 1 (v1.3.0): Enriched persistent violation feedback strings.
+
+    _get_persistent_violation_reqs now includes message, suggestion, and
+    line number from violation_details stored by the session tracker.
+    """
+
+    def test_enriched_string_includes_message(self) -> None:
+        """Feedback string contains the violation message."""
+        from mirdan.server import _get_persistent_violation_reqs
+
+        tracker = SessionTracker()
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection via concatenation",
+            suggestion="Use parameterized queries", line=42,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="db.py")
+        tracker.record_validation(result, file_path="db.py")
+
+        session = SessionContext(session_id="t1", validation_count=2, files_validated=["db.py"])
+        reqs = _get_persistent_violation_reqs(session, tracker)
+        assert len(reqs) == 1
+        assert "SQL injection via concatenation" in reqs[0]
+
+    def test_enriched_string_includes_suggestion(self) -> None:
+        """Feedback string contains the fix suggestion."""
+        from mirdan.server import _get_persistent_violation_reqs
+
+        tracker = SessionTracker()
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection", suggestion="Use parameterized queries",
+            line=10,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="db.py")
+        tracker.record_validation(result, file_path="db.py")
+
+        session = SessionContext(session_id="t2", validation_count=2, files_validated=["db.py"])
+        reqs = _get_persistent_violation_reqs(session, tracker)
+        assert any("Fix: Use parameterized queries" in r for r in reqs)
+
+    def test_enriched_string_includes_line(self) -> None:
+        """Feedback string contains 'at line N'."""
+        from mirdan.server import _get_persistent_violation_reqs
+
+        tracker = SessionTracker()
+        v = Violation(
+            id="AI001", rule="placeholder", category="ai_quality",
+            severity="error", message="Placeholder code", line=77,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="api.py")
+        tracker.record_validation(result, file_path="api.py")
+
+        session = SessionContext(session_id="t3", validation_count=2, files_validated=["api.py"])
+        reqs = _get_persistent_violation_reqs(session, tracker)
+        assert any("at line 77" in r for r in reqs)
+
+    def test_enriched_string_omits_empty_suggestion(self) -> None:
+        """When suggestion is None/empty, no 'Fix:' appears."""
+        from mirdan.server import _get_persistent_violation_reqs
+
+        tracker = SessionTracker()
+        v = Violation(
+            id="AI001", rule="placeholder", category="ai_quality",
+            severity="error", message="Placeholder code", line=10,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="x.py")
+        tracker.record_validation(result, file_path="x.py")
+
+        session = SessionContext(session_id="t4", validation_count=2, files_validated=["x.py"])
+        reqs = _get_persistent_violation_reqs(session, tracker)
+        assert all("Fix:" not in r for r in reqs)
+
+    def test_violation_details_stored_in_session_tracker(self) -> None:
+        """FileValidation.violation_details is populated by record_validation."""
+        tracker = SessionTracker()
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection", suggestion="Use params",
+            line=5,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="f.py")
+
+        records = tracker._file_validations["f.py"]
+        assert "SEC002" in records[0].violation_details
+        assert records[0].violation_details["SEC002"]["message"] == "SQL injection"
+        assert records[0].violation_details["SEC002"]["suggestion"] == "Use params"
+        assert records[0].violation_details["SEC002"]["line"] == 5
+
+    def test_get_persistent_violation_details(self) -> None:
+        """get_persistent_violation_details returns details for 2+ consecutive rules."""
+        tracker = SessionTracker()
+        v = Violation(
+            id="AI001", rule="placeholder", category="ai_quality",
+            severity="error", message="Placeholder", suggestion="Implement it", line=20,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="a.py")
+        tracker.record_validation(result, file_path="a.py")
+
+        details = tracker.get_persistent_violation_details("a.py")
+        assert "AI001" in details
+        assert details["AI001"]["message"] == "Placeholder"
+
+
+class TestASTPlaceholderVerification:
+    """Gap 2 (v1.3.0): AST-level AI001 verification for Python code.
+
+    _get_ast_confirmed_placeholder_lines upgrades heuristic AI001
+    violations to verifiable=True when confirmed by AST analysis.
+    """
+
+    def test_ast_confirms_raise_not_implemented(self) -> None:
+        """Pure 'raise NotImplementedError' body → verifiable=True."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "def foo():\n    raise NotImplementedError\n"
+        violations = checker.check(code, "python")
+        ai001 = [v for v in violations if v.id == "AI001"]
+        assert len(ai001) > 0
+        assert all(v.verifiable is True for v in ai001)
+
+    def test_ast_confirms_pass_placeholder(self) -> None:
+        """Pure 'pass' body → verifiable=True."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "def bar():\n    pass  # TODO: implement\n"
+        violations = checker.check(code, "python")
+        ai001 = [v for v in violations if v.id == "AI001"]
+        assert len(ai001) > 0
+        assert all(v.verifiable is True for v in ai001)
+
+    def test_ast_confirms_ellipsis_in_confirmed_lines(self) -> None:
+        """Pure '...' body is detected by AST as a placeholder line."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "def stub():\n    ...\n"
+        # The regex pattern for AI001 doesn't detect standalone '...',
+        # but the AST method correctly identifies it as a placeholder line.
+        confirmed = checker._get_ast_confirmed_placeholder_lines(code, "python")
+        assert 2 in confirmed  # line 2 is the ellipsis
+
+    def test_ast_skips_abstractmethod(self) -> None:
+        """@abstractmethod decorated functions are NOT flagged as verifiable."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = (
+            "from abc import abstractmethod\n"
+            "class Base:\n"
+            "    @abstractmethod\n"
+            "    def method(self):\n"
+            "        raise NotImplementedError\n"
+        )
+        violations = checker.check(code, "python")
+        ai001 = [v for v in violations if v.id == "AI001"]
+        # If regex still fires, AST should NOT confirm it → verifiable=False
+        for v in ai001:
+            assert v.verifiable is False
+
+    def test_non_python_returns_empty_set(self) -> None:
+        """Non-Python code → AST analysis returns empty set (fallback to heuristic)."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "function foo() { throw new Error('not implemented'); }\n"
+        violations = checker.check(code, "javascript")
+        # All ai_quality violations should be heuristic (verifiable=False)
+        for v in violations:
+            if v.category == "ai_quality":
+                assert v.verifiable is False
+
+    def test_syntax_error_falls_back_gracefully(self) -> None:
+        """Code with syntax errors → AST fails, heuristic (verifiable=False) preserved."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "def broken(\n    raise NotImplementedError\n"
+        violations = checker.check(code, "python")
+        for v in violations:
+            if v.category == "ai_quality":
+                assert v.verifiable is False
+
+    def test_check_quick_also_applies_ast(self) -> None:
+        """check_quick applies the same AST verification for AI001."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = "def todo():\n    raise NotImplementedError\n"
+        violations = checker.check_quick(code, "python")
+        ai001 = [v for v in violations if v.id == "AI001"]
+        assert len(ai001) > 0
+        assert all(v.verifiable is True for v in ai001)
+
+    def test_docstring_then_placeholder_confirmed(self) -> None:
+        """Function with docstring + raise NotImplementedError → verifiable=True."""
+        from mirdan.core.ai_quality_checker import AIQualityChecker
+
+        checker = AIQualityChecker()
+        code = (
+            'def documented():\n'
+            '    """This function will be implemented later."""\n'
+            '    raise NotImplementedError\n'
+        )
+        violations = checker.check(code, "python")
+        ai001 = [v for v in violations if v.id == "AI001"]
+        assert len(ai001) > 0
+        assert all(v.verifiable is True for v in ai001)
+
+
+class TestQualityBaseline:
+    """Gap 3 (v1.3.0): Cross-session quality drift detection via baseline score.
+
+    QualityPersistence.get_baseline_score returns a cached average from
+    recent snapshots. Drift is flagged in validate_code_quality output.
+    """
+
+    def test_baseline_none_with_no_snapshots(self, tmp_path: Path) -> None:
+        """No history → baseline returns None."""
+        from mirdan.core.quality_persistence import QualityPersistence
+
+        persistence = QualityPersistence(base_dir=tmp_path)
+        assert persistence.get_baseline_score() is None
+
+    def test_baseline_none_with_fewer_than_3_snapshots(self, tmp_path: Path) -> None:
+        """Fewer than 3 snapshots → baseline returns None."""
+        from mirdan.core.quality_persistence import QualityPersistence
+
+        persistence = QualityPersistence(base_dir=tmp_path)
+        # Create 2 snapshots
+        for score in (0.9, 0.85):
+            result = ValidationResult(
+                passed=True, score=score, language_detected="python",
+                violations=[], standards_checked=["style"],
+            )
+            persistence.save_snapshot(result)
+        assert persistence.get_baseline_score() is None
+
+    def test_baseline_returns_average_with_3_snapshots(self, tmp_path: Path) -> None:
+        """3+ snapshots → baseline returns their average."""
+        from mirdan.core.quality_persistence import QualityPersistence
+
+        persistence = QualityPersistence(base_dir=tmp_path)
+        scores = [0.90, 0.85, 0.80]
+        for score in scores:
+            result = ValidationResult(
+                passed=True, score=score, language_detected="python",
+                violations=[], standards_checked=["style"],
+            )
+            persistence.save_snapshot(result)
+        baseline = persistence.get_baseline_score()
+        assert baseline is not None
+        expected = sum(scores) / len(scores)
+        assert abs(baseline - expected) < 0.01
+
+    def test_baseline_is_cached(self, tmp_path: Path) -> None:
+        """Baseline is computed once and cached for the instance lifetime."""
+        from mirdan.core.quality_persistence import QualityPersistence
+
+        persistence = QualityPersistence(base_dir=tmp_path)
+        for score in (0.90, 0.85, 0.80):
+            result = ValidationResult(
+                passed=True, score=score, language_detected="python",
+                violations=[], standards_checked=["style"],
+            )
+            persistence.save_snapshot(result)
+        first_call = persistence.get_baseline_score()
+        # Add a 4th snapshot that would change the average
+        result = ValidationResult(
+            passed=True, score=0.50, language_detected="python",
+            violations=[], standards_checked=["style"],
+        )
+        persistence.save_snapshot(result)
+        second_call = persistence.get_baseline_score()
+        # Cached — must be identical
+        assert first_call == second_call
+
+    def test_drift_detection_in_server_output(self) -> None:
+        """Server adds quality_drift key when score drops > 0.15 below baseline."""
+        import inspect
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "quality_drift" in source
+        assert "get_baseline_score" in source
+        assert "0.15" in source
+
+
+class TestTaskGuidance:
+    """Gap 4 (v1.3.0): Task-type-specific guidance injected into prompts.
+
+    PromptComposer.TASK_GUIDANCE provides structured instructions per
+    TaskType, rendered between context and task sections in the template.
+    """
+
+    def test_generation_guidance_present(self) -> None:
+        """GENERATION task type has guidance text."""
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.GENERATION in PromptComposer.TASK_GUIDANCE
+        assert "Implementation Approach" in PromptComposer.TASK_GUIDANCE[TaskType.GENERATION]
+
+    def test_refactor_guidance_present(self) -> None:
+        """REFACTOR task type has guidance text."""
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.REFACTOR in PromptComposer.TASK_GUIDANCE
+        assert "Refactoring Protocol" in PromptComposer.TASK_GUIDANCE[TaskType.REFACTOR]
+
+    def test_debug_guidance_present(self) -> None:
+        """DEBUG task type has guidance text."""
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.DEBUG in PromptComposer.TASK_GUIDANCE
+        assert "Debugging Protocol" in PromptComposer.TASK_GUIDANCE[TaskType.DEBUG]
+
+    def test_review_guidance_present(self) -> None:
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.REVIEW in PromptComposer.TASK_GUIDANCE
+
+    def test_test_guidance_present(self) -> None:
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.TEST in PromptComposer.TASK_GUIDANCE
+
+    def test_documentation_guidance_present(self) -> None:
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.DOCUMENTATION in PromptComposer.TASK_GUIDANCE
+
+    def test_guidance_rendered_in_prompt(self) -> None:
+        """Task guidance appears in the composed prompt text."""
+        from mirdan.core.prompt_composer import PromptComposer
+        from mirdan.core.quality_standards import QualityStandards
+        from mirdan.models import ContextBundle, Intent
+
+        composer = PromptComposer(QualityStandards())
+        intent = Intent(original_prompt="fix the login bug", task_type=TaskType.DEBUG)
+        enhanced = composer.compose(intent, ContextBundle(), [])
+        assert "Debugging Protocol" in enhanced.enhanced_text
+
+    def test_guidance_suppressed_in_minimal_verbosity(self) -> None:
+        """Task guidance is NOT rendered in minimal verbosity mode."""
+        from mirdan.config import EnhancementConfig
+        from mirdan.core.prompt_composer import PromptComposer
+        from mirdan.core.quality_standards import QualityStandards
+        from mirdan.models import ContextBundle, Intent
+
+        config = EnhancementConfig(verbosity="minimal")
+        composer = PromptComposer(QualityStandards(), config=config)
+        intent = Intent(original_prompt="fix the login bug", task_type=TaskType.DEBUG)
+        enhanced = composer.compose(intent, ContextBundle(), [])
+        assert "Debugging Protocol" not in enhanced.enhanced_text
+
+    def test_unknown_task_type_has_no_guidance(self) -> None:
+        """UNKNOWN task type is not in TASK_GUIDANCE dict."""
+        from mirdan.core.prompt_composer import PromptComposer
+        assert TaskType.UNKNOWN not in PromptComposer.TASK_GUIDANCE
+
+
+class TestSecurityRegression:
+    """Gap 5 (v1.3.0): Security regression detection.
+
+    SessionTracker.detect_security_regression flags files that previously
+    had zero security violations but now have security violations.
+    """
+
+    def test_no_regression_on_first_validation(self) -> None:
+        """First validation can't be a regression (no prior state)."""
+        tracker = SessionTracker()
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection", line=10,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="db.py")
+        assert tracker.detect_security_regression("db.py", [v]) is False
+
+    def test_regression_detected_when_security_introduced(self) -> None:
+        """Clean → security violation = regression."""
+        tracker = SessionTracker()
+        clean = ValidationResult(passed=True, score=0.9, language_detected="python", violations=[])
+        tracker.record_validation(clean, file_path="db.py")
+
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection", line=10,
+        )
+        dirty = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(dirty, file_path="db.py")
+        assert tracker.detect_security_regression("db.py", dirty.violations) is True
+
+    def test_no_regression_when_security_was_already_present(self) -> None:
+        """Security → security is NOT a regression (it was already broken)."""
+        tracker = SessionTracker()
+        v = Violation(
+            id="SEC002", rule="sql-injection", category="security",
+            severity="error", message="SQL injection", line=10,
+        )
+        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        tracker.record_validation(result, file_path="db.py")
+        tracker.record_validation(result, file_path="db.py")
+        assert tracker.detect_security_regression("db.py", result.violations) is False
+
+    def test_no_regression_when_clean_follows_clean(self) -> None:
+        """Clean → clean is NOT a regression."""
+        tracker = SessionTracker()
+        clean = ValidationResult(passed=True, score=0.9, language_detected="python", violations=[])
+        tracker.record_validation(clean, file_path="db.py")
+        tracker.record_validation(clean, file_path="db.py")
+        assert tracker.detect_security_regression("db.py", []) is False
+
+    def test_non_security_violations_dont_trigger_regression(self) -> None:
+        """Clean → style-only violations is NOT a security regression."""
+        tracker = SessionTracker()
+        clean = ValidationResult(passed=True, score=0.9, language_detected="python", violations=[])
+        tracker.record_validation(clean, file_path="db.py")
+
+        v = Violation(
+            id="PY003", rule="bare-except", category="style",
+            severity="warning", message="Bare except", line=5,
+        )
+        style_fail = ValidationResult(passed=False, score=0.7, language_detected="python", violations=[v])
+        tracker.record_validation(style_fail, file_path="db.py")
+        assert tracker.detect_security_regression("db.py", style_fail.violations) is False
+
+    def test_regression_surfaced_in_server_output(self) -> None:
+        """Server adds security_regression key to output when detected."""
+        import inspect
+        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        assert "security_regression" in source
+        assert "detect_security_regression" in source

@@ -251,6 +251,10 @@ class OutputFormatter:
         # Include semantic_checks (limited to top 3 in compact mode)
         if "semantic_checks" in data:
             result["semantic_checks"] = data["semantic_checks"][:3]
+        if "quality_drift" in data:
+            result["quality_drift"] = data["quality_drift"]
+        if "security_regression" in data:
+            result["security_regression"] = data["security_regression"]
         return result
 
     def _minimal_validation(self, data: dict[str, Any]) -> dict[str, Any]:

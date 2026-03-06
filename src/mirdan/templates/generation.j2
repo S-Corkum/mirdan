@@ -5,6 +5,10 @@
 
 {{ context_section(patterns_summary, tech_stack) }}
 
+{% if task_guidance -%}
+{{ task_guidance }}
+
+{% endif -%}
 {{ task_section(original_prompt) }}
 
 {% if quality_requirements and verbosity != 'minimal' -%}

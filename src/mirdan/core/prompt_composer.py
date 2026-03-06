@@ -23,6 +23,54 @@ TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 class PromptComposer:
     """Composes enhanced prompts using proven frameworks."""
 
+    # Task-type-specific guidance injected into prompts to reduce agent runtime
+    # and improve first-attempt correctness (per "Beyond the Prompt" MSR 2026).
+    TASK_GUIDANCE: dict[TaskType, str] = {
+        TaskType.GENERATION: (
+            "## Implementation Approach\n"
+            "Focus on integrating with existing patterns. "
+            "Before writing new code, read similar implementations in the codebase. "
+            "New functions must have clear inputs/outputs and be easy to test independently."
+        ),
+        TaskType.REFACTOR: (
+            "## Refactoring Protocol\n"
+            "1. Identify all callers of the code being refactored\n"
+            "2. Ensure all existing tests pass BEFORE making changes\n"
+            "3. Make incremental changes — each commit should be independently correct\n"
+            "4. After refactoring, verify no public API signatures changed"
+        ),
+        TaskType.DEBUG: (
+            "## Debugging Protocol\n"
+            "1. Reproduce the issue first — confirm you can trigger the bug\n"
+            "2. Trace the data flow to find WHERE the bug manifests\n"
+            "3. Identify the ROOT CAUSE, not just the symptom\n"
+            "4. Write a test that fails BEFORE your fix and passes AFTER\n"
+            "5. Make the minimal change that fixes the root cause"
+        ),
+        TaskType.REVIEW: (
+            "## Review Focus Areas\n"
+            "1. Security: Check for injection, auth bypass, data exposure\n"
+            "2. Correctness: Verify edge cases, error handling, race conditions\n"
+            "3. Consistency: Does the code follow existing project conventions?\n"
+            "4. Testability: Are changes covered by tests?"
+        ),
+        TaskType.TEST: (
+            "## Testing Strategy\n"
+            "1. Cover the happy path AND edge cases (empty, null, boundary values)\n"
+            "2. Each test should verify ONE behavior — name it descriptively\n"
+            "3. Tests must be isolated — no shared mutable state between tests\n"
+            "4. Mock external dependencies, don't mock the code under test\n"
+            "5. Assert specific values, not just that no error occurred"
+        ),
+        TaskType.DOCUMENTATION: (
+            "## Documentation Standards\n"
+            "1. Document the WHY, not just the WHAT — readers can see the code\n"
+            "2. Include concrete examples for non-obvious functionality\n"
+            "3. Keep docs next to the code they describe\n"
+            "4. Mark parameters, return values, and exceptions explicitly"
+        ),
+    }
+
     def __init__(
         self,
         standards: QualityStandards,
@@ -199,6 +247,11 @@ class PromptComposer:
         # Build tech stack string
         tech_stack_str = ", ".join(f"{k}: {v}" for k, v in context.tech_stack.items())
 
+        # Task-type-specific guidance (suppressed in minimal verbosity)
+        task_guidance = ""
+        if verbosity != "minimal":
+            task_guidance = self.TASK_GUIDANCE.get(intent.task_type, "")
+
         # Render the generation template
         template = self._env.get_template("generation.j2")
         return template.render(
@@ -214,6 +267,7 @@ class PromptComposer:
             verbosity=verbosity,
             include_verification=include_verification,
             include_tool_hints=include_tool_hints,
+            task_guidance=task_guidance,
         ).strip()
 
     def _get_task_constraints(self, intent: Intent) -> list[str]:

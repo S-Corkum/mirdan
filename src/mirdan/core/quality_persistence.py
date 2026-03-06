@@ -34,6 +34,8 @@ class QualityPersistence:
         """
         self._base_dir = base_dir or Path.cwd()
         self._history_dir = self._base_dir / _HISTORY_DIR
+        self._baseline_score: float | None = None
+        self._baseline_loaded: bool = False
 
     @property
     def history_dir(self) -> Path:
@@ -159,6 +161,35 @@ class QualityPersistence:
             score_trend=score_trend,
             snapshots=snapshots,
         )
+
+    def get_baseline_score(self, window: int = 10) -> float | None:
+        """Get the average score from recent snapshots as a quality baseline.
+
+        Used for cross-session quality drift detection. The baseline represents
+        the project's historical quality level — if the current validation score
+        drops significantly below it, a quality regression is flagged.
+
+        Cached for the lifetime of this instance to avoid repeated disk reads
+        and to keep the baseline stable within a session.
+
+        Args:
+            window: Maximum number of recent snapshots to average.
+
+        Returns:
+            Average score, or None if fewer than 3 snapshots exist.
+        """
+        if self._baseline_loaded:
+            return self._baseline_score
+
+        self._baseline_loaded = True
+        snapshots = self.get_snapshots(days=7)
+        if len(snapshots) < 3:
+            self._baseline_score = None
+            return None
+
+        recent = snapshots[-window:]
+        self._baseline_score = sum(s.score for s in recent) / len(recent)
+        return self._baseline_score
 
     def _write_snapshot(self, snapshot: QualitySnapshot, now: datetime) -> None:
         """Write a snapshot to the day's JSON file.
