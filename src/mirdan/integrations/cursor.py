@@ -521,6 +521,7 @@ def generate_cursor_rules(
     rules_dir: Path,
     detected: DetectedProject,
     standards: QualityStandards | None = None,
+    languages: list[str] | None = None,
 ) -> list[Path]:
     """Generate .cursor/rules/*.mdc files with dynamic standards content.
 
@@ -531,6 +532,7 @@ def generate_cursor_rules(
         rules_dir: The .cursor/rules/ directory to write into.
         detected: Detected project metadata.
         standards: Optional QualityStandards for dynamic generation.
+        languages: Optional list of languages to generate rules for (workspace mode).
 
     Returns:
         List of generated file paths.
@@ -538,9 +540,11 @@ def generate_cursor_rules(
     generated: list[Path] = []
 
     if standards:
-        generated.extend(_generate_dynamic_rules(rules_dir, detected, standards))
+        generated.extend(
+            _generate_dynamic_rules(rules_dir, detected, standards, languages=languages)
+        )
     else:
-        generated.extend(_generate_static_rules(rules_dir, detected))
+        generated.extend(_generate_static_rules(rules_dir, detected, languages=languages))
 
     return generated
 
@@ -587,6 +591,7 @@ def _generate_dynamic_rules(
     rules_dir: Path,
     detected: DetectedProject,
     standards: QualityStandards,
+    languages: list[str] | None = None,
 ) -> list[Path]:
     """Generate .mdc files from QualityStandards data."""
     generated: list[Path] = []
@@ -597,28 +602,34 @@ def _generate_dynamic_rules(
     path.write_text(always_content)
     generated.append(path)
 
-    # Language-specific rules
-    lang = detected.primary_language
-    if lang == "python":
-        content = _build_language_mdc("python", "**/*.py", standards)
-        path = rules_dir / "mirdan-python.mdc"
-        path.write_text(content)
-        generated.append(path)
-    elif lang in ("typescript", "javascript"):
-        content = _build_language_mdc("typescript", "**/*.{ts,tsx,js,jsx}", standards)
-        path = rules_dir / "mirdan-typescript.mdc"
-        path.write_text(content)
-        generated.append(path)
-    elif lang == "go":
-        content = _build_language_mdc("go", "**/*.go", standards)
-        path = rules_dir / "mirdan-go.mdc"
-        path.write_text(content)
-        generated.append(path)
-    elif lang == "rust":
-        content = _build_language_mdc("rust", "**/*.rs", standards)
-        path = rules_dir / "mirdan-rust.mdc"
-        path.write_text(content)
-        generated.append(path)
+    # Language-specific rules — iterate all languages in workspace mode
+    langs = languages or ([detected.primary_language] if detected.primary_language else [])
+    generated_names: set[str] = set()
+    for lang in langs:
+        if lang == "python" and "mirdan-python.mdc" not in generated_names:
+            content = _build_language_mdc("python", "**/*.py", standards)
+            path = rules_dir / "mirdan-python.mdc"
+            path.write_text(content)
+            generated.append(path)
+            generated_names.add("mirdan-python.mdc")
+        if lang in ("typescript", "javascript") and "mirdan-typescript.mdc" not in generated_names:
+            content = _build_language_mdc("typescript", "**/*.{ts,tsx,js,jsx}", standards)
+            path = rules_dir / "mirdan-typescript.mdc"
+            path.write_text(content)
+            generated.append(path)
+            generated_names.add("mirdan-typescript.mdc")
+        if lang == "go" and "mirdan-go.mdc" not in generated_names:
+            content = _build_language_mdc("go", "**/*.go", standards)
+            path = rules_dir / "mirdan-go.mdc"
+            path.write_text(content)
+            generated.append(path)
+            generated_names.add("mirdan-go.mdc")
+        if lang == "rust" and "mirdan-rust.mdc" not in generated_names:
+            content = _build_language_mdc("rust", "**/*.rs", standards)
+            path = rules_dir / "mirdan-rust.mdc"
+            path.write_text(content)
+            generated.append(path)
+            generated_names.add("mirdan-rust.mdc")
 
     # Security rule (always)
     security_content = _build_security_mdc(standards)
@@ -840,7 +851,11 @@ Background agents and autonomous task runners must follow stricter quality gates
 # ---------------------------------------------------------------------------
 
 
-def _generate_static_rules(rules_dir: Path, detected: DetectedProject) -> list[Path]:
+def _generate_static_rules(
+    rules_dir: Path,
+    detected: DetectedProject,
+    languages: list[str] | None = None,
+) -> list[Path]:
     """Generate .mdc files from static templates (legacy fallback)."""
     generated: list[Path] = []
     templates = _load_templates()
@@ -850,16 +865,29 @@ def _generate_static_rules(rules_dir: Path, detected: DetectedProject) -> list[P
         path.write_text(templates["mirdan-always.mdc"])
         generated.append(path)
 
-    lang = detected.primary_language
-    if lang == "python" and "mirdan-python.mdc" in templates:
-        path = rules_dir / "mirdan-python.mdc"
-        path.write_text(templates["mirdan-python.mdc"])
-        generated.append(path)
+    # Language-specific rules — iterate all languages in workspace mode
+    langs = languages or ([detected.primary_language] if detected.primary_language else [])
+    generated_names: set[str] = set()
+    for lang in langs:
+        if (
+            lang == "python"
+            and "mirdan-python.mdc" in templates
+            and "mirdan-python.mdc" not in generated_names
+        ):
+            path = rules_dir / "mirdan-python.mdc"
+            path.write_text(templates["mirdan-python.mdc"])
+            generated.append(path)
+            generated_names.add("mirdan-python.mdc")
 
-    if lang in ("typescript", "javascript") and "mirdan-typescript.mdc" in templates:
-        path = rules_dir / "mirdan-typescript.mdc"
-        path.write_text(templates["mirdan-typescript.mdc"])
-        generated.append(path)
+        if (
+            lang in ("typescript", "javascript")
+            and "mirdan-typescript.mdc" in templates
+            and "mirdan-typescript.mdc" not in generated_names
+        ):
+            path = rules_dir / "mirdan-typescript.mdc"
+            path.write_text(templates["mirdan-typescript.mdc"])
+            generated.append(path)
+            generated_names.add("mirdan-typescript.mdc")
 
     if "mirdan-security.mdc" in templates:
         path = rules_dir / "mirdan-security.mdc"

@@ -108,12 +108,13 @@ def _run_apply(args: list[str]) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
 
-    # Update config
-    config_path = Path(".mirdan/config.yaml")
-    if not config_path.exists():
+    # Update config — find actual config path instead of assuming cwd
+    _config, config_dir = MirdanConfig.find_config_with_path()
+    if config_dir is None:
         print("No .mirdan/config.yaml found. Run 'mirdan init' first.", file=sys.stderr)
         sys.exit(2)
 
+    config_path = config_dir / ".mirdan" / "config.yaml"
     config.quality_profile = profile_name
     config.save(config_path)
     print(f"Applied quality profile: {profile_name}")

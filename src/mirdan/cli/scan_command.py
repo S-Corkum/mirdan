@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import yaml
 
+from mirdan.config import MirdanConfig
 from mirdan.core.convention_extractor import ConventionExtractor, ScanResult
 
 
@@ -35,6 +37,16 @@ def run_scan(args: list[str]) -> None:
     language = parsed.get("language", "auto")
     output_format = parsed.get("format", "text")
 
+    config = MirdanConfig.find_config(directory)
+
+    if config.is_workspace:
+        _run_workspace_scan(directory, config, language, output_format)
+    else:
+        _run_single_scan(directory, language, output_format)
+
+
+def _run_single_scan(directory: Path, language: str, output_format: str) -> None:
+    """Run a scan on a single project directory."""
     print(f"Scanning {directory}...")
     print()
 
@@ -56,6 +68,98 @@ def run_scan(args: list[str]) -> None:
     if mirdan_dir.is_dir() and result.conventions:
         conventions_path = mirdan_dir / "conventions.yaml"
         _save_conventions(result, conventions_path)
+
+
+def _run_workspace_scan(
+    directory: Path,
+    config: MirdanConfig,
+    language: str,
+    output_format: str,
+) -> None:
+    """Run per-sub-project scans in workspace mode.
+
+    Iterates each configured sub-project, scans it independently,
+    and aggregates results with per-project sections.
+    """
+    print(f"Scanning workspace {directory}...")
+    print()
+
+    extractor = ConventionExtractor()
+    project_results: dict[str, ScanResult] = {}
+    total_files = 0
+
+    for sub in config.workspace.projects:
+        sub_dir = directory / sub.path
+        if not sub_dir.is_dir():
+            continue
+        sub_language = language if language != "auto" else (sub.primary_language or "auto")
+        result = extractor.scan(sub_dir, language=sub_language)
+        if result.files_scanned > 0:
+            project_results[sub.path] = result
+            total_files += result.files_scanned
+
+    if total_files == 0:
+        print("No source files found to scan.")
+        sys.exit(0)
+
+    if output_format == "json":
+        workspace_dict: dict[str, Any] = {
+            "workspace": True,
+            "directory": str(directory),
+            "total_files_scanned": total_files,
+            "projects": {},
+        }
+        for proj_path, result in sorted(project_results.items()):
+            workspace_dict["projects"][proj_path] = result.to_dict()
+        print(json.dumps(workspace_dict, indent=2))
+    else:
+        _output_workspace_text(project_results, total_files)
+
+    # Save conventions to .mirdan/conventions.yaml in per-project format
+    mirdan_dir = directory / ".mirdan"
+    if mirdan_dir.is_dir():
+        conventions_path = mirdan_dir / "conventions.yaml"
+        _save_workspace_conventions(project_results, conventions_path)
+
+
+def _output_workspace_text(
+    project_results: dict[str, ScanResult],
+    total_files: int,
+) -> None:
+    """Human-readable text output for workspace scan results."""
+    print(f"Total files scanned: {total_files}")
+    print()
+    for proj_path in sorted(project_results):
+        result = project_results[proj_path]
+        print(f"[{proj_path}] ({result.language})")
+        print(f"  Files scanned: {result.files_scanned}")
+        print(f"  Avg score:     {result.avg_score:.2f}")
+        print(f"  Pass rate:     {result.pass_rate:.0%}")
+        if result.conventions:
+            print(f"  Conventions:   {len(result.conventions)}")
+        print()
+
+
+def _save_workspace_conventions(
+    project_results: dict[str, ScanResult],
+    path: Path,
+) -> None:
+    """Save discovered conventions to YAML in per-project format."""
+    data: dict[str, Any] = {"projects": {}}
+    for proj_path in sorted(project_results):
+        result = project_results[proj_path]
+        data["projects"][proj_path] = {
+            "scan_summary": {
+                "language": result.language,
+                "files_scanned": result.files_scanned,
+                "avg_score": round(result.avg_score, 3),
+                "pass_rate": round(result.pass_rate, 3),
+            },
+            "conventions": [e.to_dict() for e in result.conventions],
+        }
+    with path.open("w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    print(f"Conventions saved to {path}")
 
 
 def _output_text(result: ScanResult) -> None:
@@ -105,14 +209,13 @@ def _run_dependency_scan(args: list[str]) -> None:
     """Scan project dependencies for vulnerabilities."""
     import asyncio
 
-    from mirdan.config import MirdanConfig
     from mirdan.core.manifest_parser import ManifestParser
     from mirdan.core.vuln_scanner import VulnScanner
 
     config = MirdanConfig.find_config()
 
     # Parse --directory if provided
-    project_dir = Path()
+    project_dir = Path.cwd()
     if "--directory" in args:
         idx = args.index("--directory")
         if idx + 1 < len(args):

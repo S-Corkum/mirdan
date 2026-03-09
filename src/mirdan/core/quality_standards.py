@@ -39,8 +39,13 @@ class QualityStandards:
             self._load_custom_standards(standards_dir)
         self._conventions = self._load_conventions()
 
-    def _load_conventions(self) -> list[str]:
-        """Load project conventions persisted by scan_conventions."""
+    def _load_conventions(self, sub_project_path: str | None = None) -> list[str]:
+        """Load project conventions persisted by scan_conventions.
+
+        Args:
+            sub_project_path: Optional sub-project relative path for
+                workspace per-project conventions.
+        """
         if self._project_dir is None:
             return []
         conventions_path = self._project_dir / ".mirdan" / "conventions.yaml"
@@ -49,7 +54,19 @@ class QualityStandards:
         try:
             with conventions_path.open() as f:
                 data = yaml.safe_load(f)
-            if not data or "conventions" not in data:
+            if not data:
+                return []
+            # New format: per-project conventions under 'projects' key
+            if "projects" in data and sub_project_path:
+                project_data = data["projects"].get(sub_project_path, {})
+                conventions = project_data.get("conventions", [])
+                return [
+                    entry["content"]
+                    for entry in conventions
+                    if isinstance(entry, dict) and "content" in entry
+                ]
+            # Original format: top-level 'conventions' key
+            if "conventions" not in data:
                 return []
             return [
                 entry["content"]

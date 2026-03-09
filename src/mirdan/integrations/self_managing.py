@@ -34,6 +34,7 @@ class SelfManagingIntegration:
     def generate_workflow_rule(
         self,
         detected: DetectedProject,
+        languages: list[str] | None = None,
     ) -> str:
         """Generate the mirdan-workflow.md rule content.
 
@@ -42,6 +43,7 @@ class SelfManagingIntegration:
 
         Args:
             detected: Detected project metadata.
+            languages: Optional list of languages (workspace mode).
 
         Returns:
             Workflow rule markdown content.
@@ -49,7 +51,7 @@ class SelfManagingIntegration:
         # Try loading from template first
         template_content = self._load_template()
         if template_content:
-            return self._render_template(template_content, detected)
+            return self._render_template(template_content, detected, languages=languages)
 
         # Fallback: generate inline
         return self._generate_inline(detected)
@@ -214,12 +216,14 @@ class SelfManagingIntegration:
         self,
         project_dir: Path,
         detected: DetectedProject,
+        languages: list[str] | None = None,
     ) -> Path:
         """Generate and write the workflow rule file.
 
         Args:
             project_dir: Project root directory.
             detected: Detected project metadata.
+            languages: Optional list of languages (workspace mode).
 
         Returns:
             Path to the generated rule file.
@@ -227,7 +231,7 @@ class SelfManagingIntegration:
         rules_dir = project_dir / ".claude" / "rules"
         rules_dir.mkdir(parents=True, exist_ok=True)
 
-        content = self.generate_workflow_rule(detected)
+        content = self.generate_workflow_rule(detected, languages=languages)
         rule_path = rules_dir / "mirdan-workflow.md"
         rule_path.write_text(content)
         return rule_path
@@ -249,9 +253,20 @@ class SelfManagingIntegration:
         self,
         template: str,
         detected: DetectedProject,
+        languages: list[str] | None = None,
     ) -> str:
-        """Render template with project-specific values."""
-        lang = detected.primary_language or "python"
+        """Render template with project-specific values.
+
+        Args:
+            template: Template string with ``{{language}}`` and ``{{frameworks}}`` placeholders.
+            detected: Detected project metadata.
+            languages: Optional list of languages (workspace mode). When provided,
+                ``{{language}}`` is replaced with a comma-separated list.
+        """
+        if languages and len(languages) > 1:
+            lang = ", ".join(languages)
+        else:
+            lang = detected.primary_language or "python"
         frameworks = ", ".join(detected.frameworks) if detected.frameworks else "none detected"
         return template.replace("{{language}}", lang).replace("{{frameworks}}", frameworks)
 

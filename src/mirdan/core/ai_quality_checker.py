@@ -19,7 +19,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mirdan.core.manifest_parser import ManifestParser
@@ -471,24 +471,51 @@ class AIQualityChecker:
         project_dir: Path | None = None,
         manifest_parser: ManifestParser | None = None,
         vuln_scanner: VulnScanner | None = None,
+        workspace_resolver: Any | None = None,  # WorkspaceResolver
     ) -> None:
         self._project_dir = project_dir
         self._manifest_parser = manifest_parser
         self._vuln_scanner = vuln_scanner
+        self._workspace_resolver = workspace_resolver
         self._project_deps: frozenset[str] | None = None
+        self._project_deps_cache: dict[str, frozenset[str]] = {}
         if project_dir:
             self._project_deps = self._load_project_deps(project_dir)
+
+    def _get_deps_for_file(self, file_path: str) -> frozenset[str] | None:
+        """Get dependencies for the sub-project containing *file_path*.
+
+        When a workspace_resolver is available and file_path is provided,
+        resolves the file to its sub-project and loads/caches deps for
+        that sub-project directory. Otherwise returns the root-level
+        ``self._project_deps``.
+        """
+        if not file_path or self._workspace_resolver is None:
+            return self._project_deps
+
+        resolved = self._workspace_resolver.resolve(file_path)
+        if resolved is None:
+            return self._project_deps
+
+        cache_key = str(resolved.project_dir)
+        if cache_key in self._project_deps_cache:
+            return self._project_deps_cache[cache_key]
+
+        deps = self._load_project_deps(resolved.project_dir)
+        self._project_deps_cache[cache_key] = deps
+        return deps
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def check(self, code: str, language: str) -> list[Violation]:
+    def check(self, code: str, language: str, file_path: str = "") -> list[Violation]:
         """Run all AI-specific rules.
 
         Args:
             code: Source code to check.
             language: Detected programming language.
+            file_path: Optional file path for workspace-aware AI002 resolution.
 
         Returns:
             List of AI-specific violations.
@@ -500,7 +527,9 @@ class AIQualityChecker:
         skip_regions = _build_skip_regions(code, language)
 
         violations.extend(self._check_ai001_placeholders(code, language, skip_regions))
-        violations.extend(self._check_ai002_hallucinated_imports(code, language))
+        violations.extend(
+            self._check_ai002_hallucinated_imports(code, language, file_path=file_path)
+        )
         violations.extend(self._check_ai003_over_engineering(code, language, skip_regions))
         violations.extend(self._check_ai004_duplicate_blocks(code, language, skip_regions))
         violations.extend(self._check_ai005_inconsistent_errors(code, language, skip_regions))
@@ -521,12 +550,13 @@ class AIQualityChecker:
 
         return violations
 
-    def check_quick(self, code: str, language: str) -> list[Violation]:
+    def check_quick(self, code: str, language: str, file_path: str = "") -> list[Violation]:
         """Run only critical AI rules (AI001, AI007, AI008) and SEC014.
 
         Args:
             code: Source code to check.
             language: Detected programming language.
+            file_path: Optional file path (unused, kept for API consistency).
 
         Returns:
             List of critical AI violations.
@@ -866,21 +896,28 @@ class AIQualityChecker:
         self,
         code: str,
         language: str,
+        file_path: str = "",
     ) -> list[Violation]:
-        """Detect imports for packages not in stdlib or project deps."""
+        """Detect imports for packages not in stdlib or project deps.
+
+        When *file_path* is provided and a workspace resolver is
+        configured, dependencies are resolved per sub-project.
+        """
+        deps = self._get_deps_for_file(file_path) if file_path else self._project_deps
         if language in ("python", "auto"):
-            return self._check_ai002_python(code)
+            return self._check_ai002_python(code, deps=deps)
         if language in ("typescript", "javascript"):
-            return self._check_ai002_typescript(code)
+            return self._check_ai002_typescript(code, deps=deps)
         if language == "go":
-            return self._check_ai002_go(code)
+            return self._check_ai002_go(code, deps=deps)
         if language == "rust":
-            return self._check_ai002_rust(code)
+            return self._check_ai002_rust(code, deps=deps)
         return []
 
-    def _check_ai002_python(self, code: str) -> list[Violation]:
+    def _check_ai002_python(self, code: str, deps: frozenset[str] | None = None) -> list[Violation]:
         """AI002 for Python imports."""
-        if self._project_deps is None:
+        effective_deps = deps if deps is not None else self._project_deps
+        if effective_deps is None:
             return []
 
         violations: list[Violation] = []
@@ -903,7 +940,7 @@ class AIQualityChecker:
                 continue
             if module.startswith("."):
                 continue
-            if not self._is_known_python_module(module):
+            if not self._is_known_python_module_with_deps(module, effective_deps):
                 violations.append(
                     Violation(
                         id="AI002",
@@ -924,9 +961,12 @@ class AIQualityChecker:
 
         return violations
 
-    def _check_ai002_typescript(self, code: str) -> list[Violation]:
+    def _check_ai002_typescript(
+        self, code: str, deps: frozenset[str] | None = None
+    ) -> list[Violation]:
         """AI002 for TypeScript/JavaScript imports."""
-        if self._project_deps is None:
+        effective_deps = deps if deps is not None else self._project_deps
+        if effective_deps is None:
             return []
 
         violations: list[Violation] = []
@@ -950,7 +990,7 @@ class AIQualityChecker:
                 continue
             if module.startswith("node:"):
                 continue
-            if module in self._project_deps:
+            if module in effective_deps:
                 continue
             violations.append(
                 Violation(
@@ -971,9 +1011,10 @@ class AIQualityChecker:
 
         return violations
 
-    def _check_ai002_go(self, code: str) -> list[Violation]:
+    def _check_ai002_go(self, code: str, deps: frozenset[str] | None = None) -> list[Violation]:
         """AI002 for Go imports."""
-        if self._project_deps is None:
+        effective_deps = deps if deps is not None else self._project_deps
+        if effective_deps is None:
             return []
 
         violations: list[Violation] = []
@@ -1000,11 +1041,11 @@ class AIQualityChecker:
             if "." not in top_pkg and top_pkg in GO_STDLIB_PACKAGES:
                 continue
             # Third-party: check against go.mod deps
-            if path in self._project_deps:
+            if path in effective_deps:
                 continue
             # Check module prefix match: import path should start with a known dep
             # e.g., "github.com/foo/bar/sub" starts with dep "github.com/foo/bar"
-            if any(path.startswith(dep + "/") or path == dep for dep in self._project_deps):
+            if any(path.startswith(dep + "/") or path == dep for dep in effective_deps):
                 continue
             # Skip stdlib paths
             if "." not in top_pkg:
@@ -1026,9 +1067,10 @@ class AIQualityChecker:
 
         return violations
 
-    def _check_ai002_rust(self, code: str) -> list[Violation]:
+    def _check_ai002_rust(self, code: str, deps: frozenset[str] | None = None) -> list[Violation]:
         """AI002 for Rust imports."""
-        if self._project_deps is None:
+        effective_deps = deps if deps is not None else self._project_deps
+        if effective_deps is None:
             return []
 
         violations: list[Violation] = []
@@ -1051,7 +1093,7 @@ class AIQualityChecker:
             line_no = code[: m.start()].count("\n") + 1
             if crate_name in rust_builtins:
                 continue
-            if crate_name in self._project_deps:
+            if crate_name in effective_deps:
                 continue
             violations.append(
                 Violation(
@@ -1084,9 +1126,13 @@ class AIQualityChecker:
 
     def _is_known_python_module(self, module: str) -> bool:
         """Check if a Python module name is known (stdlib, project dep, or common transitive)."""
+        return self._is_known_python_module_with_deps(module, self._project_deps)
+
+    def _is_known_python_module_with_deps(self, module: str, deps: frozenset[str] | None) -> bool:
+        """Check if a Python module is known, using the provided deps set."""
         if module in PYTHON_STDLIB_MODULES:
             return True
-        if self._project_deps is not None and module in self._project_deps:
+        if deps is not None and module in deps:
             return True
         return module in sys.stdlib_module_names
 

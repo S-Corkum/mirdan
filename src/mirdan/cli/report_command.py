@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -76,19 +77,28 @@ def run_report(args: list[str]) -> None:
             code = file_path.read_text()
             if not code.strip():
                 continue
-            result = validator.validate(code=code, language="auto", check_security=True)
             rel_path = str(file_path.relative_to(directory))
-            file_results.append(
-                {
-                    "file": rel_path,
-                    "score": result.score,
-                    "passed": result.passed,
-                    "language": result.language_detected,
-                    "violations": len(result.violations),
-                    "errors": sum(1 for v in result.violations if v.severity == "error"),
-                    "warnings": sum(1 for v in result.violations if v.severity == "warning"),
-                }
+            result = validator.validate(
+                code=code, language="auto", check_security=True, file_path=rel_path
             )
+            entry: dict[str, Any] = {
+                "file": rel_path,
+                "score": result.score,
+                "passed": result.passed,
+                "language": result.language_detected,
+                "violations": len(result.violations),
+                "errors": sum(1 for v in result.violations if v.severity == "error"),
+                "warnings": sum(1 for v in result.violations if v.severity == "warning"),
+            }
+
+            # Attach sub-project info when in workspace mode
+            if config.is_workspace:
+                sub = config.resolve_project_for_path(rel_path)
+                if sub is not None:
+                    entry["project"] = sub.path
+                    entry["project_language"] = sub.primary_language
+
+            file_results.append(entry)
             total_score += result.score
             if result.passed:
                 passed_count += 1
@@ -105,7 +115,7 @@ def run_report(args: list[str]) -> None:
     avg_score = total_score / len(file_results)
     pass_rate = passed_count / len(file_results)
 
-    report = {
+    report: dict[str, Any] = {
         "directory": str(directory),
         "files_analyzed": len(file_results),
         "avg_score": round(avg_score, 3),
@@ -114,12 +124,16 @@ def run_report(args: list[str]) -> None:
         "files": sorted(file_results, key=lambda f: f["score"]),
     }
 
+    # Add per-project summary when in workspace mode
+    if config.is_workspace:
+        report["projects"] = _build_project_summaries(file_results)
+
     if output_format == "json":
         print(json.dumps(report, indent=2))
     elif output_format == "markdown":
         _output_markdown(report)
     else:
-        _output_text_report(report)
+        _output_text_report(report, is_workspace=config.is_workspace)
 
 
 def _discover_source_files(
@@ -146,7 +160,41 @@ def _discover_source_files(
     return sorted(files)
 
 
-def _output_text_report(report: dict[str, Any]) -> None:
+def _build_project_summaries(file_results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build per-project summary dicts from file results.
+
+    Groups file results by the ``project`` key attached during workspace
+    validation and computes per-project aggregates.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for entry in file_results:
+        project_key = entry.get("project", "(root)")
+        grouped[project_key].append(entry)
+
+    summaries: dict[str, Any] = {}
+    for proj_path in sorted(grouped):
+        entries = grouped[proj_path]
+        proj_score = sum(e["score"] for e in entries) / len(entries) if entries else 0.0
+        proj_passed = sum(1 for e in entries if e["passed"])
+        proj_errors = sum(e.get("errors", 0) for e in entries)
+        proj_warnings = sum(e.get("warnings", 0) for e in entries)
+        lang = ""
+        for e in entries:
+            if e.get("project_language"):
+                lang = e["project_language"]
+                break
+        summaries[proj_path] = {
+            "language": lang,
+            "files_analyzed": len(entries),
+            "avg_score": round(proj_score, 3),
+            "pass_rate": round(proj_passed / len(entries), 3) if entries else 0.0,
+            "errors": proj_errors,
+            "warnings": proj_warnings,
+        }
+    return summaries
+
+
+def _output_text_report(report: dict[str, Any], *, is_workspace: bool = False) -> None:
     """Print human-readable text report."""
     print(f"mirdan Quality Report: {report['directory']}")
     print(f"{'=' * 60}")
@@ -156,6 +204,21 @@ def _output_text_report(report: dict[str, Any]) -> None:
     print(f"Total errors:   {report['total_violations'].get('error', 0)}")
     print(f"Total warnings: {report['total_violations'].get('warning', 0)}")
     print()
+
+    # Per-project sections when in workspace mode
+    if is_workspace and "projects" in report:
+        print("Per-project summary:")
+        for proj_path, summary in report["projects"].items():
+            lang_label = f" ({summary['language']})" if summary.get("language") else ""
+            print(f"  [{proj_path}]{lang_label}")
+            print(
+                f"    Files: {summary['files_analyzed']}  "
+                f"Score: {summary['avg_score']:.3f}  "
+                f"Pass: {summary['pass_rate']:.1%}  "
+                f"Errors: {summary['errors']}  "
+                f"Warnings: {summary['warnings']}"
+            )
+        print()
 
     # Bottom 10 files by score
     worst = [f for f in report["files"] if not f["passed"]]

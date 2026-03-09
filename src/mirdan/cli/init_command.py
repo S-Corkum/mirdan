@@ -9,8 +9,15 @@ from typing import Any
 
 import yaml
 
-from mirdan.cli.detect import DetectedProject, detect_project
-from mirdan.config import MirdanConfig, PlatformProfile, ProjectConfig, QualityConfig
+from mirdan.cli.detect import DetectedProject, DetectedWorkspace, detect_project, detect_workspace
+from mirdan.config import (
+    MirdanConfig,
+    PlatformProfile,
+    ProjectConfig,
+    QualityConfig,
+    SubProjectConfig,
+    WorkspaceConfig,
+)
 
 
 def run_init(args: list[str]) -> None:
@@ -77,8 +84,17 @@ def run_init(args: list[str]) -> None:
     print(f"Initializing mirdan in {directory.resolve()}")
     print()
 
-    # Step 1: Detect project
-    detected = detect_project(directory)
+    # Step 1: Detect workspace first, then fall back to single project
+    workspace = detect_workspace(directory)
+    is_workspace = workspace is not None
+
+    if is_workspace and workspace is not None:
+        _print_workspace_detection(workspace)
+        detected = _workspace_as_detected(workspace)
+        languages: list[str] | None = workspace.all_languages
+    else:
+        detected = detect_project(directory)
+        languages = None
 
     # Override IDE detection if explicit flags given
     if force_cursor and "cursor" not in detected.detected_ides:
@@ -92,7 +108,10 @@ def run_init(args: list[str]) -> None:
     platform = _determine_platform(detected, force_cursor, force_claude_code)
 
     # Step 2: Generate config (platform-aware defaults)
-    config = _build_config(detected, platform, quality_profile=quality_profile)
+    if is_workspace and workspace is not None:
+        config = _build_workspace_config(workspace, platform, quality_profile=quality_profile)
+    else:
+        config = _build_config(detected, platform, quality_profile=quality_profile)
     config_dir = directory / ".mirdan"
     config_dir.mkdir(parents=True, exist_ok=True)
     config_path = config_dir / "config.yaml"
@@ -114,16 +133,16 @@ def run_init(args: list[str]) -> None:
 
     # Step 3b: Learn conventions from codebase
     if learn:
-        _learn_conventions(directory, rules_dir, detected)
+        _learn_conventions(directory, rules_dir, detected, workspace=workspace)
 
     # Step 4: IDE integrations (platform-specific)
     if platform == "cursor" or "cursor" in detected.detected_ides:
-        _setup_cursor(directory, detected)
+        _setup_cursor(directory, detected, languages=languages)
     if platform == "claude-code" or "claude-code" in detected.detected_ides:
-        _setup_claude_code(directory, detected)
+        _setup_claude_code(directory, detected, languages=languages)
 
     # Step 5: Generate root AGENTS.md (cross-platform standard)
-    _setup_agents_md(directory, detected, platform)
+    _setup_agents_md(directory, detected, platform, languages=languages)
 
     # Step 6: pre-commit configuration
     _setup_precommit(directory, detected)
@@ -133,7 +152,11 @@ def run_init(args: list[str]) -> None:
         _setup_hooks(directory, detected)
 
     print()
-    print("Done! mirdan is configured for this project.")
+    if is_workspace and workspace is not None:
+        n_projects = len(workspace.projects)
+        print(f"Done! mirdan is configured for this workspace ({n_projects} projects).")
+    else:
+        print("Done! mirdan is configured for this project.")
     if platform != "generic":
         print(f"  Platform profile: {platform}")
     print()
@@ -149,17 +172,67 @@ def _learn_conventions(
     directory: Path,
     rules_dir: Path,
     detected: DetectedProject,
+    workspace: DetectedWorkspace | None = None,
 ) -> None:
     """Scan the project and generate custom rules from conventions.
+
+    In workspace mode, iterates each sub-project and scans independently,
+    saving per-project conventions under a ``projects`` key.
 
     Args:
         directory: Project root directory.
         rules_dir: Rules directory to write to.
         detected: Auto-detected project metadata.
+        workspace: Optional detected workspace for multi-project scanning.
     """
     from mirdan.core.convention_extractor import ConventionExtractor
     from mirdan.core.rule_generator import RuleGenerator
 
+    if workspace is not None:
+        # Workspace mode: scan each sub-project independently
+        print("  Scanning workspace projects for conventions...")
+        all_project_conventions: dict[str, Any] = {"projects": {}}
+        total_rules = 0
+
+        for proj in workspace.projects:
+            proj_dir = directory / proj.sub_path if proj.sub_path else directory
+            if not proj_dir.is_dir():
+                continue
+
+            proj_name = proj.project_name or proj.sub_path or "root"
+            print(f"    Scanning {proj_name}...")
+            extractor = ConventionExtractor()
+            language = proj.primary_language or "auto"
+            result = extractor.scan(proj_dir, language=language)
+
+            if not result.conventions:
+                print(f"    No conventions found in {proj_name}")
+                continue
+
+            print(f"    Found {len(result.conventions)} convention(s) in {proj_name}")
+            generator = RuleGenerator()
+            rules = generator.generate_from_conventions(result.conventions)
+
+            if rules:
+                all_project_conventions["projects"][proj_name] = {
+                    "path": proj.sub_path,
+                    "language": proj.primary_language,
+                    "rules": [r.model_dump() if hasattr(r, "model_dump") else r for r in rules],
+                }
+                total_rules += len(rules)
+
+        if total_rules > 0:
+            output_path = rules_dir / "conventions.yaml"
+            import yaml
+
+            with output_path.open("w") as f:
+                yaml.dump(all_project_conventions, f, default_flow_style=False, sort_keys=False)
+            print(f"  Created {output_path} ({total_rules} rules across workspace)")
+        else:
+            print("  No high-confidence conventions found in workspace.")
+        return
+
+    # Single-project mode
     print("  Scanning codebase for conventions...")
     extractor = ConventionExtractor()
     language = detected.primary_language or "auto"
@@ -273,6 +346,141 @@ def _build_config(
     return config
 
 
+def _workspace_as_detected(workspace: DetectedWorkspace) -> DetectedProject:
+    """Create a synthetic DetectedProject from a workspace.
+
+    Summarises the workspace as a single project entry for functions
+    that expect a ``DetectedProject``.
+
+    Args:
+        workspace: The detected workspace.
+
+    Returns:
+        A synthetic DetectedProject with ``project_type="workspace"``,
+        ``primary_language`` set to the most common language, and
+        ``frameworks`` set to the union of all sub-project frameworks.
+    """
+    from collections import Counter
+
+    # Most common language across sub-projects
+    lang_counts: Counter[str] = Counter()
+    for proj in workspace.projects:
+        if proj.primary_language:
+            lang_counts[proj.primary_language] += 1
+    primary_language = lang_counts.most_common(1)[0][0] if lang_counts else ""
+
+    # Union of all frameworks
+    seen: set[str] = set()
+    all_frameworks: list[str] = []
+    for proj in workspace.projects:
+        for fw in proj.frameworks:
+            if fw not in seen:
+                seen.add(fw)
+                all_frameworks.append(fw)
+
+    return DetectedProject(
+        project_type="workspace",
+        project_name="",
+        primary_language=primary_language,
+        frameworks=all_frameworks,
+        detected_ides=list(workspace.detected_ides),
+    )
+
+
+def _build_workspace_config(
+    workspace: DetectedWorkspace,
+    platform: str = "generic",
+    quality_profile: str = "",
+) -> MirdanConfig:
+    """Build a MirdanConfig for a workspace with multiple sub-projects.
+
+    Args:
+        workspace: The detected workspace.
+        platform: Platform profile ("cursor", "claude-code", "generic").
+        quality_profile: Named quality profile (e.g. "enterprise").
+    """
+    # Build synthetic detected for the top-level project config
+    detected = _workspace_as_detected(workspace)
+    project = ProjectConfig(
+        name=detected.project_name,
+        type="workspace",
+        primary_language=detected.primary_language,
+        frameworks=detected.frameworks,
+    )
+    quality = QualityConfig(
+        security="strict",
+        architecture="moderate",
+        documentation="moderate",
+        testing="strict",
+    )
+
+    # Build platform profile
+    if platform == "cursor":
+        plat = PlatformProfile(
+            name="cursor",
+            context_level="none",
+            tool_budget_aware=True,
+        )
+    elif platform == "claude-code":
+        plat = PlatformProfile(
+            name="claude-code",
+            context_level="auto",
+            tool_budget_aware=False,
+        )
+    else:
+        plat = PlatformProfile()
+
+    # Build sub-project configs
+    sub_projects = [
+        SubProjectConfig(
+            path=proj.sub_path,
+            name=proj.project_name,
+            primary_language=proj.primary_language,
+            frameworks=list(proj.frameworks),
+        )
+        for proj in workspace.projects
+    ]
+
+    ws_config = WorkspaceConfig(
+        enabled=True,
+        workspace_type=workspace.workspace_type,
+        projects=sub_projects,
+    )
+
+    config = MirdanConfig(
+        version="2.0",
+        project=project,
+        quality=quality,
+        platform=plat,
+        workspace=ws_config,
+    )
+
+    if quality_profile:
+        config.quality_profile = quality_profile
+
+    return config
+
+
+def _print_workspace_detection(workspace: DetectedWorkspace) -> None:
+    """Pretty-print detected workspace projects.
+
+    Args:
+        workspace: The detected workspace.
+    """
+    print(f"  Workspace detected ({workspace.workspace_type})")
+    print(f"  Sub-projects: {len(workspace.projects)}")
+    for proj in workspace.projects:
+        lang_str = f" [{proj.primary_language}]" if proj.primary_language else ""
+        fw_str = f" ({', '.join(proj.frameworks)})" if proj.frameworks else ""
+        name = proj.project_name or proj.sub_path or "(root)"
+        print(f"    - {name}{lang_str}{fw_str}")
+    if workspace.all_languages:
+        print(f"  Languages: {', '.join(workspace.all_languages)}")
+    if workspace.all_frameworks:
+        print(f"  Frameworks: {', '.join(workspace.all_frameworks)}")
+    print()
+
+
 def _write_config(config: MirdanConfig, path: Path, platform: str = "generic") -> None:
     """Write config to YAML file with platform-aware defaults."""
     data = config.model_dump(exclude_defaults=False)
@@ -291,6 +499,10 @@ def _write_config(config: MirdanConfig, path: Path, platform: str = "generic") -
     # Write quality profile if non-default
     if config.quality_profile and config.quality_profile != "default":
         output["quality_profile"] = config.quality_profile
+
+    # Write workspace section when workspace is enabled
+    if config.is_workspace:
+        output["workspace"] = config.workspace.model_dump()
 
     with path.open("w") as f:
         yaml.dump(output, f, default_flow_style=False, sort_keys=False)
@@ -321,8 +533,18 @@ def _create_rules_template(rules_dir: Path, detected: DetectedProject) -> None:
     print(f"  Created {template_path}")
 
 
-def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
-    """Generate Cursor configuration: hooks, rules, agents, and MCP config."""
+def _setup_cursor(
+    directory: Path,
+    detected: DetectedProject,
+    languages: list[str] | None = None,
+) -> None:
+    """Generate Cursor configuration: hooks, rules, agents, and MCP config.
+
+    Args:
+        directory: Project root directory.
+        detected: Auto-detected project metadata.
+        languages: Optional list of languages for multi-language rule generation.
+    """
     from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.cursor import (
         generate_cursor_agents,
@@ -357,7 +579,7 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     # Generate .cursor/rules/*.mdc
     rules_dir = cursor_dir / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
-    generated = generate_cursor_rules(rules_dir, detected, standards=standards)
+    generated = generate_cursor_rules(rules_dir, detected, standards=standards, languages=languages)
     for path in generated:
         print(f"  Created {path}")
 
@@ -391,8 +613,18 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     print(f"  Created {mcp_path}")
 
 
-def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
-    """Generate Claude Code configuration files, skills, agents, and MCP config."""
+def _setup_claude_code(
+    directory: Path,
+    detected: DetectedProject,
+    languages: list[str] | None = None,
+) -> None:
+    """Generate Claude Code configuration files, skills, agents, and MCP config.
+
+    Args:
+        directory: Project root directory.
+        detected: Auto-detected project metadata.
+        languages: Optional list of languages for multi-language rule generation.
+    """
     from mirdan.integrations.claude_code import (
         generate_agents,
         generate_claude_code_config,
@@ -406,13 +638,13 @@ def _setup_claude_code(directory: Path, detected: DetectedProject) -> None:
     print(f"  Created {mcp_path}")
 
     # Hooks + rules
-    generated = generate_claude_code_config(directory, detected)
+    generated = generate_claude_code_config(directory, detected, languages=languages)
     for path in generated:
         print(f"  Created {path}")
 
     # Self-managing workflow rule
     self_managing = SelfManagingIntegration()
-    workflow_path = self_managing.write_workflow_rule(directory, detected)
+    workflow_path = self_managing.write_workflow_rule(directory, detected, languages=languages)
     print(f"  Created {workflow_path}")
 
     # Skills
@@ -436,8 +668,16 @@ def _setup_agents_md(
     directory: Path,
     detected: DetectedProject,
     platform: str = "generic",
+    languages: list[str] | None = None,
 ) -> None:
-    """Generate root AGENTS.md (cross-platform standard)."""
+    """Generate root AGENTS.md (cross-platform standard).
+
+    Args:
+        directory: Project root directory.
+        detected: Auto-detected project metadata.
+        platform: Platform profile name.
+        languages: Optional list of languages for multi-language sections.
+    """
     from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.agents_md import generate_root_agents_md
 
@@ -451,6 +691,7 @@ def _setup_agents_md(
         detected,
         standards=standards,
         platform=platform,
+        languages=languages,
     )
     print(f"  Created {agents_path}")
 
@@ -460,6 +701,9 @@ def _run_upgrade(directory: Path) -> None:
 
     Detects existing config version, merges new fields, and regenerates
     integration files (hooks, rules, AGENTS.md, workflow).
+
+    If a workspace is detected but the existing config is not workspace-aware,
+    the config is upgraded to workspace mode.
 
     Args:
         directory: Project root directory.
@@ -474,7 +718,24 @@ def _run_upgrade(directory: Path) -> None:
 
     # Load existing config (auto-merges with defaults for new fields)
     config = MirdanConfig.load(config_path)
-    detected = detect_project(directory)
+
+    # Detect workspace
+    workspace = detect_workspace(directory)
+    is_workspace = workspace is not None
+
+    if is_workspace and workspace is not None:
+        _print_workspace_detection(workspace)
+        detected = _workspace_as_detected(workspace)
+        languages: list[str] | None = workspace.all_languages
+
+        # Upgrade to workspace config if not already workspace-aware
+        if not config.is_workspace:
+            print("  Upgrading config to workspace mode...")
+            platform_name = config.platform.name
+            config = _build_workspace_config(workspace, platform_name)
+    else:
+        detected = detect_project(directory)
+        languages = None
 
     _print_detection(detected)
 
@@ -486,19 +747,21 @@ def _run_upgrade(directory: Path) -> None:
 
     # Regenerate integration files
     if platform == "claude-code" or "claude-code" in detected.detected_ides:
-        _setup_claude_code(directory, detected)
+        _setup_claude_code(directory, detected, languages=languages)
 
     if platform == "cursor" or "cursor" in detected.detected_ides:
-        _setup_cursor(directory, detected)
+        _setup_cursor(directory, detected, languages=languages)
 
     # Always regenerate AGENTS.md
-    _setup_agents_md(directory, detected, platform)
+    _setup_agents_md(directory, detected, platform, languages=languages)
 
     print()
     print("Upgrade complete!")
     print("  - Config updated with new defaults")
     print("  - Integration files regenerated")
     print("  - AGENTS.md updated")
+    if is_workspace and workspace is not None:
+        print(f"  - Workspace mode: {len(workspace.projects)} sub-projects")
 
 
 def _setup_precommit(directory: Path, detected: DetectedProject) -> None:

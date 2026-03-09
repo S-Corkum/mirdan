@@ -287,6 +287,23 @@ class LinterOrcConfig(BaseModel):
     timeout: float = Field(default=30.0, description="Timeout per linter invocation (seconds)")
 
 
+class SubProjectConfig(BaseModel):
+    """Configuration for a sub-project within a workspace."""
+
+    path: str = ""
+    name: str = ""
+    primary_language: str = ""
+    frameworks: list[str] = Field(default_factory=list)
+
+
+class WorkspaceConfig(BaseModel):
+    """Workspace/monorepo configuration."""
+
+    enabled: bool = False
+    workspace_type: str = "auto"
+    projects: list[SubProjectConfig] = Field(default_factory=list)
+
+
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
 
@@ -323,7 +340,40 @@ class MirdanConfig(BaseModel):
     platform: PlatformProfile = Field(default_factory=PlatformProfile)
     semantic: SemanticConfig = Field(default_factory=SemanticConfig)
     dependencies: DependencyConfig = Field(default_factory=DependencyConfig)
+    workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def is_workspace(self) -> bool:
+        """Whether this config represents a workspace with multiple projects."""
+        return self.workspace.enabled and len(self.workspace.projects) > 0
+
+    def resolve_project_for_path(self, file_path: str | Path) -> SubProjectConfig | None:
+        """Resolve a file path to its containing sub-project config.
+
+        Uses longest path prefix match.
+
+        Args:
+            file_path: File path (relative to workspace root).
+
+        Returns:
+            The matching SubProjectConfig, or None if no match.
+        """
+        if not self.is_workspace:
+            return None
+
+        path_str = str(file_path)
+        best_match: SubProjectConfig | None = None
+        best_len = 0
+        for proj in self.workspace.projects:
+            prefix = proj.path
+            if not prefix:
+                continue
+            normalized = prefix if prefix.endswith("/") else prefix + "/"
+            if path_str.startswith(normalized) and len(prefix) > best_len:
+                best_match = proj
+                best_len = len(prefix)
+        return best_match
 
     @classmethod
     def load(cls, config_path: Path) -> "MirdanConfig":
@@ -339,6 +389,22 @@ class MirdanConfig(BaseModel):
     @classmethod
     def find_config(cls, start_path: Path | None = None) -> "MirdanConfig":
         """Find and load configuration, searching up the directory tree."""
+        config, _path = cls.find_config_with_path(start_path)
+        return config
+
+    @classmethod
+    def find_config_with_path(
+        cls, start_path: Path | None = None
+    ) -> tuple["MirdanConfig", Path | None]:
+        """Find and load configuration, returning both config and its directory.
+
+        Args:
+            start_path: Directory to start searching from. Defaults to cwd.
+
+        Returns:
+            Tuple of (config, config_directory) where config_directory is
+            the directory containing .mirdan/config.yaml, or None if not found.
+        """
         if start_path is None:
             start_path = Path.cwd()
 
@@ -346,16 +412,15 @@ class MirdanConfig(BaseModel):
         while current != current.parent:
             config_file = current / ".mirdan" / "config.yaml"
             if config_file.exists():
-                return cls.load(config_file)
+                return cls.load(config_file), current
 
-            # Also check for config.yaml directly
             config_file = current / ".mirdan.yaml"
             if config_file.exists():
-                return cls.load(config_file)
+                return cls.load(config_file), current
 
             current = current.parent
 
-        return cls()
+        return cls(), None
 
     def save(self, config_path: Path) -> None:
         """Save configuration to a YAML file."""

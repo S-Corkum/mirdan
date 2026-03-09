@@ -13,6 +13,7 @@ from mirdan.cli.detect import DetectedProject
 def generate_claude_code_config(
     project_dir: Path,
     detected: DetectedProject,
+    languages: list[str] | None = None,
 ) -> list[Path]:
     """Generate Claude Code configuration files.
 
@@ -26,6 +27,7 @@ def generate_claude_code_config(
     Args:
         project_dir: The project root directory.
         detected: Detected project metadata.
+        languages: Optional list of languages to generate rules for (workspace mode).
 
     Returns:
         List of generated/updated file paths.
@@ -38,7 +40,7 @@ def generate_claude_code_config(
         generated.append(hooks_path)
 
     # Generate rule files (always overwrite — these are generated config)
-    rule_paths = _generate_rules(project_dir, detected)
+    rule_paths = _generate_rules(project_dir, detected, languages=languages)
     generated.extend(rule_paths)
 
     return generated
@@ -340,12 +342,17 @@ def _generate_hooks(project_dir: Path) -> Path | None:
     return hooks_path
 
 
-def _generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:
+def _generate_rules(
+    project_dir: Path,
+    detected: DetectedProject,
+    languages: list[str] | None = None,
+) -> list[Path]:
     """Generate .claude/rules/*.md files from templates.
 
     Args:
         project_dir: The project root directory.
         detected: Detected project metadata.
+        languages: Optional list of languages to generate rules for (workspace mode).
 
     Returns:
         List of generated rule file paths.
@@ -367,17 +374,20 @@ def _generate_rules(project_dir: Path, detected: DetectedProject) -> list[Path]:
             path.write_text(templates[template_name])
             generated.append(path)
 
-    # Language-specific rules
-    lang = detected.primary_language
-    if lang == "python" and "mirdan-python.md" in templates:
-        path = rules_dir / "mirdan-python.md"
-        path.write_text(templates["mirdan-python.md"])
-        generated.append(path)
+    # Language-specific rules — iterate all languages in workspace mode
+    langs = languages or ([detected.primary_language] if detected.primary_language else [])
+    for lang in langs:
+        if lang == "python" and "mirdan-python.md" in templates:
+            path = rules_dir / "mirdan-python.md"
+            if path not in generated:
+                path.write_text(templates["mirdan-python.md"])
+                generated.append(path)
 
-    if lang in ("typescript", "javascript") and "mirdan-typescript.md" in templates:
-        path = rules_dir / "mirdan-typescript.md"
-        path.write_text(templates["mirdan-typescript.md"])
-        generated.append(path)
+        if lang in ("typescript", "javascript") and "mirdan-typescript.md" in templates:
+            path = rules_dir / "mirdan-typescript.md"
+            if path not in generated:
+                path.write_text(templates["mirdan-typescript.md"])
+                generated.append(path)
 
     return generated
 

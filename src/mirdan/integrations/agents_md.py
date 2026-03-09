@@ -34,12 +34,14 @@ class AgentsMDGenerator:
         self,
         detected: DetectedProject,
         platform: str = "universal",
+        languages: list[str] | None = None,
     ) -> str:
         """Generate AGENTS.md content.
 
         Args:
             detected: Detected project metadata.
             platform: Target platform ("universal", "cursor", "claude-code").
+            languages: Optional list of languages to generate sections for (workspace mode).
 
         Returns:
             AGENTS.md content string.
@@ -47,7 +49,7 @@ class AgentsMDGenerator:
         sections = [
             self._header(),
             self._quality_rules(),
-            self._language_section(detected),
+            self._language_section(detected, languages=languages),
             self._security_section(),
             self._workflow_section(platform),
         ]
@@ -65,6 +67,7 @@ class AgentsMDGenerator:
         output_path: Path,
         detected: DetectedProject,
         platform: str = "universal",
+        languages: list[str] | None = None,
     ) -> Path:
         """Generate and write AGENTS.md to disk.
 
@@ -72,12 +75,13 @@ class AgentsMDGenerator:
             output_path: Path to write the file.
             detected: Detected project metadata.
             platform: Target platform.
+            languages: Optional list of languages to generate sections for (workspace mode).
 
         Returns:
             Path to the written file.
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        content = self.generate(detected, platform)
+        content = self.generate(detected, platform, languages=languages)
         output_path.write_text(content)
         return output_path
 
@@ -113,43 +117,60 @@ These rules apply to all AI agents working in this codebase:
 | AI008 | No injection vulnerabilities | Error |
 """
 
-    def _language_section(self, detected: DetectedProject) -> str:
+    def _language_section(
+        self,
+        detected: DetectedProject,
+        languages: list[str] | None = None,
+    ) -> str:
         """Generate language-specific guidance.
 
         When a QualityStandards instance is available, includes
         language-specific rules from the standards database.
+
+        Args:
+            detected: Detected project metadata.
+            languages: Optional list of languages (workspace mode). When provided,
+                generates a section for each language.
         """
-        lang = detected.primary_language or "python"
+        langs = languages or (
+            [detected.primary_language] if detected.primary_language else ["python"]
+        )
         frameworks = detected.frameworks or []
 
-        lines = [f"## Language: {lang.title()}\n"]
-        lines.append(f"- Follow {lang} best practices and project conventions")
-        lines.append("- Use type annotations where supported")
-        lines.append("- Keep functions under 30 lines, files under 300 lines")
-        lines.append("- Maximum nesting depth: 4 levels")
+        lines: list[str] = []
+        for lang in langs:
+            lines.append(f"## Language: {lang.title()}\n")
+            lines.append(f"- Follow {lang} best practices and project conventions")
+            lines.append("- Use type annotations where supported")
+            lines.append("- Keep functions under 30 lines, files under 300 lines")
+            lines.append("- Maximum nesting depth: 4 levels")
 
-        if frameworks:
-            lines.append(f"\n### Frameworks: {', '.join(frameworks)}")
-            lines.extend(f"- Follow {fw} best practices and patterns" for fw in frameworks)
+            if frameworks:
+                lines.append(f"\n### Frameworks: {', '.join(frameworks)}")
+                lines.extend(f"- Follow {fw} best practices and patterns" for fw in frameworks)
 
-        # Include language standards if available
-        if self._standards is not None:
-            standards_data = self._standards.get_all_standards(language=lang, category="style")
-            if standards_data:
-                lines.append(f"\n### {lang.title()} Standards")
-                for items in standards_data.values():
-                    if isinstance(items, list):
-                        for item in items[:5]:
-                            if isinstance(item, dict):
-                                desc = item.get("description", item.get("message", ""))
-                                rule_id = item.get("id", "")
-                                if desc:
-                                    entry = f"- **{rule_id}**: {desc}" if rule_id else f"- {desc}"
-                                    lines.append(entry)
-                            elif isinstance(item, str):
-                                lines.append(f"- {item}")
+            # Include language standards if available
+            if self._standards is not None:
+                standards_data = self._standards.get_all_standards(language=lang, category="style")
+                if standards_data:
+                    lines.append(f"\n### {lang.title()} Standards")
+                    for items in standards_data.values():
+                        if isinstance(items, list):
+                            for item in items[:5]:
+                                if isinstance(item, dict):
+                                    desc = item.get("description", item.get("message", ""))
+                                    rule_id = item.get("id", "")
+                                    if desc:
+                                        if rule_id:
+                                            entry = f"- **{rule_id}**: {desc}"
+                                        else:
+                                            entry = f"- {desc}"
+                                        lines.append(entry)
+                                elif isinstance(item, str):
+                                    lines.append(f"- {item}")
 
-        lines.append("")
+            lines.append("")
+
         return "\n".join(lines)
 
     def _security_section(self) -> str:
@@ -234,6 +255,7 @@ def generate_root_agents_md(
     detected: DetectedProject,
     standards: QualityStandards | None = None,
     platform: str = "universal",
+    languages: list[str] | None = None,
 ) -> Path:
     """Convenience function to generate root AGENTS.md.
 
@@ -242,10 +264,11 @@ def generate_root_agents_md(
         detected: Detected project metadata.
         standards: Optional QualityStandards instance.
         platform: Target platform.
+        languages: Optional list of languages to generate sections for (workspace mode).
 
     Returns:
         Path to the generated AGENTS.md file.
     """
     generator = AgentsMDGenerator(standards=standards)
     agents_path = project_dir / "AGENTS.md"
-    return generator.generate_and_write(agents_path, detected, platform)
+    return generator.generate_and_write(agents_path, detected, platform, languages=languages)

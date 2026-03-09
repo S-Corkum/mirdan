@@ -767,6 +767,7 @@ class CodeValidator:
         semantic_analyzer: SemanticAnalyzer | None = None,
         manifest_parser: ManifestParser | None = None,
         vuln_scanner: VulnScanner | None = None,
+        workspace_resolver: Any | None = None,  # WorkspaceResolver
     ):
         """Initialize validator with quality standards.
 
@@ -778,6 +779,7 @@ class CodeValidator:
             semantic_analyzer: Optional semantic analyzer for review questions
             manifest_parser: Optional manifest parser for dependency scanning
             vuln_scanner: Optional vulnerability scanner for SEC014
+            workspace_resolver: Optional workspace resolver for monorepo per-file deps
         """
         self.standards = standards
         self._config = config
@@ -795,6 +797,7 @@ class CodeValidator:
             project_dir,
             manifest_parser=manifest_parser,
             vuln_scanner=vuln_scanner,
+            workspace_resolver=workspace_resolver,
         )
 
         # Load custom rules if configured
@@ -970,6 +973,7 @@ class CodeValidator:
         check_architecture: bool = True,
         check_style: bool = True,
         thresholds: ThresholdsConfig | None = None,
+        file_path: str = "",
     ) -> ValidationResult:
         """
         Validate code against quality standards.
@@ -982,6 +986,7 @@ class CodeValidator:
             check_style: Whether to check language-specific style rules
             thresholds: Optional per-call threshold overrides (affects architecture
                 checks and score calculation only, not language detection).
+            file_path: Optional file path for workspace-aware AI002 import resolution.
 
         Returns:
             ValidationResult with violations and score
@@ -1069,7 +1074,7 @@ class CodeValidator:
                 violations.extend(fw_violations)
 
         # AI-specific quality checks
-        ai_violations = self._ai_checker.check(code, detected_lang)
+        ai_violations = self._ai_checker.check(code, detected_lang, file_path=file_path)
         if ai_violations:
             standards_checked.append("ai_quality")
             violations.extend(ai_violations)

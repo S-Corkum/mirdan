@@ -93,6 +93,7 @@ class _Components:
     semantic_analyzer: SemanticAnalyzer
     active_orchestrator: ActiveOrchestrator
     config: MirdanConfig
+    workspace_resolver: Any | None = None  # WorkspaceResolver (lazy import)
 
 
 _components: _Components | None = None
@@ -148,6 +149,13 @@ def _get_components() -> _Components:
     # Detect project directory for AI002 import verification and manifest detection
     project_dir = Path.cwd()
 
+    # Initialize workspace resolver for monorepo support
+    workspace_resolver = None
+    if config.is_workspace:
+        from mirdan.core.workspace_resolver import WorkspaceResolver
+
+        workspace_resolver = WorkspaceResolver(config, project_dir)
+
     quality_standards = QualityStandards(config=config.quality, project_dir=project_dir)
 
     # Detect environment once for output optimization (Phase 2G)
@@ -185,6 +193,7 @@ def _get_components() -> _Components:
             semantic_analyzer=semantic_analyzer,
             manifest_parser=manifest_parser,
             vuln_scanner=vuln_scanner,
+            workspace_resolver=workspace_resolver,
         ),
         plan_validator=PlanValidator(config.planning, thresholds=config.thresholds),
         session_manager=SessionManager(config.session),
@@ -205,6 +214,7 @@ def _get_components() -> _Components:
         semantic_analyzer=semantic_analyzer,
         active_orchestrator=ActiveOrchestrator(context_aggregator.registry),
         config=config,
+        workspace_resolver=workspace_resolver,
     )
     return _components
 
@@ -511,6 +521,7 @@ async def validate_code_quality(
         check_architecture=check_architecture,
         check_style=check_style,
         thresholds=resolved_thresholds,
+        file_path=file_path,
     )
     _t_validate = perf_counter() - _t0
 

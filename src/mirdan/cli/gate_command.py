@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -70,22 +71,32 @@ def run_gate(args: list[str]) -> None:
             code=code,
             language="auto",
             check_security=True,
+            file_path=file_path,
         )
 
         error_count = sum(1 for v in result.violations if v.severity == "error")
+        warning_count = sum(1 for v in result.violations if v.severity == "warning")
         total_errors += error_count
         total_score += result.score
         if error_count > 0:
             files_with_errors += 1
 
-        file_results.append(
-            {
-                "file": file_path,
-                "score": result.score,
-                "passed": result.passed,
-                "errors": error_count,
-            }
-        )
+        entry: dict[str, Any] = {
+            "file": file_path,
+            "score": result.score,
+            "passed": result.passed,
+            "errors": error_count,
+            "warnings": warning_count,
+        }
+
+        # Attach sub-project info when in workspace mode
+        if config.is_workspace:
+            sub = config.resolve_project_for_path(file_path)
+            if sub is not None:
+                entry["project"] = sub.path
+                entry["project_language"] = sub.primary_language
+
+        file_results.append(entry)
 
     files_validated = len(file_results)
     avg_score = total_score / files_validated if files_validated else 1.0
@@ -93,29 +104,13 @@ def run_gate(args: list[str]) -> None:
     # Dependency vulnerability check
     include_deps = "--include-dependencies" in args or "--include-deps" in args
     if include_deps or config.dependencies.scan_on_gate:
-        import asyncio
-
-        from mirdan.core.manifest_parser import ManifestParser
-        from mirdan.core.vuln_scanner import VulnScanner
-
-        project_dir = Path.cwd()
-        manifest_parser = ManifestParser(project_dir=project_dir)
-        packages = manifest_parser.parse()
-        if packages:
-            vuln_scanner = VulnScanner(
-                cache_dir=project_dir / ".mirdan" / "cache",
-                ttl=config.dependencies.osv_cache_ttl,
+        blocking = _scan_dependencies_for_gate(config)
+        if blocking:
+            print(
+                f"FAIL: {len(blocking)} dependency vulnerabilities at or above "
+                f"'{config.dependencies.fail_on_severity}' severity"
             )
-            findings = asyncio.run(vuln_scanner.scan(packages))
-            sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-            fail_threshold = sev_order.get(config.dependencies.fail_on_severity, 1)
-            blocking = [f for f in findings if sev_order.get(f.severity, 4) <= fail_threshold]
-            if blocking:
-                print(
-                    f"FAIL: {len(blocking)} dependency vulnerabilities at or above "
-                    f"'{config.dependencies.fail_on_severity}' severity"
-                )
-                sys.exit(1)
+            sys.exit(1)
 
     if total_errors == 0:
         _output_pass(files_validated, avg_score, output_format, file_results)
@@ -128,8 +123,55 @@ def run_gate(args: list[str]) -> None:
             avg_score,
             output_format,
             file_results,
+            is_workspace=config.is_workspace,
         )
         sys.exit(1)
+
+
+def _scan_dependencies_for_gate(config: MirdanConfig) -> list[Any]:
+    """Scan dependencies for vulnerabilities, workspace-aware.
+
+    In workspace mode, iterates each sub-project directory and merges
+    all vulnerability findings. In single-project mode, scans cwd.
+
+    Returns:
+        List of blocking vulnerability findings.
+    """
+    import asyncio
+
+    from mirdan.core.manifest_parser import ManifestParser
+    from mirdan.core.vuln_scanner import VulnScanner
+
+    sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    fail_threshold = sev_order.get(config.dependencies.fail_on_severity, 1)
+
+    if config.is_workspace:
+        # Collect unique project directories from workspace config
+        seen_dirs: set[Path] = set()
+        project_dirs: list[Path] = []
+        for sub in config.workspace.projects:
+            sub_dir = Path.cwd() / sub.path
+            if sub_dir not in seen_dirs:
+                seen_dirs.add(sub_dir)
+                project_dirs.append(sub_dir)
+    else:
+        project_dirs = [Path.cwd()]
+
+    all_blocking: list[Any] = []
+    for project_dir in project_dirs:
+        manifest_parser = ManifestParser(project_dir=project_dir)
+        packages = manifest_parser.parse()
+        if not packages:
+            continue
+        vuln_scanner = VulnScanner(
+            cache_dir=project_dir / ".mirdan" / "cache",
+            ttl=config.dependencies.osv_cache_ttl,
+        )
+        findings = asyncio.run(vuln_scanner.scan(packages))
+        blocking = [f for f in findings if sev_order.get(f.severity, 4) <= fail_threshold]
+        all_blocking.extend(blocking)
+
+    return all_blocking
 
 
 def _get_changed_files() -> list[str]:
@@ -196,6 +238,8 @@ def _output_fail(
     avg_score: float,
     output_format: str,
     file_results: list[dict[str, Any]],
+    *,
+    is_workspace: bool = False,
 ) -> None:
     """Output fail result."""
     if output_format == "json":
@@ -211,8 +255,37 @@ def _output_fail(
                 }
             )
         )
+    elif is_workspace:
+        print(f"FAIL: {total_errors} errors in {files_with_errors} files")
+        print()
+        _print_workspace_grouped_results(file_results)
     else:
         print(f"FAIL: {total_errors} errors in {files_with_errors} files")
+
+
+def _print_workspace_grouped_results(file_results: list[dict[str, Any]]) -> None:
+    """Print file results grouped by sub-project for workspace mode."""
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for entry in file_results:
+        project_key = entry.get("project", "(root)")
+        grouped[project_key].append(entry)
+
+    for project_path in sorted(grouped):
+        entries = grouped[project_path]
+        lang = ""
+        for e in entries:
+            if e.get("project_language"):
+                lang = e["project_language"]
+                break
+        header = f"  [{project_path}]"
+        if lang:
+            header += f" ({lang})"
+        print(header)
+        for e in entries:
+            errors = e.get("errors", 0)
+            warnings = e.get("warnings", 0)
+            print(f"    {e['score']:.2f} {e['file']} ({errors}E {warnings}W)")
+        print()
 
 
 def _parse_gate_args(args: list[str]) -> dict[str, Any]:
