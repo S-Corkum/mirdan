@@ -186,8 +186,10 @@ def apply_profile(profile: QualityProfile, config: dict[str, Any]) -> dict[str, 
     semantic = config.setdefault("semantic", {})
     semantic["enabled"] = profile.semantic >= 0.3
     semantic["analysis_protocol"] = (
-        "comprehensive" if profile.semantic >= 0.8
-        else "security" if profile.semantic >= 0.5
+        "comprehensive"
+        if profile.semantic >= 0.8
+        else "security"
+        if profile.semantic >= 0.5
         else "none"
     )
 
@@ -196,8 +198,10 @@ def apply_profile(profile: QualityProfile, config: dict[str, Any]) -> dict[str, 
     dependencies["enabled"] = profile.dependency_security >= 0.3
     dependencies["scan_on_gate"] = profile.dependency_security >= 0.5
     dependencies["fail_on_severity"] = (
-        "medium" if profile.dependency_security >= 0.8
-        else "high" if profile.dependency_security >= 0.5
+        "medium"
+        if profile.dependency_security >= 0.8
+        else "high"
+        if profile.dependency_security >= 0.5
         else "critical"
     )
 
@@ -260,9 +264,11 @@ def list_profiles(custom_profiles: dict[str, dict[str, Any]] | None = None) -> l
     if custom_profiles:
         for name, data in custom_profiles.items():
             if name not in BUILTIN_PROFILES:
-                profiles.append({
-                    "name": name,
-                    "description": data.get("description", "Custom profile"),
-                })
+                profiles.append(
+                    {
+                        "name": name,
+                        "description": data.get("description", "Custom profile"),
+                    }
+                )
 
     return profiles

@@ -116,8 +116,9 @@ class KnowledgeProducer:
                     content=(
                         f"Recurring {sample.severity} violation {rule_id} ({sample.rule}): "
                         f"{sample.message}. Found {count} instances. "
-                        f"Suggestion: {sample.suggestion}" if sample.suggestion else
-                        f"Recurring {sample.severity} violation {rule_id} ({sample.rule}): "
+                        f"Suggestion: {sample.suggestion}"
+                        if sample.suggestion
+                        else f"Recurring {sample.severity} violation {rule_id} ({sample.rule}): "
                         f"{sample.message}. Found {count} instances."
                     ),
                     content_type="convention",

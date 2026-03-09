@@ -18,9 +18,7 @@ def _make_pkg(
     version: str = "2.31.0",
     ecosystem: str = "PyPI",
 ) -> PackageInfo:
-    return PackageInfo(
-        name=name, version=version, ecosystem=ecosystem, source="test"
-    )
+    return PackageInfo(name=name, version=version, ecosystem=ecosystem, source="test")
 
 
 def _make_finding(
@@ -105,9 +103,7 @@ class TestVulnScanner:
                         {
                             "id": "CVE-2024-5678",
                             "summary": "Test vuln summary",
-                            "severity": [
-                                {"type": "CVSS_V3", "score": "9.8"}
-                            ],
+                            "severity": [{"type": "CVSS_V3", "score": "9.8"}],
                             "affected": [
                                 {
                                     "ranges": [
@@ -120,9 +116,7 @@ class TestVulnScanner:
                                     ]
                                 }
                             ],
-                            "references": [
-                                {"type": "WEB", "url": "https://example.com/advisory"}
-                            ],
+                            "references": [{"type": "WEB", "url": "https://example.com/advisory"}],
                         }
                     ]
                 }
@@ -201,13 +195,5 @@ class TestVulnScanner:
 
     def test_fixed_version_extraction(self, tmp_path: Path) -> None:
         scanner = VulnScanner(cache_dir=tmp_path)
-        vuln = {
-            "affected": [
-                {
-                    "ranges": [
-                        {"events": [{"introduced": "0"}, {"fixed": "1.2.3"}]}
-                    ]
-                }
-            ]
-        }
+        vuln = {"affected": [{"ranges": [{"events": [{"introduced": "0"}, {"fixed": "1.2.3"}]}]}]}
         assert scanner._extract_fixed_version(vuln, "PyPI") == "1.2.3"

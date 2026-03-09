@@ -248,19 +248,23 @@ class TestSuggestProfile:
     """Tests for suggest_profile()."""
 
     def test_high_quality_large_codebase(self) -> None:
-        result = suggest_profile({
-            "avg_score": 0.95,
-            "pass_rate": 0.95,
-            "files_scanned": 100,
-        })
+        result = suggest_profile(
+            {
+                "avg_score": 0.95,
+                "pass_rate": 0.95,
+                "files_scanned": 100,
+            }
+        )
         assert result == ("enterprise", 0.8)
 
     def test_high_quality_small_codebase(self) -> None:
-        result = suggest_profile({
-            "avg_score": 0.92,
-            "pass_rate": 0.92,
-            "files_scanned": 20,
-        })
+        result = suggest_profile(
+            {
+                "avg_score": 0.92,
+                "pass_rate": 0.92,
+                "files_scanned": 20,
+            }
+        )
         assert result == ("library", 0.75)
 
     def test_medium_quality(self) -> None:
@@ -272,11 +276,13 @@ class TestSuggestProfile:
         assert result == ("startup", 0.65)
 
     def test_low_quality_few_files(self) -> None:
-        result = suggest_profile({
-            "avg_score": 0.3,
-            "pass_rate": 0.3,
-            "files_scanned": 5,
-        })
+        result = suggest_profile(
+            {
+                "avg_score": 0.3,
+                "pass_rate": 0.3,
+                "files_scanned": 5,
+            }
+        )
         assert result == ("prototype", 0.6)
 
     def test_empty_scan(self) -> None:
@@ -477,17 +483,20 @@ class TestCustomRulesWired:
 class TestFrameworkStandards:
     """Tests that new framework YAML standards load correctly."""
 
-    @pytest.mark.parametrize("framework", [
-        "crewai",
-        "dspy",
-        "astro",
-        "trpc",
-        "drizzle",
-        "supabase",
-        "convex",
-        "react-native",
-        "flutter",
-    ])
+    @pytest.mark.parametrize(
+        "framework",
+        [
+            "crewai",
+            "dspy",
+            "astro",
+            "trpc",
+            "drizzle",
+            "supabase",
+            "convex",
+            "react-native",
+            "flutter",
+        ],
+    )
     def test_framework_standards_loadable(self, framework: str) -> None:
         from mirdan.core.quality_standards import QualityStandards
 

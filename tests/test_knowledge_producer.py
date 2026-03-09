@@ -204,10 +204,9 @@ class TestExtractFromValidation:
     def test_multiple_violation_types(self) -> None:
         """Multiple recurring violation types produce separate entries."""
         kp = KnowledgeProducer()
-        violations = (
-            [_make_violation(rule_id="PY001") for _ in range(3)]
-            + [_make_violation(rule_id="PY002", rule="unused-import") for _ in range(4)]
-        )
+        violations = [_make_violation(rule_id="PY001") for _ in range(3)] + [
+            _make_violation(rule_id="PY002", rule="unused-import") for _ in range(4)
+        ]
         result = _make_result(violations=violations)
         entries = kp.extract_from_validation(result)
         pattern_entries = [e for e in entries if "violation-pattern" in e.tags]

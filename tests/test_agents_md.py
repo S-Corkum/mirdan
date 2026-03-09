@@ -32,7 +32,9 @@ def generator() -> AgentsMDGenerator:
 class TestUniversalGeneration:
     """Tests for universal AGENTS.md generation."""
 
-    def test_generates_string(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_generates_string(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Should generate a non-empty string."""
         content = generator.generate(detected)
         assert isinstance(content, str)
@@ -44,13 +46,17 @@ class TestUniversalGeneration:
         assert "AGENTS.md" in content
         assert "mirdan" in content
 
-    def test_has_quality_rules(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_has_quality_rules(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Should include AI quality rules table."""
         content = generator.generate(detected)
         assert "AI001" in content
         assert "AI008" in content
 
-    def test_has_language_section(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_has_language_section(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Should include language-specific section."""
         content = generator.generate(detected)
         assert "Python" in content
@@ -61,13 +67,17 @@ class TestUniversalGeneration:
         assert "fastapi" in content
         assert "sqlalchemy" in content
 
-    def test_has_security_section(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_has_security_section(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Should include security standards."""
         content = generator.generate(detected)
         assert "SEC001" in content
         assert "Security" in content
 
-    def test_has_workflow_section(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_has_workflow_section(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Should include quality workflow."""
         content = generator.generate(detected)
         assert "enhance_prompt" in content
@@ -77,17 +87,23 @@ class TestUniversalGeneration:
 class TestCursorOverlay:
     """Tests for Cursor-specific overlay."""
 
-    def test_cursor_overlay_added(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_cursor_overlay_added(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Cursor platform should add Cursor-specific section."""
         content = generator.generate(detected, platform="cursor")
         assert "Cursor" in content
 
-    def test_cursor_mentions_bugbot(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_cursor_mentions_bugbot(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Cursor overlay should mention BugBot."""
         content = generator.generate(detected, platform="cursor")
         assert "BugBot" in content
 
-    def test_cursor_mentions_mdc_rules(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_cursor_mentions_mdc_rules(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Cursor overlay should reference .mdc rules."""
         content = generator.generate(detected, platform="cursor")
         assert ".mdc" in content or ".cursor/rules" in content
@@ -96,22 +112,30 @@ class TestCursorOverlay:
 class TestClaudeCodeOverlay:
     """Tests for Claude Code-specific overlay."""
 
-    def test_claude_code_overlay_added(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_claude_code_overlay_added(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Claude Code platform should add Claude Code section."""
         content = generator.generate(detected, platform="claude-code")
         assert "Claude Code" in content
 
-    def test_claude_code_mentions_hooks(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_claude_code_mentions_hooks(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Claude Code overlay should mention hooks."""
         content = generator.generate(detected, platform="claude-code")
         assert "PreToolUse" in content or "Hook" in content
 
-    def test_claude_code_mentions_mcp_tools(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_claude_code_mentions_mcp_tools(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Claude Code overlay should mention MCP tools."""
         content = generator.generate(detected, platform="claude-code")
         assert "mcp__mirdan" in content
 
-    def test_claude_code_mentions_skills(self, generator: AgentsMDGenerator, detected: DetectedProject) -> None:
+    def test_claude_code_mentions_skills(
+        self, generator: AgentsMDGenerator, detected: DetectedProject
+    ) -> None:
         """Claude Code overlay should mention skills."""
         content = generator.generate(detected, platform="claude-code")
         assert "/code" in content

@@ -227,10 +227,7 @@ async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
             budget = -1  # invalid value → keep all tools
         if budget >= 0:
             keep = set(_TOOL_PRIORITY[:budget])
-            to_remove = [
-                name for name in list(app._tool_manager._tools)
-                if name not in keep
-            ]
+            to_remove = [name for name in list(app._tool_manager._tools) if name not in keep]
             for name in to_remove:
                 del app._tool_manager._tools[name]
 
@@ -267,9 +264,7 @@ def _get_persistent_violation_reqs(
         for rule_id, count in session_tracker.get_violation_persistence(file_path).items():
             if count >= 2:
                 persistence[rule_id] = max(persistence.get(rule_id, 0), count)
-        for rule_id, detail in session_tracker.get_persistent_violation_details(
-            file_path
-        ).items():
+        for rule_id, detail in session_tracker.get_persistent_violation_details(file_path).items():
             if rule_id not in details:
                 details[rule_id] = detail
     if not persistence:
@@ -377,9 +372,7 @@ async def enhance_prompt(
         with contextlib.suppress(ValueError):
             overridden = TaskType(task_type)
             intent.task_type = overridden
-            intent.task_types = [overridden] + [
-                t for t in intent.task_types if t != overridden
-            ]
+            intent.task_types = [overridden] + [t for t in intent.task_types if t != overridden]
 
     # Load existing session for continuity or create new from intent.
     # When session_id is provided, persistent violation history is threaded
@@ -588,9 +581,7 @@ async def validate_code_quality(
                 "Security regression: this file previously passed security checks"
                 " but now has security violations"
             ),
-            "security_violations": [
-                v.id for v in result.violations if v.category == "security"
-            ],
+            "security_violations": [v.id for v in result.violations if v.category == "security"],
         }
 
     # Generate semantic review questions (Layer 1)

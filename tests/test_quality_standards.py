@@ -792,13 +792,17 @@ class TestConventionLearning:
 
     def test_load_conventions_reads_content_from_yaml(self, tmp_path: Path) -> None:
         import yaml
+
         mirdan_dir = tmp_path / ".mirdan"
         mirdan_dir.mkdir()
         conventions_data = {
             "language": "python",
             "conventions": [
                 {"content": "Use snake_case for function names", "content_type": "convention"},
-                {"content": "Group imports: stdlib, third-party, local", "content_type": "convention"},
+                {
+                    "content": "Group imports: stdlib, third-party, local",
+                    "content_type": "convention",
+                },
             ],
         }
         (mirdan_dir / "conventions.yaml").write_text(
@@ -810,7 +814,9 @@ class TestConventionLearning:
 
     def test_render_for_intent_includes_conventions(self, tmp_path: Path) -> None:
         import yaml
+
         from mirdan.models import Intent, TaskType
+
         mirdan_dir = tmp_path / ".mirdan"
         mirdan_dir.mkdir()
         conventions_data = {
@@ -833,6 +839,7 @@ class TestConventionLearning:
 
     def test_load_conventions_skips_entries_without_content(self, tmp_path: Path) -> None:
         import yaml
+
         mirdan_dir = tmp_path / ".mirdan"
         mirdan_dir.mkdir()
         conventions_data = {

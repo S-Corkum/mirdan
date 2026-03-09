@@ -93,7 +93,10 @@ def _print_checklist_help() -> None:
     print("Usage: mirdan checklist [options]")
     print()
     print("Options:")
-    print("  --task-type TYPE     Task type (required: generation|refactor|debug|review|test|planning)")  # noqa: E501
+    print(
+        "  --task-type TYPE     Task type"
+        " (required: generation|refactor|debug|review|test|planning)"
+    )
     print("  --security           Include security-related checks")
     print("  --format FORMAT      Output format (text|json)")
     print("  -h, --help           Show this help")

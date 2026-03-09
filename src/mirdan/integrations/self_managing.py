@@ -144,22 +144,22 @@ class SelfManagingIntegration:
         for line in state_text.split("\n"):
             line = line.strip()
             if line.startswith("- Session: "):
-                state["session_id"] = line[len("- Session: "):]
+                state["session_id"] = line[len("- Session: ") :]
             elif line.startswith("- Task: "):
-                state["task_type"] = line[len("- Task: "):]
+                state["task_type"] = line[len("- Task: ") :]
             elif line.startswith("- Language: "):
-                state["language"] = line[len("- Language: "):]
+                state["language"] = line[len("- Language: ") :]
             elif line.startswith("- Security: "):
-                state["touches_security"] = line[len("- Security: "):] == "sensitive"
+                state["touches_security"] = line[len("- Security: ") :] == "sensitive"
             elif line.startswith("- Last score: "):
                 with contextlib.suppress(ValueError):
-                    state["last_score"] = float(line[len("- Last score: "):])
+                    state["last_score"] = float(line[len("- Last score: ") :])
             elif line.startswith("- Open violations: "):
                 with contextlib.suppress(ValueError):
-                    state["open_violations"] = int(line[len("- Open violations: "):])
+                    state["open_violations"] = int(line[len("- Open violations: ") :])
 
             elif line.startswith("- Frameworks: "):
-                fw_str = line[len("- Frameworks: "):]
+                fw_str = line[len("- Frameworks: ") :]
                 state["frameworks"] = [f.strip() for f in fw_str.split(",")]
         return state
 

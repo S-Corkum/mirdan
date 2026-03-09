@@ -59,9 +59,7 @@ def _check_py001_eval(tree: ast.Module) -> list[Violation]:
             suggestion="Use ast.literal_eval() for safe evaluation",
         )
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "eval"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "eval"
     ]
 
 
@@ -79,9 +77,7 @@ def _check_py002_exec(tree: ast.Module) -> list[Violation]:
             suggestion="Avoid exec(); use safer alternatives",
         )
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "exec"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "exec"
     ]
 
 
@@ -125,8 +121,7 @@ def _check_py004_mutable_default(tree: ast.Module) -> list[Violation]:
                     line=default.lineno,
                     column=default.col_offset,
                     suggestion=(
-                        "Use None as default and create the"
-                        " mutable object inside the function"
+                        "Use None as default and create the mutable object inside the function"
                     ),
                 )
                 for default in node.args.defaults + node.args.kw_defaults
@@ -163,19 +158,15 @@ def _check_py014_dead_import(
                     and isinstance(node.value, (ast.List, ast.Tuple, ast.Set))
                 ):
                     for elt in node.value.elts:
-                            if isinstance(elt, ast.Constant) and isinstance(
-                                elt.value, str
-                            ):
-                                all_names.add(elt.value)
+                        if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                            all_names.add(elt.value)
 
     # Identify TYPE_CHECKING block line ranges
     type_checking_ranges: list[tuple[int, int]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.If):
             test = node.test
-            is_type_checking = (
-                isinstance(test, ast.Name) and test.id == "TYPE_CHECKING"
-            ) or (
+            is_type_checking = (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
                 isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
             )
             if is_type_checking and node.body:

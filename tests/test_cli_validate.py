@@ -273,14 +273,7 @@ class TestValidateDiff:
         assert result.score == 1.0
 
     def test_validate_diff_stdin(self) -> None:
-        diff = (
-            "--- a/test.py\n"
-            "+++ b/test.py\n"
-            "@@ -1,3 +1,4 @@\n"
-            " x = 1\n"
-            "+y = 2\n"
-            " z = 3\n"
-        )
+        diff = "--- a/test.py\n+++ b/test.py\n@@ -1,3 +1,4 @@\n x = 1\n+y = 2\n z = 3\n"
         with (
             patch("sys.stdin") as mock_stdin,
             pytest.raises(SystemExit) as exc_info,

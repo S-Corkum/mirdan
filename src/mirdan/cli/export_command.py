@@ -129,12 +129,14 @@ def _export_json(output_path: Path | None) -> None:
         except OSError:
             continue
         result = validator.validate(code)
-        results.append({
-            "file": str(path),
-            "score": result.score,
-            "passed": result.passed,
-            "violations": [v.to_dict() for v in result.violations],
-        })
+        results.append(
+            {
+                "file": str(path),
+                "score": result.score,
+                "passed": result.passed,
+                "violations": [v.to_dict() for v in result.violations],
+            }
+        )
 
     output = {"files": results, "count": len(results)}
 

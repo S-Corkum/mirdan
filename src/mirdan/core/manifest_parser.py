@@ -88,9 +88,7 @@ class ManifestParser:
                 return False  # File was deleted
         return True
 
-    def _parse_file(
-        self, path: Path, ecosystem: str
-    ) -> list[PackageInfo]:
+    def _parse_file(self, path: Path, ecosystem: str) -> list[PackageInfo]:
         """Dispatch to type-specific parser."""
         name = path.name
         if name == "pyproject.toml":
@@ -129,9 +127,7 @@ class ManifestParser:
 
         return packages
 
-    def _parse_pep508(
-        self, dep_str: str, source: str, is_dev: bool = False
-    ) -> PackageInfo | None:
+    def _parse_pep508(self, dep_str: str, source: str, is_dev: bool = False) -> PackageInfo | None:
         """Parse a PEP 508 dependency string."""
         # Strip extras and environment markers
         name_part = dep_str.split(";")[0].strip()
@@ -175,12 +171,14 @@ class ManifestParser:
                     ver_match = re.search(r"[\d][\d.]*", match.group(2))
                     if ver_match:
                         version = ver_match.group(0)
-                packages.append(PackageInfo(
-                    name=name,
-                    version=version,
-                    ecosystem="PyPI",
-                    source=str(path),
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=version,
+                        ecosystem="PyPI",
+                        source=str(path),
+                    )
+                )
         return packages
 
     def _parse_setup_cfg(self, path: Path) -> list[PackageInfo]:
@@ -211,13 +209,15 @@ class ManifestParser:
                 ver_match = _RE_NPM_VERSION.search(version_str)
                 if ver_match:
                     version = ver_match.group(1)
-                packages.append(PackageInfo(
-                    name=name,
-                    version=version,
-                    ecosystem="npm",
-                    source=str(path),
-                    is_dev=is_dev,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=version,
+                        ecosystem="npm",
+                        source=str(path),
+                        is_dev=is_dev,
+                    )
+                )
 
         return packages
 
@@ -236,13 +236,15 @@ class ManifestParser:
                     version = value.get("version", "")
                 else:
                     version = ""
-                packages.append(PackageInfo(
-                    name=name,
-                    version=version.lstrip("^~>=<"),
-                    ecosystem="crates.io",
-                    source=str(path),
-                    is_dev=is_dev,
-                ))
+                packages.append(
+                    PackageInfo(
+                        name=name,
+                        version=version.lstrip("^~>=<"),
+                        ecosystem="crates.io",
+                        source=str(path),
+                        is_dev=is_dev,
+                    )
+                )
 
         return packages
 
@@ -256,18 +258,18 @@ class ManifestParser:
             version = match.group(2).lstrip("v")
             # Use last path segment as package name
             name = module_path.split("/")[-1] if "/" in module_path else module_path
-            packages.append(PackageInfo(
-                name=name,
-                version=version,
-                ecosystem="Go",
-                source=str(path),
-            ))
+            packages.append(
+                PackageInfo(
+                    name=name,
+                    version=version,
+                    ecosystem="Go",
+                    source=str(path),
+                )
+            )
 
         return packages
 
-    def _enrich_from_lock_files(
-        self, root: Path, packages: list[PackageInfo]
-    ) -> list[PackageInfo]:
+    def _enrich_from_lock_files(self, root: Path, packages: list[PackageInfo]) -> list[PackageInfo]:
         """Override versions from lock files if available."""
         # uv.lock / poetry.lock for Python
         lock_versions: dict[str, str] = {}
@@ -312,7 +314,7 @@ class ManifestParser:
             data = json.loads(path.read_text())
             for name, info in data.get("packages", {}).items():
                 if name.startswith("node_modules/"):
-                    pkg_name = name[len("node_modules/"):]
+                    pkg_name = name[len("node_modules/") :]
                     version = info.get("version", "")
                     if pkg_name and version:
                         versions[f"npm:{pkg_name}"] = version

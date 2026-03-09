@@ -288,9 +288,7 @@ class SessionTracker:
             if count >= 2 and rule_id in latest_details
         }
 
-    def detect_security_regression(
-        self, file_path: str, violations: list[Violation]
-    ) -> bool:
+    def detect_security_regression(self, file_path: str, violations: list[Violation]) -> bool:
         """Check if a previously security-clean file now has security violations.
 
         Compares the previous validation's security state to the current violations.

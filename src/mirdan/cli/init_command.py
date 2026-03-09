@@ -423,7 +423,10 @@ def _setup_agents_md(
         standards = None
 
     agents_path = generate_root_agents_md(
-        directory, detected, standards=standards, platform=platform,
+        directory,
+        detected,
+        standards=standards,
+        platform=platform,
     )
     print(f"  Created {agents_path}")
 

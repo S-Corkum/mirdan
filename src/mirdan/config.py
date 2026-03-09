@@ -37,9 +37,7 @@ class DependencyConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable dependency scanning")
     osv_cache_ttl: int = Field(default=86400, description="OSV cache TTL in seconds")
-    scan_on_gate: bool = Field(
-        default=True, description="Include dep scan in mirdan gate"
-    )
+    scan_on_gate: bool = Field(default=True, description="Include dep scan in mirdan gate")
     fail_on_severity: str = Field(
         default="high",
         pattern="^(critical|high|medium|low|none)$",
@@ -269,9 +267,7 @@ class HookConfig(BaseModel):
     multi_agent_awareness: bool = Field(
         default=False, description="Enable SubagentStart/SubagentStop hooks"
     )
-    session_hooks: bool = Field(
-        default=False, description="Enable SessionStart/SessionStop hooks"
-    )
+    session_hooks: bool = Field(default=False, description="Enable SessionStart/SessionStop hooks")
     notification_hooks: bool = Field(
         default=False, description="Enable Notification hooks for quality alerts"
     )

@@ -294,9 +294,7 @@ class TestPluginExport:
         from mirdan.integrations.claude_code import export_plugin
 
         export_plugin(tmp_path)
-        manifest = json.loads(
-            (tmp_path / ".claude-plugin" / "plugin.json").read_text()
-        )
+        manifest = json.loads((tmp_path / ".claude-plugin" / "plugin.json").read_text())
         assert manifest["version"] == __version__
 
     def test_export_creates_skills(self, tmp_path: Path) -> None:

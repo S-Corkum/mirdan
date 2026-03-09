@@ -78,9 +78,7 @@ class TestSemanticAnalyzer:
     def test_analysis_protocol_generated(self) -> None:
         code = 'cursor.execute(f"SELECT * FROM users WHERE id={uid}")'
         checks = self.analyzer.generate_checks(code, "python", [])
-        protocol = self.analyzer.generate_analysis_protocol(
-            code, "python", [], checks
-        )
+        protocol = self.analyzer.generate_analysis_protocol(code, "python", [], checks)
         assert protocol is not None
         assert protocol.type == "security_flow_analysis"
         assert len(protocol.focus_areas) >= 1
@@ -88,9 +86,7 @@ class TestSemanticAnalyzer:
     def test_analysis_protocol_not_generated_without_security(self) -> None:
         code = "x = 1 + 2\nprint(x)"
         checks = self.analyzer.generate_checks(code, "python", [])
-        protocol = self.analyzer.generate_analysis_protocol(
-            code, "python", [], checks
-        )
+        protocol = self.analyzer.generate_analysis_protocol(code, "python", [], checks)
         assert protocol is None
 
 

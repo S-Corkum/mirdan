@@ -78,15 +78,17 @@ def run_report(args: list[str]) -> None:
                 continue
             result = validator.validate(code=code, language="auto", check_security=True)
             rel_path = str(file_path.relative_to(directory))
-            file_results.append({
-                "file": rel_path,
-                "score": result.score,
-                "passed": result.passed,
-                "language": result.language_detected,
-                "violations": len(result.violations),
-                "errors": sum(1 for v in result.violations if v.severity == "error"),
-                "warnings": sum(1 for v in result.violations if v.severity == "warning"),
-            })
+            file_results.append(
+                {
+                    "file": rel_path,
+                    "score": result.score,
+                    "passed": result.passed,
+                    "language": result.language_detected,
+                    "violations": len(result.violations),
+                    "errors": sum(1 for v in result.violations if v.severity == "error"),
+                    "warnings": sum(1 for v in result.violations if v.severity == "warning"),
+                }
+            )
             total_score += result.score
             if result.passed:
                 passed_count += 1
@@ -121,7 +123,8 @@ def run_report(args: list[str]) -> None:
 
 
 def _discover_source_files(
-    directory: Path, language_filter: str | None = None,
+    directory: Path,
+    language_filter: str | None = None,
 ) -> list[Path]:
     """Discover source files to analyze."""
     files: list[Path] = []
@@ -235,7 +238,9 @@ def _run_session_report(parsed: dict[str, Any]) -> None:
     try:
         result = _sp.run(
             ["git", "diff", "--name-only", "HEAD"],  # noqa: S607
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         changed_files = [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
     except (FileNotFoundError, _sp.TimeoutExpired):
@@ -252,7 +257,9 @@ def _run_session_report(parsed: dict[str, Any]) -> None:
         config = MirdanConfig.find_config()
         standards = QualityStandards(config=config.quality)
         validator = CodeValidator(
-            standards, config=config.quality, thresholds=config.thresholds,
+            standards,
+            config=config.quality,
+            thresholds=config.thresholds,
         )
 
         file_results: list[dict[str, Any]] = []
@@ -271,12 +278,14 @@ def _run_session_report(parsed: dict[str, Any]) -> None:
                 errors = sum(1 for v in res.violations if v.severity == "error")
                 total_errors += errors
                 total_score += res.score
-                file_results.append({
-                    "file": file_str,
-                    "score": res.score,
-                    "passed": res.passed,
-                    "errors": errors,
-                })
+                file_results.append(
+                    {
+                        "file": file_str,
+                        "score": res.score,
+                        "passed": res.passed,
+                        "errors": errors,
+                    }
+                )
             except Exception:
                 logger.debug("Skipping file in session report", exc_info=True)
                 continue
@@ -295,10 +304,12 @@ def _run_session_report(parsed: dict[str, Any]) -> None:
         from mirdan.integrations.self_managing import SelfManagingIntegration
 
         integration = SelfManagingIntegration()
-        print(integration.generate_session_summary(
-            session_data,
-            file_results=file_results if changed_files else None,
-        ))
+        print(
+            integration.generate_session_summary(
+                session_data,
+                file_results=file_results if changed_files else None,
+            )
+        )
 
 
 def _run_compact_state_report(parsed: dict[str, Any]) -> None:

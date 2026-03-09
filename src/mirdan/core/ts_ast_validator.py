@@ -313,22 +313,26 @@ def _measure_max_nesting(lines: list[str], start_idx: int) -> int:
 # Tree-sitter code path (used when tree-sitter is installed)
 # ---------------------------------------------------------------------------
 
-_NESTING_NODE_TYPES = frozenset({
-    "if_statement",
-    "for_statement",
-    "for_in_statement",
-    "while_statement",
-    "do_statement",
-    "switch_statement",
-    "try_statement",
-})
+_NESTING_NODE_TYPES = frozenset(
+    {
+        "if_statement",
+        "for_statement",
+        "for_in_statement",
+        "while_statement",
+        "do_statement",
+        "switch_statement",
+        "try_statement",
+    }
+)
 
-_FUNCTION_NODE_TYPES = frozenset({
-    "function_declaration",
-    "arrow_function",
-    "method_definition",
-    "function_expression",
-})
+_FUNCTION_NODE_TYPES = frozenset(
+    {
+        "function_declaration",
+        "arrow_function",
+        "method_definition",
+        "function_expression",
+    }
+)
 
 
 def _validate_with_tree_sitter(
@@ -359,8 +363,7 @@ def _validate_with_tree_sitter(
         if language == "typescript":
             violations.extend(_check_missing_return_type(code, lines))
         limitations.append(
-            "TS/JS architecture checks use regex heuristics; "
-            "tree-sitter parsing failed"
+            "TS/JS architecture checks use regex heuristics; tree-sitter parsing failed"
         )
         return violations, limitations
 
@@ -381,8 +384,7 @@ def _validate_with_tree_sitter(
                     category="architecture",
                     severity="warning",
                     message=(
-                        f"Function '{name}' is {func_len} lines"
-                        f" (max {config.max_function_length})"
+                        f"Function '{name}' is {func_len} lines (max {config.max_function_length})"
                     ),
                     line=node.start_point.row + 1,
                     column=node.start_point.column + 1,
@@ -392,9 +394,7 @@ def _validate_with_tree_sitter(
 
     # TSARCH002: file-too-long
     lines = code.split("\n")
-    non_empty = sum(
-        1 for line in lines if line.strip() and not _COMMENT_LINE.match(line)
-    )
+    non_empty = sum(1 for line in lines if line.strip() and not _COMMENT_LINE.match(line))
     if non_empty > config.max_file_length:
         violations.append(
             Violation(

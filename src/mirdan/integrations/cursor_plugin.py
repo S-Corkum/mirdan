@@ -82,18 +82,14 @@ class CursorPluginExporter:
         with (output_dir / "mcp.json").open("w") as f:
             json.dump(mcp_config, f, indent=2)
 
-    def _write_rules(
-        self, output_dir: Path, detected: DetectedProject
-    ) -> None:
+    def _write_rules(self, output_dir: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.cursor import generate_cursor_rules
 
         rules_dir = output_dir / "rules"
         rules_dir.mkdir(parents=True, exist_ok=True)
         generate_cursor_rules(rules_dir, detected)
 
-    def _write_agents(
-        self, output_dir: Path, detected: DetectedProject
-    ) -> None:
+    def _write_agents(self, output_dir: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.cursor import generate_cursor_agents
 
         agents_dir = output_dir

@@ -545,13 +545,17 @@ globs: "{globs}"
 ---
 
 # mirdan {language.title()} Standards
-{rules_text if rules_text else f'''
+{
+        rules_text
+        if rules_text
+        else f'''
 ## Code Quality
 - Follow {language} best practices and idioms
 - Use type annotations where supported
 - Handle errors explicitly
 - Keep functions focused and small
-'''}
+'''
+    }
 """
 
 

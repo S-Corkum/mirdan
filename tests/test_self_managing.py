@@ -34,7 +34,9 @@ class TestWorkflowRuleGeneration:
     """Tests for workflow rule generation."""
 
     def test_generates_non_empty(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should generate non-empty content."""
         content = integration.generate_workflow_rule(detected)
@@ -42,7 +44,9 @@ class TestWorkflowRuleGeneration:
         assert len(content) > 0
 
     def test_has_quality_sandwich(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should include the quality sandwich workflow."""
         content = integration.generate_workflow_rule(detected)
@@ -50,7 +54,9 @@ class TestWorkflowRuleGeneration:
         assert "validate_code_quality" in content
 
     def test_has_tool_table(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should include the available tools table."""
         content = integration.generate_workflow_rule(detected)
@@ -58,21 +64,27 @@ class TestWorkflowRuleGeneration:
         assert "validate_quick" in content
 
     def test_has_language(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should include the detected language."""
         content = integration.generate_workflow_rule(detected)
         assert "python" in content.lower()
 
     def test_has_frameworks(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should include detected frameworks."""
         content = integration.generate_workflow_rule(detected)
         assert "fastapi" in content.lower()
 
     def test_mentions_auto_fix(
-        self, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should mention the auto-fix capability."""
         content = integration.generate_workflow_rule(detected)
@@ -190,7 +202,10 @@ class TestWriteWorkflowRule:
     """Tests for writing workflow rule to disk."""
 
     def test_writes_file(
-        self, tmp_path: Path, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        tmp_path: Path,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should write mirdan-workflow.md to .claude/rules/."""
         result = integration.write_workflow_rule(tmp_path, detected)
@@ -198,7 +213,10 @@ class TestWriteWorkflowRule:
         assert result.exists()
 
     def test_content_is_valid(
-        self, tmp_path: Path, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        tmp_path: Path,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Written content should match generate_workflow_rule()."""
         path = integration.write_workflow_rule(tmp_path, detected)
@@ -207,7 +225,10 @@ class TestWriteWorkflowRule:
         assert written == generated
 
     def test_creates_directory_structure(
-        self, tmp_path: Path, integration: SelfManagingIntegration, detected: DetectedProject,
+        self,
+        tmp_path: Path,
+        integration: SelfManagingIntegration,
+        detected: DetectedProject,
     ) -> None:
         """Should create .claude/rules/ directory."""
         integration.write_workflow_rule(tmp_path, detected)

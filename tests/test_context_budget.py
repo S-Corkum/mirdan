@@ -64,10 +64,13 @@ class TestContextBudgetDetection:
 
     def test_priority_order(self) -> None:
         """MIRDAN_CONTEXT_BUDGET should take priority."""
-        with patch.dict(os.environ, {
-            "MIRDAN_CONTEXT_BUDGET": "10000",
-            "CLAUDE_CONTEXT_REMAINING": "20000",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MIRDAN_CONTEXT_BUDGET": "10000",
+                "CLAUDE_CONTEXT_REMAINING": "20000",
+            },
+        ):
             budget = _detect_context_budget()
             assert budget == 10000
 
@@ -89,10 +92,13 @@ class TestEnvironmentInfoBudget:
 
     def test_detect_environment_includes_budget(self) -> None:
         """detect_environment() should include budget when available."""
-        with patch.dict(os.environ, {
-            "CLAUDE_CODE_RUNNING": "1",
-            "MIRDAN_CONTEXT_BUDGET": "80000",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "CLAUDE_CODE_RUNNING": "1",
+                "MIRDAN_CONTEXT_BUDGET": "80000",
+            },
+        ):
             env_info = detect_environment()
             assert env_info.context_budget == 80000
 

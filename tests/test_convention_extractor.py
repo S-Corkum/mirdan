@@ -133,9 +133,7 @@ class TestConventionExtractorConventions:
         self, extractor: ConventionExtractor, python_project: Path
     ) -> None:
         result = extractor.scan(python_project)
-        naming_entries = [
-            e for e in result.conventions if "naming" in e.tags
-        ]
+        naming_entries = [e for e in result.conventions if "naming" in e.tags]
         assert len(naming_entries) >= 1
         assert any("snake_case" in e.content for e in naming_entries)
 
@@ -143,9 +141,7 @@ class TestConventionExtractorConventions:
         self, extractor: ConventionExtractor, python_project: Path
     ) -> None:
         result = extractor.scan(python_project)
-        import_entries = [
-            e for e in result.conventions if "imports" in e.tags
-        ]
+        import_entries = [e for e in result.conventions if "imports" in e.tags]
         assert len(import_entries) >= 1
         assert any("future" in e.content.lower() for e in import_entries)
 
@@ -153,9 +149,7 @@ class TestConventionExtractorConventions:
         self, extractor: ConventionExtractor, python_project: Path
     ) -> None:
         result = extractor.scan(python_project)
-        docstring_entries = [
-            e for e in result.conventions if "docstrings" in e.tags
-        ]
+        docstring_entries = [e for e in result.conventions if "docstrings" in e.tags]
         assert len(docstring_entries) >= 1
 
     def test_discovers_quality_baseline(

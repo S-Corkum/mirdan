@@ -119,10 +119,7 @@ class TeamProfile:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> TeamProfile:
-        compliance = [
-            ComplianceRule.from_dict(c)
-            for c in data.get("compliance", [])
-        ]
+        compliance = [ComplianceRule.from_dict(c) for c in data.get("compliance", [])]
         return cls(
             name=data["name"],
             description=data.get("description", ""),
@@ -260,12 +257,14 @@ def list_team_profiles(
             with path.open() as f:
                 data = yaml.safe_load(f)
             if data:
-                profiles.append({
-                    "name": data.get("name", path.stem),
-                    "description": data.get("description", ""),
-                    "team_name": data.get("team_name", ""),
-                    "org_name": data.get("org_name", ""),
-                })
+                profiles.append(
+                    {
+                        "name": data.get("name", path.stem),
+                        "description": data.get("description", ""),
+                        "team_name": data.get("team_name", ""),
+                        "org_name": data.get("org_name", ""),
+                    }
+                )
         except (yaml.YAMLError, OSError):
             continue
 

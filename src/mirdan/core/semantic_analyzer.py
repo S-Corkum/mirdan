@@ -83,8 +83,7 @@ _VIOLATION_FOLLOW_UPS: dict[str, str] = {
         "backward to its SOURCE — where does it enter the system? Is it ever sanitized?"
     ),
     "SEC005": (
-        "SQL f-string detected. Same as SEC004 — trace the interpolated "
-        "variable to its origin."
+        "SQL f-string detected. Same as SEC004 — trace the interpolated variable to its origin."
     ),
     "SEC008": (
         "Shell format injection. Trace {var} backward — can an attacker "
@@ -147,9 +146,7 @@ class SemanticAnalyzer:
                                         f" `{line_text.strip()[:80]}`",
                                     ),
                                     severity=(
-                                        "warning"
-                                        if pattern_type in _SECURITY_PATTERNS
-                                        else "info"
+                                        "warning" if pattern_type in _SECURITY_PATTERNS else "info"
                                     ),
                                     focus_lines=[line_num],
                                 )

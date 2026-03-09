@@ -46,10 +46,7 @@ class TestValidateQuickMethod:
     def test_returns_only_security_violations(self, validator: CodeValidator) -> None:
         """validate_quick should only return SEC* violations, not style/arch."""
         # eval() triggers PY001 (style), SQL concat triggers SEC004 (security)
-        code = (
-            'query = "SELECT * FROM users WHERE id=" + user_id\n'
-            "result = eval(user_input)\n"
-        )
+        code = 'query = "SELECT * FROM users WHERE id=" + user_id\nresult = eval(user_input)\n'
         result = validator.validate_quick(code, language="python")
         # Should have security violations (SEC004 for SQL concat)
         assert any(v.id.startswith("SEC") for v in result.violations)

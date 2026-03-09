@@ -51,7 +51,15 @@ class TestBuiltinProfiles:
         assert len(BUILTIN_PROFILES) == 7
 
     def test_all_profile_names(self) -> None:
-        expected = {"default", "startup", "enterprise", "fintech", "library", "data-science", "prototype"}
+        expected = {
+            "default",
+            "startup",
+            "enterprise",
+            "fintech",
+            "library",
+            "data-science",
+            "prototype",
+        }
         assert set(BUILTIN_PROFILES.keys()) == expected
 
     def test_enterprise_is_strict(self) -> None:

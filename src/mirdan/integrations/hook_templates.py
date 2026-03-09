@@ -547,9 +547,7 @@ class HookTemplateGenerator:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": (
-                            f"{self._mirdan_cmd} report --session --format json"
-                        ),
+                        "command": (f"{self._mirdan_cmd} report --session --format json"),
                         "timeout": 30000,
                     },
                     {

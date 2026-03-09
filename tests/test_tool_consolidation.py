@@ -140,27 +140,13 @@ class TestValidateCodeQualityDiff:
 
     async def test_diff_validation(self) -> None:
         server_mod._get_components()
-        diff = (
-            "--- a/test.py\n"
-            "+++ b/test.py\n"
-            "@@ -1,3 +1,4 @@\n"
-            " x = 1\n"
-            "+y = 2\n"
-            " z = 3\n"
-        )
+        diff = "--- a/test.py\n+++ b/test.py\n@@ -1,3 +1,4 @@\n x = 1\n+y = 2\n z = 3\n"
         result = await _validate_code_quality(diff, language="python", input_type="diff")
         assert "passed" in result
 
     async def test_empty_diff(self) -> None:
         server_mod._get_components()
-        diff = (
-            "--- a/test.py\n"
-            "+++ b/test.py\n"
-            "@@ -1,3 +1,2 @@\n"
-            " x = 1\n"
-            "-removed = 2\n"
-            " z = 3\n"
-        )
+        diff = "--- a/test.py\n+++ b/test.py\n@@ -1,3 +1,2 @@\n x = 1\n-removed = 2\n z = 3\n"
         result = await _validate_code_quality(diff, input_type="diff")
         assert result["passed"] is True
         assert result["score"] == 1.0
@@ -176,10 +162,12 @@ class TestValidateCodeQualityCompare:
 
     async def test_compare_two_implementations(self) -> None:
         server_mod._get_components()
-        impls = json.dumps([
-            "def greet(name: str) -> str:\n    return f'Hello, {name}'\n",
-            "result = eval(user_input)\n",
-        ])
+        impls = json.dumps(
+            [
+                "def greet(name: str) -> str:\n    return f'Hello, {name}'\n",
+                "result = eval(user_input)\n",
+            ]
+        )
         result = await _validate_code_quality(impls, language="python", compare=True)
         assert "winner" in result
         assert "entries" in result

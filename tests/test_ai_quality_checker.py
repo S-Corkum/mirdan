@@ -186,9 +186,7 @@ class TestAI002HallucinatedImports:
     def test_normalizes_hyphenated_deps(self, tmp_path: Path) -> None:
         """Package names with hyphens should be normalized to underscores."""
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text(
-            '[project]\nname = "test"\ndependencies = ["my-cool-lib>=1.0"]\n'
-        )
+        pyproject.write_text('[project]\nname = "test"\ndependencies = ["my-cool-lib>=1.0"]\n')
         checker = AIQualityChecker(project_dir=tmp_path)
         code = "import my_cool_lib\n"
         violations = checker.check(code, "python")
@@ -262,7 +260,7 @@ class TestAI008Injection:
         assert ai008[0].severity == "error"
 
     def test_skips_non_python(self, checker: AIQualityChecker) -> None:
-        code = 'const query = `SELECT * FROM users WHERE id=${userId}`;\n'
+        code = "const query = `SELECT * FROM users WHERE id=${userId}`;\n"
         violations = checker.check(code, "javascript")
         ai008 = [v for v in violations if v.id == "AI008"]
         assert len(ai008) == 0
@@ -350,7 +348,7 @@ class TestFalsePositives:
             "import os\n"
             "import json\n\n"
             "def process(data: dict) -> str:\n"
-            '    return json.dumps(data)\n\n'
+            "    return json.dumps(data)\n\n"
             "def main() -> None:\n"
             '    result = process({"key": "value"})\n'
             "    print(result)\n"
@@ -379,9 +377,28 @@ class TestStdlibModules:
 
     @pytest.mark.parametrize(
         "module",
-        ["os", "sys", "pathlib", "json", "typing", "collections", "functools",
-         "dataclasses", "logging", "re", "io", "math", "datetime", "hashlib",
-         "unittest", "asyncio", "contextlib", "abc", "enum", "itertools"],
+        [
+            "os",
+            "sys",
+            "pathlib",
+            "json",
+            "typing",
+            "collections",
+            "functools",
+            "dataclasses",
+            "logging",
+            "re",
+            "io",
+            "math",
+            "datetime",
+            "hashlib",
+            "unittest",
+            "asyncio",
+            "contextlib",
+            "abc",
+            "enum",
+            "itertools",
+        ],
     )
     def test_common_stdlib_modules_present(self, module: str) -> None:
         assert module in PYTHON_STDLIB_MODULES
@@ -432,11 +449,7 @@ class TestCheckQuick:
     def test_quick_does_not_run_ai003(self, checker: AIQualityChecker) -> None:
         """AI003 should NOT run in quick mode."""
         code = (
-            "from abc import ABC\n\n"
-            "class Base(ABC):\n"
-            "    pass\n\n"
-            "class Concrete(Base):\n"
-            "    pass\n"
+            "from abc import ABC\n\nclass Base(ABC):\n    pass\n\nclass Concrete(Base):\n    pass\n"
         )
         violations = checker.check_quick(code, "python")
         assert not any(v.id == "AI003" for v in violations)
@@ -554,10 +567,7 @@ class TestAI004DuplicateBlocks:
 
     def test_passes_different_function_bodies(self, checker: AIQualityChecker) -> None:
         code = (
-            "def func_a(data):\n"
-            "    return sum(data)\n\n"
-            "def func_b(data):\n"
-            "    return len(data)\n"
+            "def func_a(data):\n    return sum(data)\n\ndef func_b(data):\n    return len(data)\n"
         )
         violations = checker.check(code, "python")
         ai004 = [v for v in violations if v.id == "AI004"]
@@ -565,12 +575,7 @@ class TestAI004DuplicateBlocks:
 
     def test_ignores_short_bodies(self, checker: AIQualityChecker) -> None:
         """Bodies <= 5 lines should not be flagged."""
-        code = (
-            "def func_a():\n"
-            "    return 42\n\n"
-            "def func_b():\n"
-            "    return 42\n"
-        )
+        code = "def func_a():\n    return 42\n\ndef func_b():\n    return 42\n"
         violations = checker.check(code, "python")
         ai004 = [v for v in violations if v.id == "AI004"]
         assert len(ai004) == 0
@@ -655,10 +660,7 @@ class TestAI005InconsistentErrors:
         assert len(ai005) == 0
 
     def test_severity_is_warning(self, checker: AIQualityChecker) -> None:
-        code = (
-            "try:\n    x()\nexcept ValueError:\n    pass\n\n"
-            "try:\n    y()\nexcept:\n    pass\n"
-        )
+        code = "try:\n    x()\nexcept ValueError:\n    pass\n\ntry:\n    y()\nexcept:\n    pass\n"
         violations = checker.check(code, "python")
         ai005 = [v for v in violations if v.id == "AI005"]
         assert ai005[0].severity == "warning"
@@ -679,10 +681,7 @@ class TestAI006HeavyImports:
     """Tests for AI006 — unnecessary heavy import detection."""
 
     def test_catches_requests_for_simple_get(self, checker: AIQualityChecker) -> None:
-        code = (
-            "import requests\n\n"
-            "response = requests.get('https://example.com')\n"
-        )
+        code = "import requests\n\nresponse = requests.get('https://example.com')\n"
         violations = checker.check(code, "python")
         ai006 = [v for v in violations if v.id == "AI006"]
         assert len(ai006) == 1
@@ -757,10 +756,7 @@ class TestAI007SecurityTheater:
         assert len(ai007) == 0
 
     def test_passes_real_validation(self, checker: AIQualityChecker) -> None:
-        code = (
-            "def validate_email(email: str) -> bool:\n"
-            "    return '@' in email and '.' in email\n"
-        )
+        code = "def validate_email(email: str) -> bool:\n    return '@' in email and '.' in email\n"
         violations = checker.check(code, "python")
         ai007 = [v for v in violations if v.id == "AI007"]
         assert len(ai007) == 0
@@ -795,7 +791,9 @@ class TestAI002MultiLanguage:
 
     def test_typescript_catches_unknown_import(self, tmp_path: Path) -> None:
         pkg_json = tmp_path / "package.json"
-        pkg_json.write_text('{"dependencies": {"express": "^4.0"}, "devDependencies": {"jest": "^29.0"}}')
+        pkg_json.write_text(
+            '{"dependencies": {"express": "^4.0"}, "devDependencies": {"jest": "^29.0"}}'
+        )
         checker = AIQualityChecker(project_dir=tmp_path)
         code = "import { Router } from 'nonexistent-lib';\n"
         violations = checker.check(code, "typescript")
@@ -851,7 +849,7 @@ class TestAI002MultiLanguage:
 
     def test_rust_passes_std(self, tmp_path: Path) -> None:
         cargo = tmp_path / "Cargo.toml"
-        cargo.write_text('[dependencies]\n')
+        cargo.write_text("[dependencies]\n")
         checker = AIQualityChecker(project_dir=tmp_path)
         code = "use std::collections::HashMap;\nuse core::fmt;\n"
         violations = checker.check(code, "rust")
@@ -912,9 +910,7 @@ class TestSEC014VulnerableDependency:
             )
         ]
 
-        checker = AIQualityChecker(
-            manifest_parser=mock_parser, vuln_scanner=mock_scanner
-        )
+        checker = AIQualityChecker(manifest_parser=mock_parser, vuln_scanner=mock_scanner)
         code = "import requests\nrequests.get('https://example.com')\n"
         violations = checker.check(code, "python")
         sec014 = [v for v in violations if v.id == "SEC014"]
@@ -935,9 +931,7 @@ class TestSEC014VulnerableDependency:
         mock_scanner = MagicMock()
         mock_scanner.check_cached.return_value = []
 
-        checker = AIQualityChecker(
-            manifest_parser=mock_parser, vuln_scanner=mock_scanner
-        )
+        checker = AIQualityChecker(manifest_parser=mock_parser, vuln_scanner=mock_scanner)
         code = "import requests\n"
         violations = checker.check(code, "python")
         sec014 = [v for v in violations if v.id == "SEC014"]
@@ -967,9 +961,7 @@ class TestSEC014VulnerableDependency:
             )
         ]
 
-        checker = AIQualityChecker(
-            manifest_parser=mock_parser, vuln_scanner=mock_scanner
-        )
+        checker = AIQualityChecker(manifest_parser=mock_parser, vuln_scanner=mock_scanner)
         code = "import flask\napp = flask.Flask(__name__)\n"
         violations = checker.check(code, "python")
         sec014 = [v for v in violations if v.id == "SEC014"]
@@ -998,9 +990,7 @@ class TestSEC014VulnerableDependency:
             )
         ]
 
-        checker = AIQualityChecker(
-            manifest_parser=mock_parser, vuln_scanner=mock_scanner
-        )
+        checker = AIQualityChecker(manifest_parser=mock_parser, vuln_scanner=mock_scanner)
         code = "import requests\n"
         violations = checker.check_quick(code, "python")
         sec014 = [v for v in violations if v.id == "SEC014"]

@@ -50,9 +50,7 @@ class QualityDashboard:
             },
         }
 
-    def violation_breakdown(
-        self, result: dict[str, Any]
-    ) -> dict[str, Any]:
+    def violation_breakdown(self, result: dict[str, Any]) -> dict[str, Any]:
         """Generate pie chart data for violation categories.
 
         Args:
@@ -91,9 +89,7 @@ class QualityDashboard:
             },
         }
 
-    def session_overview(
-        self, session: dict[str, Any]
-    ) -> dict[str, Any]:
+    def session_overview(self, session: dict[str, Any]) -> dict[str, Any]:
         """Generate session quality overview data.
 
         Args:
@@ -113,9 +109,7 @@ class QualityDashboard:
             },
         }
 
-    def compliance_matrix(
-        self, profile: dict[str, Any]
-    ) -> dict[str, Any]:
+    def compliance_matrix(self, profile: dict[str, Any]) -> dict[str, Any]:
         """Generate compliance grid from a quality profile.
 
         Args:
@@ -143,14 +137,14 @@ class QualityDashboard:
             else:
                 level = "permissive"
 
-            rows.append({
-                "dimension": dim,
-                "score": score,
-                "level": level,
-                "compliant": score >= profile.get(
-                    f"min_{dim}", 0.0
-                ),
-            })
+            rows.append(
+                {
+                    "dimension": dim,
+                    "score": score,
+                    "level": level,
+                    "compliant": score >= profile.get(f"min_{dim}", 0.0),
+                }
+            )
 
         return {
             "type": "grid",

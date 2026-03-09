@@ -263,11 +263,7 @@ class TestTreeSitterValidation:
 
     def test_arrow_function_detected(self) -> None:
         """Tree-sitter should detect arrow functions."""
-        code = (
-            "const myArrow = (x: number): void => {\n"
-            + "    console.log(x);\n" * 35
-            + "};\n"
-        )
+        code = "const myArrow = (x: number): void => {\n" + "    console.log(x);\n" * 35 + "};\n"
         violations, _ = validate_ts_architecture(code, "typescript")
         tsarch001 = [v for v in violations if v.id == "TSARCH001"]
         assert len(tsarch001) == 1

@@ -169,8 +169,8 @@ class IntentAnalyzer:
         "go": [(r"\bgolang\b", 5), (r"\.go$", 4), (r"\bgo\b", 3)],
         "java": [(r"\bjava\b", 5), (r"\.java$", 4), (r"\bspring\b", 3), (r"\bmaven\b", 3)],
         "csharp": [
-            (r"\bc#", 5),          # c# is non-word after #, no trailing \b needed
-            (r"\.net\b", 4),       # .net — no leading \b since . is non-word
+            (r"\bc#", 5),  # c# is non-word after #, no trailing \b needed
+            (r"\.net\b", 4),  # .net — no leading \b since . is non-word
             (r"\bcsharp\b", 5),
             (r"\.cs\b", 4),
             (r"\basp\.net\b", 3),
@@ -438,11 +438,7 @@ class IntentAnalyzer:
         secondaries by a medium-confidence threshold (score >= 4).
         Returns [UNKNOWN] when no patterns match at all.
         """
-        nonzero = {
-            t: s
-            for t, s in self._task_matcher.score_all(prompt).items()
-            if s > 0
-        }
+        nonzero = {t: s for t, s in self._task_matcher.score_all(prompt).items() if s > 0}
         if not nonzero:
             return [TaskType.UNKNOWN]
         primary = max(nonzero, key=lambda t: nonzero[t])

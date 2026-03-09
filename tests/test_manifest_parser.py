@@ -36,10 +36,14 @@ class TestManifestParser:
 
     def test_parse_package_json(self, tmp_path: pytest.TempPathFactory) -> None:
         pkg = tmp_path / "package.json"
-        pkg.write_text(json.dumps({
-            "dependencies": {"react": "^18.2.0", "next": "~14.0.0"},
-            "devDependencies": {"typescript": "^5.0.0"},
-        }))
+        pkg.write_text(
+            json.dumps(
+                {
+                    "dependencies": {"react": "^18.2.0", "next": "~14.0.0"},
+                    "devDependencies": {"typescript": "^5.0.0"},
+                }
+            )
+        )
         parser = ManifestParser(project_dir=tmp_path)
         packages = parser.parse()
         names = {p.name for p in packages}
@@ -109,9 +113,7 @@ class TestManifestParser:
 
     def test_multiple_manifests(self, tmp_path: pytest.TempPathFactory) -> None:
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text(
-            '[project]\nname = "myapp"\ndependencies = ["flask>=3.0"]\n'
-        )
+        pyproject.write_text('[project]\nname = "myapp"\ndependencies = ["flask>=3.0"]\n')
         pkg_json = tmp_path / "package.json"
         pkg_json.write_text(json.dumps({"dependencies": {"react": "^18.0"}}))
         parser = ManifestParser(project_dir=tmp_path)

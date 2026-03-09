@@ -138,7 +138,13 @@ class TestMergeLinterViolations:
             score=0.75,
             language_detected="python",
             violations=[
-                Violation(id="SEC001", rule="sec", category="security", severity="error", message="sec issue"),
+                Violation(
+                    id="SEC001",
+                    rule="sec",
+                    category="security",
+                    severity="error",
+                    message="sec issue",
+                ),
             ],
             standards_checked=["security"],
         )
@@ -207,9 +213,7 @@ class TestValidateCodeQualityWithLinters:
         c = server_mod._get_components()
         mock_run = AsyncMock(return_value=[])
         with patch.object(c.linter_runner, "run", mock_run):
-            await _validate_code_quality(
-                "x = 1\n", language="python", file_path=str(test_file)
-            )
+            await _validate_code_quality("x = 1\n", language="python", file_path=str(test_file))
 
         mock_run.assert_awaited_once()
 
@@ -245,9 +249,7 @@ class TestValidateCodeQualityWithLinters:
             )
 
         # Should have the linter violation
-        ruff_violations = [
-            v for v in result.get("violations", []) if v.get("id") == "RUFF001"
-        ]
+        ruff_violations = [v for v in result.get("violations", []) if v.get("id") == "RUFF001"]
         assert len(ruff_violations) == 1
         assert "external-linters" in result["standards_checked"]
 

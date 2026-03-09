@@ -125,7 +125,13 @@ class TestViolationExplainerEnrich:
     def test_enrich_sets_historical_frequency(self) -> None:
         explainer = ViolationExplainer()
         violations = [
-            Violation(id="PY002", rule="mutable-default", category="style", severity="warning", message="m"),
+            Violation(
+                id="PY002",
+                rule="mutable-default",
+                category="style",
+                severity="warning",
+                message="m",
+            ),
         ]
         explainer.enrich_violations(violations, override_counts={"PY002": 3})
         assert violations[0].historical_frequency == 3
@@ -141,32 +147,44 @@ class TestViolationModelExtensions:
 
     def test_violation_has_explanation_field(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             explanation="This is an explanation",
         )
         assert v.explanation == "This is an explanation"
 
     def test_violation_has_related_violations(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             related_violations=["T2", "T3"],
         )
         assert v.related_violations == ["T2", "T3"]
 
     def test_violation_has_historical_frequency(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             historical_frequency=5,
         )
         assert v.historical_frequency == 5
 
     def test_violation_to_dict_includes_explanation(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             explanation="Explained",
         )
         d = v.to_dict()
@@ -174,16 +192,22 @@ class TestViolationModelExtensions:
 
     def test_violation_to_dict_excludes_empty_explanation(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
         )
         d = v.to_dict()
         assert "explanation" not in d
 
     def test_violation_to_dict_includes_related(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             related_violations=["T2"],
         )
         d = v.to_dict()
@@ -191,8 +215,11 @@ class TestViolationModelExtensions:
 
     def test_violation_to_dict_includes_frequency(self) -> None:
         v = Violation(
-            id="T1", rule="test", category="style",
-            severity="info", message="test",
+            id="T1",
+            rule="test",
+            category="style",
+            severity="info",
+            message="test",
             historical_frequency=3,
         )
         d = v.to_dict()
@@ -330,9 +357,7 @@ class TestCrossProjectIntelligence:
         patterns = intel.discover_workspace_patterns(entries)
         # "linting" tag appears in 2 projects
         assert len(patterns) >= 1
-        linting_pattern = next(
-            (p for p in patterns if "linting" in p.get("tags", [])), None
-        )
+        linting_pattern = next((p for p in patterns if "linting" in p.get("tags", [])), None)
         assert linting_pattern is not None
         assert linting_pattern["scope"] == "workspace"
 
@@ -493,11 +518,15 @@ class TestQualityCoordinator:
         coord.register_agent("agent-1")
         await coord.claim_file("agent-1", "a.py")
         await coord.release_file(
-            "agent-1", "a.py", {"score": 0.8, "violations": [{"id": "X"}]},
+            "agent-1",
+            "a.py",
+            {"score": 0.8, "violations": [{"id": "X"}]},
         )
         await coord.claim_file("agent-1", "b.py")
         await coord.release_file(
-            "agent-1", "b.py", {"score": 0.9, "violations": []},
+            "agent-1",
+            "b.py",
+            {"score": 0.9, "violations": []},
         )
         agg = coord.aggregate_results()
         assert agg["files_validated"] == 2

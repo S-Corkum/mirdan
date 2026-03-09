@@ -34,22 +34,24 @@ _LANG_EXTENSIONS: dict[str, list[str]] = {
 _MAX_FILES = 200
 
 # Directories to always skip
-_SKIP_DIRS = frozenset({
-    "__pycache__",
-    "node_modules",
-    ".git",
-    ".venv",
-    "venv",
-    ".tox",
-    "dist",
-    "build",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    "egg-info",
-    ".eggs",
-    "target",
-})
+_SKIP_DIRS = frozenset(
+    {
+        "__pycache__",
+        "node_modules",
+        ".git",
+        ".venv",
+        "venv",
+        ".tox",
+        "dist",
+        "build",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+        "egg-info",
+        ".eggs",
+        "target",
+    }
+)
 
 
 @dataclass
@@ -159,10 +161,7 @@ class ConventionExtractor:
         for _, result in results:
             for v in result.violations:
                 violation_counter[v.id] += 1
-        common = [
-            {"id": vid, "count": count}
-            for vid, count in violation_counter.most_common(10)
-        ]
+        common = [{"id": vid, "count": count} for vid, count in violation_counter.most_common(10)]
 
         return ScanResult(
             directory=str(directory),

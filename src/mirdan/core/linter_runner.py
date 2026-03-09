@@ -58,10 +58,18 @@ _LINTER_REGISTRY: dict[str, list[tuple[str, Any, Any]]] = {
         ),
     ],
     "javascript": [
-        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),  # noqa: E501
+        (
+            "eslint",
+            lambda f, args: ["eslint", "--format", "json", *args, str(f)],
+            parse_eslint_output,
+        ),
     ],
     "typescript": [
-        ("eslint", lambda f, args: ["eslint", "--format", "json", *args, str(f)], parse_eslint_output),  # noqa: E501
+        (
+            "eslint",
+            lambda f, args: ["eslint", "--format", "json", *args, str(f)],
+            parse_eslint_output,
+        ),
     ],
 }
 

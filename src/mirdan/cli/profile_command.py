@@ -75,6 +75,7 @@ def _run_suggest(args: list[str]) -> None:
     print(f"Suggested profile: {name} (confidence: {confidence:.0%})")
     print(f"  {profile.description}")
     print()
+
     def _dim(label: str, value: float) -> str:
         return f"  {label:<18} {profile.to_stringency(value)} ({value:.1f})"
 

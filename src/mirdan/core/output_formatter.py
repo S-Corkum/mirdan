@@ -164,7 +164,10 @@ class OutputFormatter:
     def _resolve_format(self, max_tokens: int, model_tier: ModelTier) -> OutputFormat:
         """Resolve the effective output format from token budget and model tier."""
         token_fmt = determine_format(
-            max_tokens, self._compact_threshold, self._minimal_threshold, self._micro_threshold,
+            max_tokens,
+            self._compact_threshold,
+            self._minimal_threshold,
+            self._micro_threshold,
         )
         model_fmt = (
             determine_format_for_model(model_tier)

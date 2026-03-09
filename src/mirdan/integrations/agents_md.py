@@ -134,9 +134,7 @@ These rules apply to all AI agents working in this codebase:
 
         # Include language standards if available
         if self._standards is not None:
-            standards_data = self._standards.get_all_standards(
-                language=lang, category="style"
-            )
+            standards_data = self._standards.get_all_standards(language=lang, category="style")
             if standards_data:
                 lines.append(f"\n### {lang.title()} Standards")
                 for items in standards_data.values():

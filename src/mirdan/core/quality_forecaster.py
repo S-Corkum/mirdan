@@ -141,7 +141,7 @@ class QualityForecaster:
             return []
 
         recent = scores[-window:]
-        earlier = scores[: -window]
+        earlier = scores[:-window]
 
         avg_recent = sum(recent) / len(recent)
         avg_earlier = sum(earlier) / len(earlier)

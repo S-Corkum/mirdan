@@ -265,7 +265,7 @@ PATTERN_FIXES: dict[str, tuple[str, str, str, float]] = {
         0.90,
     ),
     "SEC006_http": (
-        r'http://',
+        r"http://",
         "https://",
         "Upgrade HTTP to HTTPS",
         0.95,
@@ -422,9 +422,17 @@ class AutoFixer:
 
     # Security and critical AI rules eligible for quick_fix
     _QUICK_FIX_RULES = {
-        "SEC001", "SEC002", "SEC003", "SEC004", "SEC005",
-        "SEC006", "SEC007", "SEC008",
-        "AI001", "AI007", "AI008",
+        "SEC001",
+        "SEC002",
+        "SEC003",
+        "SEC004",
+        "SEC005",
+        "SEC006",
+        "SEC007",
+        "SEC008",
+        "AI001",
+        "AI007",
+        "AI008",
     }
 
     def quick_fix(self, result: ValidationResult) -> list[FixResult]:

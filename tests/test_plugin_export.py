@@ -76,7 +76,7 @@ class TestGenerateSkills:
             frontmatter = parts[1]
             for line in frontmatter.strip().splitlines():
                 if line.startswith("description:"):
-                    desc = line[len("description:"):].strip()
+                    desc = line[len("description:") :].strip()
                     assert len(desc) < 1024, f"Description too long in {path.name}"
 
 
@@ -106,7 +106,9 @@ class TestGenerateAgents:
             assert "name:" in content, f"{path.name} missing name"
             assert "model:" in content, f"{path.name} missing model"
 
-    def test_no_agents_have_unsupported_fields(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_no_agents_have_unsupported_fields(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         """memory:, background:, skills:, isolation:, mcpServers: are not valid Claude Code agent fields."""
         paths = generate_agents(tmp_path, detected)
         for path in paths:

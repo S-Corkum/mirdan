@@ -181,10 +181,7 @@ class QualityCoordinator:
         Returns:
             Files that haven't been claimed or had results submitted.
         """
-        return [
-            f for f in changed_files
-            if f not in self._file_claims and f not in self._results
-        ]
+        return [f for f in changed_files if f not in self._file_claims and f not in self._results]
 
     def aggregate_results(self) -> dict[str, Any]:
         """Aggregate all completed validation results.
@@ -199,14 +196,10 @@ class QualityCoordinator:
                 "results": {},
             }
 
-        scores = [
-            r.get("score", 0.0) for r in self._results.values()
-        ]
+        scores = [r.get("score", 0.0) for r in self._results.values()]
         avg_score = sum(scores) / len(scores) if scores else 0.0
 
-        total_violations = sum(
-            len(r.get("violations", [])) for r in self._results.values()
-        )
+        total_violations = sum(len(r.get("violations", [])) for r in self._results.values())
 
         return {
             "files_validated": len(self._results),

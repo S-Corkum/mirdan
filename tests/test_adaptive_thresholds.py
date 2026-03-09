@@ -73,7 +73,7 @@ class TestResolveForFile:
             arch_max_function_length=25,
             file_overrides=[
                 FileThresholdOverride(pattern="tests/**", arch_max_file_length=500),
-            ]
+            ],
         )
         result = config.resolve_for_file("tests/test_foo.py")
         # arch_max_file_length overridden
@@ -118,7 +118,7 @@ class TestModelCopyCorrectness:
             entity_base_confidence=0.9,
             file_overrides=[
                 FileThresholdOverride(pattern="tests/**", arch_max_function_length=50),
-            ]
+            ],
         )
         result = config.resolve_for_file("tests/test_foo.py")
         assert result.entity_base_confidence == 0.9

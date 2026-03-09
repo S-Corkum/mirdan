@@ -69,9 +69,7 @@ class SARIFExporter:
         except ImportError:
             return "0.0.0"
 
-    def _extract_rules(
-        self, violations: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _extract_rules(self, violations: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Extract unique rule definitions from violations."""
         seen: dict[str, dict[str, Any]] = {}
 
@@ -86,9 +84,7 @@ class SARIFExporter:
                     "text": v.get("rule", rule_id),
                 },
                 "defaultConfiguration": {
-                    "level": _LEVEL_MAP.get(
-                        v.get("severity", "warning"), "warning"
-                    ),
+                    "level": _LEVEL_MAP.get(v.get("severity", "warning"), "warning"),
                 },
             }
 
@@ -99,9 +95,7 @@ class SARIFExporter:
 
         return list(seen.values())
 
-    def _build_results(
-        self, violations: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _build_results(self, violations: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Build SARIF result entries from violations."""
         results: list[dict[str, Any]] = []
 

@@ -96,9 +96,7 @@ def generate_quality_badge(score: float) -> str:
         color = "yellow"
     else:
         color = "red"
-    return (
-        f"https://img.shields.io/badge/mirdan%20quality-{pct}%25-{color}"
-    )
+    return f"https://img.shields.io/badge/mirdan%20quality-{pct}%25-{color}"
 
 
 def generate_pr_comment(result: dict[str, Any]) -> str:

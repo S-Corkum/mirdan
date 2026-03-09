@@ -44,54 +44,29 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         "Hardcoded secrets are a critical risk — they persist"
         " in version control history even after removal."
     ),
-    "SEC002": (
-        "SQL injection allows attackers to manipulate"
-        " database queries via user input."
-    ),
+    "SEC002": ("SQL injection allows attackers to manipulate database queries via user input."),
     "SEC003": (
-        "Command injection allows arbitrary system command"
-        " execution through unsanitized input."
+        "Command injection allows arbitrary system command execution through unsanitized input."
     ),
-    "SEC004": (
-        "Path traversal allows attackers to access files"
-        " outside intended directories."
-    ),
+    "SEC004": ("Path traversal allows attackers to access files outside intended directories."),
     "SEC005": (
-        "Insecure deserialization can execute arbitrary"
-        " code when processing untrusted data."
+        "Insecure deserialization can execute arbitrary code when processing untrusted data."
     ),
-    "SEC006": (
-        "Missing input validation allows unexpected data"
-        " to flow through the system."
-    ),
-    "SEC007": (
-        "Weak cryptographic algorithms provide insufficient"
-        " protection for sensitive data."
-    ),
-    "SEC008": (
-        "Missing authentication checks allow unauthorized"
-        " access to protected resources."
-    ),
+    "SEC006": ("Missing input validation allows unexpected data to flow through the system."),
+    "SEC007": ("Weak cryptographic algorithms provide insufficient protection for sensitive data."),
+    "SEC008": ("Missing authentication checks allow unauthorized access to protected resources."),
     "SEC009": (
-        "Information exposure through error messages can"
-        " reveal system internals to attackers."
+        "Information exposure through error messages can reveal system internals to attackers."
     ),
-    "SEC010": (
-        "Cross-site scripting (XSS) allows injection of"
-        " malicious scripts into web pages."
-    ),
+    "SEC010": ("Cross-site scripting (XSS) allows injection of malicious scripts into web pages."),
     "SEC011": (
         "Missing CSRF protection allows attackers to forge"
         " requests on behalf of authenticated users."
     ),
     "SEC012": (
-        "Insecure random number generation can be predicted,"
-        " weakening security mechanisms."
+        "Insecure random number generation can be predicted, weakening security mechanisms."
     ),
-    "SEC013": (
-        "Missing rate limiting allows brute-force attacks"
-        " and resource exhaustion."
-    ),
+    "SEC013": ("Missing rate limiting allows brute-force attacks and resource exhaustion."),
     "SEC014": (
         "Using dependencies with known vulnerabilities exposes"
         " the application to attacks that have public exploits."
@@ -101,68 +76,39 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         "Placeholder or TODO code left by AI indicates"
         " incomplete implementation that needs human attention."
     ),
-    "AI002": (
-        "Unnecessary verbosity in AI-generated code adds"
-        " noise without improving clarity."
-    ),
-    "AI003": (
-        "Catch-all exception handlers mask real errors"
-        " and make debugging difficult."
-    ),
-    "AI004": (
-        "AI-generated boilerplate often lacks"
-        " project-specific patterns and conventions."
-    ),
+    "AI002": ("Unnecessary verbosity in AI-generated code adds noise without improving clarity."),
+    "AI003": ("Catch-all exception handlers mask real errors and make debugging difficult."),
+    "AI004": ("AI-generated boilerplate often lacks project-specific patterns and conventions."),
     "AI005": (
         "Inconsistent naming patterns suggest mechanical"
         " generation without understanding naming conventions."
     ),
-    "AI006": (
-        "Dead code from AI generation clutters the"
-        " codebase with unreachable logic."
-    ),
-    "AI007": (
-        "Missing error handling in AI code creates"
-        " fragile paths that fail silently."
-    ),
+    "AI006": ("Dead code from AI generation clutters the codebase with unreachable logic."),
+    "AI007": ("Missing error handling in AI code creates fragile paths that fail silently."),
     "AI008": (
-        "Over-abstraction from AI tends to create unnecessary"
-        " complexity for simple operations."
+        "Over-abstraction from AI tends to create unnecessary complexity for simple operations."
     ),
     # Python rules
     "PY001": (
-        "Bare except clauses catch all exceptions including"
-        " SystemExit and KeyboardInterrupt."
+        "Bare except clauses catch all exceptions including SystemExit and KeyboardInterrupt."
     ),
     "PY002": (
-        "Mutable default arguments are shared across calls,"
-        " causing unexpected state mutations."
+        "Mutable default arguments are shared across calls, causing unexpected state mutations."
     ),
-    "PY003": (
-        "Wildcard imports pollute the namespace and make"
-        " it unclear where names originate."
-    ),
+    "PY003": ("Wildcard imports pollute the namespace and make it unclear where names originate."),
     "PY004": (
-        "Global variable mutations create hidden state"
-        " that makes code harder to reason about."
+        "Global variable mutations create hidden state that makes code harder to reason about."
     ),
     "PY005": (
         "Missing type hints reduce IDE support, documentation"
         " quality, and static analysis effectiveness."
     ),
     # TypeScript rules
-    "TS001": (
-        "'any' type bypasses TypeScript's type checking,"
-        " negating its primary benefit."
-    ),
+    "TS001": ("'any' type bypasses TypeScript's type checking, negating its primary benefit."),
     "TS002": (
-        "Non-null assertions (!) silence the compiler but"
-        " can cause runtime null reference errors."
+        "Non-null assertions (!) silence the compiler but can cause runtime null reference errors."
     ),
-    "TS003": (
-        "Missing return types make function contracts"
-        " implicit and harder to verify."
-    ),
+    "TS003": ("Missing return types make function contracts implicit and harder to verify."),
 }
 
 # Severity context
@@ -235,18 +181,14 @@ class ViolationExplainer:
                     "Consider adjusting its severity if the overrides are intentional."
                 )
             elif count > 0:
-                parts.append(
-                    f"This rule has been overridden {count} time(s) previously."
-                )
+                parts.append(f"This rule has been overridden {count} time(s) previously.")
 
         # 5. Convention relevance
         if conventions:
             relevant = self._find_relevant_conventions(vid, category, conventions)
             if relevant:
                 conv_name = relevant.get("name", relevant.get("pattern", ""))
-                parts.append(
-                    f"Project convention '{conv_name}' is related to this violation."
-                )
+                parts.append(f"Project convention '{conv_name}' is related to this violation.")
 
         # Fallback if no template matched
         if not parts:
@@ -294,9 +236,7 @@ class ViolationExplainer:
                 v.explanation = explanation
 
             # Set related violations (same category, different ID)
-            related = [
-                r for r in category_index.get(cat, []) if r != vid
-            ]
+            related = [r for r in category_index.get(cat, []) if r != vid]
             if hasattr(v, "related_violations"):
                 v.related_violations = related
 

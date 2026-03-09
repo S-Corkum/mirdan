@@ -56,9 +56,7 @@ class TestMicroOutputFormat:
             violations=[],
             standards_checked=["security"],
         )
-        output = formatter.format_validation_result(
-            result.to_dict(), max_tokens=100
-        )
+        output = formatter.format_validation_result(result.to_dict(), max_tokens=100)
         assert output.get("micro") is not None
         assert "PASS" in output["micro"]
 
@@ -70,15 +68,17 @@ class TestMicroOutputFormat:
             language_detected="python",
             violations=[
                 Violation(
-                    id="AI001", rule="placeholder-detection", category="ai_quality",
-                    severity="error", message="test", line=42,
+                    id="AI001",
+                    rule="placeholder-detection",
+                    category="ai_quality",
+                    severity="error",
+                    message="test",
+                    line=42,
                 ),
             ],
             standards_checked=["ai_quality"],
         )
-        output = formatter.format_validation_result(
-            result.to_dict(), max_tokens=100
-        )
+        output = formatter.format_validation_result(result.to_dict(), max_tokens=100)
         assert output.get("micro") is not None
         assert "FAIL" in output["micro"]
 
@@ -199,9 +199,7 @@ class TestAdvancedHooks:
         # Should have 6 comprehensive lifecycle events
         assert len(hooks) >= 6
 
-    def test_hooks_has_user_prompt_submit(
-        self, tmp_path: Path, detected: DetectedProject
-    ) -> None:
+    def test_hooks_has_user_prompt_submit(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         assert "UserPromptSubmit" in hooks
 
@@ -269,7 +267,9 @@ class TestDynamicCursorRules:
         from mirdan.integrations.cursor import generate_cursor_rules
 
         ts_detected = DetectedProject(
-            project_type="node", primary_language="typescript", frameworks=["react"],
+            project_type="node",
+            primary_language="typescript",
+            frameworks=["react"],
         )
         standards = QualityStandards()
         rules_dir = tmp_path / ".cursor" / "rules"
@@ -282,7 +282,9 @@ class TestDynamicCursorRules:
         from mirdan.integrations.cursor import generate_cursor_rules
 
         go_detected = DetectedProject(
-            project_type="go", primary_language="go", frameworks=[],
+            project_type="go",
+            primary_language="go",
+            frameworks=[],
         )
         standards = QualityStandards()
         rules_dir = tmp_path / ".cursor" / "rules"
@@ -295,7 +297,9 @@ class TestDynamicCursorRules:
         from mirdan.integrations.cursor import generate_cursor_rules
 
         rust_detected = DetectedProject(
-            project_type="rust", primary_language="rust", frameworks=[],
+            project_type="rust",
+            primary_language="rust",
+            frameworks=[],
         )
         standards = QualityStandards()
         rules_dir = tmp_path / ".cursor" / "rules"
@@ -598,7 +602,9 @@ class TestMicroOutputCLI:
         from mirdan.cli.validate_command import _output_micro
 
         result = ValidationResult(
-            passed=True, score=0.95, language_detected="python",
+            passed=True,
+            score=0.95,
+            language_detected="python",
         )
         _output_micro(result)
         captured = capsys.readouterr()
@@ -608,7 +614,10 @@ class TestMicroOutputCLI:
         from mirdan.cli.validate_command import _output_micro
 
         result = ValidationResult(
-            passed=False, score=0.5, language_detected="python", violations=[],
+            passed=False,
+            score=0.5,
+            language_detected="python",
+            violations=[],
         )
         _output_micro(result)
         captured = capsys.readouterr()
@@ -618,11 +627,17 @@ class TestMicroOutputCLI:
         from mirdan.cli.validate_command import _output_micro
 
         result = ValidationResult(
-            passed=False, score=0.5, language_detected="python",
+            passed=False,
+            score=0.5,
+            language_detected="python",
             violations=[
                 Violation(
-                    id="SEC001", rule="hardcoded-secrets", category="security",
-                    severity="error", message="test", line=10,
+                    id="SEC001",
+                    rule="hardcoded-secrets",
+                    category="security",
+                    severity="error",
+                    message="test",
+                    line=10,
                 ),
             ],
         )

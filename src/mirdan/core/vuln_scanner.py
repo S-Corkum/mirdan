@@ -156,9 +156,7 @@ class VulnScanner:
 
         return findings
 
-    def _parse_vulns(
-        self, pkg: PackageInfo, vulns: list[dict[str, Any]]
-    ) -> list[VulnFinding]:
+    def _parse_vulns(self, pkg: PackageInfo, vulns: list[dict[str, Any]]) -> list[VulnFinding]:
         """Parse OSV vulnerability entries into VulnFindings."""
         findings: list[VulnFinding] = []
         for vuln in vulns:
@@ -174,11 +172,7 @@ class VulnScanner:
                     summary=vuln.get("summary", vuln.get("details", ""))[:200],
                     fixed_version=fixed,
                     advisory_url=next(
-                        (
-                            r["url"]
-                            for r in vuln.get("references", [])
-                            if r.get("type") == "WEB"
-                        ),
+                        (r["url"] for r in vuln.get("references", []) if r.get("type") == "WEB"),
                         "",
                     ),
                 )
@@ -209,11 +203,7 @@ class VulnScanner:
 
         # Try ecosystem_specific severity (GitHub, PyPI advisories)
         for affected in vuln.get("affected", []):
-            eco_sev = (
-                affected.get("ecosystem_specific", {})
-                .get("severity", "")
-                .upper()
-            )
+            eco_sev = affected.get("ecosystem_specific", {}).get("severity", "").upper()
             if eco_sev in _SEVERITY_MAP:
                 return _SEVERITY_MAP[eco_sev]
 

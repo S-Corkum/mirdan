@@ -43,7 +43,9 @@ def run_gate(args: list[str]) -> None:
     config = MirdanConfig.find_config()
     standards = QualityStandards(config=config.quality)
     validator = CodeValidator(
-        standards, config=config.quality, thresholds=config.thresholds,
+        standards,
+        config=config.quality,
+        thresholds=config.thresholds,
     )
 
     # Validate each file
@@ -65,7 +67,9 @@ def run_gate(args: list[str]) -> None:
             continue
 
         result = validator.validate(
-            code=code, language="auto", check_security=True,
+            code=code,
+            language="auto",
+            check_security=True,
         )
 
         error_count = sum(1 for v in result.violations if v.severity == "error")
@@ -74,12 +78,14 @@ def run_gate(args: list[str]) -> None:
         if error_count > 0:
             files_with_errors += 1
 
-        file_results.append({
-            "file": file_path,
-            "score": result.score,
-            "passed": result.passed,
-            "errors": error_count,
-        })
+        file_results.append(
+            {
+                "file": file_path,
+                "score": result.score,
+                "passed": result.passed,
+                "errors": error_count,
+            }
+        )
 
     files_validated = len(file_results)
     avg_score = total_score / files_validated if files_validated else 1.0
@@ -103,9 +109,7 @@ def run_gate(args: list[str]) -> None:
             findings = asyncio.run(vuln_scanner.scan(packages))
             sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
             fail_threshold = sev_order.get(config.dependencies.fail_on_severity, 1)
-            blocking = [
-                f for f in findings if sev_order.get(f.severity, 4) <= fail_threshold
-            ]
+            blocking = [f for f in findings if sev_order.get(f.severity, 4) <= fail_threshold]
             if blocking:
                 print(
                     f"FAIL: {len(blocking)} dependency vulnerabilities at or above "
@@ -118,8 +122,12 @@ def run_gate(args: list[str]) -> None:
         sys.exit(0)
     else:
         _output_fail(
-            files_validated, total_errors, files_with_errors,
-            avg_score, output_format, file_results,
+            files_validated,
+            total_errors,
+            files_with_errors,
+            avg_score,
+            output_format,
+            file_results,
         )
         sys.exit(1)
 
@@ -167,12 +175,16 @@ def _output_pass(
 ) -> None:
     """Output pass result."""
     if output_format == "json":
-        print(json.dumps({
-            "status": "PASS",
-            "files": files,
-            "avg_score": round(avg_score, 2),
-            "file_results": file_results,
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "PASS",
+                    "files": files,
+                    "avg_score": round(avg_score, 2),
+                    "file_results": file_results,
+                }
+            )
+        )
     else:
         print(f"PASS: {files} files, score {avg_score:.2f}")
 
@@ -187,14 +199,18 @@ def _output_fail(
 ) -> None:
     """Output fail result."""
     if output_format == "json":
-        print(json.dumps({
-            "status": "FAIL",
-            "files": files,
-            "total_errors": total_errors,
-            "files_with_errors": files_with_errors,
-            "avg_score": round(avg_score, 2),
-            "file_results": file_results,
-        }))
+        print(
+            json.dumps(
+                {
+                    "status": "FAIL",
+                    "files": files,
+                    "total_errors": total_errors,
+                    "files_with_errors": files_with_errors,
+                    "avg_score": round(avg_score, 2),
+                    "file_results": file_results,
+                }
+            )
+        )
     else:
         print(f"FAIL: {total_errors} errors in {files_with_errors} files")
 

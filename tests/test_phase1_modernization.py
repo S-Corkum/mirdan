@@ -34,7 +34,11 @@ class TestSaveSnapshotWired:
 
         # Verify the tool function source references save_snapshot
         # (FastMCP wraps the function, so get the underlying fn)
-        fn = validate_code_quality.fn if hasattr(validate_code_quality, "fn") else validate_code_quality
+        fn = (
+            validate_code_quality.fn
+            if hasattr(validate_code_quality, "fn")
+            else validate_code_quality
+        )
         source = inspect.getsource(fn)
         assert "save_snapshot" in source
 
@@ -106,9 +110,7 @@ class TestMdcDoubleUnderscore:
 
         pkg = files("mirdan.integrations.templates")
         return [
-            (item.name, item.read_text())
-            for item in pkg.iterdir()
-            if item.name.endswith(".mdc")
+            (item.name, item.read_text()) for item in pkg.iterdir() if item.name.endswith(".mdc")
         ]
 
     def test_no_single_underscore(self, mdc_files):
@@ -331,7 +333,7 @@ class TestSkillFrontmatter:
     )
     def test_skill_has_argument_hint(self, skills_pkg, skill, hint):
         content = (skills_pkg / skill / "SKILL.md").read_text()
-        assert f"argument-hint: \"{hint}\"" in content
+        assert f'argument-hint: "{hint}"' in content
 
     def test_review_is_user_invocable(self, skills_pkg):
         content = (skills_pkg / "review" / "SKILL.md").read_text()

@@ -522,7 +522,9 @@ class TestAIFrameworkDetection:
 
     def test_detects_anthropic_sdk(self, analyzer: IntentAnalyzer) -> None:
         """Should detect Anthropic SDK from import pattern."""
-        intent = analyzer.analyze("implement tool use with the anthropic sdk using client.messages.create")
+        intent = analyzer.analyze(
+            "implement tool use with the anthropic sdk using client.messages.create"
+        )
         assert "anthropic-sdk" in intent.frameworks
 
     def test_detects_openai_sdk(self, analyzer: IntentAnalyzer) -> None:
@@ -565,7 +567,9 @@ class TestPhase4FrameworkDetection:
 
     def test_detects_sqlalchemy(self, analyzer: IntentAnalyzer) -> None:
         """Should detect SQLAlchemy from AsyncSession pattern."""
-        intent = analyzer.analyze("use SQLAlchemy AsyncSession for database queries with DeclarativeBase")
+        intent = analyzer.analyze(
+            "use SQLAlchemy AsyncSession for database queries with DeclarativeBase"
+        )
         assert "sqlalchemy" in intent.frameworks
 
 
@@ -589,6 +593,7 @@ class TestManifestFirstDetection:
     def test_detects_fastapi_from_manifest(self) -> None:
         """Should detect FastAPI when package is in deps, even without prompt keywords."""
         from unittest.mock import MagicMock
+
         manifest_parser = MagicMock()
         manifest_parser.get_dep_names.return_value = {"fastapi", "uvicorn", "pydantic"}
         analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
@@ -598,6 +603,7 @@ class TestManifestFirstDetection:
     def test_detects_langchain_from_manifest(self) -> None:
         """Should detect LangChain from manifest dependencies."""
         from unittest.mock import MagicMock
+
         manifest_parser = MagicMock()
         manifest_parser.get_dep_names.return_value = {"langchain", "openai"}
         analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
@@ -607,6 +613,7 @@ class TestManifestFirstDetection:
     def test_manifest_merges_with_prompt_detection(self) -> None:
         """Manifest frameworks should merge with prompt-detected frameworks."""
         from unittest.mock import MagicMock
+
         manifest_parser = MagicMock()
         manifest_parser.get_dep_names.return_value = {"sqlalchemy"}
         analyzer = IntentAnalyzer(manifest_parser=manifest_parser)
@@ -622,5 +629,6 @@ class TestManifestFirstDetection:
 
     def test_package_to_framework_excludes_pydantic(self) -> None:
         """pydantic alone should not map to fastapi (it's standalone)."""
-        from mirdan.core.intent_analyzer import IntentAnalyzer as IA
-        assert "pydantic" not in IA.PACKAGE_TO_FRAMEWORK
+        from mirdan.core.intent_analyzer import IntentAnalyzer
+
+        assert "pydantic" not in IntentAnalyzer.PACKAGE_TO_FRAMEWORK

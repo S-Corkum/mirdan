@@ -73,9 +73,7 @@ class PluginValidator:
 
         return result
 
-    def _check_manifest(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_manifest(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         manifest = plugin_dir / ".claude-plugin" / "plugin.json"
         if not manifest.exists():
             result.valid = False
@@ -95,13 +93,9 @@ class PluginValidator:
         for field_name in required:
             if field_name not in data:
                 result.valid = False
-                result.errors.append(
-                    f"Missing required field '{field_name}' in plugin.json"
-                )
+                result.errors.append(f"Missing required field '{field_name}' in plugin.json")
 
-    def _check_mcp_config(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_mcp_config(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         mcp_json = plugin_dir / ".mcp.json"
         if not mcp_json.exists():
             result.warnings.append("Missing .mcp.json (MCP config)")
@@ -121,9 +115,7 @@ class PluginValidator:
         elif "mirdan" not in data.get("mcpServers", {}):
             result.warnings.append("'mirdan' not in mcpServers")
 
-    def _check_skills(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_skills(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         skills_dir = plugin_dir / "skills"
         if not skills_dir.exists():
             result.warnings.append("No skills/ directory")
@@ -137,13 +129,9 @@ class PluginValidator:
                 rel = f"skills/{skill_dir.name}/SKILL.md"
                 result.files_found.append(rel)
             else:
-                result.warnings.append(
-                    f"Skill '{skill_dir.name}' missing SKILL.md"
-                )
+                result.warnings.append(f"Skill '{skill_dir.name}' missing SKILL.md")
 
-    def _check_agents(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_agents(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         agents_dir = plugin_dir / "agents"
         if not agents_dir.exists():
             result.warnings.append("No agents/ directory")
@@ -152,9 +140,7 @@ class PluginValidator:
         for agent_file in sorted(agents_dir.glob("*.md")):
             result.files_found.append(f"agents/{agent_file.name}")
 
-    def _check_mcp_tool_names(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_mcp_tool_names(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         """Check for incorrect MCP tool name prefixes."""
         for md_file in plugin_dir.rglob("*.md"):
             try:
@@ -166,13 +152,10 @@ class PluginValidator:
                 rel = md_file.relative_to(plugin_dir)
                 result.valid = False
                 result.errors.append(
-                    f"Incorrect MCP prefix '{_BAD_PREFIX}' in {rel}"
-                    f" (should be '{_MCP_PREFIX}')"
+                    f"Incorrect MCP prefix '{_BAD_PREFIX}' in {rel} (should be '{_MCP_PREFIX}')"
                 )
 
-    def _check_hooks(
-        self, plugin_dir: Path, result: PluginValidationResult
-    ) -> None:
+    def _check_hooks(self, plugin_dir: Path, result: PluginValidationResult) -> None:
         hooks_json = plugin_dir / "hooks.json"
         if hooks_json.exists():
             result.files_found.append("hooks.json")

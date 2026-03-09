@@ -32,8 +32,18 @@ _HASH_COMMENT_LANGUAGES = frozenset({"python", "ruby", "perl", "shell", "bash"})
 # Languages that support /* */ block comments
 _BLOCK_COMMENT_LANGUAGES = frozenset(
     {
-        "typescript", "javascript", "java", "go", "rust",
-        "c", "cpp", "c++", "c#", "kotlin", "swift", "csharp",
+        "typescript",
+        "javascript",
+        "java",
+        "go",
+        "rust",
+        "c",
+        "cpp",
+        "c++",
+        "c#",
+        "kotlin",
+        "swift",
+        "csharp",
     }
 )
 
@@ -403,7 +413,7 @@ class CodeValidator:
                 "client.completions.create() is removed in anthropic>=0.20"
                 " - use client.messages.create()",
                 "Migrate to: client.messages.create(model=...,"
-                " messages=[{\"role\": \"user\", \"content\": ...}])",
+                ' messages=[{"role": "user", "content": ...}])',
             ),
             (
                 "SA001",
@@ -927,9 +937,7 @@ class CodeValidator:
                     return True
         return False
 
-    def _resolve_language(
-        self, code: str, language: str
-    ) -> tuple[str, list[str]]:
+    def _resolve_language(self, code: str, language: str) -> tuple[str, list[str]]:
         """Resolve language from code and language hint.
 
         Args:
@@ -1080,9 +1088,7 @@ class CodeValidator:
                 if ast_parsed:
                     # Remove regex violations for rules AST also checked (AST is more accurate)
                     if ast_checked_ids:
-                        violations = [
-                            v for v in violations if v.id not in ast_checked_ids
-                        ]
+                        violations = [v for v in violations if v.id not in ast_checked_ids]
                     violations.extend(ast_violations)
                     if ast_violations or ast_checked_ids:
                         standards_checked.append("python_ast")
@@ -1163,7 +1169,10 @@ class CodeValidator:
         )
 
     def generate_semantic_checks(
-        self, code: str, language: str, violations: list[Violation],
+        self,
+        code: str,
+        language: str,
+        violations: list[Violation],
     ) -> list[Any]:
         """Generate semantic review questions (does not affect quality score)."""
         if not self._semantic_analyzer:

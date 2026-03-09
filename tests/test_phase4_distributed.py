@@ -125,14 +125,18 @@ class TestPluginValidator:
         # Create minimal valid plugin
         plugin_meta = tmp_path / ".claude-plugin"
         plugin_meta.mkdir()
-        (plugin_meta / "plugin.json").write_text(json.dumps({
-            "name": "mirdan",
-            "version": "0.4.0",
-            "description": "test",
-        }))
-        (tmp_path / ".mcp.json").write_text(json.dumps({
-            "mcpServers": {"mirdan": {"type": "stdio", "command": "mirdan"}}
-        }))
+        (plugin_meta / "plugin.json").write_text(
+            json.dumps(
+                {
+                    "name": "mirdan",
+                    "version": "0.4.0",
+                    "description": "test",
+                }
+            )
+        )
+        (tmp_path / ".mcp.json").write_text(
+            json.dumps({"mcpServers": {"mirdan": {"type": "stdio", "command": "mirdan"}}})
+        )
 
         validator = PluginValidator()
         result = validator.validate(tmp_path)
@@ -167,9 +171,15 @@ class TestPluginValidator:
     def test_detects_bad_mcp_prefix(self, tmp_path: Path) -> None:
         plugin_meta = tmp_path / ".claude-plugin"
         plugin_meta.mkdir()
-        (plugin_meta / "plugin.json").write_text(json.dumps({
-            "name": "test", "version": "1.0", "description": "test",
-        }))
+        (plugin_meta / "plugin.json").write_text(
+            json.dumps(
+                {
+                    "name": "test",
+                    "version": "1.0",
+                    "description": "test",
+                }
+            )
+        )
         rules_dir = tmp_path / "rules"
         rules_dir.mkdir()
         (rules_dir / "test.md").write_text("Use mcp_mirdan_validate for checking")
@@ -205,9 +215,7 @@ class TestEnhancedPluginManifest:
         from mirdan.integrations.claude_code import export_plugin
 
         export_plugin(tmp_path)
-        manifest = json.loads(
-            (tmp_path / ".claude-plugin" / "plugin.json").read_text()
-        )
+        manifest = json.loads((tmp_path / ".claude-plugin" / "plugin.json").read_text())
         assert "categories" in manifest
         assert "skills" in manifest
         assert "agents" in manifest
@@ -316,11 +324,13 @@ class TestSARIFExporter:
             },
         ]
         exporter = SARIFExporter()
-        sarif = exporter.export({
-            "violations": violations,
-            "score": 0.5,
-            "passed": False,
-        })
+        sarif = exporter.export(
+            {
+                "violations": violations,
+                "score": 0.5,
+                "passed": False,
+            }
+        )
         results = sarif["runs"][0]["results"]
         assert len(results) == 2
         assert results[0]["ruleId"] == "SEC001"

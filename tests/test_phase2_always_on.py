@@ -109,14 +109,18 @@ class TestSessionTracker:
     """Tests for the SessionTracker class."""
 
     def test_record_validation_increments_count(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py")
         summary = tracker.get_session_summary()
         assert summary.validation_count == 1
 
     def test_record_multiple_validations(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="a.py")
@@ -126,21 +130,27 @@ class TestSessionTracker:
         assert summary.files_validated == 2
 
     def test_unvalidated_files(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="a.py")
         unvalidated = tracker.get_unvalidated_files(["a.py", "b.py", "c.py"])
         assert unvalidated == ["b.py", "c.py"]
 
     def test_all_files_validated(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="a.py")
         tracker.record_validation(passing_result, file_path="b.py")
         assert tracker.get_unvalidated_files(["a.py", "b.py"]) == []
 
     def test_score_for_file(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py")
         assert tracker.get_score_for_file("test.py") == 0.95
@@ -149,7 +159,9 @@ class TestSessionTracker:
         assert tracker.get_score_for_file("unknown.py") is None
 
     def test_score_uses_latest(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
@@ -162,7 +174,9 @@ class TestSessionTracker:
         assert summary.files_validated == 0
 
     def test_session_summary_avg_score(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="a.py")
@@ -172,14 +186,18 @@ class TestSessionTracker:
         assert abs(summary.avg_score - expected) < 0.01
 
     def test_session_summary_errors(
-        self, tracker: SessionTracker, failing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
         summary = tracker.get_session_summary()
         assert summary.total_errors == 2  # SEC002 + AI001
 
     def test_session_summary_pass_rate(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="a.py")
@@ -188,7 +206,9 @@ class TestSessionTracker:
         assert summary.pass_rate == 0.5
 
     def test_session_summary_to_dict(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py")
         summary = tracker.get_session_summary("sess-001")
@@ -197,7 +217,9 @@ class TestSessionTracker:
         assert d["validation_count"] == 1
 
     def test_record_updates_session_context(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         session: SessionContext,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py", session=session)
@@ -207,7 +229,9 @@ class TestSessionTracker:
         assert session.last_validated_at > 0
 
     def test_session_context_to_dict_includes_quality(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         session: SessionContext,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py", session=session)
@@ -216,7 +240,9 @@ class TestSessionTracker:
         assert d["session_quality"]["validation_count"] == 1
 
     def test_to_snapshot(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(passing_result, file_path="test.py")
         snapshot = tracker.to_snapshot("sess-001")
@@ -228,13 +254,17 @@ class TestSessionTracker:
         assert tracker.to_snapshot() is None
 
     def test_get_previous_violations_empty_first_run(
-        self, tracker: SessionTracker, failing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
         assert tracker.get_previous_violations("test.py") == set()
 
     def test_get_previous_violations_after_two_runs(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
@@ -244,7 +274,9 @@ class TestSessionTracker:
         assert "AI001" in prev
 
     def test_get_violation_persistence_counts_consecutive(
-        self, tracker: SessionTracker, failing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
         tracker.record_validation(failing_result, file_path="test.py")
@@ -253,7 +285,9 @@ class TestSessionTracker:
         assert persistence.get("AI001") == 2
 
     def test_get_violation_persistence_resets_on_fix(
-        self, tracker: SessionTracker, passing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        passing_result: ValidationResult,
         failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
@@ -262,7 +296,9 @@ class TestSessionTracker:
         assert persistence == {}
 
     def test_violation_rules_recorded(
-        self, tracker: SessionTracker, failing_result: ValidationResult,
+        self,
+        tracker: SessionTracker,
+        failing_result: ValidationResult,
     ) -> None:
         tracker.record_validation(failing_result, file_path="test.py")
         records = tracker._file_validations["test.py"]
@@ -279,7 +315,8 @@ class TestQuickFix:
     """Tests for AutoFixer.quick_fix method."""
 
     def test_returns_fixes_for_security_violations(
-        self, failing_result: ValidationResult,
+        self,
+        failing_result: ValidationResult,
     ) -> None:
         fixer = AutoFixer()
         fixes = fixer.quick_fix(failing_result)
@@ -330,7 +367,8 @@ class TestQuickFix:
         assert len(fixes) == 0
 
     def test_returns_empty_for_passing_code(
-        self, passing_result: ValidationResult,
+        self,
+        passing_result: ValidationResult,
     ) -> None:
         fixer = AutoFixer()
         fixes = fixer.quick_fix(passing_result)
@@ -368,15 +406,18 @@ class TestGateCommand:
 
     def test_gate_module_exists(self) -> None:
         from mirdan.cli.gate_command import run_gate
+
         assert callable(run_gate)
 
     def test_gate_registered_in_cli(self) -> None:
         from mirdan.cli import main
+
         source = inspect.getsource(main)
         assert "gate" in source
 
     def test_get_changed_files_function(self) -> None:
         from mirdan.cli.gate_command import _get_changed_files
+
         # Should return a list (may be empty in test env)
         result = _get_changed_files()
         assert isinstance(result, list)
@@ -548,16 +589,19 @@ class TestReportSessionFlag:
 
     def test_parse_session_flag(self) -> None:
         from mirdan.cli.report_command import _parse_report_args
+
         parsed = _parse_report_args(["--session"])
         assert parsed.get("session") is True
 
     def test_parse_compact_state_flag(self) -> None:
         from mirdan.cli.report_command import _parse_report_args
+
         parsed = _parse_report_args(["--compact-state"])
         assert parsed.get("compact_state") is True
 
     def test_parse_session_with_format(self) -> None:
         from mirdan.cli.report_command import _parse_report_args
+
         parsed = _parse_report_args(["--session", "--format", "json"])
         assert parsed.get("session") is True
         assert parsed.get("format") == "json"
@@ -742,8 +786,6 @@ class TestGap2MultiLabelTaskType:
         analyzer = IntentAnalyzer()
         intent = analyzer.analyze("create a new REST endpoint")
         composer = PromptComposer(QualityStandards())
-        from mirdan.models import EnhancedPrompt
-
         enhanced = composer.compose(intent, ContextBundle(), [])
         result = enhanced.to_dict()
         assert "task_types" in result
@@ -751,10 +793,9 @@ class TestGap2MultiLabelTaskType:
         assert len(result["task_types"]) >= 1
 
     def test_union_verification_steps_for_compound_intent(self) -> None:
-        from mirdan.core.intent_analyzer import IntentAnalyzer
         from mirdan.core.prompt_composer import PromptComposer
         from mirdan.core.quality_standards import QualityStandards
-        from mirdan.models import ContextBundle, Intent
+        from mirdan.models import Intent
 
         composer = PromptComposer(QualityStandards())
         # Manually construct compound intent with both TEST and GENERATION
@@ -870,9 +911,15 @@ class TestGap1ValidationFeedbackLoop:
             severity="error",
             message="Placeholder",
         )
-        result1 = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v_fail])
-        result2 = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v_fail])
-        result3 = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v_fail])
+        result1 = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v_fail]
+        )
+        result2 = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v_fail]
+        )
+        result3 = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v_fail]
+        )
         tracker.record_validation(result1, file_path="auth.py")
         tracker.record_validation(result2, file_path="auth.py")
         tracker.record_validation(result3, file_path="auth.py")
@@ -892,13 +939,20 @@ class TestGap1ValidationFeedbackLoop:
 
         tracker = SessionTracker()
         # Create 5 different recurring violations
-        for i in range(3):
+        for _i in range(3):
             violations = [
-                Violation(id=f"AI00{j+1}", rule=f"rule-{j}", category="ai_quality",
-                          severity="error", message=f"Msg {j}")
+                Violation(
+                    id=f"AI00{j + 1}",
+                    rule=f"rule-{j}",
+                    category="ai_quality",
+                    severity="error",
+                    message=f"Msg {j}",
+                )
                 for j in range(5)
             ]
-            result = ValidationResult(passed=False, score=0.3, language_detected="python", violations=violations)
+            result = ValidationResult(
+                passed=False, score=0.3, language_detected="python", violations=violations
+            )
             tracker.record_validation(result, file_path="big.py")
 
         session = SessionContext(
@@ -913,7 +967,9 @@ class TestGap1ValidationFeedbackLoop:
 class TestGap3SessionAwareRouting:
     """Gap 3: Session-aware tool routing in MCPOrchestrator."""
 
-    def _make_session(self, validation_count: int = 0, unresolved_errors: int = 0) -> SessionContext:
+    def _make_session(
+        self, validation_count: int = 0, unresolved_errors: int = 0
+    ) -> SessionContext:
         return SessionContext(
             session_id="route-test",
             validation_count=validation_count,
@@ -927,7 +983,9 @@ class TestGap3SessionAwareRouting:
         orc = MCPOrchestrator()
         intent = Intent(original_prompt="create endpoint", task_type=TaskType.GENERATION)
         session = self._make_session(validation_count=0)
-        recs = orc.suggest_tools(intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session)
+        recs = orc.suggest_tools(
+            intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session
+        )
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
         assert len(enyal_recs) == 1
         assert "conventions" in enyal_recs[0].action.lower()
@@ -939,10 +997,15 @@ class TestGap3SessionAwareRouting:
         orc = MCPOrchestrator()
         intent = Intent(original_prompt="fix the auth", task_type=TaskType.DEBUG)
         session = self._make_session(validation_count=2, unresolved_errors=3)
-        recs = orc.suggest_tools(intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session)
+        recs = orc.suggest_tools(
+            intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session
+        )
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
         assert len(enyal_recs) == 1
-        assert "validation" in enyal_recs[0].action.lower() or "failure" in enyal_recs[0].action.lower()
+        assert (
+            "validation" in enyal_recs[0].action.lower()
+            or "failure" in enyal_recs[0].action.lower()
+        )
 
     def test_reuse_after_passing_skips_enyal(self) -> None:
         from mirdan.core.orchestrator import MCPOrchestrator
@@ -951,7 +1014,9 @@ class TestGap3SessionAwareRouting:
         orc = MCPOrchestrator()
         intent = Intent(original_prompt="add a feature", task_type=TaskType.GENERATION)
         session = self._make_session(validation_count=1, unresolved_errors=0)
-        recs = orc.suggest_tools(intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session)
+        recs = orc.suggest_tools(
+            intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session
+        )
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
         assert len(enyal_recs) == 0
 
@@ -1057,11 +1122,17 @@ class TestStructuredViolationFeedback:
 
         tracker = SessionTracker()
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection via concatenation",
-            suggestion="Use parameterized queries", line=42,
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection via concatenation",
+            suggestion="Use parameterized queries",
+            line=42,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="db.py")
         tracker.record_validation(result, file_path="db.py")
 
@@ -1076,11 +1147,17 @@ class TestStructuredViolationFeedback:
 
         tracker = SessionTracker()
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection", suggestion="Use parameterized queries",
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection",
+            suggestion="Use parameterized queries",
             line=10,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="db.py")
         tracker.record_validation(result, file_path="db.py")
 
@@ -1094,10 +1171,16 @@ class TestStructuredViolationFeedback:
 
         tracker = SessionTracker()
         v = Violation(
-            id="AI001", rule="placeholder", category="ai_quality",
-            severity="error", message="Placeholder code", line=77,
+            id="AI001",
+            rule="placeholder",
+            category="ai_quality",
+            severity="error",
+            message="Placeholder code",
+            line=77,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="api.py")
         tracker.record_validation(result, file_path="api.py")
 
@@ -1111,10 +1194,16 @@ class TestStructuredViolationFeedback:
 
         tracker = SessionTracker()
         v = Violation(
-            id="AI001", rule="placeholder", category="ai_quality",
-            severity="error", message="Placeholder code", line=10,
+            id="AI001",
+            rule="placeholder",
+            category="ai_quality",
+            severity="error",
+            message="Placeholder code",
+            line=10,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="x.py")
         tracker.record_validation(result, file_path="x.py")
 
@@ -1126,11 +1215,17 @@ class TestStructuredViolationFeedback:
         """FileValidation.violation_details is populated by record_validation."""
         tracker = SessionTracker()
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection", suggestion="Use params",
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection",
+            suggestion="Use params",
             line=5,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="f.py")
 
         records = tracker._file_validations["f.py"]
@@ -1143,10 +1238,17 @@ class TestStructuredViolationFeedback:
         """get_persistent_violation_details returns details for 2+ consecutive rules."""
         tracker = SessionTracker()
         v = Violation(
-            id="AI001", rule="placeholder", category="ai_quality",
-            severity="error", message="Placeholder", suggestion="Implement it", line=20,
+            id="AI001",
+            rule="placeholder",
+            category="ai_quality",
+            severity="error",
+            message="Placeholder",
+            suggestion="Implement it",
+            line=20,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="a.py")
         tracker.record_validation(result, file_path="a.py")
 
@@ -1253,9 +1355,9 @@ class TestASTPlaceholderVerification:
 
         checker = AIQualityChecker()
         code = (
-            'def documented():\n'
+            "def documented():\n"
             '    """This function will be implemented later."""\n'
-            '    raise NotImplementedError\n'
+            "    raise NotImplementedError\n"
         )
         violations = checker.check(code, "python")
         ai001 = [v for v in violations if v.id == "AI001"]
@@ -1285,8 +1387,11 @@ class TestQualityBaseline:
         # Create 2 snapshots
         for score in (0.9, 0.85):
             result = ValidationResult(
-                passed=True, score=score, language_detected="python",
-                violations=[], standards_checked=["style"],
+                passed=True,
+                score=score,
+                language_detected="python",
+                violations=[],
+                standards_checked=["style"],
             )
             persistence.save_snapshot(result)
         assert persistence.get_baseline_score() is None
@@ -1299,8 +1404,11 @@ class TestQualityBaseline:
         scores = [0.90, 0.85, 0.80]
         for score in scores:
             result = ValidationResult(
-                passed=True, score=score, language_detected="python",
-                violations=[], standards_checked=["style"],
+                passed=True,
+                score=score,
+                language_detected="python",
+                violations=[],
+                standards_checked=["style"],
             )
             persistence.save_snapshot(result)
         baseline = persistence.get_baseline_score()
@@ -1315,15 +1423,21 @@ class TestQualityBaseline:
         persistence = QualityPersistence(base_dir=tmp_path)
         for score in (0.90, 0.85, 0.80):
             result = ValidationResult(
-                passed=True, score=score, language_detected="python",
-                violations=[], standards_checked=["style"],
+                passed=True,
+                score=score,
+                language_detected="python",
+                violations=[],
+                standards_checked=["style"],
             )
             persistence.save_snapshot(result)
         first_call = persistence.get_baseline_score()
         # Add a 4th snapshot that would change the average
         result = ValidationResult(
-            passed=True, score=0.50, language_detected="python",
-            violations=[], standards_checked=["style"],
+            passed=True,
+            score=0.50,
+            language_detected="python",
+            violations=[],
+            standards_checked=["style"],
         )
         persistence.save_snapshot(result)
         second_call = persistence.get_baseline_score()
@@ -1333,6 +1447,7 @@ class TestQualityBaseline:
     def test_drift_detection_in_server_output(self) -> None:
         """Server adds quality_drift key when score drops > 0.15 below baseline."""
         import inspect
+
         source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
         assert "quality_drift" in source
         assert "get_baseline_score" in source
@@ -1349,31 +1464,37 @@ class TestTaskGuidance:
     def test_generation_guidance_present(self) -> None:
         """GENERATION task type has guidance text."""
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.GENERATION in PromptComposer.TASK_GUIDANCE
         assert "Implementation Approach" in PromptComposer.TASK_GUIDANCE[TaskType.GENERATION]
 
     def test_refactor_guidance_present(self) -> None:
         """REFACTOR task type has guidance text."""
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.REFACTOR in PromptComposer.TASK_GUIDANCE
         assert "Refactoring Protocol" in PromptComposer.TASK_GUIDANCE[TaskType.REFACTOR]
 
     def test_debug_guidance_present(self) -> None:
         """DEBUG task type has guidance text."""
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.DEBUG in PromptComposer.TASK_GUIDANCE
         assert "Debugging Protocol" in PromptComposer.TASK_GUIDANCE[TaskType.DEBUG]
 
     def test_review_guidance_present(self) -> None:
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.REVIEW in PromptComposer.TASK_GUIDANCE
 
     def test_test_guidance_present(self) -> None:
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.TEST in PromptComposer.TASK_GUIDANCE
 
     def test_documentation_guidance_present(self) -> None:
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.DOCUMENTATION in PromptComposer.TASK_GUIDANCE
 
     def test_guidance_rendered_in_prompt(self) -> None:
@@ -1403,6 +1524,7 @@ class TestTaskGuidance:
     def test_unknown_task_type_has_no_guidance(self) -> None:
         """UNKNOWN task type is not in TASK_GUIDANCE dict."""
         from mirdan.core.prompt_composer import PromptComposer
+
         assert TaskType.UNKNOWN not in PromptComposer.TASK_GUIDANCE
 
 
@@ -1417,10 +1539,16 @@ class TestSecurityRegression:
         """First validation can't be a regression (no prior state)."""
         tracker = SessionTracker()
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection", line=10,
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection",
+            line=10,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="db.py")
         assert tracker.detect_security_regression("db.py", [v]) is False
 
@@ -1431,10 +1559,16 @@ class TestSecurityRegression:
         tracker.record_validation(clean, file_path="db.py")
 
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection", line=10,
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection",
+            line=10,
         )
-        dirty = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        dirty = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(dirty, file_path="db.py")
         assert tracker.detect_security_regression("db.py", dirty.violations) is True
 
@@ -1442,10 +1576,16 @@ class TestSecurityRegression:
         """Security → security is NOT a regression (it was already broken)."""
         tracker = SessionTracker()
         v = Violation(
-            id="SEC002", rule="sql-injection", category="security",
-            severity="error", message="SQL injection", line=10,
+            id="SEC002",
+            rule="sql-injection",
+            category="security",
+            severity="error",
+            message="SQL injection",
+            line=10,
         )
-        result = ValidationResult(passed=False, score=0.5, language_detected="python", violations=[v])
+        result = ValidationResult(
+            passed=False, score=0.5, language_detected="python", violations=[v]
+        )
         tracker.record_validation(result, file_path="db.py")
         tracker.record_validation(result, file_path="db.py")
         assert tracker.detect_security_regression("db.py", result.violations) is False
@@ -1465,16 +1605,23 @@ class TestSecurityRegression:
         tracker.record_validation(clean, file_path="db.py")
 
         v = Violation(
-            id="PY003", rule="bare-except", category="style",
-            severity="warning", message="Bare except", line=5,
+            id="PY003",
+            rule="bare-except",
+            category="style",
+            severity="warning",
+            message="Bare except",
+            line=5,
         )
-        style_fail = ValidationResult(passed=False, score=0.7, language_detected="python", violations=[v])
+        style_fail = ValidationResult(
+            passed=False, score=0.7, language_detected="python", violations=[v]
+        )
         tracker.record_validation(style_fail, file_path="db.py")
         assert tracker.detect_security_regression("db.py", style_fail.violations) is False
 
     def test_regression_surfaced_in_server_output(self) -> None:
         """Server adds security_regression key to output when detected."""
         import inspect
+
         source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
         assert "security_regression" in source
         assert "detect_security_regression" in source

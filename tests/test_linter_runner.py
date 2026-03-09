@@ -61,9 +61,11 @@ class TestLinterRunner:
         code_file = tmp_path / "test.py"
         code_file.write_text("x = 1\n")
 
-        ruff_output = json.dumps([
-            {"code": "E501", "message": "Line too long", "location": {"row": 1, "column": 89}},
-        ])
+        ruff_output = json.dumps(
+            [
+                {"code": "E501", "message": "Line too long", "location": {"row": 1, "column": 89}},
+            ]
+        )
 
         runner = LinterRunner()
 
@@ -73,7 +75,9 @@ class TestLinterRunner:
 
         with (
             patch("mirdan.core.linter_runner.shutil.which", return_value="/usr/bin/ruff"),
-            patch("mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch(
+                "mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc
+            ),
         ):
             violations = await runner.run(code_file, "python")
 
@@ -112,7 +116,9 @@ class TestLinterRunner:
 
         with (
             patch("mirdan.core.linter_runner.shutil.which", return_value="/usr/bin/ruff"),
-            patch("mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch(
+                "mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc
+            ),
         ):
             violations = await runner.run(code_file, "python")
 
@@ -149,7 +155,9 @@ class TestLinterRunner:
 
         with (
             patch("mirdan.core.linter_runner.shutil.which", return_value="/usr/bin/ruff"),
-            patch("mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch(
+                "mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc
+            ),
         ):
             violations = await runner.run(code_file, "python")
 
@@ -168,7 +176,14 @@ class TestLinterRunner:
             return f"/usr/bin/{name}"
 
         mypy_output = json.dumps(
-            {"file": "test.py", "line": 1, "column": 1, "severity": "error", "message": "err", "code": "E"}
+            {
+                "file": "test.py",
+                "line": 1,
+                "column": 1,
+                "severity": "error",
+                "message": "err",
+                "code": "E",
+            }
         )
 
         mock_proc = AsyncMock()
@@ -177,7 +192,9 @@ class TestLinterRunner:
 
         with (
             patch("mirdan.core.linter_runner.shutil.which", side_effect=mock_which),
-            patch("mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch(
+                "mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc
+            ),
         ):
             violations = await runner.run(code_file, "python")
 
@@ -189,14 +206,22 @@ class TestLinterRunner:
         code_file = tmp_path / "test.ts"
         code_file.write_text("const x = 1;\n")
 
-        eslint_output = json.dumps([
-            {
-                "filePath": str(code_file),
-                "messages": [
-                    {"ruleId": "no-unused-vars", "severity": 1, "message": "unused", "line": 1, "column": 7},
-                ],
-            }
-        ])
+        eslint_output = json.dumps(
+            [
+                {
+                    "filePath": str(code_file),
+                    "messages": [
+                        {
+                            "ruleId": "no-unused-vars",
+                            "severity": 1,
+                            "message": "unused",
+                            "line": 1,
+                            "column": 7,
+                        },
+                    ],
+                }
+            ]
+        )
 
         runner = LinterRunner()
 
@@ -206,7 +231,9 @@ class TestLinterRunner:
 
         with (
             patch("mirdan.core.linter_runner.shutil.which", return_value="/usr/bin/eslint"),
-            patch("mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch(
+                "mirdan.core.linter_runner.asyncio.create_subprocess_exec", return_value=mock_proc
+            ),
         ):
             violations = await runner.run(code_file, "typescript")
 

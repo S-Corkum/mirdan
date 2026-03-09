@@ -84,9 +84,7 @@ class CrossProjectIntelligence:
         patterns: list[dict[str, Any]] = []
         for tag, tag_entries in tag_occurrences.items():
             # Extract unique project paths
-            projects = {
-                e.get("scope_path", "") for e in tag_entries if e.get("scope_path")
-            }
+            projects = {e.get("scope_path", "") for e in tag_entries if e.get("scope_path")}
 
             # Pattern must appear in 2+ projects
             if len(projects) < 2:
@@ -104,14 +102,16 @@ class CrossProjectIntelligence:
             top_content = max(content_counts, key=content_counts.get)  # type: ignore[arg-type]
             confidence = len(projects) / max(len(entries), 1)
 
-            patterns.append({
-                "content": f"Workspace pattern ({tag}): {top_content}",
-                "content_type": "pattern",
-                "tags": [tag, "workspace-pattern"],
-                "scope": "workspace",
-                "confidence": min(1.0, confidence + 0.3),
-                "source_projects": sorted(projects),
-            })
+            patterns.append(
+                {
+                    "content": f"Workspace pattern ({tag}): {top_content}",
+                    "content_type": "pattern",
+                    "tags": [tag, "workspace-pattern"],
+                    "scope": "workspace",
+                    "confidence": min(1.0, confidence + 0.3),
+                    "source_projects": sorted(projects),
+                }
+            )
 
         return patterns
 
@@ -224,10 +224,7 @@ class CrossProjectIntelligence:
             common = sorted(common_set)
 
         return QualityComparison(
-            projects=[
-                {"name": p["name"], "avg_score": p.get("avg_score", 0.0)}
-                for p in projects
-            ],
+            projects=[{"name": p["name"], "avg_score": p.get("avg_score", 0.0)} for p in projects],
             best_project=best,
             worst_project=worst,
             avg_score=avg,

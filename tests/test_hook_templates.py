@@ -253,8 +253,11 @@ class TestAllHookEvents:
     def test_includes_advanced_events(self) -> None:
         """Should include all advanced events."""
         for event in (
-            "SessionStart", "SessionStop",
-            "SubagentStart", "SubagentStop",
-            "PreCompact", "Notification",
+            "SessionStart",
+            "SessionStop",
+            "SubagentStart",
+            "SubagentStop",
+            "PreCompact",
+            "Notification",
         ):
             assert event in ALL_HOOK_EVENTS

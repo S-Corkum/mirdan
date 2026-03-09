@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from mirdan.integrations.cursor import _CURSOR_COMMANDS, generate_cursor_commands
 
-_EXPECTED_COMMANDS = {"code.md", "debug.md", "review.md", "plan.md", "quality.md", "scan.md", "gate.md"}
+_EXPECTED_COMMANDS = {
+    "code.md",
+    "debug.md",
+    "review.md",
+    "plan.md",
+    "quality.md",
+    "scan.md",
+    "gate.md",
+}
 
 
 class TestGenerateCursorCommands:
@@ -33,9 +39,7 @@ class TestGenerateCursorCommands:
         commands_dir = cursor_dir / "commands"
         for md_file in commands_dir.iterdir():
             content = md_file.read_text()
-            assert not content.startswith("---"), (
-                f"{md_file.name} must not have YAML frontmatter"
-            )
+            assert not content.startswith("---"), f"{md_file.name} must not have YAML frontmatter"
 
     def test_idempotent_does_not_overwrite_existing(self, tmp_path: Path) -> None:
         """Calling twice should not overwrite files created on first call."""
@@ -110,9 +114,7 @@ class TestCursorCommandContent:
         commands_dir = cursor_dir / "commands"
         for md_file in commands_dir.iterdir():
             content = md_file.read_text().strip()
-            assert content.startswith("#"), (
-                f"{md_file.name} must start with a markdown heading"
-            )
+            assert content.startswith("#"), f"{md_file.name} must start with a markdown heading"
 
 
 class TestCursorCommandsDict:
