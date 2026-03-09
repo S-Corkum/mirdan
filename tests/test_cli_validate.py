@@ -76,7 +76,9 @@ class TestValidateArgParsing:
 class TestValidateOutput:
     """Tests for output formatting."""
 
-    def _make_result(self, passed: bool = True, violations: list[Violation] | None = None) -> ValidationResult:
+    def _make_result(
+        self, passed: bool = True, violations: list[Violation] | None = None
+    ) -> ValidationResult:
         return ValidationResult(
             passed=passed,
             score=0.9 if passed else 0.5,
