@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-03-09
+
+### Added
+
+- **Cursor v2.5/v2.6 Support** — Full support for Cursor v2.5 plugin system and v2.6 features:
+  - **Plugin Manifest Alignment** — `.cursor-plugin/plugin.json` follows official v2.5 schema with author, license, keywords, and component paths (rules, agents, skills, commands, hooks, mcpServers)
+  - **Sandbox Access Controls** — `.cursor/sandbox.json` generated with deny-default network policy and language-specific package registry allowlists (PyPI, npm, crates.io, proxy.golang.org)
+  - **Async Subagent Coordination** — Background subagents document async execution patterns; foreground subagents document child subagent spawning for parallel work
+  - **Bugbot Autofix Integration** — BUGBOT.md includes quality gate requirements for auto-generated fixes, merge protocol, and autofix priority classification
+  - **Automations Documentation Command** — `/automations` command with setup guide for cursor.com/automations, including PR Quality Gate, Scheduled Quality Audit, and Security Review templates
+  - **Debug v2.6 Runtime Instrumentation** — Debug mode rule and skill updated with runtime instrumentation guidance for breakpoints, step-through, and variable state capture
+  - **Long-Running Agent Checkpoints** — AGENTS.md includes 1-hour re-validation intervals, cumulative quality drift tracking, and >4-hour summary reports
+
+- **Upgrade Path Improvements** — `mirdan init --upgrade` now refreshes subagents, skills, and commands with latest mirdan content via `force` parameter. Previously, these files were skipped if they already existed, preventing users from receiving new content on upgrade.
+
+### Changed
+
+- **`generate_cursor_commands()`, `generate_cursor_subagents()`, `generate_cursor_skills()`** — Accept `force: bool = False` keyword argument to overwrite existing files with latest content
+- **`_setup_cursor()`** — Accepts `force_regenerate: bool = False` parameter, passed through to idempotent generators
+- **`_run_upgrade()`** — Passes `force_regenerate=True` to `_setup_cursor()` so upgrades refresh mirdan-generated content
+- **`CursorAdapter`** — Accepts `force_regenerate` parameter, includes `generate_sandbox()` method, `generate_all()` calls sandbox generation
+- **`CursorPluginExporter`** — Manifest moved from `manifest.json` to `.cursor-plugin/plugin.json`, includes sandbox generation via `_write_sandbox()`
+- **`_CURSOR_COMMANDS` dict** — Now contains 8 entries (added `automations.md`)
+
+### Future
+
+- **MCP Apps** — Interactive UIs in chat via `_meta.ui` annotations and HTML dashboards (deferred to future release)
+- **JetBrains ACP Adapter** — Agent Client Protocol integration for JetBrains IDEs and Zed (deferred to future release)
+
+---
+
 ## [1.5.0] - 2026-03-09
 
 ### Added

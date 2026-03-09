@@ -813,6 +813,12 @@ Incorrect assumptions about library behavior are a common source of phantom fixe
 - Fix must not introduce new violations — validate after fixing
 - Regression test considered for the fixed behavior
 - No silent exception swallowing in the fix
+
+## Runtime Instrumentation (v2.6+)
+- Use Cursor's built-in runtime instrumentation to capture actual execution paths
+- Compare runtime behavior against expected behavior before hypothesizing
+- Leverage breakpoint and step-through capabilities for complex state issues
+- Capture runtime data (variable states, call stacks) to ground your diagnosis
 """
 
 
@@ -838,6 +844,18 @@ Background agents and autonomous task runners must follow stricter quality gates
 ## Multi-Agent Coordination
 - Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
 - Do not duplicate validation work already performed in the session
+
+## Async Subagent Coordination
+- Background subagents (background: true) run asynchronously — do not wait for them to complete
+- Use agent IDs to resume background subagents and retrieve results
+- Subagents can spawn their own child subagents for parallel work
+- Coordinate quality state through `mcp__mirdan__get_quality_trends`
+
+## Long-Running Sessions (>1 hour)
+- Run `validate_code_quality` on all modified files every 30 minutes
+- Before any PR creation, re-validate the full changeset
+- If quality score drops below 0.7 on any file, fix before continuing
+- Persist quality findings across compaction events via `preCompact` hook
 
 ## Autonomous Completion Gate
 - Before returning results: run validation on all changed files
@@ -964,6 +982,12 @@ _AGENTS_QUALITY_CHECKPOINTS = """
 ### Periodic (Every 30 Minutes)
 - Run `validate_code_quality` on all recently modified files
 - Check for quality regressions introduced during the session
+
+### Long-Running Sessions (>1 hour)
+- Re-validate ALL changed files at 1-hour intervals, not just recent ones
+- Track cumulative quality drift — if average score decreases, pause and fix
+- Before creating any PR, run full validation sweep across the entire changeset
+- For sessions >4 hours, generate a quality summary report at each checkpoint
 """
 
 _AGENTS_AI_RULES = """
@@ -1135,6 +1159,25 @@ These patterns are advisory and should be mentioned as comments.
 ### Documentation
 - Public APIs missing docstrings or type annotations
 - Complex functions (>15 lines) without inline comments explaining logic
+
+## Bugbot Autofix Integration
+
+When Bugbot Autofix spawns a Cloud Agent to fix detected issues:
+
+### Quality Gate for Auto-Generated Fixes
+- Autofix changes MUST pass `mcp__mirdan__validate_code_quality` with score >= 0.7
+- Security-related fixes MUST pass with `check_security=true` and score >= 0.8
+- Fixes that introduce new violations (AI001-AI008, SEC001-SEC014) should be rejected
+
+### Merge Protocol
+- Use `@cursor approve` to merge autofix changes that pass quality gate
+- Use `@cursor reject` to reject fixes that fail validation or introduce regressions
+- Review autofix diffs for over-engineering (AI003) before approving
+
+### Autofix Priority
+- Critical (auto-fix immediately): SEC001, SEC002, SEC003, AI008
+- High (auto-fix with review): SEC004-SEC005, AI001, AI007
+- Medium (suggest fix, require approval): AI003-AI006, SEC006-SEC014
 """
 
 
@@ -1296,6 +1339,55 @@ Run the full quality gate before committing or completing a task.
 6. Only mark the task complete after all files pass the quality gate.
 """
 
+_COMMAND_AUTOMATIONS = """\
+# /automations — Cursor Automations Setup Guide
+
+Guide for setting up Cursor Automations with mirdan quality enforcement.
+
+## About Cursor Automations
+
+Cursor Automations are always-on agents configured at cursor.com/automations.
+They run in cloud sandboxes, triggered by events such as GitHub PRs, Slack
+messages, or scheduled timers. They execute autonomously and report results
+back via comments, PRs, or notifications.
+
+## Recommended Automations with mirdan
+
+### 1. PR Quality Gate
+**Trigger:** GitHub PR opened or pushed
+**Instructions:**
+> Run `mcp__mirdan__validate_code_quality` with `check_security=true` on all
+> changed files. Require quality score >= 0.7 for all files. Post a summary
+> comment on the PR with per-file scores and any violations found. If any
+> file fails, request changes. If all pass, approve the PR.
+
+### 2. Scheduled Quality Audit
+**Trigger:** Scheduled (daily or weekly)
+**Instructions:**
+> Run `mcp__mirdan__scan_conventions` across the entire codebase. Compare
+> results with the previous audit. Report new violations, resolved violations,
+> and quality trend direction. Post results to the configured notification
+> channel.
+
+### 3. Security Review on Sensitive Files
+**Trigger:** GitHub PR with file filter (`**/auth*`, `**/api/**`, `**/middleware/**`)
+**Instructions:**
+> Run `mcp__mirdan__validate_code_quality` with `check_security=true` and
+> `severity_threshold="warning"` on all matched files. Flag any SEC001-SEC005
+> violations as blocking. Require score >= 0.8 for security-sensitive files.
+> Post detailed findings as inline PR comments.
+
+## Setup Steps
+
+1. Go to cursor.com/automations
+2. Click "Create New Automation"
+3. Select the trigger type (GitHub PR, Scheduled, etc.)
+4. Copy the instructions from the relevant template above
+5. Under "MCP Servers", add mirdan (ensure it's configured in your project)
+6. Under "Environment", enable the mirdan-quality environment
+7. Save and activate the automation
+"""
+
 _CURSOR_COMMANDS: dict[str, str] = {
     "code.md": _COMMAND_CODE,
     "debug.md": _COMMAND_DEBUG,
@@ -1304,10 +1396,11 @@ _CURSOR_COMMANDS: dict[str, str] = {
     "quality.md": _COMMAND_QUALITY,
     "scan.md": _COMMAND_SCAN,
     "gate.md": _COMMAND_GATE,
+    "automations.md": _COMMAND_AUTOMATIONS,
 }
 
 
-def generate_cursor_commands(cursor_dir: Path) -> list[Path]:
+def generate_cursor_commands(cursor_dir: Path, *, force: bool = False) -> list[Path]:
     """Generate .cursor/commands/*.md files for Cursor slash commands.
 
     Creates plain Markdown command files (no frontmatter) for each mirdan
@@ -1315,12 +1408,14 @@ def generate_cursor_commands(cursor_dir: Path) -> list[Path]:
     /code, /debug, /review, /plan, /quality, /scan, or /gate in Cursor.
 
     Existing files are preserved — this function is idempotent per file.
+    If force=True, overwrite existing files with latest mirdan content.
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
+        force: If True, overwrite existing files with latest content.
 
     Returns:
-        List of newly created command file paths (excludes pre-existing files).
+        List of newly created (or overwritten) command file paths.
     """
     commands_dir = cursor_dir / "commands"
     commands_dir.mkdir(parents=True, exist_ok=True)
@@ -1328,7 +1423,7 @@ def generate_cursor_commands(cursor_dir: Path) -> list[Path]:
     created: list[Path] = []
     for filename, content in _CURSOR_COMMANDS.items():
         dest = commands_dir / filename
-        if not dest.exists():
+        if force or not dest.exists():
             dest.write_text(content)
             created.append(dest)
 
@@ -1375,6 +1470,12 @@ Validate recently changed code files against mirdan quality standards.
    - Overall quality score
    - Errors (must fix) with file path, line number, and rule ID
    - Warnings (should fix) with file path, line number, and rule ID
+
+## Async Execution Notes
+
+This subagent runs in the background (async). The parent agent continues
+working while validation runs. Results are returned via agent ID — the
+parent can resume this subagent to retrieve findings.
 """
 
 _SUBAGENT_SECURITY_SCANNER = """\
@@ -1416,6 +1517,12 @@ or files containing SQL queries, eval/exec calls, or subprocess usage.
 
 5. Report: files scanned, critical findings count, warnings count,
    and violations listed by rule ID with line numbers and recommendations.
+
+## Subagent Coordination
+
+This subagent runs in the foreground (blocking) because security findings
+must be addressed before proceeding. It may spawn child subagents for
+parallel file scanning when many files match trigger patterns.
 """
 
 _SUBAGENT_TEST_AUDITOR = """\
@@ -1461,6 +1568,11 @@ Audit test quality for meaningful coverage and correctness.
 
 5. Report: test files audited, quality issues with file and test name,
    missing coverage areas, and overall test quality score.
+
+## Subagent Coordination
+
+This subagent runs in the foreground. For large test suites, it may spawn
+child subagents to parallelize auditing across test directories.
 """
 
 _SUBAGENT_SLOP_DETECTOR = """\
@@ -1509,6 +1621,12 @@ Detect AI-generated code quality issues proactively.
 
 5. Report: files checked, AI-specific issues by rule ID with line numbers,
    errors (must fix), warnings (should fix), and observations.
+
+## Async Execution Notes
+
+This subagent runs in the background (async). The parent agent continues
+working while validation runs. Results are returned via agent ID — the
+parent can resume this subagent to retrieve findings.
 """
 
 _SUBAGENT_ARCHITECTURE_REVIEWER = """\
@@ -1554,6 +1672,11 @@ Review code architecture for structural quality issues.
 5. Report: files analyzed, structural issues with line numbers,
    architecture violations, cross-file observations, and
    refactoring recommendations.
+
+## Subagent Coordination
+
+This subagent runs in the foreground. For multi-module projects, it may
+spawn child subagents to review each module's architecture in parallel.
 """
 
 _CURSOR_SUBAGENTS: dict[str, str] = {
@@ -1565,7 +1688,7 @@ _CURSOR_SUBAGENTS: dict[str, str] = {
 }
 
 
-def generate_cursor_subagents(cursor_dir: Path) -> list[Path]:
+def generate_cursor_subagents(cursor_dir: Path, *, force: bool = False) -> list[Path]:
     """Generate .cursor/agents/*.md files for Cursor subagent definitions.
 
     Creates markdown files with YAML frontmatter for each mirdan quality
@@ -1573,12 +1696,14 @@ def generate_cursor_subagents(cursor_dir: Path) -> list[Path]:
     the description field, or explicitly via /subagent-name.
 
     Existing files are preserved — this function is idempotent per file.
+    If force=True, overwrite existing files with latest mirdan content.
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
+        force: If True, overwrite existing files with latest content.
 
     Returns:
-        List of newly created subagent file paths (excludes pre-existing files).
+        List of newly created (or overwritten) subagent file paths.
     """
     agents_dir = cursor_dir / "agents"
     agents_dir.mkdir(parents=True, exist_ok=True)
@@ -1586,7 +1711,7 @@ def generate_cursor_subagents(cursor_dir: Path) -> list[Path]:
     created: list[Path] = []
     for filename, content in _CURSOR_SUBAGENTS.items():
         dest = agents_dir / filename
-        if not dest.exists():
+        if force or not dest.exists():
             dest.write_text(content)
             created.append(dest)
 
@@ -1674,6 +1799,10 @@ Debug issues with mirdan quality analysis to prevent introducing new problems.
 
 5. Call `mcp__mirdan__validate_code_quality` on modified files to
    confirm the fix does not introduce new violations.
+
+6. Use Cursor's runtime instrumentation (v2.6) to capture actual execution
+   paths and variable states when the root cause is not obvious from static
+   code reading alone.
 """
 
 _SKILL_REVIEW = """\
@@ -1884,7 +2013,7 @@ _CURSOR_SKILLS: dict[str, str] = {
 }
 
 
-def generate_cursor_skills(cursor_dir: Path) -> list[Path]:
+def generate_cursor_skills(cursor_dir: Path, *, force: bool = False) -> list[Path]:
     """Generate .cursor/skills/*/SKILL.md files for Cursor skill definitions.
 
     Creates skill directories with SKILL.md manifests following the Agent
@@ -1892,12 +2021,14 @@ def generate_cursor_skills(cursor_dir: Path) -> list[Path]:
     workflow for a mirdan quality task.
 
     Existing SKILL.md files are preserved — this function is idempotent.
+    If force=True, overwrite existing files with latest mirdan content.
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
+        force: If True, overwrite existing files with latest content.
 
     Returns:
-        List of newly created SKILL.md file paths (excludes pre-existing).
+        List of newly created (or overwritten) SKILL.md file paths.
     """
     skills_dir = cursor_dir / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
@@ -1907,7 +2038,7 @@ def generate_cursor_skills(cursor_dir: Path) -> list[Path]:
         skill_dir = skills_dir / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
         dest = skill_dir / "SKILL.md"
-        if not dest.exists():
+        if force or not dest.exists():
             dest.write_text(content)
             created.append(dest)
 
@@ -1966,6 +2097,69 @@ def generate_cursor_environment(
         f.write("\n")
 
     return env_path
+
+
+# ---------------------------------------------------------------------------
+# Cursor Sandbox Config Generation (.cursor/sandbox.json)
+# ---------------------------------------------------------------------------
+
+
+def generate_cursor_sandbox(
+    cursor_dir: Path,
+    detected: DetectedProject,
+) -> Path | None:
+    """Generate .cursor/sandbox.json with secure default access controls.
+
+    Creates a sandbox configuration with deny-default network policy and
+    language-specific package registry allowlists. Skips if sandbox.json
+    already exists to respect user customizations.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+        detected: Detected project metadata for language-specific registries.
+
+    Returns:
+        Path to the generated file, or None if already exists.
+    """
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+    sandbox_path = cursor_dir / "sandbox.json"
+
+    if sandbox_path.exists():
+        return None
+
+    # Base allow list — common registries and GitHub
+    allow_list = [
+        "pypi.org",
+        "files.pythonhosted.org",
+        "registry.npmjs.org",
+        "registry.yarnpkg.com",
+        "*.docker.io",
+        "ghcr.io",
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+    ]
+
+    # Language-specific registry additions
+    lang = (detected.primary_language or "").lower()
+    if lang == "rust":
+        allow_list.extend(["crates.io", "static.crates.io"])
+    elif lang == "go":
+        allow_list.extend(["proxy.golang.org", "sum.golang.org"])
+
+    config = {
+        "type": "workspace_readwrite",
+        "networkPolicy": {
+            "default": "deny",
+            "allow": allow_list,
+        },
+    }
+
+    with sandbox_path.open("w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    return sandbox_path
 
 
 def _load_templates() -> dict[str, str]:
@@ -2047,11 +2241,14 @@ class CursorAdapter:
         detected: DetectedProject,
         standards: QualityStandards | None = None,
         hook_stringency: CursorHookStringency = CursorHookStringency.COMPREHENSIVE,
+        *,
+        force_regenerate: bool = False,
     ) -> None:
         self.project_dir = project_dir
         self.detected = detected
         self.standards = standards
         self.hook_stringency = hook_stringency
+        self.force_regenerate = force_regenerate
 
     def generate_hooks(self) -> list[Path]:
         """Generate .cursor/hooks.json."""
@@ -2078,22 +2275,27 @@ class CursorAdapter:
     def generate_commands(self) -> list[Path]:
         """Generate .cursor/commands/*.md files."""
         cursor_dir = self.project_dir / ".cursor"
-        return generate_cursor_commands(cursor_dir)
+        return generate_cursor_commands(cursor_dir, force=self.force_regenerate)
 
     def generate_subagents(self) -> list[Path]:
         """Generate .cursor/agents/*.md subagent definitions."""
         cursor_dir = self.project_dir / ".cursor"
-        return generate_cursor_subagents(cursor_dir)
+        return generate_cursor_subagents(cursor_dir, force=self.force_regenerate)
 
     def generate_skills(self) -> list[Path]:
         """Generate .cursor/skills/*/SKILL.md skill definitions."""
         cursor_dir = self.project_dir / ".cursor"
-        return generate_cursor_skills(cursor_dir)
+        return generate_cursor_skills(cursor_dir, force=self.force_regenerate)
 
     def generate_environment(self) -> Path | None:
         """Generate .cursor/environment.json for cloud agents."""
         cursor_dir = self.project_dir / ".cursor"
         return generate_cursor_environment(cursor_dir, self.detected)
+
+    def generate_sandbox(self) -> Path | None:
+        """Generate .cursor/sandbox.json with secure defaults."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_sandbox(cursor_dir, self.detected)
 
     def generate_all(self) -> list[Path]:
         """Call all generators, return all created paths."""
@@ -2107,6 +2309,9 @@ class CursorAdapter:
         env = self.generate_environment()
         if env:
             paths.append(env)
+        sandbox = self.generate_sandbox()
+        if sandbox:
+            paths.append(sandbox)
         mcp = self.generate_mcp_config()
         if mcp:
             paths.append(mcp)

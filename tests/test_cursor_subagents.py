@@ -47,6 +47,16 @@ class TestGenerateCursorSubagents:
         assert second == []
         assert target.read_text() == "# custom content"
 
+    def test_force_overwrites_existing(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_subagents(cursor_dir)
+        target = cursor_dir / "agents" / "mirdan-quality-validator.md"
+        target.write_text("# custom content")
+
+        result = generate_cursor_subagents(cursor_dir, force=True)
+        assert len(result) > 0
+        assert target.read_text() != "# custom content"
+
     def test_creates_agents_directory(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         assert not (cursor_dir / "agents").exists()
@@ -174,6 +184,40 @@ class TestCursorSubagentContent:
         content = (cursor_dir / "agents" / "mirdan-slop-detector.md").read_text()
         assert "AI001" in content
         assert "AI008" in content
+
+
+class TestCursorSubagentAsyncContent:
+    """Tests for async/coordination sections in subagent content."""
+
+    def test_background_subagents_have_async_notes(self, tmp_path: Path) -> None:
+        """Background subagents should contain async execution notes."""
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_subagents(cursor_dir)
+        agents_dir = cursor_dir / "agents"
+
+        for md_file in agents_dir.iterdir():
+            content = md_file.read_text()
+            parts = content.split("---", 2)
+            fm = yaml.safe_load(parts[1])
+            if fm.get("background") is True:
+                assert "Async Execution Notes" in content, (
+                    f"{md_file.name} (background=true) must have Async Execution Notes"
+                )
+
+    def test_foreground_subagents_have_coordination_notes(self, tmp_path: Path) -> None:
+        """Foreground subagents should contain subagent coordination notes."""
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_subagents(cursor_dir)
+        agents_dir = cursor_dir / "agents"
+
+        for md_file in agents_dir.iterdir():
+            content = md_file.read_text()
+            parts = content.split("---", 2)
+            fm = yaml.safe_load(parts[1])
+            if fm.get("background") is False:
+                assert "Subagent Coordination" in content, (
+                    f"{md_file.name} (background=false) must have Subagent Coordination"
+                )
 
 
 class TestCursorSubagentsDict:

@@ -24,3 +24,9 @@ Incorrect assumptions about library behavior are a common source of phantom fixe
 - Fix must not introduce new violations — validate after fixing
 - Regression test considered for the fixed behavior
 - No silent exception swallowing in the fix
+
+## Runtime Instrumentation (v2.6+)
+- Use Cursor's built-in runtime instrumentation to capture actual execution paths
+- Compare runtime behavior against expected behavior before hypothesizing
+- Leverage breakpoint and step-through capabilities for complex state issues
+- Capture runtime data (variable states, call stacks) to ground your diagnosis

@@ -62,6 +62,16 @@ class TestGenerateCursorSkills:
         assert second == []
         assert target.read_text() == "# custom content"
 
+    def test_force_overwrites_existing(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_skills(cursor_dir)
+        target = cursor_dir / "skills" / "mirdan-code" / "SKILL.md"
+        target.write_text("# custom content")
+
+        result = generate_cursor_skills(cursor_dir, force=True)
+        assert len(result) > 0
+        assert target.read_text() != "# custom content"
+
     def test_creates_skills_directory(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         assert not (cursor_dir / "skills").exists()

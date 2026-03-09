@@ -1,7 +1,7 @@
 """Export mirdan as a Cursor IDE plugin.
 
 Generates a complete Cursor plugin directory with rules, agents,
-hooks, mcp.json, and manifest for distribution.
+hooks, mcp.json, sandbox, and plugin.json manifest for distribution.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class CursorPluginExporter:
         """Generate a complete Cursor plugin directory.
 
         Creates rules (.mdc), AGENTS.md, BUGBOT.md, hooks, mcp.json,
-        and a plugin manifest.
+        sandbox.json, and a .cursor-plugin/plugin.json manifest.
 
         Args:
             output_dir: Directory to write the plugin to.
@@ -45,6 +45,7 @@ class CursorPluginExporter:
         self._write_rules(output_dir, detected)
         self._write_agents(output_dir, detected)
         self._write_hooks(output_dir)
+        self._write_sandbox(output_dir, detected)
         self._write_commands(output_dir)
         self._write_subagents(output_dir)
         self._write_skills(output_dir)
@@ -55,6 +56,9 @@ class CursorPluginExporter:
     def _write_manifest(self, output_dir: Path) -> None:
         from mirdan.integrations.claude_code import _get_version
 
+        plugin_dir = output_dir / ".cursor-plugin"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+
         manifest = {
             "name": "mirdan",
             "description": (
@@ -62,10 +66,17 @@ class CursorPluginExporter:
                 " with AI-specific slop detection"
             ),
             "version": _get_version(),
-            "platform": "cursor",
-            "categories": ["code-quality", "security", "ai-safety"],
+            "author": {"name": "Sean Corkum"},
+            "license": "MIT",
+            "keywords": ["code-quality", "security", "ai-safety"],
+            "rules": "rules/",
+            "agents": "agents/",
+            "skills": "skills/",
+            "commands": "commands/",
+            "hooks": "hooks.json",
+            "mcpServers": "mcp.json",
         }
-        manifest_path = output_dir / "manifest.json"
+        manifest_path = plugin_dir / "plugin.json"
         with manifest_path.open("w") as f:
             json.dump(manifest, f, indent=2)
 
@@ -105,6 +116,11 @@ class CursorPluginExporter:
         )
 
         generate_cursor_hooks(output_dir, CursorHookStringency.COMPREHENSIVE)
+
+    def _write_sandbox(self, output_dir: Path, detected: DetectedProject) -> None:
+        from mirdan.integrations.cursor import generate_cursor_sandbox
+
+        generate_cursor_sandbox(output_dir, detected)
 
     def _write_commands(self, output_dir: Path) -> None:
         from mirdan.integrations.cursor import generate_cursor_commands

@@ -14,16 +14,17 @@ _EXPECTED_COMMANDS = {
     "quality.md",
     "scan.md",
     "gate.md",
+    "automations.md",
 }
 
 
 class TestGenerateCursorCommands:
     """Tests for generate_cursor_commands()."""
 
-    def test_generates_seven_files(self, tmp_path: Path) -> None:
+    def test_generates_eight_files(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_commands(cursor_dir)
-        assert len(paths) == 7
+        assert len(paths) == 8
 
     def test_generates_expected_filenames(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -45,7 +46,7 @@ class TestGenerateCursorCommands:
         """Calling twice should not overwrite files created on first call."""
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_commands(cursor_dir)
-        assert len(first) == 7
+        assert len(first) == 8
 
         # Mutate one file to verify it is not overwritten
         target = cursor_dir / "commands" / "code.md"
@@ -54,6 +55,16 @@ class TestGenerateCursorCommands:
         second = generate_cursor_commands(cursor_dir)
         assert second == []  # no new files created
         assert target.read_text() == "# custom content"
+
+    def test_force_overwrites_existing(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_commands(cursor_dir)
+        target = cursor_dir / "commands" / "code.md"
+        target.write_text("# custom content")
+
+        result = generate_cursor_commands(cursor_dir, force=True)
+        assert len(result) > 0
+        assert target.read_text() != "# custom content"
 
     def test_creates_commands_directory(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -71,7 +82,7 @@ class TestGenerateCursorCommands:
         paths = generate_cursor_commands(cursor_dir)
         returned_names = {p.name for p in paths}
         assert "code.md" not in returned_names
-        assert len(paths) == 6
+        assert len(paths) == 7
 
 
 class TestCursorCommandContent:
@@ -107,6 +118,13 @@ class TestCursorCommandContent:
         content = (cursor_dir / "commands" / "gate.md").read_text()
         assert "gate" in content.lower()
 
+    def test_automations_command_mentions_cursor_automations(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_commands(cursor_dir)
+        content = (cursor_dir / "commands" / "automations.md").read_text()
+        assert "cursor.com/automations" in content
+        assert "validate_code_quality" in content
+
     def test_all_commands_have_heading(self, tmp_path: Path) -> None:
         """Every command file should start with a markdown heading."""
         cursor_dir = tmp_path / ".cursor"
@@ -120,8 +138,8 @@ class TestCursorCommandContent:
 class TestCursorCommandsDict:
     """Tests for the _CURSOR_COMMANDS constant."""
 
-    def test_dict_has_seven_entries(self) -> None:
-        assert len(_CURSOR_COMMANDS) == 7
+    def test_dict_has_eight_entries(self) -> None:
+        assert len(_CURSOR_COMMANDS) == 8
 
     def test_dict_keys_match_expected(self) -> None:
         assert set(_CURSOR_COMMANDS.keys()) == _EXPECTED_COMMANDS

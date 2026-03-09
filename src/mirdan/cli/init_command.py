@@ -537,6 +537,8 @@ def _setup_cursor(
     directory: Path,
     detected: DetectedProject,
     languages: list[str] | None = None,
+    *,
+    force_regenerate: bool = False,
 ) -> None:
     """Generate Cursor configuration: hooks, rules, agents, and MCP config.
 
@@ -544,6 +546,8 @@ def _setup_cursor(
         directory: Project root directory.
         detected: Auto-detected project metadata.
         languages: Optional list of languages for multi-language rule generation.
+        force_regenerate: If True, overwrite existing commands, subagents, and
+            skills with latest mirdan content (used by --upgrade).
     """
     from mirdan.core.quality_standards import QualityStandards
     from mirdan.integrations.cursor import (
@@ -554,6 +558,7 @@ def _setup_cursor(
         generate_cursor_hooks,
         generate_cursor_mcp_json,
         generate_cursor_rules,
+        generate_cursor_sandbox,
         generate_cursor_skills,
         generate_cursor_subagents,
     )
@@ -589,17 +594,17 @@ def _setup_cursor(
         print(f"  Created {path}")
 
     # Generate .cursor/commands/*.md
-    command_paths = generate_cursor_commands(cursor_dir)
+    command_paths = generate_cursor_commands(cursor_dir, force=force_regenerate)
     for path in command_paths:
         print(f"  Created {path}")
 
     # Generate .cursor/agents/*.md (subagent definitions)
-    subagent_paths = generate_cursor_subagents(cursor_dir)
+    subagent_paths = generate_cursor_subagents(cursor_dir, force=force_regenerate)
     for path in subagent_paths:
         print(f"  Created {path}")
 
     # Generate .cursor/skills/*/SKILL.md (skill definitions)
-    skill_paths = generate_cursor_skills(cursor_dir)
+    skill_paths = generate_cursor_skills(cursor_dir, force=force_regenerate)
     for path in skill_paths:
         print(f"  Created {path}")
 
@@ -607,6 +612,11 @@ def _setup_cursor(
     env_path = generate_cursor_environment(cursor_dir, detected)
     if env_path:
         print(f"  Created {env_path}")
+
+    # Generate .cursor/sandbox.json (secure defaults)
+    sandbox_path = generate_cursor_sandbox(cursor_dir, detected)
+    if sandbox_path:
+        print(f"  Created {sandbox_path}")
 
     # Generate .cursor/mcp.json
     mcp_path = generate_cursor_mcp_json(cursor_dir)
@@ -750,7 +760,7 @@ def _run_upgrade(directory: Path) -> None:
         _setup_claude_code(directory, detected, languages=languages)
 
     if platform == "cursor" or "cursor" in detected.detected_ides:
-        _setup_cursor(directory, detected, languages=languages)
+        _setup_cursor(directory, detected, languages=languages, force_regenerate=True)
 
     # Always regenerate AGENTS.md
     _setup_agents_md(directory, detected, platform, languages=languages)

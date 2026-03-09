@@ -253,10 +253,10 @@ class TestCursorPluginExporter:
 
         exporter = CursorPluginExporter()
         exporter.export(tmp_path)
-        manifest = tmp_path / "manifest.json"
+        manifest = tmp_path / ".cursor-plugin" / "plugin.json"
         assert manifest.exists()
         data = json.loads(manifest.read_text())
-        assert data["platform"] == "cursor"
+        assert data["name"] == "mirdan"
 
     def test_export_creates_mcp_json(self, tmp_path: Path) -> None:
         from mirdan.integrations.cursor_plugin import CursorPluginExporter

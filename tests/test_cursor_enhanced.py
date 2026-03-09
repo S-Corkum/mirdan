@@ -58,6 +58,11 @@ class TestEnhancedAgentsMd:
         content = self._get_agents_content(tmp_path)
         assert "30" in content  # "Every 30 Minutes"
 
+    def test_has_long_running_sessions_section(self, tmp_path: Path) -> None:
+        """Enhanced AGENTS.md should have long-running session guidance."""
+        content = self._get_agents_content(tmp_path)
+        assert "Long-Running Sessions" in content
+
     def test_has_security_standards_section(self, tmp_path: Path) -> None:
         """Enhanced AGENTS.md should have Security Standards section."""
         content = self._get_agents_content(tmp_path)
@@ -139,3 +144,14 @@ class TestEnhancedBugbotMd:
         """Enhanced BUGBOT.md should have command injection regex pattern."""
         content = self._get_bugbot_content(tmp_path)
         assert "os\\.system" in content or "os.system" in content
+
+    def test_has_bugbot_autofix_section(self, tmp_path: Path) -> None:
+        """Enhanced BUGBOT.md should have Bugbot Autofix Integration section."""
+        content = self._get_bugbot_content(tmp_path)
+        assert "Bugbot Autofix Integration" in content
+
+    def test_bugbot_autofix_mentions_quality_gate(self, tmp_path: Path) -> None:
+        """Bugbot Autofix section should reference quality gate requirements."""
+        content = self._get_bugbot_content(tmp_path)
+        assert "validate_code_quality" in content
+        assert "0.7" in content

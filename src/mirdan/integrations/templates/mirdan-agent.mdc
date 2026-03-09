@@ -17,6 +17,18 @@ Background agents and autonomous task runners must follow stricter quality gates
 - Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
 - Do not duplicate validation work already performed in the session
 
+## Async Subagent Coordination
+- Background subagents (background: true) run asynchronously — do not wait for them to complete
+- Use agent IDs to resume background subagents and retrieve results
+- Subagents can spawn their own child subagents for parallel work
+- Coordinate quality state through `mcp__mirdan__get_quality_trends`
+
+## Long-Running Sessions (>1 hour)
+- Run `validate_code_quality` on all modified files every 30 minutes
+- Before any PR creation, re-validate the full changeset
+- If quality score drops below 0.7 on any file, fix before continuing
+- Persist quality findings across compaction events via `preCompact` hook
+
 ## Autonomous Completion Gate
 - Before returning results: run validation on all changed files
 - If any file has unresolved errors: fix before surfacing results
