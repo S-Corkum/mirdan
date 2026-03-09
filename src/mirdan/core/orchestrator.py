@@ -73,7 +73,10 @@ class MCPOrchestrator:
                 recommendations.append(
                     ToolRecommendation(
                         mcp="enyal",
-                        action="Recall patterns for resolving validation failures and similar past fixes",
+                        action=(
+                            "Recall patterns for resolving validation"
+                            " failures and similar past fixes"
+                        ),
                         priority="high",
                         params={"query": "fix bug error violation resolution patterns"},
                         reason="Targeted recall for persistent quality failures across sessions",

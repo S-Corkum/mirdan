@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from mirdan.models import Violation
 
@@ -450,11 +451,11 @@ def _validate_with_tree_sitter(
     return violations, []  # No limitations when tree-sitter is available
 
 
-def _collect_function_nodes(root) -> list[tuple]:
+def _collect_function_nodes(root: Any) -> list[tuple[Any, str]]:
     """Collect all function-like nodes with their names from the AST."""
-    results: list[tuple] = []
+    results: list[tuple[Any, str]] = []
 
-    def _walk(node) -> None:
+    def _walk(node: Any) -> None:
         if node.type == "function_declaration":
             name = _ts_get_child_text(node, "identifier") or "<anonymous>"
             results.append((node, name))
@@ -477,7 +478,7 @@ def _collect_function_nodes(root) -> list[tuple]:
     return results
 
 
-def _ts_get_child_text(node, child_type: str) -> str | None:
+def _ts_get_child_text(node: Any, child_type: str) -> str | None:
     """Get the text of the first child with the given type."""
     for child in node.children:
         if child.type == child_type:
@@ -485,7 +486,7 @@ def _ts_get_child_text(node, child_type: str) -> str | None:
     return None
 
 
-def _ts_arrow_name(node) -> str | None:
+def _ts_arrow_name(node: Any) -> str | None:
     """Get the name of an arrow function from its parent variable declarator."""
     parent = node.parent
     if parent and parent.type == "variable_declarator":
@@ -493,7 +494,7 @@ def _ts_arrow_name(node) -> str | None:
     return None
 
 
-def _ts_max_nesting(node, current_depth: int = 0) -> int:
+def _ts_max_nesting(node: Any, current_depth: int = 0) -> int:
     """Measure maximum nesting depth within a function node."""
     depth = current_depth
     if node.type in _NESTING_NODE_TYPES:
@@ -509,6 +510,6 @@ def _ts_max_nesting(node, current_depth: int = 0) -> int:
     return depth
 
 
-def _ts_has_return_type(node) -> bool:
+def _ts_has_return_type(node: Any) -> bool:
     """Check if a function node has a return type annotation."""
     return any(child.type == "type_annotation" for child in node.children)

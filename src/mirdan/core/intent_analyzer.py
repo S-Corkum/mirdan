@@ -450,7 +450,7 @@ class IntentAnalyzer:
             [t for t, s in nonzero.items() if s >= 4 and t != primary],
             key=lambda t: -nonzero[t],
         )
-        return [primary] + secondaries
+        return [primary, *secondaries]
 
     def _detect_language(self, prompt: str) -> str | None:
         """Detect the programming language from the prompt using weighted scoring."""

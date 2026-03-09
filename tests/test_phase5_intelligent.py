@@ -547,10 +547,10 @@ class TestQualityCoordinator:
 class TestGAPolish:
     """Tests for GA version and classifiers."""
 
-    def test_version_is_1_3_0(self) -> None:
+    def test_version_is_1_4_0(self) -> None:
         from mirdan import __version__
 
-        assert __version__ == "1.3.0"
+        assert __version__ == "1.4.0"
 
     def test_classifier_is_stable(self) -> None:
         import tomllib

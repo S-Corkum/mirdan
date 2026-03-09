@@ -1072,7 +1072,7 @@ class CodeValidator:
                 from mirdan.core.python_ast_validator import validate_python_ast
 
                 # Collect AI002 flagged lines so PY014 can skip them
-                ai002_lines = {v.line for v in violations if v.id == "AI002"}
+                ai002_lines = {v.line for v in violations if v.id == "AI002" and v.line is not None}
 
                 ast_violations, ast_checked_ids, ast_parsed = validate_python_ast(
                     code, skip_lines=ai002_lines

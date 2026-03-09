@@ -586,7 +586,9 @@ alwaysApply: true
 def _build_planning_mdc() -> str:
     """Build the planning .mdc rule — description-based, activates in Plan Mode."""
     return """---
-description: "mirdan planning standards — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
+description: >-
+  mirdan planning standards — activate when creating implementation plans,
+  task breakdowns, or roadmaps in Plan Mode
 alwaysApply: false
 ---
 
@@ -619,7 +621,9 @@ for visualizing dependencies between steps.
 def _build_debug_mdc() -> str:
     """Build the debug .mdc rule — description-based, activates in Debug Mode."""
     return """---
-description: "mirdan quality standards for debugging — activate when investigating bugs, errors, or unexpected behavior in Debug Mode"
+description: >-
+  mirdan quality standards for debugging — activate when investigating bugs,
+  errors, or unexpected behavior in Debug Mode
 alwaysApply: false
 ---
 
@@ -650,7 +654,9 @@ Incorrect assumptions about library behavior are a common source of phantom fixe
 def _build_agent_mdc() -> str:
     """Build the agent .mdc rule — description-based, activates for Background Agents."""
     return """---
-description: "mirdan quality standards for autonomous agent execution — activate for Background Agents, multi-agent runs, and autonomous task execution"
+description: >-
+  mirdan quality standards for autonomous agent execution — activate for
+  Background Agents, multi-agent runs, and autonomous task execution
 alwaysApply: false
 ---
 

@@ -284,7 +284,11 @@ class EnhancedPrompt:
         return {
             "enhanced_prompt": self.enhanced_text,
             "task_type": self.intent.task_type.value,
-            "task_types": [t.value for t in self.intent.task_types] if self.intent.task_types else [self.intent.task_type.value],
+            "task_types": (
+                [t.value for t in self.intent.task_types]
+                if self.intent.task_types
+                else [self.intent.task_type.value]
+            ),
             "language": self.intent.primary_language,
             "frameworks": self.intent.frameworks,
             "extracted_entities": [e.to_dict() for e in self.intent.entities],
