@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import json
-
-import pytest
+from pathlib import Path
 
 from mirdan.core.manifest_parser import ManifestParser
 
@@ -12,7 +11,7 @@ from mirdan.core.manifest_parser import ManifestParser
 class TestManifestParser:
     """Tests for ManifestParser."""
 
-    def test_parse_pyproject_toml(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_parse_pyproject_toml(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\nname = "myapp"\ndependencies = [\n'
@@ -25,7 +24,7 @@ class TestManifestParser:
         assert "pyyaml" in names
         assert all(p.ecosystem == "PyPI" for p in packages)
 
-    def test_parse_requirements_txt(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_parse_requirements_txt(self, tmp_path: Path) -> None:
         reqs = tmp_path / "requirements.txt"
         reqs.write_text("requests==2.31.0\nflask>=3.0\n# comment\n")
         parser = ManifestParser(project_dir=tmp_path)
@@ -34,7 +33,7 @@ class TestManifestParser:
         assert "requests" in names
         assert "flask" in names
 
-    def test_parse_package_json(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_parse_package_json(self, tmp_path: Path) -> None:
         pkg = tmp_path / "package.json"
         pkg.write_text(
             json.dumps(
@@ -54,7 +53,7 @@ class TestManifestParser:
         assert ts_pkg.is_dev is True
         assert ts_pkg.ecosystem == "npm"
 
-    def test_parse_cargo_toml(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_parse_cargo_toml(self, tmp_path: Path) -> None:
         cargo = tmp_path / "Cargo.toml"
         cargo.write_text(
             '[package]\nname = "myapp"\n\n[dependencies]\n'
@@ -66,7 +65,7 @@ class TestManifestParser:
         assert "serde" in names
         assert "tokio" in names
 
-    def test_parse_go_mod(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_parse_go_mod(self, tmp_path: Path) -> None:
         go_mod = tmp_path / "go.mod"
         go_mod.write_text(
             "module example.com/myapp\n\ngo 1.21\n\nrequire (\n"
@@ -79,11 +78,11 @@ class TestManifestParser:
         assert "gin" in names
         assert "mysql" in names
 
-    def test_no_manifests_returns_empty(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_no_manifests_returns_empty(self, tmp_path: Path) -> None:
         parser = ManifestParser(project_dir=tmp_path)
         assert parser.parse() == []
 
-    def test_malformed_manifest_doesnt_crash(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_malformed_manifest_doesnt_crash(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("this is not valid toml {{{{")
         parser = ManifestParser(project_dir=tmp_path)
@@ -91,7 +90,7 @@ class TestManifestParser:
         packages = parser.parse()
         assert packages == []
 
-    def test_cache_invalidation(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_cache_invalidation(self, tmp_path: Path) -> None:
         reqs = tmp_path / "requirements.txt"
         reqs.write_text("flask==3.0.0\n")
         parser = ManifestParser(project_dir=tmp_path)
@@ -103,7 +102,7 @@ class TestManifestParser:
         packages2 = parser.parse()
         assert len(packages2) == 2
 
-    def test_get_version(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_get_version(self, tmp_path: Path) -> None:
         reqs = tmp_path / "requirements.txt"
         reqs.write_text("flask==3.0.0\n")
         parser = ManifestParser(project_dir=tmp_path)
@@ -111,7 +110,7 @@ class TestManifestParser:
         assert parser.get_version("flask", "PyPI") == "3.0.0"
         assert parser.get_version("nonexistent", "PyPI") is None
 
-    def test_multiple_manifests(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_multiple_manifests(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('[project]\nname = "myapp"\ndependencies = ["flask>=3.0"]\n')
         pkg_json = tmp_path / "package.json"

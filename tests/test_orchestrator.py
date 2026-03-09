@@ -229,7 +229,7 @@ class TestAvailableMCPInfo:
     def test_returns_copy_not_original(self, orchestrator: MCPOrchestrator) -> None:
         """Should return a copy, not the original dict."""
         info1 = orchestrator.get_available_mcp_info()
-        info1["test_key"] = "test_value"
+        info1["test_key"] = {"description": "test_value"}
         info2 = orchestrator.get_available_mcp_info()
         assert "test_key" not in info2
 

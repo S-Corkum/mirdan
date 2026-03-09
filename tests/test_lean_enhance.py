@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -13,7 +14,7 @@ _enhance_prompt = server_mod.enhance_prompt.fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_components() -> None:
+def _reset_components() -> Iterator[None]:
     server_mod._components = None
     yield
     server_mod._components = None

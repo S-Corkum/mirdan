@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import textwrap
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -25,7 +26,7 @@ class TestFullFileDiffValidation:
     def _setup(self, tmp_path: Path) -> None:
         self.tmp_path = tmp_path
 
-    def _run_handle_diff(self, diff: str, cwd: Path | None = None) -> dict:
+    def _run_handle_diff(self, diff: str, cwd: Path | None = None) -> dict[str, Any]:
         from mirdan.server import _handle_diff
 
         with patch("mirdan.server.Path") as mock_path_cls:

@@ -4,6 +4,8 @@ Tests the underlying components that power the server tools.
 The @mcp.tool() decorator wraps functions, so we test the core logic directly.
 """
 
+from typing import Any
+
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.intent_analyzer import IntentAnalyzer
@@ -477,7 +479,7 @@ class TestInputSizeLimitsIntegration:
         )
         self.plan_validator = PlanValidator(self.config.planning)
 
-    def _simulate_enhance_prompt(self, prompt: str) -> dict:
+    def _simulate_enhance_prompt(self, prompt: str) -> dict[str, Any]:
         """Simulate enhance_prompt tool logic (sync parts only)."""
         from mirdan.server import (
             _MAX_PROMPT_LENGTH,
@@ -492,7 +494,7 @@ class TestInputSizeLimitsIntegration:
         enhanced = self.prompt_composer.compose(intent, context, recs)
         return enhanced.to_dict()
 
-    def _simulate_analyze_intent(self, prompt: str) -> dict:
+    def _simulate_analyze_intent(self, prompt: str) -> dict[str, Any]:
         """Simulate analyze_intent tool logic."""
         from mirdan.server import (
             _MAX_PROMPT_LENGTH,
@@ -504,7 +506,7 @@ class TestInputSizeLimitsIntegration:
         intent = self.intent_analyzer.analyze(prompt)
         return {"task_type": intent.task_type.value}
 
-    def _simulate_validate_code(self, code: str) -> dict:
+    def _simulate_validate_code(self, code: str) -> dict[str, Any]:
         """Simulate validate_code_quality tool logic."""
         from mirdan.server import _MAX_CODE_LENGTH, _check_input_size
 
@@ -513,7 +515,7 @@ class TestInputSizeLimitsIntegration:
         result = self.code_validator.validate(code=code, language="python")
         return result.to_dict()
 
-    def _simulate_validate_plan(self, plan: str) -> dict:
+    def _simulate_validate_plan(self, plan: str) -> dict[str, Any]:
         """Simulate validate_plan_quality tool logic."""
         from mirdan.server import _MAX_PLAN_LENGTH, _check_input_size
 

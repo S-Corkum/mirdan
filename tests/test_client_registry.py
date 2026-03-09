@@ -190,7 +190,7 @@ class TestCapabilityDiscovery:
     """Tests for MCP capability discovery."""
 
     @pytest.fixture
-    def mock_capabilities_response(self) -> dict:
+    def mock_capabilities_response(self) -> dict[str, list[MagicMock]]:
         """Create mock responses for capability discovery."""
         mock_tool = MagicMock()
         mock_tool.name = "test_tool"
@@ -231,7 +231,7 @@ class TestCapabilityDiscovery:
 
     @pytest.mark.asyncio
     async def test_discover_capabilities_returns_capabilities(
-        self, stdio_config: MirdanConfig, mock_capabilities_response: dict
+        self, stdio_config: MirdanConfig, mock_capabilities_response: dict[str, list[MagicMock]]
     ) -> None:
         """Should discover and return capabilities."""
         registry = MCPClientRegistry(stdio_config)
@@ -273,7 +273,7 @@ class TestCapabilityDiscovery:
 
     @pytest.mark.asyncio
     async def test_get_client_triggers_discovery(
-        self, stdio_config: MirdanConfig, mock_capabilities_response: dict
+        self, stdio_config: MirdanConfig, mock_capabilities_response: dict[str, list[MagicMock]]
     ) -> None:
         """get_client should trigger capability discovery."""
         registry = MCPClientRegistry(stdio_config)
@@ -301,7 +301,7 @@ class TestCapabilityDiscovery:
 
     @pytest.mark.asyncio
     async def test_get_capabilities_returns_cached(
-        self, stdio_config: MirdanConfig, mock_capabilities_response: dict
+        self, stdio_config: MirdanConfig, mock_capabilities_response: dict[str, list[MagicMock]]
     ) -> None:
         """get_capabilities should return cached capabilities."""
         registry = MCPClientRegistry(stdio_config)
@@ -334,7 +334,7 @@ class TestCapabilityDiscovery:
 
     @pytest.mark.asyncio
     async def test_has_tool_returns_false_when_tool_missing(
-        self, stdio_config: MirdanConfig, mock_capabilities_response: dict
+        self, stdio_config: MirdanConfig, mock_capabilities_response: dict[str, list[MagicMock]]
     ) -> None:
         """has_tool should return False when tool confirmed missing."""
         registry = MCPClientRegistry(stdio_config)
@@ -355,7 +355,7 @@ class TestCapabilityDiscovery:
 
     @pytest.mark.asyncio
     async def test_close_all_clears_capabilities(
-        self, stdio_config: MirdanConfig, mock_capabilities_response: dict
+        self, stdio_config: MirdanConfig, mock_capabilities_response: dict[str, list[MagicMock]]
     ) -> None:
         """close_all should clear capabilities along with clients."""
         registry = MCPClientRegistry(stdio_config)
@@ -620,6 +620,7 @@ class TestCallToolsParallel:
         assert results[0].success is True
         assert results[0].data == "Success"
         assert results[1].success is False
+        assert results[1].error is not None
         assert "Tool failed" in results[1].error
 
     @pytest.mark.asyncio
@@ -629,7 +630,7 @@ class TestCallToolsParallel:
 
         registry = MCPClientRegistry(multi_mcp_config)
 
-        async def slow_call(*args, **kwargs):
+        async def slow_call(*args: object, **kwargs: object) -> MagicMock:
             await asyncio.sleep(10)  # Much longer than timeout
             return MagicMock()
 
@@ -646,6 +647,7 @@ class TestCallToolsParallel:
 
         assert len(results) == 1
         assert results[0].success is False
+        assert results[0].error is not None
         assert "timeout" in results[0].error.lower()
 
     @pytest.mark.asyncio
@@ -661,4 +663,5 @@ class TestCallToolsParallel:
 
         assert len(results) == 1
         assert results[0].success is False
+        assert results[0].error is not None
         assert "not configured" in results[0].error

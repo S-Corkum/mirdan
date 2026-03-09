@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -182,7 +183,7 @@ class TestSpecializedAgents:
 class TestAdvancedHooks:
     """Tests for comprehensive lifecycle hooks."""
 
-    def _load_hooks(self, tmp_path: Path, detected: DetectedProject) -> dict:
+    def _load_hooks(self, tmp_path: Path, detected: DetectedProject) -> dict[str, Any]:
         from mirdan.integrations.claude_code import generate_claude_code_config
 
         generate_claude_code_config(tmp_path, detected)
@@ -190,7 +191,7 @@ class TestAdvancedHooks:
         assert hooks_path.exists()
         data = json.loads(hooks_path.read_text())
         # hooks.json has a top-level "hooks" key
-        return data.get("hooks", data)
+        return data.get("hooks", data)  # type: ignore[no-any-return]
 
     def test_hooks_json_has_comprehensive_events(
         self, tmp_path: Path, detected: DetectedProject

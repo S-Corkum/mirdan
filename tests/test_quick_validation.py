@@ -8,6 +8,8 @@ Tests cover:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 
 import mirdan.server as server_mod
@@ -20,7 +22,7 @@ _validate_quick = server_mod.validate_quick.fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_components() -> None:
+def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
     server_mod._components = None
     yield

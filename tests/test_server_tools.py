@@ -10,6 +10,7 @@ the underlying coroutine via the `.fn` attribute.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -24,7 +25,7 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_components() -> None:
+def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
     server_mod._components = None
     yield
@@ -55,7 +56,8 @@ class TestLifespan:
         """_lifespan should call close on context_aggregator during shutdown."""
         mock_close = AsyncMock()
         async with server_mod._lifespan(server_mod.mcp):
-            server_mod._components.context_aggregator.close = mock_close
+            assert server_mod._components is not None
+            server_mod._components.context_aggregator.close = mock_close  # type: ignore[method-assign]
         mock_close.assert_awaited_once()
 
     async def test_lifespan_cleanup_when_no_components(self) -> None:

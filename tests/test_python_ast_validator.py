@@ -6,6 +6,7 @@ import textwrap
 
 import pytest
 
+from mirdan.core.code_validator import CodeValidator
 from mirdan.core.python_ast_validator import validate_python_ast
 
 # ---------------------------------------------------------------------------
@@ -287,13 +288,12 @@ class TestCodeValidatorIntegration:
     """Test AST checks integrated into CodeValidator.validate()."""
 
     @pytest.fixture()
-    def validator(self):
-        from mirdan.core.code_validator import CodeValidator
+    def validator(self) -> CodeValidator:
         from mirdan.core.quality_standards import QualityStandards
 
         return CodeValidator(QualityStandards())
 
-    def test_eval_produces_ast_violation(self, validator) -> None:
+    def test_eval_produces_ast_violation(self, validator: CodeValidator) -> None:
         code = textwrap.dedent("""\
             def main():
                 result = eval(user_input)
@@ -304,7 +304,7 @@ class TestCodeValidatorIntegration:
         # AST violations have verifiable=True (default)
         assert py001[0].verifiable is True
 
-    def test_exec_produces_ast_violation(self, validator) -> None:
+    def test_exec_produces_ast_violation(self, validator: CodeValidator) -> None:
         code = textwrap.dedent("""\
             def main():
                 exec(user_code)
@@ -313,7 +313,7 @@ class TestCodeValidatorIntegration:
         py002 = [v for v in result.violations if v.id == "PY002"]
         assert len(py002) >= 1
 
-    def test_eval_in_string_no_false_positive(self, validator) -> None:
+    def test_eval_in_string_no_false_positive(self, validator: CodeValidator) -> None:
         """Regression: regex would flag eval() inside strings, AST should not."""
         code = textwrap.dedent("""\
             def main():
@@ -324,7 +324,7 @@ class TestCodeValidatorIntegration:
         py001 = [v for v in result.violations if v.id == "PY001"]
         assert len(py001) == 0
 
-    def test_unused_import_produces_py014(self, validator) -> None:
+    def test_unused_import_produces_py014(self, validator: CodeValidator) -> None:
         code = textwrap.dedent("""\
             import json
             def main():
@@ -334,7 +334,7 @@ class TestCodeValidatorIntegration:
         py014 = [v for v in result.violations if v.id == "PY014"]
         assert len(py014) == 1
 
-    def test_syntax_error_falls_back_to_regex(self, validator) -> None:
+    def test_syntax_error_falls_back_to_regex(self, validator: CodeValidator) -> None:
         """When AST fails, regex rules still fire."""
         code = "eval(x)\ndef incomplete("
         result = validator.validate(code, language="python")
@@ -342,7 +342,7 @@ class TestCodeValidatorIntegration:
         py001 = [v for v in result.violations if v.id == "PY001"]
         assert len(py001) >= 1
 
-    def test_python_ast_in_standards_checked(self, validator) -> None:
+    def test_python_ast_in_standards_checked(self, validator: CodeValidator) -> None:
         code = textwrap.dedent("""\
             def main():
                 eval(x)
@@ -350,7 +350,7 @@ class TestCodeValidatorIntegration:
         result = validator.validate(code, language="python")
         assert "python_ast" in result.standards_checked
 
-    def test_non_python_no_ast_check(self, validator) -> None:
+    def test_non_python_no_ast_check(self, validator: CodeValidator) -> None:
         code = "function f() { eval('x'); }"
         result = validator.validate(code, language="javascript")
         assert "python_ast" not in result.standards_checked

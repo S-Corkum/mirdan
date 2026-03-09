@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from mirdan.core.quality_profiles import (
@@ -111,21 +113,21 @@ class TestApplyProfile:
 
     def test_applies_stringency_to_config(self) -> None:
         profile = BUILTIN_PROFILES["enterprise"]
-        config: dict = {}
+        config: dict[str, Any] = {}
         apply_profile(profile, config)
         assert config["quality"]["security"] == "strict"
         assert config["quality"]["architecture"] == "strict"
 
     def test_prototype_applies_permissive(self) -> None:
         profile = BUILTIN_PROFILES["prototype"]
-        config: dict = {}
+        config: dict[str, Any] = {}
         apply_profile(profile, config)
         assert config["quality"]["architecture"] == "permissive"
         assert config["quality"]["documentation"] == "permissive"
 
     def test_preserves_existing_config(self) -> None:
         profile = BUILTIN_PROFILES["default"]
-        config: dict = {"other_key": "preserved"}
+        config: dict[str, Any] = {"other_key": "preserved"}
         apply_profile(profile, config)
         assert config["other_key"] == "preserved"
         assert "quality" in config

@@ -84,7 +84,7 @@ class TestOutputFormatterEnhancedPrompt:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.formatter = OutputFormatter(compact_threshold=4000, minimal_threshold=1000)
-        self.full_data: dict = {
+        self.full_data: dict[str, object] = {
             "enhanced_prompt": "Enhanced: do the thing with quality",
             "task_type": "generation",
             "language": "python",
@@ -204,7 +204,7 @@ class TestOutputFormatterValidationResult:
     def setup_method(self) -> None:
         """Set up test fixtures."""
         self.formatter = OutputFormatter(compact_threshold=4000, minimal_threshold=1000)
-        self.full_data: dict = {
+        self.full_data: dict[str, object] = {
             "passed": False,
             "score": 0.75,
             "language_detected": "python",

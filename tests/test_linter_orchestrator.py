@@ -8,6 +8,8 @@ Tests cover:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,6 +17,7 @@ import pytest
 import mirdan.server as server_mod
 from mirdan.config import MirdanConfig, ThresholdsConfig
 from mirdan.core.linter_orchestrator import create_linter_runner, merge_linter_violations
+from mirdan.core.linter_runner import LinterRunner
 from mirdan.models import ValidationResult, Violation
 
 # Extract raw async function from FastMCP FunctionTool wrapper
@@ -22,7 +25,7 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_components() -> None:
+def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
     server_mod._components = None
     yield
@@ -184,7 +187,7 @@ class TestCreateLinterRunner:
         """Should create a LinterRunner from MirdanConfig."""
         config = MirdanConfig()
         runner = create_linter_runner(config)
-        assert isinstance(runner, server_mod.LinterRunner)
+        assert isinstance(runner, LinterRunner)
 
     def test_passes_config_values(self) -> None:
         """Should pass linter config values through."""
@@ -204,7 +207,7 @@ class TestCreateLinterRunner:
 class TestValidateCodeQualityWithLinters:
     """Tests for validate_code_quality tool with file_path parameter."""
 
-    async def test_file_path_triggers_linters(self, tmp_path) -> None:
+    async def test_file_path_triggers_linters(self, tmp_path: Path) -> None:
         """Providing file_path should trigger external linter run."""
         # Create a test file
         test_file = tmp_path / "test.py"
@@ -226,7 +229,7 @@ class TestValidateCodeQualityWithLinters:
 
         mock_run.assert_not_awaited()
 
-    async def test_linter_violations_merged_into_result(self, tmp_path) -> None:
+    async def test_linter_violations_merged_into_result(self, tmp_path: Path) -> None:
         """Linter violations should appear in the final result."""
         test_file = tmp_path / "test.py"
         test_file.write_text("x = 1\n")

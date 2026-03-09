@@ -509,7 +509,7 @@ class TestDashboardFormat:
         # access the underlying function via .fn attribute.
         fn = server_mod.get_quality_trends
         underlying = getattr(fn, "fn", fn)
-        sig = inspect.signature(underlying)
+        sig = inspect.signature(underlying)  # type: ignore[arg-type]
         assert "format" in sig.parameters
 
 

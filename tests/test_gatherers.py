@@ -136,6 +136,7 @@ class TestContext7Gatherer:
         result = await gatherer.gather(generation_intent)
 
         assert result.success is False
+        assert result.error is not None
         assert "not available" in result.error
 
     def test_name_property(self, empty_config: MirdanConfig) -> None:

@@ -238,7 +238,7 @@ class TestContextAggregator:
         aggregator = ContextAggregator(full_config)
 
         # Create a gatherer that takes too long
-        async def slow_gather(*args, **kwargs):
+        async def slow_gather(*args: object, **kwargs: object) -> GathererResult:
             await asyncio.sleep(10)  # Much longer than timeout
             return GathererResult(success=True, context=ContextBundle())
 

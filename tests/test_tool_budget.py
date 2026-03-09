@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
@@ -42,7 +43,7 @@ class TestToolBudgetFiltering:
     """Tests for MIRDAN_TOOL_BUDGET env var filtering via _lifespan()."""
 
     @pytest.fixture(autouse=True)
-    def _save_restore_tools(self):
+    def _save_restore_tools(self) -> Iterator[None]:
         """Save and restore the tool registry around each test."""
         original_tools = dict(server_mod.mcp._tool_manager._tools)
         yield

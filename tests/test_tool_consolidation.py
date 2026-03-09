@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 
 
 @pytest.fixture(autouse=True)
-def _reset_components() -> None:
+def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
     server_mod._components = None
     yield

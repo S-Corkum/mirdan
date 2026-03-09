@@ -170,8 +170,8 @@ class TestEnhancePromptIntegration:
 
         # Create mock gatherers that fail
         for gatherer in context_aggregator._gatherers:
-            gatherer.is_available = AsyncMock(return_value=True)
-            gatherer.gather = AsyncMock(
+            gatherer.is_available = AsyncMock(return_value=True)  # type: ignore[method-assign]
+            gatherer.gather = AsyncMock(  # type: ignore[method-assign]
                 return_value=GathererResult(
                     success=False,
                     context=ContextBundle(),
