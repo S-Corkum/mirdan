@@ -121,7 +121,15 @@ class TestGenerateCursorEnvironment:
         assert result is not None
         content = json.loads(result.read_text())
         allowed_keys = {
-            "name", "user", "build", "snapshot", "agentCanUpdateSnapshot",
-            "install", "start", "terminals", "ports", "repositoryDependencies",
+            "name",
+            "user",
+            "build",
+            "snapshot",
+            "agentCanUpdateSnapshot",
+            "install",
+            "start",
+            "terminals",
+            "ports",
+            "repositoryDependencies",
         }
         assert set(content.keys()).issubset(allowed_keys)

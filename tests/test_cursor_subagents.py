@@ -168,9 +168,7 @@ class TestCursorSubagentContent:
 
         for md_file in agents_dir.iterdir():
             content = md_file.read_text()
-            assert "## Instructions" in content, (
-                f"{md_file.name} must have Instructions section"
-            )
+            assert "## Instructions" in content, f"{md_file.name} must have Instructions section"
 
     def test_security_scanner_mentions_sec_rules(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
