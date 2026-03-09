@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-03-09
+
+### Added
+
+- **Cursor Subagents** — 5 `.cursor/agents/*.md` subagent definitions following the Cursor subagent spec (docs.cursor.com/context/subagents): `mirdan-quality-validator`, `mirdan-security-scanner`, `mirdan-test-auditor`, `mirdan-slop-detector`, `mirdan-architecture-reviewer`. Auto-invoked by Cursor's agent based on description, or explicitly via `/subagent-name`.
+
+- **Cursor Skills** — 7 `.cursor/skills/*/SKILL.md` skill definitions following the Agent Skills Standard (agentskills.io): `mirdan-code`, `mirdan-debug`, `mirdan-review`, `mirdan-plan` (auto-invoke), `mirdan-quality`, `mirdan-scan`, `mirdan-gate` (explicit invocation). Provides richer metadata, progressive disclosure, and composability compared to slash commands.
+
+- **Cursor Cloud Environment Config** — `.cursor/environment.json` generated for Cursor Cloud Agent environments (cursor.com/schemas/environment.schema.json). Ensures mirdan is installed and available in cloud-based agent runs. Auto-detects uv vs pip for install command.
+
+- **Command-Type Hooks** — Two shell-script hooks in `.cursor/hooks/` for fast, deterministic checks alongside existing prompt-type hooks:
+  - `mirdan-shell-guard.sh` (beforeShellExecution): Blocks destructive commands (`rm -rf /`, `DROP TABLE`, force push to main, `git reset --hard`) with zero LLM overhead. Fails closed.
+  - `mirdan-stop-gate.sh` (stop): Advisory reminder at task completion to run `/mirdan-gate` if uncommitted changes exist.
+
+### Changed
+
+- **`generate_cursor_hooks()` now produces hybrid hooks** — `beforeShellExecution` and `stop` events include both command-type (fast, deterministic) and prompt-type (context-aware) hooks. Command hooks fire first.
+- **`CursorAdapter` expanded** — New methods: `generate_subagents()`, `generate_skills()`, `generate_environment()`. `generate_all()` includes all new generators.
+- **`mirdan init --cursor` generates full Cursor 2.x config** — Now produces subagents, skills, environment.json, and hook scripts in addition to existing rules, commands, hooks.json, mcp.json, AGENTS.md, and BUGBOT.md.
+- **`CursorPluginExporter` expanded** — Plugin export includes subagents, skills, and environment config.
+
+---
+
 ## [1.1.0] - 2026-03-05
 
 ### Added

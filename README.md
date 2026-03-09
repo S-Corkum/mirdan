@@ -240,7 +240,15 @@ Hook stringency levels control how aggressively mirdan intervenes:
 mirdan init --cursor
 ```
 
-Generates `.cursor/mcp.json`, hooks, `.mdc` rules (always-on, security, planning, debug, agent, and language-specific), `AGENTS.md`, `BUGBOT.md`, and `.cursor/commands/*.md` slash command files for Cursor's `/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, and `/gate` workflows.
+Generates a complete Cursor 2.x integration:
+
+- **Rules** — `.cursor/rules/*.mdc` (always-on, security, planning, debug, agent, language-specific)
+- **Hooks** — `.cursor/hooks.json` with prompt-type + command-type hooks, `.cursor/hooks/*.sh` scripts
+- **Subagents** — `.cursor/agents/*.md` (quality-validator, security-scanner, test-auditor, slop-detector, architecture-reviewer)
+- **Skills** — `.cursor/skills/*/SKILL.md` following the [Agent Skills Standard](https://agentskills.io) (code, debug, review, plan, quality, scan, gate)
+- **Commands** — `.cursor/commands/*.md` slash commands (`/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, `/gate`)
+- **Environment** — `.cursor/environment.json` for Cloud Agent environments
+- **Config** — `.cursor/mcp.json`, `AGENTS.md`, `BUGBOT.md`
 
 Cursor has tool slot limits. Set `MIRDAN_TOOL_BUDGET` to control which tools are exposed (2 = validation only, 5+ = all tools).
 

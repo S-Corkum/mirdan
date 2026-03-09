@@ -327,9 +327,13 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     from mirdan.integrations.cursor import (
         generate_cursor_agents,
         generate_cursor_commands,
+        generate_cursor_environment,
+        generate_cursor_hook_scripts,
         generate_cursor_hooks,
         generate_cursor_mcp_json,
         generate_cursor_rules,
+        generate_cursor_skills,
+        generate_cursor_subagents,
     )
 
     # Try to use dynamic generation with QualityStandards
@@ -344,6 +348,11 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     hooks_path = generate_cursor_hooks(cursor_dir)
     if hooks_path:
         print(f"  Created {hooks_path}")
+    else:
+        # hooks.json exists, but ensure hook scripts are present
+        script_paths = generate_cursor_hook_scripts(cursor_dir)
+        for path in script_paths:
+            print(f"  Created {path}")
 
     # Generate .cursor/rules/*.mdc
     rules_dir = cursor_dir / "rules"
@@ -361,6 +370,21 @@ def _setup_cursor(directory: Path, detected: DetectedProject) -> None:
     command_paths = generate_cursor_commands(cursor_dir)
     for path in command_paths:
         print(f"  Created {path}")
+
+    # Generate .cursor/agents/*.md (subagent definitions)
+    subagent_paths = generate_cursor_subagents(cursor_dir)
+    for path in subagent_paths:
+        print(f"  Created {path}")
+
+    # Generate .cursor/skills/*/SKILL.md (skill definitions)
+    skill_paths = generate_cursor_skills(cursor_dir)
+    for path in skill_paths:
+        print(f"  Created {path}")
+
+    # Generate .cursor/environment.json (cloud agent environment)
+    env_path = generate_cursor_environment(cursor_dir, detected)
+    if env_path:
+        print(f"  Created {env_path}")
 
     # Generate .cursor/mcp.json
     mcp_path = generate_cursor_mcp_json(cursor_dir)

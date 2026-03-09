@@ -46,6 +46,9 @@ class CursorPluginExporter:
         self._write_agents(output_dir, detected)
         self._write_hooks(output_dir)
         self._write_commands(output_dir)
+        self._write_subagents(output_dir)
+        self._write_skills(output_dir)
+        self._write_environment(output_dir, detected)
 
         return output_dir
 
@@ -107,3 +110,18 @@ class CursorPluginExporter:
         from mirdan.integrations.cursor import generate_cursor_commands
 
         generate_cursor_commands(output_dir)
+
+    def _write_subagents(self, output_dir: Path) -> None:
+        from mirdan.integrations.cursor import generate_cursor_subagents
+
+        generate_cursor_subagents(output_dir)
+
+    def _write_skills(self, output_dir: Path) -> None:
+        from mirdan.integrations.cursor import generate_cursor_skills
+
+        generate_cursor_skills(output_dir)
+
+    def _write_environment(self, output_dir: Path, detected: DetectedProject) -> None:
+        from mirdan.integrations.cursor import generate_cursor_environment
+
+        generate_cursor_environment(output_dir, detected)

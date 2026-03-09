@@ -8,6 +8,7 @@ from pathlib import Path
 from mirdan.integrations.cursor import (
     CURSOR_STRINGENCY_EVENTS,
     CursorHookStringency,
+    generate_cursor_hook_scripts,
     generate_cursor_hooks,
 )
 
@@ -115,15 +116,18 @@ class TestGenerateCursorHooks:
         prompt = hooks[0]["prompt"]
         assert "validate_code_quality" in prompt
 
-    def test_all_hooks_use_prompt_type(self, tmp_path: Path) -> None:
-        """All hooks should use type: prompt."""
+    def test_all_hooks_have_valid_type(self, tmp_path: Path) -> None:
+        """All hooks should use type: prompt or type: command."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
+        valid_types = {"prompt", "command"}
         for event_name, hook_list in data["hooks"].items():
             for hook in hook_list:
-                assert hook["type"] == "prompt", f"{event_name} hook not prompt type"
+                assert hook["type"] in valid_types, (
+                    f"{event_name} hook has invalid type: {hook['type']}"
+                )
 
     def test_idempotent_skips_existing(self, tmp_path: Path) -> None:
         """Should return None if hooks.json already exists."""
@@ -164,3 +168,156 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         hooks = data["hooks"]["preToolUse"]
         assert any("matcher" in h for h in hooks)
+
+
+class TestCommandTypeHooks:
+    """Tests for command-type hook generation."""
+
+    def test_before_shell_has_command_hook(self, tmp_path: Path) -> None:
+        """beforeShellExecution should have a command-type hook."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["beforeShellExecution"]
+        command_hooks = [h for h in hooks if h["type"] == "command"]
+        assert len(command_hooks) == 1
+
+    def test_stop_has_command_hook(self, tmp_path: Path) -> None:
+        """stop should have a command-type hook."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["stop"]
+        command_hooks = [h for h in hooks if h["type"] == "command"]
+        assert len(command_hooks) == 1
+
+    def test_command_hook_has_command_field(self, tmp_path: Path) -> None:
+        """Command hooks must have a 'command' field with script path."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["beforeShellExecution"]
+        cmd_hook = next(h for h in hooks if h["type"] == "command")
+        assert "command" in cmd_hook
+        assert "mirdan-shell-guard.sh" in cmd_hook["command"]
+
+    def test_shell_guard_fail_closed(self, tmp_path: Path) -> None:
+        """Shell guard should fail closed (block if script errors)."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["beforeShellExecution"]
+        cmd_hook = next(h for h in hooks if h["type"] == "command")
+        assert cmd_hook.get("failClosed") is True
+
+    def test_stop_gate_has_loop_limit(self, tmp_path: Path) -> None:
+        """Stop gate command hook should have loop_limit."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["stop"]
+        cmd_hook = next(h for h in hooks if h["type"] == "command")
+        assert "loop_limit" in cmd_hook
+
+    def test_mixed_hooks_prompt_and_command(self, tmp_path: Path) -> None:
+        """Events should have both prompt and command hooks."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+
+        for event in ("beforeShellExecution", "stop"):
+            hooks = data["hooks"][event]
+            types = {h["type"] for h in hooks}
+            assert "prompt" in types, f"{event} missing prompt hook"
+            assert "command" in types, f"{event} missing command hook"
+
+    def test_command_hook_listed_before_prompt(self, tmp_path: Path) -> None:
+        """Command hooks should fire first (listed before prompt hooks)."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+
+        hooks = data["hooks"]["beforeShellExecution"]
+        assert hooks[0]["type"] == "command"
+
+    def test_minimal_stringency_has_no_shell_command_hook(self, tmp_path: Path) -> None:
+        """MINIMAL stringency doesn't include beforeShellExecution."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir, CursorHookStringency.MINIMAL)
+        assert result is not None
+        data = json.loads(result.read_text())
+        assert "beforeShellExecution" not in data["hooks"]
+
+
+class TestHookScriptGeneration:
+    """Tests for generate_cursor_hook_scripts()."""
+
+    def test_generates_two_scripts(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        paths = generate_cursor_hook_scripts(cursor_dir)
+        assert len(paths) == 2
+
+    def test_creates_hooks_directory(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        assert not (cursor_dir / "hooks").exists()
+        generate_cursor_hook_scripts(cursor_dir)
+        assert (cursor_dir / "hooks").is_dir()
+
+    def test_scripts_are_executable(self, tmp_path: Path) -> None:
+        import stat
+
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_hook_scripts(cursor_dir)
+        hooks_dir = cursor_dir / "hooks"
+        for script in hooks_dir.iterdir():
+            mode = script.stat().st_mode
+            assert mode & stat.S_IXUSR, f"{script.name} must be executable"
+
+    def test_scripts_have_shebang(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_hook_scripts(cursor_dir)
+        hooks_dir = cursor_dir / "hooks"
+        for script in hooks_dir.iterdir():
+            content = script.read_text()
+            assert content.startswith("#!/"), f"{script.name} must have shebang"
+
+    def test_shell_guard_has_deny_patterns(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_hook_scripts(cursor_dir)
+        content = (cursor_dir / "hooks" / "mirdan-shell-guard.sh").read_text()
+        assert "rm" in content
+        assert "DROP" in content
+        assert "force" in content
+        assert "reset --hard" in content
+
+    def test_stop_gate_checks_git_changes(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_hook_scripts(cursor_dir)
+        content = (cursor_dir / "hooks" / "mirdan-stop-gate.sh").read_text()
+        assert "git diff" in content
+
+    def test_idempotent_does_not_overwrite(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        first = generate_cursor_hook_scripts(cursor_dir)
+        assert len(first) == 2
+
+        target = cursor_dir / "hooks" / "mirdan-shell-guard.sh"
+        target.write_text("#!/bin/bash\n# custom")
+
+        second = generate_cursor_hook_scripts(cursor_dir)
+        assert second == []
+        assert "custom" in target.read_text()
+
+    def test_expected_script_names(self, tmp_path: Path) -> None:
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_hook_scripts(cursor_dir)
+        hooks_dir = cursor_dir / "hooks"
+        names = {p.name for p in hooks_dir.iterdir()}
+        assert names == {"mirdan-shell-guard.sh", "mirdan-stop-gate.sh"}

@@ -69,10 +69,11 @@ def generate_cursor_hooks(
     cursor_dir: Path,
     stringency: CursorHookStringency = CursorHookStringency.COMPREHENSIVE,
 ) -> Path | None:
-    """Generate .cursor/hooks.json with prompt-type hooks.
+    """Generate .cursor/hooks.json with prompt-type and command-type hooks.
 
-    Produces Cursor 1.7+ hooks.json with prompt hooks that invoke
-    mirdan MCP tools for quality enforcement.
+    Produces Cursor 1.7+ hooks.json with:
+    - Prompt hooks for context-dependent quality enforcement (LLM-evaluated)
+    - Command hooks for fast, deterministic checks (shell scripts)
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
@@ -88,6 +89,9 @@ def generate_cursor_hooks(
     if hooks_path.exists():
         return None
 
+    # Generate command-type hook scripts first
+    generate_cursor_hook_scripts(cursor_dir)
+
     events = CURSOR_STRINGENCY_EVENTS[stringency]
     hooks: dict[str, list[dict[str, str | int]]] = {}
 
@@ -96,12 +100,56 @@ def generate_cursor_hooks(
         if generator:
             hooks[event] = generator()
 
+    # Append command-type hooks for events that benefit from fast checks
+    _append_command_hooks(hooks, events, cursor_dir)
+
     config = {"version": 1, "hooks": hooks}
 
     with hooks_path.open("w") as f:
         json.dump(config, f, indent=2)
 
     return hooks_path
+
+
+def _append_command_hooks(
+    hooks: dict[str, list[dict[str, str | int]]],
+    events: list[str],
+    cursor_dir: Path,
+) -> None:
+    """Append command-type hooks to events that benefit from fast checks.
+
+    Adds deterministic shell-script hooks alongside existing prompt hooks.
+    Command hooks fire first (faster), providing a first line of defense.
+
+    Args:
+        hooks: Existing hooks dict to mutate.
+        events: Active events for this stringency level.
+        cursor_dir: The .cursor/ directory (for script paths).
+    """
+    shell_guard = cursor_dir / "hooks" / "mirdan-shell-guard.sh"
+    stop_gate = cursor_dir / "hooks" / "mirdan-stop-gate.sh"
+
+    if "beforeShellExecution" in events and shell_guard.exists():
+        hooks.setdefault("beforeShellExecution", []).insert(
+            0,
+            {
+                "type": "command",
+                "command": ".cursor/hooks/mirdan-shell-guard.sh",
+                "timeout": 5,
+                "failClosed": True,
+            },
+        )
+
+    if "stop" in events and stop_gate.exists():
+        hooks.setdefault("stop", []).insert(
+            0,
+            {
+                "type": "command",
+                "command": ".cursor/hooks/mirdan-stop-gate.sh",
+                "timeout": 15,
+                "loop_limit": 3,
+            },
+        )
 
 
 def _hook_after_file_edit() -> list[dict[str, str | int]]:
@@ -340,6 +388,108 @@ def _hook_after_agent_response() -> list[dict[str, str | int]]:
             ),
         }
     ]
+
+
+# ---------------------------------------------------------------------------
+# Command-Type Hook Scripts (.cursor/hooks/*.sh)
+# ---------------------------------------------------------------------------
+
+_SHELL_GUARD_SCRIPT = """\
+#!/usr/bin/env bash
+# mirdan shell guard — block destructive commands before execution.
+# Reads JSON from stdin (Cursor hooks protocol), checks the command
+# field against a deny-list of dangerous patterns.
+#
+# Exit 0 = allow, Exit 2 = block.
+set -euo pipefail
+
+INPUT=$(cat)
+CMD_EXTRACT='import sys,json; print(json.load(sys.stdin).get("command",""))'
+COMMAND=$(echo "$INPUT" | python3 -c "$CMD_EXTRACT" 2>/dev/null || echo "")
+
+# Deny patterns: truly destructive operations only.
+# Standard git workflow (commit, push <branch>, pull, fetch) is allowed.
+if echo "$COMMAND" | grep -qE 'rm\\s+-rf\\s+/[^.]'; then
+    echo '{"permission":"deny","user_message":"Blocked by mirdan: rm -rf on root path"}'
+    exit 2
+fi
+
+if echo "$COMMAND" | grep -qiE 'DROP\\s+(TABLE|DATABASE|SCHEMA)'; then
+    echo '{"permission":"deny","user_message":"Blocked by mirdan: destructive SQL detected"}'
+    exit 2
+fi
+
+if echo "$COMMAND" | grep -qE 'git\\s+push\\s+--force\\s+(origin\\s+)?(main|master)'; then
+    echo '{"permission":"deny","user_message":"Blocked by mirdan: force push to main/master"}'
+    exit 2
+fi
+
+if echo "$COMMAND" | grep -qE 'git\\s+reset\\s+--hard'; then
+    MSG='Blocked by mirdan: git reset --hard (use --soft or stash)'
+    echo "{\\"permission\\":\\"deny\\",\\"user_message\\":\\"$MSG\\"}"
+    exit 2
+fi
+
+echo '{"permission":"allow"}'
+exit 0
+"""
+
+_STOP_GATE_SCRIPT = """\
+#!/usr/bin/env bash
+# mirdan stop gate — remind about quality validation at task completion.
+# Reads JSON from stdin (Cursor hooks protocol). If there are uncommitted
+# changes, outputs a followup_message suggesting /mirdan-gate.
+#
+# Always exits 0 (advisory, never blocks).
+set -euo pipefail
+
+# Check for uncommitted changes
+CHANGED=$(git diff --name-only 2>/dev/null | head -20 || echo "")
+STAGED=$(git diff --cached --name-only 2>/dev/null | head -20 || echo "")
+ALL_CHANGED=$(echo -e "${CHANGED}\\n${STAGED}" | sort -u | sed '/^$/d')
+
+if [ -z "$ALL_CHANGED" ]; then
+    exit 0
+fi
+
+COUNT=$(echo "$ALL_CHANGED" | wc -l | tr -d ' ')
+MSG="Quality gate: ${COUNT} file(s) changed. Run /mirdan-gate."
+echo "{\\"followup_message\\":\\"$MSG\\"}"
+exit 0
+"""
+
+
+def generate_cursor_hook_scripts(cursor_dir: Path) -> list[Path]:
+    """Generate .cursor/hooks/*.sh command-type hook scripts.
+
+    Creates executable shell scripts for fast, deterministic hook checks.
+    These complement the prompt-type hooks with zero LLM overhead.
+
+    Existing scripts are preserved — this function is idempotent per file.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+
+    Returns:
+        List of newly created script file paths.
+    """
+    hooks_dir = cursor_dir / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+
+    scripts = {
+        "mirdan-shell-guard.sh": _SHELL_GUARD_SCRIPT,
+        "mirdan-stop-gate.sh": _STOP_GATE_SCRIPT,
+    }
+
+    created: list[Path] = []
+    for filename, content in scripts.items():
+        dest = hooks_dir / filename
+        if not dest.exists():
+            dest.write_text(content)
+            dest.chmod(0o755)
+            created.append(dest)
+
+    return created
 
 
 _CURSOR_HOOK_GENERATORS: dict[str, Callable[[], list[dict[str, str | int]]]] = {
@@ -1157,6 +1307,639 @@ def generate_cursor_commands(cursor_dir: Path) -> list[Path]:
     return created
 
 
+# ---------------------------------------------------------------------------
+# Cursor Subagents Generation (.cursor/agents/*.md)
+# ---------------------------------------------------------------------------
+
+_SUBAGENT_QUALITY_VALIDATOR = """\
+---
+name: mirdan-quality-validator
+description: >-
+  Validate code quality against mirdan standards.
+  Use after writing or editing code files to check for AI slop,
+  security issues, and style violations.
+model: fast
+readonly: true
+background: true
+---
+
+# mirdan Quality Validator
+
+Validate recently changed code files against mirdan quality standards.
+
+## Instructions
+
+1. Identify recently changed or created files using semantic search or
+   file search.
+
+2. Read each file to understand its purpose and context.
+
+3. Call `mcp__mirdan__validate_code_quality` for each file with:
+   - `check_security=true`
+   - `check_architecture=true`
+   - `check_style=true`
+   - `severity_threshold="info"`
+
+4. Aggregate findings across all files.
+
+5. Report results as a markdown summary:
+   - Total files checked
+   - Overall quality score
+   - Errors (must fix) with file path, line number, and rule ID
+   - Warnings (should fix) with file path, line number, and rule ID
+"""
+
+_SUBAGENT_SECURITY_SCANNER = """\
+---
+name: mirdan-security-scanner
+description: >-
+  Scan files for security vulnerabilities including injection, hardcoded
+  secrets, and path traversal. Use when editing files that handle
+  authentication, user input, database queries, or file I/O.
+model: inherit
+readonly: true
+background: false
+---
+
+# mirdan Security Scanner
+
+Proactively scan security-sensitive files using mirdan validation.
+
+## Trigger Patterns
+
+Activate for files matching: `**/auth*`, `**/*login*`, `**/*password*`,
+`**/api/**`, `**/middleware/**`, `**/*token*`, `**/*session*`, `**/*crypto*`,
+or files containing SQL queries, eval/exec calls, or subprocess usage.
+
+## Instructions
+
+1. Use file search to identify files matching security patterns.
+
+2. Read each file completely.
+
+3. Call `mcp__mirdan__validate_code_quality` for each file with:
+   - `check_security=true`
+   - `severity_threshold="warning"`
+
+4. For each violation, note:
+   - Rule ID (SEC001-SEC014, AI007, AI008)
+   - Exact line number
+   - Fix recommendation
+
+5. Report: files scanned, critical findings count, warnings count,
+   and violations listed by rule ID with line numbers and recommendations.
+"""
+
+_SUBAGENT_TEST_AUDITOR = """\
+---
+name: mirdan-test-auditor
+description: >-
+  Audit test files for meaningful coverage and correctness.
+  Use when reviewing or creating test files.
+model: inherit
+readonly: true
+background: false
+---
+
+# mirdan Test Auditor
+
+Audit test quality for meaningful coverage and correctness.
+
+## Focus Areas
+
+- Meaningful assertions (not just "no error" or `assert True`)
+- Test isolation (no interdependencies or shared mutable state)
+- Edge cases (boundary conditions, error paths)
+- Fixture quality (minimal, focused)
+- Naming (test names describe behavior)
+
+## Instructions
+
+1. Use file search to find test files (`**/test_*.py`, `**/*.test.ts`,
+   `**/*.spec.ts`).
+
+2. Read each test file.
+
+3. Call `mcp__mirdan__validate_code_quality` for each file with:
+   - `severity_threshold="info"`
+
+4. Additionally check for:
+   - Tests with no assertions
+   - Tests that only assert `True` or check no exception
+   - Tests coupled to implementation details
+   - Missing error path coverage
+   - External service dependencies without mocking
+   - Overly broad exception handling in tests
+
+5. Report: test files audited, quality issues with file and test name,
+   missing coverage areas, and overall test quality score.
+"""
+
+_SUBAGENT_SLOP_DETECTOR = """\
+---
+name: mirdan-slop-detector
+description: >-
+  Detect AI-generated code quality issues: placeholder code, hallucinated
+  imports, invented APIs, dead code, and copy-paste artifacts.
+  Use proactively on any AI-generated or recently edited code.
+model: fast
+readonly: true
+background: true
+---
+
+# mirdan AI Slop Detector
+
+Detect AI-generated code quality issues proactively.
+
+## AI Quality Rules
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| AI001 | error | Placeholder code — `NotImplementedError`, bare `pass`, `TODO` |
+| AI002 | error | Hallucinated imports — imports that don't resolve |
+| AI003 | warning | Invented APIs — function calls with wrong signatures |
+| AI004 | warning | Dead code — unused functions, variables, imports |
+| AI005 | info | Copy-paste artifacts — duplicate code blocks |
+| AI006 | warning | Inconsistent naming — doesn't match codebase conventions |
+| AI007 | error | Unvalidated input — missing validation at boundaries |
+| AI008 | error | String injection — f-strings in SQL/eval/exec/shell |
+
+## Instructions
+
+1. Identify recently modified code files.
+
+2. Read each file.
+
+3. Call `mcp__mirdan__validate_code_quality` for each file with:
+   - `check_security=true`
+   - `severity_threshold="info"`
+
+4. Additionally check for:
+   - Excessive try/except blocks swallowing errors
+   - Unnecessary abstractions for one-time operations
+   - Over-engineered solutions beyond what was requested
+
+5. Report: files checked, AI-specific issues by rule ID with line numbers,
+   errors (must fix), warnings (should fix), and observations.
+"""
+
+_SUBAGENT_ARCHITECTURE_REVIEWER = """\
+---
+name: mirdan-architecture-reviewer
+description: >-
+  Review code architecture for structural quality issues including
+  function length, file length, nesting depth, god classes, and SOLID
+  violations. Use for large refactors or new module creation.
+model: inherit
+readonly: true
+background: false
+---
+
+# mirdan Architecture Reviewer
+
+Review code architecture for structural quality issues.
+
+## Focus Areas
+
+- Function length exceeding 30 lines (ARCH001)
+- File length exceeding 300 non-empty lines (ARCH002)
+- Nesting depth deeper than 4 levels (ARCH004)
+- God classes with more than 10 methods (ARCH005)
+- SOLID violations: single responsibility, interface segregation
+- Cross-file patterns: consistent error handling, naming, imports
+
+## Instructions
+
+1. Identify recently changed or created files.
+
+2. Read each file completely.
+
+3. Call `mcp__mirdan__validate_code_quality` for each file with:
+   - `check_architecture=true`
+   - `severity_threshold="warning"`
+
+4. Analyze cross-file patterns:
+   - Are naming conventions consistent across files?
+   - Is error handling consistent?
+   - Are import patterns consistent?
+
+5. Report: files analyzed, structural issues with line numbers,
+   architecture violations, cross-file observations, and
+   refactoring recommendations.
+"""
+
+_CURSOR_SUBAGENTS: dict[str, str] = {
+    "mirdan-quality-validator.md": _SUBAGENT_QUALITY_VALIDATOR,
+    "mirdan-security-scanner.md": _SUBAGENT_SECURITY_SCANNER,
+    "mirdan-test-auditor.md": _SUBAGENT_TEST_AUDITOR,
+    "mirdan-slop-detector.md": _SUBAGENT_SLOP_DETECTOR,
+    "mirdan-architecture-reviewer.md": _SUBAGENT_ARCHITECTURE_REVIEWER,
+}
+
+
+def generate_cursor_subagents(cursor_dir: Path) -> list[Path]:
+    """Generate .cursor/agents/*.md files for Cursor subagent definitions.
+
+    Creates markdown files with YAML frontmatter for each mirdan quality
+    subagent. These are automatically invoked by Cursor's agent based on
+    the description field, or explicitly via /subagent-name.
+
+    Existing files are preserved — this function is idempotent per file.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+
+    Returns:
+        List of newly created subagent file paths (excludes pre-existing files).
+    """
+    agents_dir = cursor_dir / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+
+    created: list[Path] = []
+    for filename, content in _CURSOR_SUBAGENTS.items():
+        dest = agents_dir / filename
+        if not dest.exists():
+            dest.write_text(content)
+            created.append(dest)
+
+    return created
+
+
+# ---------------------------------------------------------------------------
+# Cursor Skills Generation (.cursor/skills/*/SKILL.md)
+# ---------------------------------------------------------------------------
+
+_SKILL_CODE = """\
+---
+name: mirdan-code
+description: >-
+  Quality-orchestrated coding workflow. Use when implementing features,
+  fixing bugs, or writing new code. Automatically validates code quality
+  via mirdan MCP tools.
+disable-model-invocation: false
+---
+
+# mirdan Code — Quality-Orchestrated Coding
+
+Execute coding tasks with automatic quality enforcement via mirdan.
+
+## When to Use
+
+- Implementing new features
+- Fixing bugs
+- Writing new modules or functions
+- Any code creation or modification task
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the task description to get:
+   - Quality requirements for this specific task
+   - Security sensitivity detection (`touches_security`)
+   - Framework-specific guidance
+
+2. Use `@Docs [library-name]` to look up current API documentation for
+   any libraries involved in this task.
+
+3. Follow the `quality_requirements` from enhance_prompt as constraints
+   during implementation.
+
+4. After writing code, call `mcp__mirdan__validate_code_quality` on
+   changed files. Set `check_security=true` if `touches_security` was
+   flagged.
+
+5. Fix all errors before marking complete. Note warnings for review.
+"""
+
+_SKILL_DEBUG = """\
+---
+name: mirdan-debug
+description: >-
+  Quality-aware debugging workflow. Use when diagnosing bugs, tracing
+  errors, or investigating unexpected behavior. Validates fixes against
+  mirdan quality standards.
+disable-model-invocation: false
+---
+
+# mirdan Debug — Quality-Aware Debugging
+
+Debug issues with mirdan quality analysis to prevent introducing new problems.
+
+## When to Use
+
+- Diagnosing bugs or unexpected behavior
+- Tracing error paths
+- Investigating test failures
+- Performance issues
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the bug description to get
+   context and detect frameworks.
+
+2. Use `@Docs [library-name]` to verify correct API behavior — many
+   bugs are incorrect assumptions about library APIs.
+
+3. Read relevant code and trace the actual error path before forming
+   hypotheses.
+
+4. Apply the minimal fix targeting the root cause, not just symptoms.
+
+5. Call `mcp__mirdan__validate_code_quality` on modified files to
+   confirm the fix does not introduce new violations.
+"""
+
+_SKILL_REVIEW = """\
+---
+name: mirdan-review
+description: >-
+  Code review with mirdan quality standards enforcement. Use when
+  reviewing PRs, code changes, or preparing code for review.
+disable-model-invocation: false
+---
+
+# mirdan Review — Code Review with Quality Standards
+
+Review code against mirdan quality standards.
+
+## When to Use
+
+- Reviewing pull requests
+- Preparing code for review
+- Auditing existing code quality
+- Post-implementation quality check
+
+## Workflow
+
+1. Call `mcp__mirdan__get_quality_standards` for the language/framework
+   to establish review criteria.
+
+2. Read each changed file. Check for:
+   - AI quality rules: AI001 (placeholders), AI002 (hallucinated imports),
+     AI007 (security theater), AI008 (injection vulnerabilities)
+   - Security rules: SEC001-SEC014
+   - Architecture rules: ARCH001-ARCH005
+
+3. Call `mcp__mirdan__validate_code_quality` with `check_security=true`
+   on security-sensitive files.
+
+4. Report findings grouped by severity: errors (must fix), warnings
+   (should fix).
+"""
+
+_SKILL_PLAN = """\
+---
+name: mirdan-plan
+description: >-
+  Quality-gated implementation planning. Use when creating implementation
+  plans, architecture designs, or task breakdowns.
+disable-model-invocation: false
+---
+
+# mirdan Plan — Quality-Gated Implementation Planning
+
+Create implementation plans with anti-hallucination standards.
+
+## When to Use
+
+- Creating implementation plans
+- Architecture design sessions
+- Task breakdown and estimation
+- Migration or refactor planning
+
+## Workflow
+
+1. Call `mcp__mirdan__enhance_prompt` with the planning task to detect
+   frameworks and quality requirements.
+
+2. Use `@Docs [library-name]` to look up current API documentation for
+   each library involved — never plan around assumed APIs.
+
+3. Read all files that will be modified before writing plan steps. Cite
+   exact line numbers and function names.
+
+4. Each plan step must include:
+   - Exact file path (verified to exist)
+   - Specific action with details
+   - Verification method
+   - Grounding (which tool confirmed the facts)
+
+5. No vague language: "should", "probably", "maybe" are not allowed in
+   plan steps.
+"""
+
+_SKILL_QUALITY = """\
+---
+name: mirdan-quality
+description: >-
+  On-demand code quality validation. Use to validate specific files or
+  recent changes against mirdan quality standards.
+disable-model-invocation: true
+---
+
+# mirdan Quality — On-Demand Quality Validation
+
+Run mirdan quality validation on demand.
+
+## When to Use
+
+Invoke explicitly with `/mirdan-quality` when you want to:
+- Validate specific files
+- Check quality of staged changes
+- Get a quality score for recent work
+
+## Workflow
+
+1. Identify files to validate — changed files, staged files, or
+   specific path.
+
+2. Call `mcp__mirdan__validate_code_quality` on each file:
+   - Use `check_security=true` for auth, input handling, database, or
+     API code
+   - Use `severity_threshold="info"` for comprehensive results
+
+3. Call `mcp__mirdan__get_quality_trends` to check session-wide quality
+   trends.
+
+4. Report findings:
+   - Errors (must fix before completing)
+   - Warnings (should fix, note if deferring)
+   - Overall quality score
+"""
+
+_SKILL_SCAN = """\
+---
+name: mirdan-scan
+description: >-
+  Convention and pattern scanner. Use to scan codebase for coding
+  conventions, violations, and AI quality issues.
+disable-model-invocation: true
+---
+
+# mirdan Scan — Convention Scanner
+
+Scan the codebase for quality violations and convention patterns.
+
+## When to Use
+
+Invoke explicitly with `/mirdan-scan` when you want to:
+- Discover codebase conventions
+- Find pattern violations
+- Audit AI code quality across the project
+
+## Workflow
+
+1. Identify files to scan — all source files, or scope by argument
+   (path or language).
+
+2. Call `mcp__mirdan__scan_conventions` to discover patterns and
+   violations.
+
+3. Call `mcp__mirdan__get_quality_standards` for the project language
+   to verify findings against defined rules.
+
+4. Report:
+   - Violations by rule ID and count
+   - New patterns discovered
+   - Conventions that diverge from standards
+
+5. If new high-confidence conventions are discovered, store them for
+   future reference.
+"""
+
+_SKILL_GATE = """\
+---
+name: mirdan-gate
+description: >-
+  Quality gate check before commit or task completion. Use to validate
+  all changed files pass mirdan quality standards.
+disable-model-invocation: true
+---
+
+# mirdan Gate — Quality Gate
+
+Run the full quality gate before committing or completing a task.
+
+## When to Use
+
+Invoke explicitly with `/mirdan-gate` when you want to:
+- Validate all changes before committing
+- Run a final quality check before marking a task complete
+- Ensure security-critical files meet the 0.8 threshold
+
+## Workflow
+
+1. Find all changed files: uncommitted changes and staged files.
+
+2. Call `mcp__mirdan__validate_code_quality` on each changed file.
+   Use `check_security=true` for any file touching auth, input, SQL,
+   or APIs.
+
+3. Check that every file passes with quality score >= 0.7.
+   Security-critical files require score >= 0.8.
+
+4. Fix all errors. For warnings, note rule IDs and justification if
+   deferring.
+
+5. Re-validate after fixes to confirm PASS status.
+
+6. Only mark the task complete after all files pass the quality gate.
+"""
+
+_CURSOR_SKILLS: dict[str, str] = {
+    "mirdan-code": _SKILL_CODE,
+    "mirdan-debug": _SKILL_DEBUG,
+    "mirdan-review": _SKILL_REVIEW,
+    "mirdan-plan": _SKILL_PLAN,
+    "mirdan-quality": _SKILL_QUALITY,
+    "mirdan-scan": _SKILL_SCAN,
+    "mirdan-gate": _SKILL_GATE,
+}
+
+
+def generate_cursor_skills(cursor_dir: Path) -> list[Path]:
+    """Generate .cursor/skills/*/SKILL.md files for Cursor skill definitions.
+
+    Creates skill directories with SKILL.md manifests following the Agent
+    Skills Standard (agentskills.io). Each skill provides a structured
+    workflow for a mirdan quality task.
+
+    Existing SKILL.md files are preserved — this function is idempotent.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+
+    Returns:
+        List of newly created SKILL.md file paths (excludes pre-existing).
+    """
+    skills_dir = cursor_dir / "skills"
+    skills_dir.mkdir(parents=True, exist_ok=True)
+
+    created: list[Path] = []
+    for skill_name, content in _CURSOR_SKILLS.items():
+        skill_dir = skills_dir / skill_name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        dest = skill_dir / "SKILL.md"
+        if not dest.exists():
+            dest.write_text(content)
+            created.append(dest)
+
+    return created
+
+
+# ---------------------------------------------------------------------------
+# Cursor Environment Config Generation (.cursor/environment.json)
+# ---------------------------------------------------------------------------
+
+
+def generate_cursor_environment(
+    cursor_dir: Path,
+    detected: DetectedProject,
+) -> Path | None:
+    """Generate .cursor/environment.json for Cursor Cloud Agent environments.
+
+    Creates a minimal environment configuration ensuring mirdan is available
+    in cloud agent environments. Skips if environment.json already exists.
+
+    Args:
+        cursor_dir: The .cursor/ directory to write into.
+        detected: Detected project metadata.
+
+    Returns:
+        Path to the generated file, or None if already exists.
+    """
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+    env_path = cursor_dir / "environment.json"
+
+    if env_path.exists():
+        return None
+
+    # Detect install command based on project tooling
+    install_cmd = "pip install mirdan"
+    if detected.primary_language == "python":
+        # Check for uv/poetry indicators
+        project_dir = cursor_dir.parent
+        if (project_dir / "uv.lock").exists() or (project_dir / ".python-version").exists():
+            install_cmd = "uv pip install mirdan"
+
+    config = {
+        "name": "mirdan-quality",
+        "install": install_cmd,
+        "terminals": [
+            {
+                "name": "mirdan",
+                "command": "mirdan --version",
+                "description": "Verify mirdan code quality tools are available",
+            }
+        ],
+    }
+
+    with env_path.open("w") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+
+    return env_path
+
+
 def _load_templates() -> dict[str, str]:
     """Load .mdc templates from the package templates directory."""
     templates: dict[str, str] = {}
@@ -1269,6 +2052,21 @@ class CursorAdapter:
         cursor_dir = self.project_dir / ".cursor"
         return generate_cursor_commands(cursor_dir)
 
+    def generate_subagents(self) -> list[Path]:
+        """Generate .cursor/agents/*.md subagent definitions."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_subagents(cursor_dir)
+
+    def generate_skills(self) -> list[Path]:
+        """Generate .cursor/skills/*/SKILL.md skill definitions."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_skills(cursor_dir)
+
+    def generate_environment(self) -> Path | None:
+        """Generate .cursor/environment.json for cloud agents."""
+        cursor_dir = self.project_dir / ".cursor"
+        return generate_cursor_environment(cursor_dir, self.detected)
+
     def generate_all(self) -> list[Path]:
         """Call all generators, return all created paths."""
         paths: list[Path] = []
@@ -1276,6 +2074,11 @@ class CursorAdapter:
         paths.extend(self.generate_rules())
         paths.extend(self.generate_agents())
         paths.extend(self.generate_commands())
+        paths.extend(self.generate_subagents())
+        paths.extend(self.generate_skills())
+        env = self.generate_environment()
+        if env:
+            paths.append(env)
         mcp = self.generate_mcp_config()
         if mcp:
             paths.append(mcp)
