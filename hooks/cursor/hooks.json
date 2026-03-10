@@ -11,13 +11,7 @@
       {
         "type": "prompt",
         "matcher": "Write|Edit",
-        "prompt": "Before writing/editing files, consider: security implications (SQL injection, command injection, hardcoded secrets), quality requirements from the current task context. If this edit touches auth/security code, be especially careful."
-      }
-    ],
-    "postToolUse": [
-      {
-        "type": "prompt",
-        "prompt": "A tool was just used. If code was written or edited, call mcp__mirdan__validate_code_quality on the changed code. Fix any errors immediately."
+        "prompt": "Before writing/editing files, keep the current task's quality requirements in mind. For files that handle authentication, user input, or database queries, apply extra care."
       }
     ],
     "postToolUseFailure": [
@@ -29,8 +23,8 @@
     "stop": [
       {
         "type": "prompt",
-        "loop_limit": 3,
-        "prompt": "Before completing this task, verify: 1) All changed files were validated with mcp__mirdan__validate_code_quality. 2) No unresolved errors remain. 3) Security-sensitive code was reviewed. If any files weren't validated, call validate_code_quality now."
+        "loop_limit": 2,
+        "prompt": "If code was written or edited during this task, verify that mcp__mirdan__validate_code_quality was called on all changed files and no unresolved errors remain. If validation was not run on changed code, call it now. If no code was changed, this check passes automatically."
       }
     ],
     "sessionStart": [
@@ -39,16 +33,10 @@
         "prompt": "mirdan quality context is active. For coding tasks: 1) Call mcp__mirdan__enhance_prompt for quality requirements. 2) After writing code, call mcp__mirdan__validate_code_quality. 3) Fix all errors before marking complete."
       }
     ],
-    "sessionEnd": [
+    "beforeShellExecution": [
       {
         "type": "prompt",
-        "prompt": "Session ending. Verify all changed files were validated with mcp__mirdan__validate_code_quality and no unresolved errors remain."
-      }
-    ],
-    "beforeSubmitPrompt": [
-      {
-        "type": "prompt",
-        "prompt": "mirdan quality standards are active. Verify files exist before referencing them. Use @Docs for external APIs. Quality validation runs automatically after file edits."
+        "prompt": "A shell command is about to execute. Allow all standard development commands (git, npm, pip, make, cargo, uv, pytest, etc.) without blocking. Only flag commands that contain hardcoded secrets or credentials visible in the command string."
       }
     ],
     "subagentStart": [
@@ -57,46 +45,10 @@
         "prompt": "You are a subagent. mirdan quality standards are active. Validate any code with mcp__mirdan__validate_code_quality before returning results."
       }
     ],
-    "subagentStop": [
-      {
-        "type": "prompt",
-        "prompt": "Review the subagent's output. If code was written, ensure it was validated with mcp__mirdan__validate_code_quality."
-      }
-    ],
-    "beforeShellExecution": [
-      {
-        "type": "prompt",
-        "prompt": "A shell command is about to execute. Check for: 1) Command injection risks (unsanitized input in shell commands). 2) Truly destructive operations (rm -rf, git reset --hard, git push --force to main/master). 3) Hardcoded secrets in commands. Standard git workflow operations (git commit, git push origin <branch>, git pull, git fetch, git merge) are safe and should proceed without additional confirmation."
-      }
-    ],
-    "afterShellExecution": [
-      {
-        "type": "prompt",
-        "prompt": "A shell command completed. Review the output for errors or warnings that might affect code quality."
-      }
-    ],
-    "beforeMCPExecution": [
-      {
-        "type": "prompt",
-        "prompt": "An MCP tool is about to be called. If calling mirdan tools, ensure correct parameters are set (check_security, language, session_id)."
-      }
-    ],
-    "afterMCPExecution": [
-      {
-        "type": "prompt",
-        "prompt": "An MCP tool call completed. If mirdan validation returned errors, fix them before continuing."
-      }
-    ],
     "preCompact": [
       {
         "type": "prompt",
         "prompt": "Context is being compacted. Preserve mirdan quality state: session_id, task_type, language, security sensitivity, last validation score, and open violations. Restore by calling enhance_prompt after compaction."
-      }
-    ],
-    "afterAgentResponse": [
-      {
-        "type": "prompt",
-        "prompt": "Agent response generated. If code was included, ensure it was validated with mcp__mirdan__validate_code_quality before presenting."
       }
     ]
   }

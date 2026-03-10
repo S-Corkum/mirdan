@@ -40,16 +40,15 @@ class TestCursorHookStringency:
         assert "stop" in events
 
     def test_stringency_events_comprehensive(self) -> None:
-        """COMPREHENSIVE should have 16 events."""
+        """COMPREHENSIVE should have 8 events (reduced from 16 to cut low-value hooks)."""
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.COMPREHENSIVE]
-        assert len(events) == 16
+        assert len(events) == 8
         assert "afterFileEdit" in events
         assert "preToolUse" in events
-        assert "postToolUse" in events
         assert "postToolUseFailure" in events
         assert "stop" in events
         assert "sessionStart" in events
-        assert "beforeSubmitPrompt" in events
+        assert "beforeShellExecution" in events
         assert "subagentStart" in events
         assert "preCompact" in events
 
@@ -73,13 +72,13 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         assert data["version"] == 1
 
-    def test_comprehensive_has_sixteen_events(self, tmp_path: Path) -> None:
-        """COMPREHENSIVE should produce 16 hook events."""
+    def test_comprehensive_has_eight_events(self, tmp_path: Path) -> None:
+        """COMPREHENSIVE should produce 8 hook events (reduced to cut low-value hooks)."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE)
         assert result is not None
         data = json.loads(result.read_text())
-        assert len(data["hooks"]) == 16
+        assert len(data["hooks"]) == 8
 
     def test_standard_has_five_events(self, tmp_path: Path) -> None:
         """STANDARD should produce 5 hook events."""
@@ -116,17 +115,15 @@ class TestGenerateCursorHooks:
         prompt = hooks[0]["prompt"]
         assert "validate_code_quality" in prompt
 
-    def test_before_submit_prompt_does_not_mention_enhance_prompt(
+    def test_comprehensive_does_not_include_before_submit_prompt(
         self, tmp_path: Path
     ) -> None:
-        """beforeSubmitPrompt should NOT suggest calling enhance_prompt."""
+        """beforeSubmitPrompt was removed from COMPREHENSIVE to avoid false positives."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
-        hooks = data["hooks"]["beforeSubmitPrompt"]
-        prompt = hooks[0]["prompt"]
-        assert "enhance_prompt" not in prompt
+        assert "beforeSubmitPrompt" not in data["hooks"]
 
     def test_all_hooks_have_valid_type(self, tmp_path: Path) -> None:
         """All hooks should use type: prompt or type: command."""
@@ -169,8 +166,8 @@ class TestGenerateCursorHooks:
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
-        # COMPREHENSIVE has 16 events
-        assert len(data["hooks"]) == 16
+        # COMPREHENSIVE has 8 events (reduced from 16)
+        assert len(data["hooks"]) == 8
 
     def test_pre_tool_use_has_matcher(self, tmp_path: Path) -> None:
         """preToolUse hook should have matcher field."""

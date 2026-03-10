@@ -42,20 +42,12 @@ CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
     CursorHookStringency.COMPREHENSIVE: [
         "afterFileEdit",
         "preToolUse",
-        "postToolUse",
         "postToolUseFailure",
         "stop",
         "sessionStart",
-        "sessionEnd",
-        "beforeSubmitPrompt",
-        "subagentStart",
-        "subagentStop",
         "beforeShellExecution",
-        "afterShellExecution",
-        "beforeMCPExecution",
-        "afterMCPExecution",
+        "subagentStart",
         "preCompact",
-        "afterAgentResponse",
     ],
 }
 
@@ -187,30 +179,34 @@ def _hook_stop() -> list[dict[str, str | int]]:
     return [
         {
             "type": "prompt",
-            "loop_limit": 3,
+            "loop_limit": 2,
             "prompt": (
-                "Before completing this task, verify:"
-                " 1) All changed files were validated with"
-                " mcp__mirdan__validate_code_quality."
-                " 2) No unresolved errors remain."
-                " 3) Security-sensitive code was reviewed."
-                " If any files weren't validated, call"
-                " validate_code_quality now."
+                "If code was written or edited during this task,"
+                " verify that mcp__mirdan__validate_code_quality was"
+                " called on all changed files and no unresolved errors"
+                " remain. If validation was not run on changed code,"
+                " call it now. If no code was changed, this check"
+                " passes automatically."
             ),
         }
     ]
 
 
 def _hook_before_submit_prompt() -> list[dict[str, str | int]]:
-    """beforeSubmitPrompt: Lightweight quality reminder (no blocking MCP calls)."""
+    """beforeSubmitPrompt: Lightweight quality reminder (no blocking MCP calls).
+
+    IMPORTANT: This hook's prompt must NOT instruct the evaluator to verify
+    file existence or check attachments — the fast eval model cannot access
+    the filesystem and will fail with false positives when attachments are
+    present in the hook input data.
+    """
     return [
         {
             "type": "prompt",
             "prompt": (
-                "mirdan quality standards are active. Verify files"
-                " exist before referencing them. Use @Docs for"
+                "mirdan quality standards are active. Use @Docs for"
                 " external APIs. Quality validation runs automatically"
-                " after file edits."
+                " after file edits. Always allow the prompt to proceed."
             ),
         }
     ]
@@ -307,19 +303,23 @@ def _hook_subagent_stop() -> list[dict[str, str | int]]:
 
 
 def _hook_before_shell_execution() -> list[dict[str, str | int]]:
-    """beforeShellExecution: Security check before shell commands."""
+    """beforeShellExecution: Security check before shell commands.
+
+    NOTE: The deterministic command hook (mirdan-shell-guard.sh) handles
+    blocking truly dangerous patterns (rm -rf /, DROP TABLE, force-push
+    to main/master, git reset --hard). This prompt hook is kept minimal
+    to avoid the fast eval model being overly cautious about safe
+    operations like ``git commit``, ``git push origin <branch>``, etc.
+    """
     return [
         {
             "type": "prompt",
             "prompt": (
-                "A shell command is about to execute. Check for:"
-                " 1) Command injection risks (unsanitized input in shell commands)."
-                " 2) Truly destructive operations (rm -rf, git reset --hard,"
-                " git push --force to main/master)."
-                " 3) Hardcoded secrets in commands."
-                " Standard git workflow operations (git commit, git push origin <branch>,"
-                " git pull, git fetch, git merge) are safe and should proceed"
-                " without additional confirmation."
+                "A shell command is about to execute."
+                " Allow all standard development commands (git, npm, pip,"
+                " make, cargo, uv, pytest, etc.) without blocking."
+                " Only flag commands that contain hardcoded secrets or"
+                " credentials visible in the command string."
             ),
         }
     ]
