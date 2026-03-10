@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -57,15 +56,16 @@ class TestRunExport:
         mock_json.assert_called_once()
 
     @patch("mirdan.cli.export_command._export_json")
-    def test_default_format_is_json(self, mock_json: MagicMock) -> None:
+    def test_default_format_is_json(self, mock_json: MagicMock, tmp_path: Path) -> None:
         # Pass a dummy arg to avoid help branch
-        run_export(["--output", "/tmp/out.json"])
+        run_export(["--output", str(tmp_path / "out.json")])
         mock_json.assert_called_once()
 
     @patch("mirdan.cli.export_command._export_sarif")
-    def test_output_path_passed(self, mock_sarif: MagicMock) -> None:
-        run_export(["--format", "sarif", "--output", "/tmp/out.sarif"])
-        mock_sarif.assert_called_once_with(Path("/tmp/out.sarif"))
+    def test_output_path_passed(self, mock_sarif: MagicMock, tmp_path: Path) -> None:
+        out_path = tmp_path / "out.sarif"
+        run_export(["--format", "sarif", "--output", str(out_path)])
+        mock_sarif.assert_called_once_with(out_path)
 
     def test_help_mid_args(self, capsys: pytest.CaptureFixture[str]) -> None:
         run_export(["--format", "json", "--help"])

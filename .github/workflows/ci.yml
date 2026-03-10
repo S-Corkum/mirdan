@@ -114,7 +114,10 @@ jobs:
         run: uv pip install pip-audit
 
       - name: Run dependency audit
-        run: uv run pip-audit
+        # CVE-2025-69872: diskcache pickle deserialization (no fix available).
+        # Transitive dep via fastmcp 2.x -> py-key-value-aio[disk].
+        # Fixed in fastmcp 3.0.0; remove --ignore-vuln after upgrading.
+        run: uv run pip-audit --ignore-vuln CVE-2025-69872
 
   build:
     name: Build
