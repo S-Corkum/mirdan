@@ -167,17 +167,16 @@ def _hook_after_file_edit() -> list[dict[str, str | int]]:
 
 
 def _hook_pre_tool_use() -> list[dict[str, str | int]]:
-    """preToolUse: Security-aware reminder before Write/Edit."""
+    """preToolUse: Lightweight quality reminder before Write/Edit."""
     return [
         {
             "type": "prompt",
             "matcher": "Write|Edit",
             "prompt": (
-                "Before writing/editing files, consider: security"
-                " implications (SQL injection, command injection, hardcoded"
-                " secrets), quality requirements from the current task"
-                " context. If this edit touches auth/security code, be"
-                " especially careful."
+                "Before writing/editing files, keep the current task's"
+                " quality requirements in mind. For files that handle"
+                " authentication, user input, or database queries, apply"
+                " extra care."
             ),
         }
     ]
@@ -217,14 +216,19 @@ def _hook_before_submit_prompt() -> list[dict[str, str | int]]:
 
 
 def _hook_post_tool_use() -> list[dict[str, str | int]]:
-    """postToolUse: Validate after tool execution."""
+    """postToolUse: Review non-edit tool results.
+
+    Note: file-edit validation is handled by afterFileEdit to avoid
+    duplicate mirdan calls.  This hook covers shell commands, MCP
+    calls, and other non-edit tool outcomes.
+    """
     return [
         {
             "type": "prompt",
             "prompt": (
-                "A tool was just used. If code was written or edited,"
-                " call mcp__mirdan__validate_code_quality on the changed"
-                " code. Fix any errors immediately."
+                "A tool just completed. If the output indicates errors"
+                " or warnings, review them before continuing. File-edit"
+                " quality checks are handled separately."
             ),
         }
     ]
@@ -1483,7 +1487,7 @@ _SUBAGENT_SECURITY_SCANNER = """\
 name: mirdan-security-scanner
 description: >-
   Scan files for security vulnerabilities including injection, hardcoded
-  secrets, and path traversal. Use when editing files that handle
+  secrets, and path traversal. Use to review files that handle
   authentication, user input, database queries, or file I/O.
 model: inherit
 readonly: true
@@ -1530,7 +1534,7 @@ _SUBAGENT_TEST_AUDITOR = """\
 name: mirdan-test-auditor
 description: >-
   Audit test files for meaningful coverage and correctness.
-  Use when reviewing or creating test files.
+  Use when reviewing existing test files, not for creating new ones.
 model: inherit
 readonly: true
 background: false
@@ -1635,7 +1639,7 @@ name: mirdan-architecture-reviewer
 description: >-
   Review code architecture for structural quality issues including
   function length, file length, nesting depth, god classes, and SOLID
-  violations. Use for large refactors or new module creation.
+  violations. Use to review architecture after refactors or new modules.
 model: inherit
 readonly: true
 background: false
