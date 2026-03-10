@@ -196,3 +196,71 @@ class TestCursorAdapter:
         adapter = CursorAdapter(tmp_path, detected)
         assert adapter.detected.primary_language == "typescript"
         assert adapter.detected.project_name == "my-app"
+
+
+class TestCursorMcpJsonSequentialThinking:
+    """Tests for sequential-thinking MCP in generated mcp.json."""
+
+    def test_fresh_config_includes_sequential_thinking(self, tmp_path: Path) -> None:
+        """Fresh mcp.json should include sequential-thinking server."""
+        import json
+
+        from mirdan.integrations.cursor import generate_cursor_mcp_json
+
+        cursor_dir = tmp_path / ".cursor"
+        generate_cursor_mcp_json(cursor_dir)
+        data = json.loads((cursor_dir / "mcp.json").read_text())
+        assert "sequential-thinking" in data["mcpServers"]
+        st_config = data["mcpServers"]["sequential-thinking"]
+        assert st_config["command"] == "npx"
+        assert "@modelcontextprotocol/server-sequential-thinking" in st_config["args"]
+
+    def test_merge_preserves_existing_sequential_thinking(
+        self, tmp_path: Path
+    ) -> None:
+        """Merge should NOT overwrite user's existing sequential-thinking config."""
+        import json
+
+        from mirdan.integrations.cursor import generate_cursor_mcp_json
+
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir(parents=True)
+        existing = {
+            "mcpServers": {
+                "sequential-thinking": {
+                    "type": "stdio",
+                    "command": "node",
+                    "args": ["/custom/path/server.js"],
+                }
+            }
+        }
+        (cursor_dir / "mcp.json").write_text(json.dumps(existing))
+
+        generate_cursor_mcp_json(cursor_dir)
+        data = json.loads((cursor_dir / "mcp.json").read_text())
+        # User's custom config should be preserved
+        assert data["mcpServers"]["sequential-thinking"]["command"] == "node"
+        assert "/custom/path/server.js" in data["mcpServers"]["sequential-thinking"]["args"]
+        # mirdan should still be added
+        assert "mirdan" in data["mcpServers"]
+
+    def test_merge_adds_sequential_thinking_to_existing(self, tmp_path: Path) -> None:
+        """Merge should add sequential-thinking when user has other MCPs but not ST."""
+        import json
+
+        from mirdan.integrations.cursor import generate_cursor_mcp_json
+
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir(parents=True)
+        existing = {
+            "mcpServers": {
+                "some-other-mcp": {"type": "stdio", "command": "other"}
+            }
+        }
+        (cursor_dir / "mcp.json").write_text(json.dumps(existing))
+
+        generate_cursor_mcp_json(cursor_dir)
+        data = json.loads((cursor_dir / "mcp.json").read_text())
+        assert "sequential-thinking" in data["mcpServers"]
+        assert "some-other-mcp" in data["mcpServers"]
+        assert "mirdan" in data["mcpServers"]

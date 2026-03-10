@@ -1,28 +1,38 @@
 ---
-description: "mirdan planning standards — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
+description: "mirdan planning enhancement — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
 alwaysApply: false
 ---
 
-# mirdan Planning Standards
+# mirdan Planning Enhancement
 
-When creating implementation plans, enforce anti-hallucination standards.
+Enhance Cursor's native plan mode with structured thinking and verified facts.
+Do NOT override Cursor's plan format — improve the plan's quality and accuracy.
 
-## Documentation Lookup
-Use `@Docs [library-name]` to look up current API documentation before writing plan steps.
-Accurate API knowledge prevents phantom method calls in plan steps.
+## Deep Analysis (Before Planning)
+Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
+generating plan steps. Think through:
+- Full scope: what needs to change and why
+- Phases: logical grouping and ordering of changes
+- Dependencies: which changes depend on others
+- Completeness: imports, tests, config, types — nothing missing
+- Risks: edge cases, breaking changes, security implications
 
-## MCP Entry Point
-Call `mcp__mirdan__enhance_prompt` with the plan description at task start to generate
-quality requirements, detect security sensitivity, and surface tool recommendations.
+Start with `totalThoughts: 8` and adjust as complexity demands. For simple
+tasks use fewer; for architectural changes use 10-15.
 
-## Plan Quality Requirements
-- Every step must reference verified files (read them first)
-- Include exact line numbers and function names
-- No vague language ("should", "probably", "maybe")
-- Each step must be atomic (single action)
-- Every step must have a verification method
+## Grounding (Before Each Step)
+- Read every file the plan will modify — verify it exists, note structure
+- Use `@Docs [library-name]` for any external API the plan references
+- No step should reference a file, function, or API without verification
 
-## Plan Mode Integration
-When working in Cursor Plan Mode, a task list is generated before execution.
-Each task should map to exactly one step. Mermaid diagrams are supported
-for visualizing dependencies between steps.
+## Quality Constraints
+- No vague language ("should", "probably", "maybe") — these signal unverified facts
+- Every file path verified to exist (or explicitly marked as new)
+- Atomic steps — one action per step
+- Include test, import, and config steps when applicable
+
+## During Build Execution
+When executing plan steps after Build is clicked:
+- Execute each step directly
+- Do NOT call enhance_prompt or sequential-thinking during execution
+- `mcp__mirdan__validate_code_quality` runs automatically via afterFileEdit

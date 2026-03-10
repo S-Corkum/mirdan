@@ -48,7 +48,7 @@
     "beforeSubmitPrompt": [
       {
         "type": "prompt",
-        "prompt": "Before processing this request, consider calling mcp__mirdan__enhance_prompt to understand quality requirements and get framework-specific guidance."
+        "prompt": "mirdan quality standards are active. Verify files exist before referencing them. Use @Docs for external APIs. Quality validation runs automatically after file edits."
       }
     ],
     "subagentStart": [

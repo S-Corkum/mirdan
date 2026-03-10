@@ -202,14 +202,15 @@ def _hook_stop() -> list[dict[str, str | int]]:
 
 
 def _hook_before_submit_prompt() -> list[dict[str, str | int]]:
-    """beforeSubmitPrompt: Inject quality context."""
+    """beforeSubmitPrompt: Lightweight quality reminder (no blocking MCP calls)."""
     return [
         {
             "type": "prompt",
             "prompt": (
-                "Before processing this request, consider calling"
-                " mcp__mirdan__enhance_prompt to understand quality"
-                " requirements and get framework-specific guidance."
+                "mirdan quality standards are active. Verify files"
+                " exist before referencing them. Use @Docs for"
+                " external APIs. Quality validation runs automatically"
+                " after file edits."
             ),
         }
     ]
@@ -753,37 +754,47 @@ alwaysApply: true
 
 
 def _build_planning_mdc() -> str:
-    """Build the planning .mdc rule — description-based, activates in Plan Mode."""
+    """Build the planning .mdc rule — enhances Cursor's native Plan Mode."""
     return """---
 description: >-
-  mirdan planning standards — activate when creating implementation plans,
+  mirdan planning enhancement — activate when creating implementation plans,
   task breakdowns, or roadmaps in Plan Mode
 alwaysApply: false
 ---
 
-# mirdan Planning Standards
+# mirdan Planning Enhancement
 
-When creating implementation plans, enforce anti-hallucination standards.
+Enhance Cursor's native plan mode with structured thinking and verified facts.
+Do NOT override Cursor's plan format — improve the plan's quality and accuracy.
 
-## Documentation Lookup
-Use `@Docs [library-name]` to look up current API documentation before writing plan steps.
-Accurate API knowledge prevents phantom method calls in plan steps.
+## Deep Analysis (Before Planning)
+Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
+generating plan steps. Think through:
+- Full scope: what needs to change and why
+- Phases: logical grouping and ordering of changes
+- Dependencies: which changes depend on others
+- Completeness: imports, tests, config, types — nothing missing
+- Risks: edge cases, breaking changes, security implications
 
-## MCP Entry Point
-Call `mcp__mirdan__enhance_prompt` with the plan description at task start to generate
-quality requirements, detect security sensitivity, and surface tool recommendations.
+Start with `totalThoughts: 8` and adjust as complexity demands. For simple
+tasks use fewer; for architectural changes use 10-15.
 
-## Plan Quality Requirements
-- Every step must reference verified files (read them first)
-- Include exact line numbers and function names
-- No vague language ("should", "probably", "maybe")
-- Each step must be atomic (single action)
-- Every step must have a verification method
+## Grounding (Before Each Step)
+- Read every file the plan will modify — verify it exists, note structure
+- Use `@Docs [library-name]` for any external API the plan references
+- No step should reference a file, function, or API without verification
 
-## Plan Mode Integration
-When working in Cursor Plan Mode, a task list is generated before execution.
-Each task should map to exactly one step. Mermaid diagrams are supported
-for visualizing dependencies between steps.
+## Quality Constraints
+- No vague language ("should", "probably", "maybe") — these signal unverified facts
+- Every file path verified to exist (or explicitly marked as new)
+- Atomic steps — one action per step
+- Include test, import, and config steps when applicable
+
+## During Build Execution
+When executing plan steps after Build is clicked:
+- Execute each step directly
+- Do NOT call enhance_prompt or sequential-thinking during execution
+- `mcp__mirdan__validate_code_quality` runs automatically via afterFileEdit
 """
 
 
@@ -1254,28 +1265,31 @@ Review code against mirdan quality standards.
 """
 
 _COMMAND_PLAN = """\
-# /plan — Quality-Gated Implementation Planning
+# /plan — Enhanced Implementation Planning
 
-Create implementation plans with anti-hallucination standards.
+Create plans enhanced with structured analysis and grounded facts.
 
 ## Workflow
 
-1. Call `mcp__mirdan__enhance_prompt` with the planning task to detect frameworks
-   and quality requirements.
+1. **Analyze** — Use `mcp__sequential-thinking__sequentialthinking` to think
+   through the task deeply before generating steps. Cover scope, phases,
+   dependencies, edge cases, and completeness. Start with `totalThoughts: 8`,
+   adjust as needed.
 
-2. Use `@Docs [library-name]` to look up current API documentation for each
-   library involved — never plan around assumed APIs.
+2. **Ground** — Read all files that will be modified — verify they exist, note
+   current structure and relevant line numbers. Use `@Docs [library-name]`
+   for every external API involved — never plan around assumed APIs.
 
-3. Read all files that will be modified before writing plan steps. Cite exact
-   line numbers and function names.
+3. **Plan** — Output a clear task list using Cursor's native plan format. Use
+   file paths in backticks for clickable links. Each step: one atomic action.
 
-4. Each plan step must include:
-   - Exact file path (verified to exist)
-   - Specific action with details
-   - Verification method
-   - Grounding (which tool confirmed the facts)
+4. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
+   paths only. Include tests, imports, and config changes.
 
-5. No vague language: "should", "probably", "maybe" are not allowed in steps.
+## During Build Execution
+
+Execute each step directly. Skip enhance_prompt and sequential-thinking.
+Quality validation runs automatically after each file edit.
 """
 
 _COMMAND_QUALITY = """\
@@ -2207,7 +2221,12 @@ def generate_cursor_mcp_json(cursor_dir: Path) -> Path:
                 "command": command,
                 "args": args,
                 "env": {"MIRDAN_TOOL_BUDGET": "3"},
-            }
+            },
+            "sequential-thinking": {
+                "type": "stdio",
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+            },
         }
     }
 
@@ -2217,6 +2236,11 @@ def generate_cursor_mcp_json(cursor_dir: Path) -> Path:
             existing = json.loads(mcp_json_path.read_text())
             if "mcpServers" in existing:
                 existing["mcpServers"]["mirdan"] = config["mcpServers"]["mirdan"]
+                # Only add sequential-thinking if not already configured
+                if "sequential-thinking" not in existing["mcpServers"]:
+                    existing["mcpServers"]["sequential-thinking"] = config[
+                        "mcpServers"
+                    ]["sequential-thinking"]
                 config = existing
         except (json.JSONDecodeError, KeyError):
             pass

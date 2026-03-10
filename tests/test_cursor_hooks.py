@@ -116,6 +116,18 @@ class TestGenerateCursorHooks:
         prompt = hooks[0]["prompt"]
         assert "validate_code_quality" in prompt
 
+    def test_before_submit_prompt_does_not_mention_enhance_prompt(
+        self, tmp_path: Path
+    ) -> None:
+        """beforeSubmitPrompt should NOT suggest calling enhance_prompt."""
+        cursor_dir = tmp_path / ".cursor"
+        result = generate_cursor_hooks(cursor_dir)
+        assert result is not None
+        data = json.loads(result.read_text())
+        hooks = data["hooks"]["beforeSubmitPrompt"]
+        prompt = hooks[0]["prompt"]
+        assert "enhance_prompt" not in prompt
+
     def test_all_hooks_have_valid_type(self, tmp_path: Path) -> None:
         """All hooks should use type: prompt or type: command."""
         cursor_dir = tmp_path / ".cursor"
