@@ -3,7 +3,7 @@ name: debug
 description: "Mirdan-assisted debugging with quality validation"
 argument-hint: "Describe the bug or error"
 model: inherit
-allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__enyal__enyal_recall, mcp__enyal__enyal_remember, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__sequential-thinking__sequentialthinking, mcp__enyal__enyal_recall, mcp__enyal__enyal_remember, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # /debug — Quality-Aware Debugging
@@ -25,15 +25,17 @@ Recent changes:
 
 2. **Check Known Issues** — Call `mcp__enyal__enyal_recall` with the bug description to check if a similar issue was previously solved
 
-3. **Investigate** — Read relevant code, trace the issue through the codebase
+3. **Hypothesize** — Use `mcp__sequential-thinking__sequentialthinking` to form structured hypotheses about root cause before investigating code
 
-4. **Fix** — Apply the fix following quality requirements from enhance_prompt
+4. **Investigate** — Read relevant code, trace the issue through the codebase
 
-5. **Validate** — Call `mcp__mirdan__validate_code_quality` on the modified code
+5. **Fix** — Apply the fix following quality requirements from enhance_prompt
+
+6. **Validate** — Call `mcp__mirdan__validate_code_quality` on the modified code
    - Set `check_security=true` if touches_security was flagged
    - Ensure the fix doesn't introduce new violations
 
-6. **Verify** — Confirm:
+7. **Verify** — Confirm:
    - Root cause addressed (not just symptoms)
    - No new validation errors introduced
    - Regression test coverage considered

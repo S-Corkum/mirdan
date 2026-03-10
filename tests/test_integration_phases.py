@@ -587,6 +587,22 @@ class TestOrchestratorPlanning:
         assert "enyal" in mcp_names
         assert "filesystem" not in mcp_names
 
+    def test_planning_suggestions_include_sequential_thinking(self) -> None:
+        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.models import Intent, TaskType
+
+        orchestrator = MCPOrchestrator()
+        intent = Intent(
+            original_prompt="plan a new auth system",
+            task_type=TaskType.PLANNING,
+            primary_language="python",
+        )
+        recs = orchestrator.suggest_tools_for_planning(intent)
+        mcp_names = [r.mcp for r in recs]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in recs if r.mcp == "sequential-thinking")
+        assert rec.priority == "critical"
+
     def test_get_available_mcp_info(self) -> None:
         from mirdan.core.orchestrator import MCPOrchestrator
 

@@ -3,6 +3,19 @@
 
 {{ role_section(language, frameworks, task_type='planning') }}
 
+## Deep Analysis (Before Planning)
+
+Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
+generating plan steps. Think through:
+- Full scope: what needs to change and why
+- Phases: logical grouping and ordering of changes
+- Dependencies: which changes depend on others
+- Completeness: imports, tests, config, types — nothing missing
+- Risks: edge cases, breaking changes, security implications
+
+Start with `totalThoughts: 8` and adjust as complexity demands. For simple
+tasks use fewer; for architectural changes use 10-15.
+
 ## MANDATORY: Pre-Planning Research Phase
 
 Before writing ANY plan steps, you MUST complete ALL of the following:

@@ -223,6 +223,80 @@ class TestMCPPreferences:
         assert non_preferred == sorted(non_preferred)
 
 
+class TestSequentialThinkingRecommendations:
+    """Tests for sequential-thinking routing logic."""
+
+    def test_sequential_thinking_for_debug(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend sequential-thinking for DEBUG tasks."""
+        intent = Intent(original_prompt="fix the crash", task_type=TaskType.DEBUG)
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking"]
+        )
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "high"
+
+    def test_sequential_thinking_for_refactor(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend sequential-thinking for REFACTOR tasks."""
+        intent = Intent(original_prompt="refactor auth module", task_type=TaskType.REFACTOR)
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking"]
+        )
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "medium"
+
+    def test_sequential_thinking_for_security_sensitive(
+        self, orchestrator: MCPOrchestrator
+    ) -> None:
+        """Should recommend sequential-thinking for security-sensitive GENERATION tasks."""
+        intent = Intent(
+            original_prompt="add auth endpoint",
+            task_type=TaskType.GENERATION,
+            touches_security=True,
+        )
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking"]
+        )
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "high"
+
+    def test_no_sequential_thinking_for_simple_generation(
+        self, orchestrator: MCPOrchestrator
+    ) -> None:
+        """Should NOT recommend sequential-thinking for simple GENERATION tasks."""
+        intent = Intent(original_prompt="add a button", task_type=TaskType.GENERATION)
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking"]
+        )
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" not in mcp_names
+
+    def test_no_sequential_thinking_when_unavailable(
+        self, orchestrator: MCPOrchestrator
+    ) -> None:
+        """Should NOT recommend sequential-thinking when not in available_mcps."""
+        intent = Intent(original_prompt="fix the crash", task_type=TaskType.DEBUG)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal", "github"])
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" not in mcp_names
+
+    def test_sequential_thinking_for_planning(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend sequential-thinking with critical priority for PLANNING tasks."""
+        intent = Intent(original_prompt="plan a migration", task_type=TaskType.PLANNING)
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking", "enyal", "filesystem"]
+        )
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "critical"
+
+
 class TestAvailableMCPInfo:
     """Tests for get_available_mcp_info method."""
 
@@ -234,8 +308,11 @@ class TestAvailableMCPInfo:
         assert "test_key" not in info2
 
     def test_contains_all_known_mcps(self, orchestrator: MCPOrchestrator) -> None:
-        """Should contain all 5 known MCPs."""
+        """Should contain all 6 known MCPs."""
         info = orchestrator.get_available_mcp_info()
-        expected_mcps = ["context7", "filesystem", "desktop-commander", "github", "enyal"]
+        expected_mcps = [
+            "context7", "filesystem", "desktop-commander",
+            "github", "enyal", "sequential-thinking",
+        ]
         for mcp in expected_mcps:
             assert mcp in info

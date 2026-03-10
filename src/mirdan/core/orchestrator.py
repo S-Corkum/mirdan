@@ -34,6 +34,9 @@ class MCPOrchestrator:
         "enyal": {
             "capabilities": ["project_context", "decisions", "conventions"],
         },
+        "sequential-thinking": {
+            "capabilities": ["deep_analysis", "structured_reasoning", "planning", "debugging"],
+        },
     }
 
     def suggest_tools(
@@ -94,6 +97,45 @@ class MCPOrchestrator:
                     )
                 )
             # else: prior validation passed — skip generic recall (already effective)
+
+        # Deep analysis for complex tasks
+        if "sequential-thinking" in available_mcps:
+            if intent.task_type == TaskType.DEBUG:
+                recommendations.append(
+                    ToolRecommendation(
+                        mcp="sequential-thinking",
+                        action=(
+                            "Form structured hypotheses about root cause, "
+                            "then plan systematic verification for each"
+                        ),
+                        priority="high",
+                        reason="Structured reasoning prevents unfocused investigation",
+                    )
+                )
+            elif intent.task_type == TaskType.REFACTOR:
+                recommendations.append(
+                    ToolRecommendation(
+                        mcp="sequential-thinking",
+                        action=(
+                            "Analyze refactoring scope: all callers, dependencies, "
+                            "and potential regressions before making changes"
+                        ),
+                        priority="medium",
+                        reason="Refactoring has cascading effects that benefit from upfront analysis",
+                    )
+                )
+            elif intent.touches_security:
+                recommendations.append(
+                    ToolRecommendation(
+                        mcp="sequential-thinking",
+                        action=(
+                            "Analyze security implications: threat model, "
+                            "attack surface, and defense-in-depth strategy"
+                        ),
+                        priority="high",
+                        reason="Security-sensitive code requires thorough threat analysis",
+                    )
+                )
 
         # Codebase analysis needs
         if intent.task_type in [TaskType.GENERATION, TaskType.REFACTOR]:
@@ -195,6 +237,22 @@ class MCPOrchestrator:
 
         if available_mcps is None:
             available_mcps = list(self.KNOWN_MCPS.keys())
+
+        # MANDATORY: Deep analysis FIRST
+        if "sequential-thinking" in available_mcps:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Analyze the task deeply before writing plan steps. "
+                        "Think through: scope, phases, dependencies, completeness, "
+                        "and risks. Start with totalThoughts: 8, adjust to 10-15 "
+                        "for architectural tasks"
+                    ),
+                    priority="critical",
+                    reason="Plans require structured analysis of scope and dependencies BEFORE writing steps",
+                )
+            )
 
         # MANDATORY: enyal for conventions FIRST (critical priority)
         if "enyal" in available_mcps:
