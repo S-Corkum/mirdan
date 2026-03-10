@@ -43,3 +43,10 @@ Code is NOT complete until `mcp__mirdan__validate_code_quality` returns a passin
 - `session_context.persistent` — rules present for N consecutive runs (deeply embedded, prioritize)
 - `recommendation_reminders` — MCPs suggested at enhance_prompt time; confirm they were called
 - `timing_ms` — diagnostic: `validation` is core analysis, `total` includes enrichment and output
+
+## Knowledge Persistence
+
+When `validate_code_quality` returns `knowledge_entries` with `auto_store: true`:
+- Call `enyal_remember` for each entry — tags, scope, and confidence are pre-set
+- For convention entries, use `suggest_supersedes=true` to detect and link entries this supersedes
+- Deduplication and conflict detection are on by default in enyal

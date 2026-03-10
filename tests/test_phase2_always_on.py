@@ -987,8 +987,9 @@ class TestGap3SessionAwareRouting:
             intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=session
         )
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
-        assert len(enyal_recs) == 1
-        assert "conventions" in enyal_recs[0].action.lower()
+        recall_recs = [r for r in enyal_recs if "query" in r.params]
+        assert len(recall_recs) == 1
+        assert "conventions" in recall_recs[0].action.lower()
 
     def test_reuse_with_errors_gives_targeted_enyal(self) -> None:
         from mirdan.core.orchestrator import MCPOrchestrator
@@ -1028,8 +1029,9 @@ class TestGap3SessionAwareRouting:
         intent = Intent(original_prompt="implement feature", task_type=TaskType.GENERATION)
         recs = orc.suggest_tools(intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=None)
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
-        assert len(enyal_recs) == 1
-        assert "conventions" in enyal_recs[0].action.lower()
+        recall_recs = [r for r in enyal_recs if "query" in r.params]
+        assert len(recall_recs) == 1
+        assert "conventions" in recall_recs[0].action.lower()
 
 
 class TestGap5ChecklistPruning:

@@ -17,7 +17,7 @@ class TestPlatformAdapterBase:
         """PlatformAdapter should not be directly instantiable."""
         detected = DetectedProject(primary_language="python")
         with pytest.raises(TypeError):
-            PlatformAdapter(Path("/tmp"), detected)  # type: ignore[abstract]  # noqa: S108
+            PlatformAdapter(Path("/tmp"), detected)  # type: ignore[abstract]
 
     def test_concrete_subclass_works(self, tmp_path: Path) -> None:
         """A concrete subclass implementing all methods should work."""

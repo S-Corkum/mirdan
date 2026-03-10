@@ -226,14 +226,14 @@ class TestScanResultToDict:
 
     def test_to_dict_structure(self) -> None:
         result = ScanResult(
-            directory="/tmp/test",  # noqa: S108
+            directory="/tmp/test",
             language="python",
             files_scanned=10,
             avg_score=0.85,
             pass_rate=0.9,
         )
         d = result.to_dict()
-        assert d["directory"] == "/tmp/test"  # noqa: S108
+        assert d["directory"] == "/tmp/test"
         assert d["language"] == "python"
         assert d["files_scanned"] == 10
         assert d["avg_score"] == 0.85
@@ -243,7 +243,7 @@ class TestScanResultToDict:
 
     def test_to_dict_rounds_floats(self) -> None:
         result = ScanResult(
-            directory="/tmp/test",  # noqa: S108
+            directory="/tmp/test",
             language="python",
             files_scanned=5,
             avg_score=0.8567891,

@@ -78,7 +78,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "E501"]  # Allow assert and long lines in tests
+"tests/**" = ["S101", "S108", "E501"]  # Allow assert, /tmp paths, and long lines in tests
 "src/mirdan/core/gatherers/**" = ["S110"]  # Allow silent exception handling in optional gatherers
 "src/mirdan/core/client_registry.py" = ["ASYNC109"]  # timeout parameter is intentional API design
 "src/mirdan/core/active_orchestrator.py" = ["ASYNC109"]  # timeout parameter is passthrough API design
@@ -91,6 +91,14 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
+[[tool.mypy.overrides]]
+module = [
+    "tree_sitter",
+    "tree_sitter_javascript",
+    "tree_sitter_typescript",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
@@ -100,5 +108,10 @@ fail_under = 85
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=7.0.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-PyYAML>=6.0",
 ]

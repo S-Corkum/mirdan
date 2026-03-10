@@ -32,7 +32,14 @@ class MCPOrchestrator:
             "capabilities": ["repository", "issues", "pull_requests", "commits"],
         },
         "enyal": {
-            "capabilities": ["project_context", "decisions", "conventions"],
+            "capabilities": [
+                "project_context",
+                "decisions",
+                "conventions",
+                "knowledge_graph",
+                "impact_analysis",
+                "knowledge_maintenance",
+            ],
         },
         "sequential-thinking": {
             "capabilities": ["deep_analysis", "structured_reasoning", "planning", "debugging"],
@@ -98,6 +105,50 @@ class MCPOrchestrator:
                 )
             # else: prior validation passed — skip generic recall (already effective)
 
+        # Post-task knowledge persistence (first call only)
+        if "enyal" in available_mcps and not (
+            session and session.validation_count > 0
+        ):
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action=(
+                        "After completing the task, store decisions and patterns "
+                        "via enyal_remember with appropriate tags and scope"
+                    ),
+                    priority="medium",
+                    params={"tool": "enyal_remember", "when": "after_completion"},
+                    reason="Persist insights for future sessions",
+                )
+            )
+
+        # Enyal graph operations for architecture-aware tasks
+        if "enyal" in available_mcps and intent.task_type == TaskType.REFACTOR:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action=(
+                        "Traverse knowledge graph around the refactored area "
+                        "to understand related conventions and dependencies"
+                    ),
+                    priority="high",
+                    params={"tool": "enyal_traverse", "max_depth": 2},
+                    reason="Refactoring may break assumptions stored in the knowledge graph",
+                )
+            )
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action=(
+                        "Check impact of changing existing patterns — "
+                        "find entries that depend on current conventions"
+                    ),
+                    priority="high",
+                    params={"tool": "enyal_impact"},
+                    reason="Understand what depends on patterns being refactored",
+                )
+            )
+
         # Deep analysis for complex tasks
         if "sequential-thinking" in available_mcps:
             if intent.task_type == TaskType.DEBUG:
@@ -121,7 +172,10 @@ class MCPOrchestrator:
                             "and potential regressions before making changes"
                         ),
                         priority="medium",
-                        reason="Refactoring has cascading effects that benefit from upfront analysis",
+                        reason=(
+                            "Refactoring has cascading effects that benefit"
+                            " from upfront analysis"
+                        ),
                     )
                 )
             elif intent.touches_security:
@@ -250,7 +304,10 @@ class MCPOrchestrator:
                         "for architectural tasks"
                     ),
                     priority="critical",
-                    reason="Plans require structured analysis of scope and dependencies BEFORE writing steps",
+                    reason=(
+                        "Plans require structured analysis of scope"
+                        " and dependencies BEFORE writing steps"
+                    ),
                 )
             )
 
@@ -263,6 +320,23 @@ class MCPOrchestrator:
                     priority="critical",
                     params={"query": "conventions patterns decisions architecture"},
                     reason="Plans MUST follow project conventions - verify BEFORE planning",
+                )
+            )
+
+            # Traverse knowledge graph for full architecture context
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action=(
+                        "Traverse knowledge graph around the planned area "
+                        "to discover related decisions and dependencies"
+                    ),
+                    priority="high",
+                    params={"tool": "enyal_traverse", "max_depth": 2},
+                    reason=(
+                        "Plans must account for existing architecture"
+                        " decisions and their dependencies"
+                    ),
                 )
             )
 

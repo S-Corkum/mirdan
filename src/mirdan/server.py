@@ -635,6 +635,12 @@ async def validate_code_quality(
     knowledge_entries = c.knowledge_producer.extract_from_validation(result)
     if knowledge_entries:
         output["knowledge_entries"] = _process_knowledge_entries(knowledge_entries, c)
+        if not c.config.orchestration.auto_memory:
+            output["knowledge_storage_hint"] = (
+                "Store entries marked auto_store=true via enyal_remember. "
+                "For convention entries, use suggest_supersedes=true to detect "
+                "and link superseded decisions. Tags and scope are pre-set."
+            )
 
     # Add verification checklist to output (absorbs get_verification_checklist)
     intent = Intent(

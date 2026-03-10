@@ -4,7 +4,7 @@ import pytest
 
 from mirdan.config import OrchestrationConfig
 from mirdan.core.orchestrator import MCPOrchestrator
-from mirdan.models import Intent, TaskType, ToolRecommendation
+from mirdan.models import Intent, SessionContext, TaskType, ToolRecommendation
 
 
 @pytest.fixture
@@ -295,6 +295,80 @@ class TestSequentialThinkingRecommendations:
         assert "sequential-thinking" in mcp_names
         rec = next(r for r in result if r.mcp == "sequential-thinking")
         assert rec.priority == "critical"
+
+
+class TestEnyalGraphRecommendations:
+    """Tests for enyal graph operation recommendations."""
+
+    def test_enyal_traverse_for_refactor(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend enyal_traverse for REFACTOR tasks."""
+        intent = Intent(original_prompt="refactor auth module", task_type=TaskType.REFACTOR)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal"])
+        traverse_recs = [
+            r for r in result if r.mcp == "enyal" and "traverse" in r.params.get("tool", "")
+        ]
+        assert len(traverse_recs) == 1
+        assert traverse_recs[0].priority == "high"
+
+    def test_enyal_impact_for_refactor(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend enyal_impact for REFACTOR tasks."""
+        intent = Intent(original_prompt="refactor auth module", task_type=TaskType.REFACTOR)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal"])
+        impact_recs = [
+            r for r in result if r.mcp == "enyal" and "enyal_impact" in r.params.get("tool", "")
+        ]
+        assert len(impact_recs) == 1
+        assert impact_recs[0].priority == "high"
+
+    def test_no_enyal_graph_for_generation(self, orchestrator: MCPOrchestrator) -> None:
+        """Should NOT recommend traverse/impact for simple GENERATION tasks."""
+        intent = Intent(original_prompt="add a button", task_type=TaskType.GENERATION)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal"])
+        graph_recs = [
+            r
+            for r in result
+            if r.mcp == "enyal" and r.params.get("tool") in ("enyal_traverse", "enyal_impact")
+        ]
+        assert graph_recs == []
+
+    def test_enyal_remember_on_first_call(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend enyal_remember on first call (no session)."""
+        intent = Intent(original_prompt="add feature", task_type=TaskType.GENERATION)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal"], session=None)
+        remember_recs = [
+            r for r in result if r.mcp == "enyal" and "enyal_remember" in r.params.get("tool", "")
+        ]
+        assert len(remember_recs) == 1
+        assert remember_recs[0].priority == "medium"
+
+    def test_no_enyal_remember_after_validation(self, orchestrator: MCPOrchestrator) -> None:
+        """Should NOT recommend enyal_remember after validation has run."""
+        intent = Intent(original_prompt="fix issue", task_type=TaskType.DEBUG)
+        session = SessionContext(session_id="test", validation_count=1, unresolved_errors=0)
+        result = orchestrator.suggest_tools(intent, available_mcps=["enyal"], session=session)
+        remember_recs = [
+            r for r in result if r.mcp == "enyal" and "enyal_remember" in r.params.get("tool", "")
+        ]
+        assert remember_recs == []
+
+    def test_enyal_traverse_in_planning(self, orchestrator: MCPOrchestrator) -> None:
+        """Should recommend enyal_traverse for PLANNING tasks."""
+        intent = Intent(original_prompt="plan a migration", task_type=TaskType.PLANNING)
+        result = orchestrator.suggest_tools(
+            intent, available_mcps=["sequential-thinking", "enyal", "filesystem"]
+        )
+        traverse_recs = [
+            r for r in result if r.mcp == "enyal" and "traverse" in r.params.get("tool", "")
+        ]
+        assert len(traverse_recs) == 1
+        assert traverse_recs[0].priority == "high"
+
+    def test_no_enyal_graph_when_unavailable(self, orchestrator: MCPOrchestrator) -> None:
+        """Should NOT recommend enyal graph ops when enyal not available."""
+        intent = Intent(original_prompt="refactor module", task_type=TaskType.REFACTOR)
+        result = orchestrator.suggest_tools(intent, available_mcps=["filesystem"])
+        enyal_recs = [r for r in result if r.mcp == "enyal"]
+        assert enyal_recs == []
 
 
 class TestAvailableMCPInfo:

@@ -315,6 +315,29 @@ class TestValidateCodeQualityTool:
 # ---------------------------------------------------------------------------
 
 
+class TestKnowledgeStorageHint:
+    """Tests for knowledge_storage_hint in validate_code_quality."""
+
+    async def test_hint_present_when_knowledge_entries_exist(self) -> None:
+        """Should include knowledge_storage_hint when knowledge_entries are generated."""
+        c = server_mod._get_components()
+        # Code with 3+ same violations triggers KnowledgeProducer pattern extraction
+        code = "try:\n    pass\nexcept:\n    pass\ntry:\n    pass\nexcept:\n    pass\ntry:\n    pass\nexcept:\n    pass\n"
+        result = await _validate_code_quality(code, language="python")
+        if "knowledge_entries" in result:
+            # auto_memory is False by default, so hint should appear
+            assert not c.config.orchestration.auto_memory
+            assert "knowledge_storage_hint" in result
+            assert "enyal_remember" in result["knowledge_storage_hint"]
+
+    async def test_hint_absent_when_no_knowledge_entries(self) -> None:
+        """Should NOT include knowledge_storage_hint when no entries generated."""
+        server_mod._get_components()
+        code = 'def add(a: int, b: int) -> int:\n    """Add two numbers."""\n    return a + b\n'
+        result = await _validate_code_quality(code, language="python")
+        assert "knowledge_storage_hint" not in result
+
+
 class TestToolRegistration:
     """Tests for MCP tool registration."""
 

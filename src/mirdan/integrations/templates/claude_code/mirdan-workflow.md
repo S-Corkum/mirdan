@@ -41,7 +41,20 @@ description: "Mirdan quality workflow guide"
 
 Run `scan_conventions` after establishing code patterns in a project. Discovered conventions
 are persisted to `.mirdan/conventions.yaml` and automatically included in future
-`enhance_prompt` quality requirements — no manual configuration needed.
+`enhance_prompt` quality requirements. Store high-confidence conventions in enyal via
+`enyal_remember` so they're available across sessions with scope-aware retrieval.
+
+## Enyal Knowledge Integration
+
+When enyal is available, mirdan leverages it for persistent quality intelligence:
+
+| Enyal Tool | When to Use | Example |
+|------------|-------------|---------|
+| `enyal_recall` | Before coding — get conventions | `recall("conventions", file_path=current_file)` |
+| `enyal_traverse` | Before refactoring — understand dependencies | `traverse(start_query="auth patterns", max_depth=2)` |
+| `enyal_impact` | Before architecture changes — check what depends on a decision | `impact(query="database convention")` |
+| `enyal_remember` | After task completion — store decisions and patterns | With `suggest_supersedes=true` for evolving conventions |
+| `enyal_status` | Periodically — monitor knowledge health | `status(view="health")` — act if score < 0.7 |
 
 ## Project Context
 - **Language**: {{language}}
