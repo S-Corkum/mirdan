@@ -102,8 +102,7 @@ class AgentCoordinator:
 
             # Register the new claim (avoid duplicate claims from same session)
             already_claimed = any(
-                c.session_id == session_id and c.claim_type == claim_type
-                for c in existing
+                c.session_id == session_id and c.claim_type == claim_type for c in existing
             )
             if not already_claimed:
                 new_claim = FileClaim(
@@ -193,9 +192,7 @@ class AgentCoordinator:
         empty_paths: list[str] = []
         for file_path, claims in self._claims.items():
             before = len(claims)
-            self._claims[file_path] = [
-                c for c in claims if c.session_id in active_session_ids
-            ]
+            self._claims[file_path] = [c for c in claims if c.session_id in active_session_ids]
             removed += before - len(self._claims[file_path])
             if not self._claims[file_path]:
                 empty_paths.append(file_path)

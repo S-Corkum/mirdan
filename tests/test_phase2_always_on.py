@@ -648,40 +648,56 @@ class TestServerSessionTracking:
         assert "auto_fixer" in source
 
     def test_validate_code_quality_records_session(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "record_validation" in source
 
     def test_validate_quick_includes_auto_fixes(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_quick", fromlist=["ValidateQuickUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_quick", fromlist=["ValidateQuickUseCase"])
+        )
         assert "quick_fix" in source
         assert "auto_fixes" in source
 
     def test_enhance_prompt_stores_tool_recommendations(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.enhance_prompt", fromlist=["EnhancePromptUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.enhance_prompt", fromlist=["EnhancePromptUseCase"])
+        )
         assert "tool_recommendations" in source
         assert "session.tool_recommendations" in source
 
     def test_validate_includes_timing_ms(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "timing_ms" in source
         assert "perf_counter" in source
 
     def test_validate_includes_session_context_delta(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "session_context" in source
         assert "get_previous_violations" in source
         assert "get_violation_persistence" in source
 
     def test_validate_includes_recommendation_reminders(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "recommendation_reminders" in source
 
     def test_validate_includes_checklist_note_on_revalidation(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "checklist_note" in source
 
     def test_scan_conventions_persists_yaml(self) -> None:
-        source = inspect.getsource(__import__("mirdan.usecases.scan_conventions", fromlist=["ScanConventionsUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.scan_conventions", fromlist=["ScanConventionsUseCase"])
+        )
         assert "conventions.yaml" in source
         assert "yaml.dump" in source
 
@@ -1449,7 +1465,9 @@ class TestQualityBaseline:
         """Use case adds quality_drift key when score drops > 0.15 below baseline."""
         import inspect
 
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "quality_drift" in source
         assert "get_baseline_score" in source
         assert "0.15" in source
@@ -1623,6 +1641,8 @@ class TestSecurityRegression:
         """Use case adds security_regression key to output when detected."""
         import inspect
 
-        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
+        source = inspect.getsource(
+            __import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"])
+        )
         assert "security_regression" in source
         assert "detect_security_regression" in source

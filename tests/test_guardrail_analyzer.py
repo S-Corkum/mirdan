@@ -66,9 +66,7 @@ class TestMultipleDomainMatch:
 
     def test_payment_and_auth(self) -> None:
         analyzer = GuardrailAnalyzer(GuardrailConfig(max_guardrails=10))
-        results = analyzer.analyze(
-            _make_intent("implement payment auth with billing and login")
-        )
+        results = analyzer.analyze(_make_intent("implement payment auth with billing and login"))
         domains = [r.domain for r in results]
         assert len(domains) >= 2
 

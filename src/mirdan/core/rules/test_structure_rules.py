@@ -64,8 +64,7 @@ class TEST004NoCoverageRule(BaseRule):
                 category="test_quality",
                 severity="warning",
                 message=(
-                    "Tests do not appear to call any functions from "
-                    "the implementation under test."
+                    "Tests do not appear to call any functions from the implementation under test."
                 ),
                 line=1,
                 suggestion="Import and call the functions/classes being tested",
@@ -82,13 +81,10 @@ class TEST004NoCoverageRule(BaseRule):
 
         names: set[str] = set()
         for node in ast.iter_child_nodes(tree):
-            if (
-                isinstance(
-                    node,
-                    (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
-                )
-                and not node.name.startswith("_")
-            ):
+            if isinstance(
+                node,
+                (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+            ) and not node.name.startswith("_"):
                 names.add(node.name)
         return names
 
@@ -167,8 +163,7 @@ class TEST006DuplicateTestRule(BaseRule):
                         ),
                         line=lineno,
                         suggestion=(
-                            "Use @pytest.mark.parametrize or refactor shared "
-                            "setup into fixtures"
+                            "Use @pytest.mark.parametrize or refactor shared setup into fixtures"
                         ),
                     )
                 )
@@ -241,10 +236,7 @@ class TEST007MissingEdgeCaseRule(BaseRule):
                     "to cover edge cases (empty, null, error, boundary)."
                 ),
                 line=1,
-                suggestion=(
-                    "Add tests for empty inputs, None values, error paths, "
-                    "and boundaries"
-                ),
+                suggestion=("Add tests for empty inputs, None values, error paths, and boundaries"),
             )
         ]
 
@@ -252,9 +244,7 @@ class TEST007MissingEdgeCaseRule(BaseRule):
 class TEST008HardcodedDataRule(BaseRule):
     """Detect unexplained magic values in assertions."""
 
-    _RE_ASSERT_MAGIC_NUMBER = re.compile(
-        r"assert\w*\s*[^#\n]*\b(\d{2,})\b"
-    )
+    _RE_ASSERT_MAGIC_NUMBER = re.compile(r"assert\w*\s*[^#\n]*\b(\d{2,})\b")
     _RE_COMMENT = re.compile(r"#.*$", re.MULTILINE)
 
     @property
@@ -303,14 +293,10 @@ class TEST008HardcodedDataRule(BaseRule):
                         rule="unexplained-magic-values",
                         category="test_quality",
                         severity="info",
-                        message=(
-                            f"Assertion contains unexplained numeric literal "
-                            f"'{m.group(1)}'"
-                        ),
+                        message=(f"Assertion contains unexplained numeric literal '{m.group(1)}'"),
                         line=i,
                         suggestion=(
-                            "Add a comment or use a named constant to explain "
-                            "the expected value"
+                            "Add a comment or use a named constant to explain the expected value"
                         ),
                     )
                 )
@@ -358,8 +344,7 @@ class TEST009ExecutionOrderRule(BaseRule):
                             ),
                             line=child.lineno,
                             suggestion=(
-                                "Use fixtures for setup/teardown. "
-                                "Avoid global/nonlocal in tests."
+                                "Use fixtures for setup/teardown. Avoid global/nonlocal in tests."
                             ),
                         )
                     )

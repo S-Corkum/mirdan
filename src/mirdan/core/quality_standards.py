@@ -122,6 +122,7 @@ class QualityStandards:
     def _load_default_standards(self) -> dict[str, Any]:
         """Load built-in quality standards from YAML files."""
         from importlib.resources import files
+
         standards: dict[str, Any] = {}
 
         try:
@@ -324,14 +325,15 @@ class QualityStandards:
                     if isinstance(rule, dict) and "description" in rule
                 )
             # Add compiled TEST rule awareness
-            requirements.extend([
-                "Tests MUST have at least one assertion — "
-                "empty bodies and assert True are errors (TEST001-TEST003)",
-                "Avoid mocking everything — test real behavior, "
-                "mock only external dependencies (TEST005)",
-                "Use specific exception types in "
-                "pytest.raises(), not bare Exception (TEST010)",
-            ])
+            requirements.extend(
+                [
+                    "Tests MUST have at least one assertion — "
+                    "empty bodies and assert True are errors (TEST001-TEST003)",
+                    "Avoid mocking everything — test real behavior, "
+                    "mock only external dependencies (TEST005)",
+                    "Use specific exception types in pytest.raises(), not bare Exception (TEST010)",
+                ]
+            )
 
         # Add testability reminder for new code
         if intent.task_type == TaskType.GENERATION:

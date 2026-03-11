@@ -122,9 +122,7 @@ class TestDeepAnalysisPatterns:
         assert len(state) >= 1
 
     def test_deep_analysis_disabled_skips_new_patterns(self) -> None:
-        analyzer = SemanticAnalyzer(
-            config=SemanticConfig(enabled=True, deep_analysis=False)
-        )
+        analyzer = SemanticAnalyzer(config=SemanticConfig(enabled=True, deep_analysis=False))
         code = 'async def f(): pass\nresult = x / y\nif status == "active": pass'
         checks = analyzer.generate_checks(code, "python", [])
         deep_concerns = {"concurrency", "boundary", "error_propagation", "state_machine"}

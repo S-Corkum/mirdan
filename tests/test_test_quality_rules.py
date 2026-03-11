@@ -36,14 +36,14 @@ def non_test_context() -> RuleContext:
 
 class TestTEST001EmptyTest:
     def test_detects_pass_body(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    pass\n'
+        code = "def test_something():\n    pass\n"
         rule = TEST001EmptyTestRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
         assert violations[0].id == "TEST001"
 
     def test_detects_ellipsis_body(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    ...\n'
+        code = "def test_something():\n    ...\n"
         rule = TEST001EmptyTestRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
@@ -55,13 +55,13 @@ class TestTEST001EmptyTest:
         assert len(violations) == 1
 
     def test_no_trigger_normal_test(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    assert 1 + 1 == 2\n'
+        code = "def test_something():\n    assert 1 + 1 == 2\n"
         rule = TEST001EmptyTestRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
 
     def test_no_trigger_non_test_function(self, test_context: RuleContext) -> None:
-        code = 'def helper():\n    pass\n'
+        code = "def helper():\n    pass\n"
         rule = TEST001EmptyTestRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -69,26 +69,26 @@ class TestTEST001EmptyTest:
 
 class TestTEST002AssertTrue:
     def test_detects_assert_true(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    assert True\n'
+        code = "def test_something():\n    assert True\n"
         rule = TEST002AssertTrueRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
         assert violations[0].id == "TEST002"
 
     def test_detects_assert_one(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    assert 1\n'
+        code = "def test_something():\n    assert 1\n"
         rule = TEST002AssertTrueRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
 
     def test_no_trigger_real_assertion(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    assert result == 42\n'
+        code = "def test_something():\n    assert result == 42\n"
         rule = TEST002AssertTrueRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
 
     def test_no_trigger_multiple_statements(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    x = 1\n    assert True\n'
+        code = "def test_something():\n    x = 1\n    assert True\n"
         rule = TEST002AssertTrueRule()
         violations = rule.check(code, "python", test_context)
         # Not flagged because assert True is not the ONLY statement
@@ -97,30 +97,26 @@ class TestTEST002AssertTrue:
 
 class TestTEST003NoAssertions:
     def test_detects_no_asserts(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    x = 1 + 1\n    print(x)\n'
+        code = "def test_something():\n    x = 1 + 1\n    print(x)\n"
         rule = TEST003NoAssertionsRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
         assert violations[0].id == "TEST003"
 
     def test_no_trigger_with_assert(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    assert 1 + 1 == 2\n'
+        code = "def test_something():\n    assert 1 + 1 == 2\n"
         rule = TEST003NoAssertionsRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
 
     def test_no_trigger_pytest_raises(self, test_context: RuleContext) -> None:
-        code = (
-            'def test_something():\n'
-            '    with pytest.raises(ValueError):\n'
-            '        func()\n'
-        )
+        code = "def test_something():\n    with pytest.raises(ValueError):\n        func()\n"
         rule = TEST003NoAssertionsRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
 
     def test_no_trigger_mock_assert(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    mock.assert_called_once()\n'
+        code = "def test_something():\n    mock.assert_called_once()\n"
         rule = TEST003NoAssertionsRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -128,32 +124,26 @@ class TestTEST003NoAssertions:
 
 class TestTEST004NoCoverage:
     def test_detects_no_implementation_refs(self, test_context: RuleContext) -> None:
-        impl_code = 'def calculate_total(items):\n    return sum(items)\n'
-        test_code = 'def test_something():\n    assert 1 + 1 == 2\n'
-        ctx = RuleContext(
-            skip_regions=[], is_test=True, implementation_code=impl_code
-        )
+        impl_code = "def calculate_total(items):\n    return sum(items)\n"
+        test_code = "def test_something():\n    assert 1 + 1 == 2\n"
+        ctx = RuleContext(skip_regions=[], is_test=True, implementation_code=impl_code)
         rule = TEST004NoCoverageRule()
         violations = rule.check(test_code, "python", ctx)
         assert len(violations) == 1
         assert violations[0].id == "TEST004"
 
     def test_no_trigger_with_ref(self, test_context: RuleContext) -> None:
-        impl_code = 'def calculate_total(items):\n    return sum(items)\n'
+        impl_code = "def calculate_total(items):\n    return sum(items)\n"
         test_code = (
-            'def test_total():\n'
-            '    result = calculate_total([1, 2, 3])\n'
-            '    assert result == 6\n'
+            "def test_total():\n    result = calculate_total([1, 2, 3])\n    assert result == 6\n"
         )
-        ctx = RuleContext(
-            skip_regions=[], is_test=True, implementation_code=impl_code
-        )
+        ctx = RuleContext(skip_regions=[], is_test=True, implementation_code=impl_code)
         rule = TEST004NoCoverageRule()
         violations = rule.check(test_code, "python", ctx)
         assert len(violations) == 0
 
     def test_returns_empty_without_implementation(self, test_context: RuleContext) -> None:
-        test_code = 'def test_something():\n    assert True\n'
+        test_code = "def test_something():\n    assert True\n"
         rule = TEST004NoCoverageRule()
         violations = rule.check(test_code, "python", test_context)
         assert len(violations) == 0
@@ -162,13 +152,13 @@ class TestTEST004NoCoverage:
 class TestTEST005MockAbuse:
     def test_detects_excessive_patches(self, test_context: RuleContext) -> None:
         code = (
-            'from unittest.mock import patch\n'
+            "from unittest.mock import patch\n"
             '@patch("mod.a")\n'
             '@patch("mod.b")\n'
             '@patch("mod.c")\n'
             '@patch("mod.d")\n'
-            'def test_something(mock_d, mock_c, mock_b, mock_a):\n'
-            '    assert True\n'
+            "def test_something(mock_d, mock_c, mock_b, mock_a):\n"
+            "    assert True\n"
         )
         rule = TEST005MockAbuseRule()
         violations = rule.check(code, "python", test_context)
@@ -176,11 +166,7 @@ class TestTEST005MockAbuse:
         assert violations[0].id == "TEST005"
 
     def test_no_trigger_few_patches(self, test_context: RuleContext) -> None:
-        code = (
-            '@patch("mod.a")\n'
-            'def test_something(mock_a):\n'
-            '    assert True\n'
-        )
+        code = '@patch("mod.a")\ndef test_something(mock_a):\n    assert True\n'
         rule = TEST005MockAbuseRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -189,13 +175,13 @@ class TestTEST005MockAbuse:
 class TestTEST006DuplicateTest:
     def test_detects_duplicate_bodies(self, test_context: RuleContext) -> None:
         code = (
-            'def test_first():\n'
-            '    result = func(1)\n'
-            '    assert result == 2\n'
-            '\n'
-            'def test_second():\n'
-            '    result = func(1)\n'
-            '    assert result == 2\n'
+            "def test_first():\n"
+            "    result = func(1)\n"
+            "    assert result == 2\n"
+            "\n"
+            "def test_second():\n"
+            "    result = func(1)\n"
+            "    assert result == 2\n"
         )
         rule = TEST006DuplicateTestRule()
         violations = rule.check(code, "python", test_context)
@@ -204,11 +190,11 @@ class TestTEST006DuplicateTest:
 
     def test_no_trigger_different_bodies(self, test_context: RuleContext) -> None:
         code = (
-            'def test_first():\n'
-            '    assert func(1) == 2\n'
-            '\n'
-            'def test_second():\n'
-            '    assert func(2) == 4\n'
+            "def test_first():\n"
+            "    assert func(1) == 2\n"
+            "\n"
+            "def test_second():\n"
+            "    assert func(2) == 4\n"
         )
         rule = TEST006DuplicateTestRule()
         violations = rule.check(code, "python", test_context)
@@ -218,9 +204,9 @@ class TestTEST006DuplicateTest:
 class TestTEST007MissingEdgeCases:
     def test_detects_no_edge_cases(self, test_context: RuleContext) -> None:
         code = (
-            'def test_create_user():\n    assert True\n\n'
-            'def test_update_user():\n    assert True\n\n'
-            'def test_delete_user():\n    assert True\n'
+            "def test_create_user():\n    assert True\n\n"
+            "def test_update_user():\n    assert True\n\n"
+            "def test_delete_user():\n    assert True\n"
         )
         rule = TEST007MissingEdgeCaseRule()
         violations = rule.check(code, "python", test_context)
@@ -229,16 +215,16 @@ class TestTEST007MissingEdgeCases:
 
     def test_no_trigger_with_edge_case(self, test_context: RuleContext) -> None:
         code = (
-            'def test_create_user():\n    assert True\n\n'
-            'def test_update_user():\n    assert True\n\n'
-            'def test_empty_name():\n    assert True\n'
+            "def test_create_user():\n    assert True\n\n"
+            "def test_update_user():\n    assert True\n\n"
+            "def test_empty_name():\n    assert True\n"
         )
         rule = TEST007MissingEdgeCaseRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
 
     def test_no_trigger_few_tests(self, test_context: RuleContext) -> None:
-        code = 'def test_create_user():\n    assert True\n'
+        code = "def test_create_user():\n    assert True\n"
         rule = TEST007MissingEdgeCaseRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -246,7 +232,7 @@ class TestTEST007MissingEdgeCases:
 
 class TestTEST008HardcodedData:
     def test_detects_magic_number(self, test_context: RuleContext) -> None:
-        code = 'def test_total():\n    assert calculate_total([1, 2]) == 42\n'
+        code = "def test_total():\n    assert calculate_total([1, 2]) == 42\n"
         rule = TEST008HardcodedDataRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
@@ -254,9 +240,9 @@ class TestTEST008HardcodedData:
 
     def test_no_trigger_with_comment(self, test_context: RuleContext) -> None:
         code = (
-            'def test_total():\n'
-            '    # 42 is the expected sum\n'
-            '    assert calculate_total([1, 2]) == 42\n'
+            "def test_total():\n"
+            "    # 42 is the expected sum\n"
+            "    assert calculate_total([1, 2]) == 42\n"
         )
         rule = TEST008HardcodedDataRule()
         violations = rule.check(code, "python", test_context)
@@ -266,11 +252,11 @@ class TestTEST008HardcodedData:
 class TestTEST009ExecutionOrder:
     def test_detects_global_statement(self, test_context: RuleContext) -> None:
         code = (
-            'counter = 0\n'
-            'def test_increment():\n'
-            '    global counter\n'
-            '    counter += 1\n'
-            '    assert counter == 1\n'
+            "counter = 0\n"
+            "def test_increment():\n"
+            "    global counter\n"
+            "    counter += 1\n"
+            "    assert counter == 1\n"
         )
         rule = TEST009ExecutionOrderRule()
         violations = rule.check(code, "python", test_context)
@@ -278,7 +264,7 @@ class TestTEST009ExecutionOrder:
         assert violations[0].id == "TEST009"
 
     def test_no_trigger_normal_test(self, test_context: RuleContext) -> None:
-        code = 'def test_something():\n    x = 1\n    assert x == 1\n'
+        code = "def test_something():\n    x = 1\n    assert x == 1\n"
         rule = TEST009ExecutionOrderRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -286,22 +272,14 @@ class TestTEST009ExecutionOrder:
 
 class TestTEST010BroadException:
     def test_detects_pytest_raises_exception(self, test_context: RuleContext) -> None:
-        code = (
-            'def test_raises():\n'
-            '    with pytest.raises(Exception):\n'
-            '        func()\n'
-        )
+        code = "def test_raises():\n    with pytest.raises(Exception):\n        func()\n"
         rule = TEST010BroadExceptionRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 1
         assert violations[0].id == "TEST010"
 
     def test_no_trigger_specific_exception(self, test_context: RuleContext) -> None:
-        code = (
-            'def test_raises():\n'
-            '    with pytest.raises(ValueError):\n'
-            '        func()\n'
-        )
+        code = "def test_raises():\n    with pytest.raises(ValueError):\n        func()\n"
         rule = TEST010BroadExceptionRule()
         violations = rule.check(code, "python", test_context)
         assert len(violations) == 0
@@ -325,10 +303,8 @@ class TestNonTestCodeSkipped:
             TEST010BroadExceptionRule,
         ],
     )
-    def test_skips_non_test_code(
-        self, rule_cls: type, non_test_context: RuleContext
-    ) -> None:
-        code = 'def test_something():\n    pass\n'
+    def test_skips_non_test_code(self, rule_cls: type, non_test_context: RuleContext) -> None:
+        code = "def test_something():\n    pass\n"
         rule = rule_cls()
         violations = rule.check(code, "python", non_test_context)
         assert violations == []
@@ -361,36 +337,20 @@ class TestIntegrationViaChecker:
 
     def test_essential_tier_catches_empty_test(self) -> None:
         checker = AIQualityChecker()
-        code = 'def test_something():\n    pass\n'
-        violations = checker.check(
-            code, "python", is_test=True, max_tier=RuleTier.ESSENTIAL
-        )
+        code = "def test_something():\n    pass\n"
+        violations = checker.check(code, "python", is_test=True, max_tier=RuleTier.ESSENTIAL)
         test_violations = [v for v in violations if v.id.startswith("TEST")]
         assert any(v.id == "TEST001" for v in test_violations)
 
     def test_essential_tier_skips_full_rules(self) -> None:
         checker = AIQualityChecker()
         # TEST009 (FULL tier) should not fire at ESSENTIAL tier
-        code = (
-            'counter = 0\n'
-            'def test_increment():\n'
-            '    global counter\n'
-            '    counter += 1\n'
-        )
-        violations = checker.check(
-            code, "python", is_test=True, max_tier=RuleTier.ESSENTIAL
-        )
+        code = "counter = 0\ndef test_increment():\n    global counter\n    counter += 1\n"
+        violations = checker.check(code, "python", is_test=True, max_tier=RuleTier.ESSENTIAL)
         assert not any(v.id == "TEST009" for v in violations)
 
     def test_full_tier_includes_all(self) -> None:
         checker = AIQualityChecker()
-        code = (
-            'counter = 0\n'
-            'def test_increment():\n'
-            '    global counter\n'
-            '    counter += 1\n'
-        )
-        violations = checker.check(
-            code, "python", is_test=True, max_tier=RuleTier.FULL
-        )
+        code = "counter = 0\ndef test_increment():\n    global counter\n    counter += 1\n"
+        violations = checker.check(code, "python", is_test=True, max_tier=RuleTier.FULL)
         assert any(v.id == "TEST009" for v in violations)

@@ -11,10 +11,7 @@ from mirdan.models import EntityType, ExtractedEntity, Intent, TaskType
 
 def _make_intent(file_paths: list[str]) -> Intent:
     """Create an Intent with FILE_PATH entities."""
-    entities = [
-        ExtractedEntity(type=EntityType.FILE_PATH, value=fp)
-        for fp in file_paths
-    ]
+    entities = [ExtractedEntity(type=EntityType.FILE_PATH, value=fp) for fp in file_paths]
     return Intent(
         original_prompt="test",
         task_type=TaskType.GENERATION,
@@ -56,6 +53,7 @@ class TestLongFunctionDetection:
     def test_long_function_detected(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         # Create a Python file with a long function (40 lines)
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "long.py"
         lines = ["def big_function():"]
         lines.extend(f"    x_{i} = {i}" for i in range(40))
@@ -67,8 +65,11 @@ class TestLongFunctionDetection:
         assert len(extract_suggestions) >= 1
         assert "big_function" in extract_suggestions[0].description
 
-    def test_short_function_no_suggestion(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
+    def test_short_function_no_suggestion(
+        self, analyzer: TidyFirstAnalyzer, tmp_path: object
+    ) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "short.py"
         lines = ["def small_function():"]
         lines.extend(f"    x_{i} = {i}" for i in range(10))
@@ -83,6 +84,7 @@ class TestLongFunctionDetection:
 class TestDeepNestingDetection:
     def test_deep_nesting_detected(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "nested.py"
         code = """\
 def complex_function():
@@ -99,8 +101,11 @@ def complex_function():
         nesting_suggestions = [s for s in result.suggestions if s.type == "simplify_conditional"]
         assert len(nesting_suggestions) >= 1
 
-    def test_shallow_nesting_no_suggestion(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
+    def test_shallow_nesting_no_suggestion(
+        self, analyzer: TidyFirstAnalyzer, tmp_path: object
+    ) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "shallow.py"
         code = """\
 def simple_function():
@@ -119,6 +124,7 @@ def simple_function():
 class TestFileSizeDetection:
     def test_large_file_detected(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "large.py"
         lines = [f"line_{i} = {i}" for i in range(400)]
         p.write_text("\n".join(lines))
@@ -133,6 +139,7 @@ class TestFileSizeDetection:
 class TestMaxSuggestionsCap:
     def test_capped_at_max(self, tmp_path: object) -> None:
         import pathlib
+
         config = TidyFirstConfig(max_suggestions=2, min_function_length=5)
         analyzer = TidyFirstAnalyzer(config)
 
@@ -153,6 +160,7 @@ class TestMaxSuggestionsCap:
 class TestEdgeCases:
     def test_binary_file_skipped(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "binary.py"
         p.write_bytes(b"\x80\x81\xfe\xff" * 100)  # Invalid UTF-8 bytes
 
@@ -160,8 +168,11 @@ class TestEdgeCases:
         result = analyzer.analyze(intent)
         assert str(p) in result.skipped_files
 
-    def test_syntax_error_falls_back_to_regex(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
+    def test_syntax_error_falls_back_to_regex(
+        self, analyzer: TidyFirstAnalyzer, tmp_path: object
+    ) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "bad.py"
         # Valid enough to read but invalid Python syntax
         lines = ["def broken("]
@@ -175,6 +186,7 @@ class TestEdgeCases:
 
     def test_non_python_uses_generic(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         import pathlib
+
         p = pathlib.Path(str(tmp_path)) / "code.js"
         # Create deeply nested JS
         lines = ["function foo() {"]
@@ -193,6 +205,7 @@ class TestEdgeCases:
 
     def test_file_size_cap(self, tmp_path: object) -> None:
         import pathlib
+
         config = TidyFirstConfig(max_file_size_kb=1)  # 1KB limit
         analyzer = TidyFirstAnalyzer(config)
 
@@ -206,6 +219,7 @@ class TestEdgeCases:
 
     def test_effort_sorting(self, analyzer: TidyFirstAnalyzer, tmp_path: object) -> None:
         import pathlib
+
         # Create file with both a large file (medium effort) and long function (small effort)
         p = pathlib.Path(str(tmp_path)) / "mixed.py"
         lines = []

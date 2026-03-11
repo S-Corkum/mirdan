@@ -215,9 +215,7 @@ class TestCursorMcpJsonSequentialThinking:
         assert st_config["command"] == "npx"
         assert "@modelcontextprotocol/server-sequential-thinking" in st_config["args"]
 
-    def test_merge_preserves_existing_sequential_thinking(
-        self, tmp_path: Path
-    ) -> None:
+    def test_merge_preserves_existing_sequential_thinking(self, tmp_path: Path) -> None:
         """Merge should NOT overwrite user's existing sequential-thinking config."""
         import json
 
@@ -252,11 +250,7 @@ class TestCursorMcpJsonSequentialThinking:
 
         cursor_dir = tmp_path / ".cursor"
         cursor_dir.mkdir(parents=True)
-        existing = {
-            "mcpServers": {
-                "some-other-mcp": {"type": "stdio", "command": "other"}
-            }
-        }
+        existing = {"mcpServers": {"some-other-mcp": {"type": "stdio", "command": "other"}}}
         (cursor_dir / "mcp.json").write_text(json.dumps(existing))
 
         generate_cursor_mcp_json(cursor_dir)

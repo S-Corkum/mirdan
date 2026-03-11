@@ -108,11 +108,13 @@ class ScanConventionsUseCase:
         # Generate suggested layers
         layers: list[dict[str, Any]] = []
         for dir_name, imported_dirs in sorted(dir_imports.items()):
-            layers.append({
-                "name": dir_name,
-                "patterns": [f"{dir_name}/**"],
-                "imports_from": sorted(imported_dirs),
-            })
+            layers.append(
+                {
+                    "name": dir_name,
+                    "patterns": [f"{dir_name}/**"],
+                    "imports_from": sorted(imported_dirs),
+                }
+            )
 
         return {
             "suggested_layers": layers,

@@ -93,9 +93,11 @@ def run_validate(args: list[str]) -> None:
                     )
                 else:
                     result = validator.validate_quick(
-                            code=added_code, language=language,
-                            scope=scope, changed_lines=changed_lines,
-                        )
+                        code=added_code,
+                        language=language,
+                        scope=scope,
+                        changed_lines=changed_lines,
+                    )
             else:
                 result = _validate_diff(validator, diff_text, language, check_security)
         elif parsed.get("diff"):
@@ -112,17 +114,21 @@ def run_validate(args: list[str]) -> None:
                     )
                 else:
                     result = validator.validate_quick(
-                            code=added_code, language=language,
-                            scope=scope, changed_lines=changed_lines,
-                        )
+                        code=added_code,
+                        language=language,
+                        scope=scope,
+                        changed_lines=changed_lines,
+                    )
             else:
                 result = _validate_diff(validator, diff_text, language, check_security)
         elif parsed.get("stdin"):
             code = sys.stdin.read()
             if quick_mode:
                 result = validator.validate_quick(
-                    code=code, language=language,
-                    scope=scope, changed_lines=changed_lines,
+                    code=code,
+                    language=language,
+                    scope=scope,
+                    changed_lines=changed_lines,
                 )
             else:
                 result = validator.validate(
@@ -138,8 +144,10 @@ def run_validate(args: list[str]) -> None:
             code = file_path.read_text()
             if quick_mode:
                 result = validator.validate_quick(
-                    code=code, language=language,
-                    scope=scope, changed_lines=changed_lines,
+                    code=code,
+                    language=language,
+                    scope=scope,
+                    changed_lines=changed_lines,
                 )
             else:
                 result = validator.validate(

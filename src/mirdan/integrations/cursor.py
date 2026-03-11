@@ -2238,9 +2238,9 @@ def generate_cursor_mcp_json(cursor_dir: Path) -> Path:
                 existing["mcpServers"]["mirdan"] = config["mcpServers"]["mirdan"]
                 # Only add sequential-thinking if not already configured
                 if "sequential-thinking" not in existing["mcpServers"]:
-                    existing["mcpServers"]["sequential-thinking"] = config[
-                        "mcpServers"
-                    ]["sequential-thinking"]
+                    existing["mcpServers"]["sequential-thinking"] = config["mcpServers"][
+                        "sequential-thinking"
+                    ]
                 config = existing
         except (json.JSONDecodeError, KeyError):
             pass

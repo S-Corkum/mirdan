@@ -99,9 +99,7 @@ class TestDecisionApproach:
         assert d["complexity"] == "medium"
 
     def test_default_complexity(self) -> None:
-        approach = DecisionApproach(
-            name="Test", when_best="always", when_avoid="never"
-        )
+        approach = DecisionApproach(name="Test", when_best="always", when_avoid="never")
         assert approach.complexity == "medium"
 
 
@@ -119,9 +117,7 @@ class TestDecisionGuidance:
         guidance = DecisionGuidance(
             domain="caching",
             approaches=[
-                DecisionApproach(
-                    name="Redis", when_best="high read", when_avoid="tight budget"
-                ),
+                DecisionApproach(name="Redis", when_best="high read", when_avoid="tight budget"),
             ],
             senior_questions=["What is the cache invalidation strategy?"],
         )

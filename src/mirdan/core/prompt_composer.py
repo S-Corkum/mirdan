@@ -118,7 +118,11 @@ class PromptComposer:
 
         # Build the enhanced prompt text
         enhanced_text = self._build_prompt_text(
-            intent, context, quality_requirements, verification_steps, tool_recommendations,
+            intent,
+            context,
+            quality_requirements,
+            verification_steps,
+            tool_recommendations,
             tidy_suggestions=tidy_suggestions,
         )
 

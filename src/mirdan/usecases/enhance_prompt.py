@@ -202,9 +202,7 @@ class EnhancePromptUseCase:
             with contextlib.suppress(ValueError):
                 overridden = TaskType(task_type)
                 intent.task_type = overridden
-                intent.task_types = [overridden] + [
-                    t for t in intent.task_types if t != overridden
-                ]
+                intent.task_types = [overridden] + [t for t in intent.task_types if t != overridden]
 
         # Load existing session for continuity or create new from intent.
         # When session_id is provided, persistent violation history is threaded
@@ -221,9 +219,11 @@ class EnhancePromptUseCase:
 
             file_entities = [e.value for e in intent.entities if e.type == EntityType.FILE_PATH]
             if file_entities:
-                claim_type = "write" if intent.task_type in (
-                    TaskType.GENERATION, TaskType.REFACTOR
-                ) else "read"
+                claim_type = (
+                    "write"
+                    if intent.task_type in (TaskType.GENERATION, TaskType.REFACTOR)
+                    else "read"
+                )
                 warnings = self._agent_coordinator.claim_files(
                     session.session_id, file_entities, claim_type
                 )
@@ -239,9 +239,7 @@ class EnhancePromptUseCase:
                     level = CeremonyLevel.STANDARD
                 policy = self._ceremony_advisor.get_policy(level)
             else:
-                level = self._ceremony_advisor.determine_level(
-                    intent, len(prompt), session=session
-                )
+                level = self._ceremony_advisor.determine_level(intent, len(prompt), session=session)
                 policy = self._ceremony_advisor.get_policy(level)
 
             # MICRO: return minimal analysis with ceremony metadata
@@ -282,26 +280,17 @@ class EnhancePromptUseCase:
 
         # Decision intelligence — only at STANDARD+ ceremony
         decision_guidance = None
-        if (
-            self._decision_analyzer is not None
-            and level >= CeremonyLevel.STANDARD
-        ):
+        if self._decision_analyzer is not None and level >= CeremonyLevel.STANDARD:
             decision_guidance = self._decision_analyzer.analyze(intent)
 
         # Cognitive guardrails — only at STANDARD+ ceremony
         guardrail_analysis = None
-        if (
-            self._guardrail_analyzer is not None
-            and level >= CeremonyLevel.STANDARD
-        ):
+        if self._guardrail_analyzer is not None and level >= CeremonyLevel.STANDARD:
             guardrail_analysis = self._guardrail_analyzer.analyze(intent)
 
         # Architecture context — only at STANDARD+ when model loaded
         arch_context = None
-        if (
-            self._architecture_analyzer is not None
-            and level >= CeremonyLevel.STANDARD
-        ):
+        if self._architecture_analyzer is not None and level >= CeremonyLevel.STANDARD:
             arch_context = self._architecture_analyzer.get_context_warnings(intent)
 
         # Compute persistent violation requirements from session history
@@ -331,7 +320,8 @@ class EnhancePromptUseCase:
             session=session,
             tidy_suggestions=(
                 [s.to_dict() for s in tidy_analysis.suggestions]
-                if tidy_analysis and tidy_analysis.suggestions else None
+                if tidy_analysis and tidy_analysis.suggestions
+                else None
             ),
         )
 

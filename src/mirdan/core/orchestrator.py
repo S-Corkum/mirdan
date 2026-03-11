@@ -111,8 +111,7 @@ class ToolAdvisor:
                 ToolRecommendation(
                     mcp="enyal",
                     action=(
-                        "Recall patterns for resolving validation"
-                        " failures and similar past fixes"
+                        "Recall patterns for resolving validation failures and similar past fixes"
                     ),
                     priority="high",
                     params={"query": "fix bug error violation resolution patterns"},
@@ -206,10 +205,7 @@ class ToolAdvisor:
                         "and potential regressions before making changes"
                     ),
                     priority="medium",
-                    reason=(
-                        "Refactoring has cascading effects that benefit"
-                        " from upfront analysis"
-                    ),
+                    reason=("Refactoring has cascading effects that benefit from upfront analysis"),
                 )
             ]
         elif intent.touches_security:

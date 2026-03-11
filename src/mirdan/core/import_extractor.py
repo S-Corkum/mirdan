@@ -36,7 +36,7 @@ def extract_python_imports(code: str) -> list[tuple[str, int]]:
 _JS_TS_IMPORT = re.compile(
     r"""(?:import\s+.*?\s+from\s+['"](.+?)['"]|require\s*\(\s*['"](.+?)['"]\s*\))"""
 )
-_GO_IMPORT = re.compile(r'''import\s+["'](.+?)["']''')
+_GO_IMPORT = re.compile(r"""import\s+["'](.+?)["']""")
 _RUST_USE = re.compile(r"use\s+([\w:]+)")
 _JAVA_IMPORT = re.compile(r"import\s+([\w.]+)")
 

@@ -134,9 +134,7 @@ class CeremonyAdvisor:
 
         return " ".join(parts)
 
-    def _estimate_base_level(
-        self, intent: Intent, prompt_length: int
-    ) -> CeremonyLevel:
+    def _estimate_base_level(self, intent: Intent, prompt_length: int) -> CeremonyLevel:
         """Score the task complexity and map to a base ceremony level."""
         score = self._TASK_TYPE_SCORES.get(intent.task_type, 1)
 

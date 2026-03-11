@@ -115,9 +115,7 @@ class TestGenerateCursorHooks:
         prompt = hooks[0]["prompt"]
         assert "validate_code_quality" in prompt
 
-    def test_comprehensive_does_not_include_before_submit_prompt(
-        self, tmp_path: Path
-    ) -> None:
+    def test_comprehensive_does_not_include_before_submit_prompt(self, tmp_path: Path) -> None:
         """beforeSubmitPrompt was removed from COMPREHENSIVE to avoid false positives."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)

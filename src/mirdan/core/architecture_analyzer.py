@@ -110,9 +110,7 @@ class ArchitectureAnalyzer:
                 return layer
         return None
 
-    def analyze_file(
-        self, file_path: str, code: str, language: str
-    ) -> ArchDriftResult:
+    def analyze_file(self, file_path: str, code: str, language: str) -> ArchDriftResult:
         """Check a file's imports against architecture model.
 
         Args:

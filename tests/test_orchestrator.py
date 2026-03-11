@@ -56,9 +56,7 @@ class TestToolSuggestions:
 class TestFrameworkDocumentation:
     """Tests for framework documentation recommendations."""
 
-    def test_context7_recommended_for_external_framework(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_context7_recommended_for_external_framework(self, orchestrator: ToolAdvisor) -> None:
         """Should recommend context7 when uses_external_framework=True."""
         intent = Intent(
             original_prompt="test",
@@ -136,9 +134,7 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "github" in mcp_names
 
-    def test_security_scanner_when_explicitly_available(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_security_scanner_when_explicitly_available(self, orchestrator: ToolAdvisor) -> None:
         """Should recommend security-scanner when explicitly in available_mcps."""
         intent = Intent(
             original_prompt="test",
@@ -160,9 +156,7 @@ class TestTaskTypeRecommendations:
         mcp_names = [r.mcp for r in result]
         assert "security-scanner" not in mcp_names
 
-    def test_security_scanner_excluded_when_not_in_list(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_security_scanner_excluded_when_not_in_list(self, orchestrator: ToolAdvisor) -> None:
         """Should NOT recommend security-scanner when not in available_mcps."""
         intent = Intent(
             original_prompt="test",
@@ -195,9 +189,7 @@ class TestMCPPreferences:
         if "enyal" in mcp_names and "context7" in mcp_names:
             assert mcp_names.index("enyal") < mcp_names.index("context7")
 
-    def test_sort_by_preference_no_config_returns_original(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_sort_by_preference_no_config_returns_original(self, orchestrator: ToolAdvisor) -> None:
         """Should return original order when no config."""
         intent = Intent(original_prompt="test", task_type=TaskType.GENERATION)
         result = orchestrator.suggest_tools(intent)
@@ -229,9 +221,7 @@ class TestSequentialThinkingRecommendations:
     def test_sequential_thinking_for_debug(self, orchestrator: ToolAdvisor) -> None:
         """Should recommend sequential-thinking for DEBUG tasks."""
         intent = Intent(original_prompt="fix the crash", task_type=TaskType.DEBUG)
-        result = orchestrator.suggest_tools(
-            intent, available_mcps=["sequential-thinking"]
-        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
         mcp_names = [r.mcp for r in result]
         assert "sequential-thinking" in mcp_names
         rec = next(r for r in result if r.mcp == "sequential-thinking")
@@ -240,45 +230,33 @@ class TestSequentialThinkingRecommendations:
     def test_sequential_thinking_for_refactor(self, orchestrator: ToolAdvisor) -> None:
         """Should recommend sequential-thinking for REFACTOR tasks."""
         intent = Intent(original_prompt="refactor auth module", task_type=TaskType.REFACTOR)
-        result = orchestrator.suggest_tools(
-            intent, available_mcps=["sequential-thinking"]
-        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
         mcp_names = [r.mcp for r in result]
         assert "sequential-thinking" in mcp_names
         rec = next(r for r in result if r.mcp == "sequential-thinking")
         assert rec.priority == "medium"
 
-    def test_sequential_thinking_for_security_sensitive(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_sequential_thinking_for_security_sensitive(self, orchestrator: ToolAdvisor) -> None:
         """Should recommend sequential-thinking for security-sensitive GENERATION tasks."""
         intent = Intent(
             original_prompt="add auth endpoint",
             task_type=TaskType.GENERATION,
             touches_security=True,
         )
-        result = orchestrator.suggest_tools(
-            intent, available_mcps=["sequential-thinking"]
-        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
         mcp_names = [r.mcp for r in result]
         assert "sequential-thinking" in mcp_names
         rec = next(r for r in result if r.mcp == "sequential-thinking")
         assert rec.priority == "high"
 
-    def test_no_sequential_thinking_for_simple_generation(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_no_sequential_thinking_for_simple_generation(self, orchestrator: ToolAdvisor) -> None:
         """Should NOT recommend sequential-thinking for simple GENERATION tasks."""
         intent = Intent(original_prompt="add a button", task_type=TaskType.GENERATION)
-        result = orchestrator.suggest_tools(
-            intent, available_mcps=["sequential-thinking"]
-        )
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
         mcp_names = [r.mcp for r in result]
         assert "sequential-thinking" not in mcp_names
 
-    def test_no_sequential_thinking_when_unavailable(
-        self, orchestrator: ToolAdvisor
-    ) -> None:
+    def test_no_sequential_thinking_when_unavailable(self, orchestrator: ToolAdvisor) -> None:
         """Should NOT recommend sequential-thinking when not in available_mcps."""
         intent = Intent(original_prompt="fix the crash", task_type=TaskType.DEBUG)
         result = orchestrator.suggest_tools(intent, available_mcps=["enyal", "github"])
@@ -385,8 +363,12 @@ class TestAvailableMCPInfo:
         """Should contain all 6 known MCPs."""
         info = orchestrator.get_available_mcp_info()
         expected_mcps = [
-            "context7", "filesystem", "desktop-commander",
-            "github", "enyal", "sequential-thinking",
+            "context7",
+            "filesystem",
+            "desktop-commander",
+            "github",
+            "enyal",
+            "sequential-thinking",
         ]
         for mcp in expected_mcps:
             assert mcp in info

@@ -302,11 +302,7 @@ class TEST005MockAbuseRule(BaseRule):
         violations: list[Violation] = []
         for name, node, lineno in _extract_test_functions(code):
             # Count @patch decorators on this function
-            patch_count = sum(
-                1
-                for d in node.decorator_list
-                if self._is_patch_decorator(d)
-            )
+            patch_count = sum(1 for d in node.decorator_list if self._is_patch_decorator(d))
             if patch_count >= 4:
                 violations.append(
                     Violation(
@@ -340,12 +336,8 @@ class TEST005MockAbuseRule(BaseRule):
 class TEST010BroadExceptionRule(BaseRule):
     """Detect pytest.raises(Exception) or assertRaises(Exception)."""
 
-    _RE_PYTEST_RAISES_EXCEPTION = re.compile(
-        r"pytest\.raises\s*\(\s*Exception\s*\)"
-    )
-    _RE_ASSERT_RAISES_EXCEPTION = re.compile(
-        r"assertRaises\s*\(\s*Exception\s*\)"
-    )
+    _RE_PYTEST_RAISES_EXCEPTION = re.compile(r"pytest\.raises\s*\(\s*Exception\s*\)")
+    _RE_ASSERT_RAISES_EXCEPTION = re.compile(r"assertRaises\s*\(\s*Exception\s*\)")
 
     @property
     def id(self) -> str:

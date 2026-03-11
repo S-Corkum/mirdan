@@ -127,9 +127,7 @@ class TidyFirstAnalyzer:
             ".rb": "ruby",
         }.get(ext, "unknown")
 
-    def _analyze_file(
-        self, code: str, file_path: str, language: str
-    ) -> list[TidySuggestion]:
+    def _analyze_file(self, code: str, file_path: str, language: str) -> list[TidySuggestion]:
         """Analyze a single file for tidy opportunities."""
         suggestions: list[TidySuggestion] = []
 
@@ -143,9 +141,7 @@ class TidyFirstAnalyzer:
 
         return suggestions
 
-    def _analyze_python_ast(
-        self, code: str, file_path: str
-    ) -> list[TidySuggestion]:
+    def _analyze_python_ast(self, code: str, file_path: str) -> list[TidySuggestion]:
         """Python-specific AST analysis for extract_method and nesting."""
         try:
             tree = ast.parse(code)
@@ -158,9 +154,7 @@ class TidyFirstAnalyzer:
         suggestions.extend(self._check_deep_nesting_ast(tree, file_path))
         return suggestions
 
-    def _analyze_generic(
-        self, code: str, file_path: str, language: str
-    ) -> list[TidySuggestion]:
+    def _analyze_generic(self, code: str, file_path: str, language: str) -> list[TidySuggestion]:
         """Language-agnostic regex analysis for nesting depth."""
         suggestions: list[TidySuggestion] = []
 
@@ -196,9 +190,7 @@ class TidyFirstAnalyzer:
 
         return suggestions
 
-    def _check_long_functions_ast(
-        self, tree: ast.Module, file_path: str
-    ) -> list[TidySuggestion]:
+    def _check_long_functions_ast(self, tree: ast.Module, file_path: str) -> list[TidySuggestion]:
         """Find functions exceeding min_function_length via AST."""
         suggestions: list[TidySuggestion] = []
 
@@ -225,9 +217,7 @@ class TidyFirstAnalyzer:
 
         return suggestions
 
-    def _check_deep_nesting_ast(
-        self, tree: ast.Module, file_path: str
-    ) -> list[TidySuggestion]:
+    def _check_deep_nesting_ast(self, tree: ast.Module, file_path: str) -> list[TidySuggestion]:
         """Find deeply nested blocks via AST walk."""
         suggestions: list[TidySuggestion] = []
         nesting_nodes = (ast.If, ast.For, ast.While, ast.With, ast.Try)
@@ -272,9 +262,7 @@ class TidyFirstAnalyzer:
 
         return suggestions
 
-    def _check_file_size(
-        self, code: str, file_path: str
-    ) -> list[TidySuggestion]:
+    def _check_file_size(self, code: str, file_path: str) -> list[TidySuggestion]:
         """Suggest split_file if file exceeds threshold."""
         non_empty_lines = sum(1 for line in code.split("\n") if line.strip())
         if non_empty_lines > 300:

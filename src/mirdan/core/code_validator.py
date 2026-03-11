@@ -928,8 +928,11 @@ class CodeValidator:
         # Run TEST rules on test_file with implementation cross-reference
         if test_file_code and not is_test:
             test_violations = self._ai_checker.check(
-                test_file_code, detected_lang, file_path=test_file,
-                is_test=True, implementation_code=code
+                test_file_code,
+                detected_lang,
+                file_path=test_file,
+                is_test=True,
+                implementation_code=code,
             )
             if test_violations:
                 standards_checked.append("test_quality")
@@ -937,8 +940,11 @@ class CodeValidator:
         elif is_test and test_file_code:
             # Main code is test code, test_file is the implementation
             test_cross_violations = self._ai_checker.check(
-                code, detected_lang, file_path=file_path,
-                is_test=True, implementation_code=test_file_code
+                code,
+                detected_lang,
+                file_path=file_path,
+                is_test=True,
+                implementation_code=test_file_code,
             )
             existing_test_ids = {v.id for v in ai_violations if v.id.startswith("TEST")}
             new_cross = [v for v in test_cross_violations if v.id not in existing_test_ids]
@@ -973,10 +979,7 @@ class CodeValidator:
             for ln in changed_lines:
                 for offset in range(-_buffer, _buffer + 1):
                     expanded.add(ln + offset)
-            violations = [
-                v for v in violations
-                if v.line is None or v.line in expanded
-            ]
+            violations = [v for v in violations if v.line is None or v.line in expanded]
 
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
@@ -1068,7 +1071,9 @@ class CodeValidator:
             ai_quick_ids = {v.id for v in ai_violations}
             violations = [v for v in violations if v.id not in ai_quick_ids]
             essential_violations = self._ai_checker.check(
-                code, detected_lang, file_path="",
+                code,
+                detected_lang,
+                file_path="",
                 is_test=self._language_detector.is_likely_test_code(code),
                 max_tier=RuleTier.ESSENTIAL,
             )
@@ -1083,10 +1088,7 @@ class CodeValidator:
             for ln in changed_lines:
                 for offset in range(-_buffer, _buffer + 1):
                     expanded.add(ln + offset)
-            violations = [
-                v for v in violations
-                if v.line is None or v.line in expanded
-            ]
+            violations = [v for v in violations if v.line is None or v.line in expanded]
 
         passed = not any(v.severity == "error" for v in violations)
         score = self._calculate_score(violations)

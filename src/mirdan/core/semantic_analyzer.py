@@ -227,9 +227,14 @@ class SemanticAnalyzer:
         lines = code.split("\n")
 
         # Deep analysis patterns (gated by config)
-        deep_pattern_types = frozenset({
-            "concurrency", "boundary", "error_propagation", "state_machine",
-        })
+        deep_pattern_types = frozenset(
+            {
+                "concurrency",
+                "boundary",
+                "error_propagation",
+                "state_machine",
+            }
+        )
 
         # Phase 1: Pattern-based checks
         for pattern_type, patterns in _PATTERNS.items():

@@ -33,8 +33,12 @@ class _QuickStubRule(BaseRule):
     def check(self, code: str, language: str, context: RuleContext) -> list[Violation]:
         return [
             Violation(
-                id="STUB_QUICK", rule="stub-quick", category="test",
-                severity="warning", message="quick stub", line=1,
+                id="STUB_QUICK",
+                rule="stub-quick",
+                category="test",
+                severity="warning",
+                message="quick stub",
+                line=1,
             )
         ]
 
@@ -59,8 +63,12 @@ class _EssentialStubRule(BaseRule):
     def check(self, code: str, language: str, context: RuleContext) -> list[Violation]:
         return [
             Violation(
-                id="STUB_ESSENTIAL", rule="stub-essential", category="test",
-                severity="warning", message="essential stub", line=5,
+                id="STUB_ESSENTIAL",
+                rule="stub-essential",
+                category="test",
+                severity="warning",
+                message="essential stub",
+                line=5,
             )
         ]
 
@@ -81,8 +89,12 @@ class _FullStubRule(BaseRule):
     def check(self, code: str, language: str, context: RuleContext) -> list[Violation]:
         return [
             Violation(
-                id="STUB_FULL", rule="stub-full", category="test",
-                severity="warning", message="full stub", line=10,
+                id="STUB_FULL",
+                rule="stub-full",
+                category="test",
+                severity="warning",
+                message="full stub",
+                line=10,
             )
         ]
 
@@ -105,8 +117,12 @@ class _MultiLineStubRule(BaseRule):
     def check(self, code: str, language: str, context: RuleContext) -> list[Violation]:
         return [
             Violation(
-                id="STUB_MULTI", rule="stub-multi", category="test",
-                severity="warning", message=f"line {ln}", line=ln,
+                id="STUB_MULTI",
+                rule="stub-multi",
+                category="test",
+                severity="warning",
+                message=f"line {ln}",
+                line=ln,
             )
             for ln in (5, 10, 20, 30)
         ]
@@ -220,7 +236,7 @@ class TestValidateQuickScope:
         validator = CodeValidator(QualityStandards())
         # Bare except is a Python style rule (PY003), not a security rule.
         # Security scope should NOT catch it.
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result = validator.validate_quick(code=code, language="python", scope="security")
         py_style_violations = [v for v in result.violations if v.id == "PY003"]
         assert len(py_style_violations) == 0
@@ -231,7 +247,7 @@ class TestValidateQuickScope:
 
         validator = CodeValidator(QualityStandards())
         # Essential scope SHOULD catch PY003 (bare except)
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result = validator.validate_quick(code=code, language="python", scope="essential")
         py_style_violations = [v for v in result.violations if v.id == "PY003"]
         assert len(py_style_violations) >= 1
@@ -241,7 +257,7 @@ class TestValidateQuickScope:
         from mirdan.core.quality_standards import QualityStandards
 
         validator = CodeValidator(QualityStandards())
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result = validator.validate_quick(code=code, language="python", scope="foobar")
         # Falls back to security scope — no PY003
         py_style_violations = [v for v in result.violations if v.id == "PY003"]
@@ -257,7 +273,7 @@ class TestChangedLinesFiltering:
 
         validator = CodeValidator(QualityStandards())
         # Bare except is on line 3. changed_lines={100} is far outside ±2 buffer.
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result_all = validator.validate(code=code, language="python")
         result_filtered = validator.validate(
             code=code, language="python", changed_lines=frozenset({100})
@@ -274,10 +290,8 @@ class TestChangedLinesFiltering:
 
         validator = CodeValidator(QualityStandards())
         # Bare except is on line 3. changed_lines={1} with ±2 buffer includes lines -1..3
-        code = 'try:\n    pass\nexcept:\n    pass\n'
-        result = validator.validate(
-            code=code, language="python", changed_lines=frozenset({1})
-        )
+        code = "try:\n    pass\nexcept:\n    pass\n"
+        result = validator.validate(code=code, language="python", changed_lines=frozenset({1}))
         py003 = [v for v in result.violations if v.id == "PY003"]
         # Line 3 is within ±2 of line 1, so it should be included
         assert len(py003) >= 1
@@ -287,7 +301,7 @@ class TestChangedLinesFiltering:
         from mirdan.core.quality_standards import QualityStandards
 
         validator = CodeValidator(QualityStandards())
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result = validator.validate(code=code, language="python", changed_lines=None)
         py003 = [v for v in result.violations if v.id == "PY003"]
         assert len(py003) >= 1
@@ -302,9 +316,11 @@ class TestValidateQuickChangedLines:
 
         validator = CodeValidator(QualityStandards())
         # In essential scope, PY003 fires on line 3
-        code = 'try:\n    pass\nexcept:\n    pass\n'
+        code = "try:\n    pass\nexcept:\n    pass\n"
         result = validator.validate_quick(
-            code=code, language="python", scope="essential",
+            code=code,
+            language="python",
+            scope="essential",
             changed_lines=frozenset({100}),  # Far from line 3
         )
         py003 = [v for v in result.violations if v.id == "PY003"]
