@@ -1,0 +1,27 @@
+name: "Data Access Pattern"
+triggers:
+  - orm
+  - database
+  - query
+  - sql
+  - sqlalchemy
+  - prisma
+  - active record
+  - repository
+approaches:
+  - name: "ORM (SQLAlchemy, Prisma, Django ORM)"
+    when_best: "Standard CRUD, rapid development, model-driven design, migrations"
+    when_avoid: "Complex analytical queries, extreme performance requirements, schema-less data"
+    complexity: "medium"
+  - name: "Query builder (Knex, SQLAlchemy Core)"
+    when_best: "Dynamic query construction, moderate complexity, need SQL control with safety"
+    when_avoid: "Simple CRUD where ORM suffices, teams unfamiliar with SQL"
+    complexity: "medium"
+  - name: "Raw SQL"
+    when_best: "Performance-critical queries, complex joins/CTEs, database-specific features"
+    when_avoid: "Standard CRUD, rapid prototyping, when SQL injection risk is high"
+    complexity: "low"
+senior_questions:
+  - "How are database migrations handled? Who owns the schema?"
+  - "What is the N+1 query strategy? Are queries optimized for the access pattern?"
+  - "How does this handle connection pooling and transaction boundaries?"

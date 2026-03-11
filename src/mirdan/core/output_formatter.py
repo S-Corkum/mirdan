@@ -215,6 +215,10 @@ class OutputFormatter:
         if "session_id" in data:
             result["session_id"] = data["session_id"]
 
+        # Cognitive guardrails survive COMPACT (high-value thinking prompts)
+        if "cognitive_guardrails" in data:
+            result["cognitive_guardrails"] = data["cognitive_guardrails"]
+
         return result
 
     def _minimal_enhanced(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -258,15 +262,25 @@ class OutputFormatter:
             result["quality_drift"] = data["quality_drift"]
         if "security_regression" in data:
             result["security_regression"] = data["security_regression"]
+        # Confidence survives COMPACT (~30 tokens, high value)
+        if "confidence" in data:
+            result["confidence"] = data["confidence"]
+        # Architecture drift survives COMPACT (violation context)
+        if "architecture_drift" in data:
+            result["architecture_drift"] = data["architecture_drift"]
         return result
 
     def _minimal_validation(self, data: dict[str, Any]) -> dict[str, Any]:
         """Minimal validation: pass/fail and score only."""
-        return {
+        result = {
             "passed": data.get("passed", True),
             "score": data.get("score", 1.0),
             "summary": data.get("summary", ""),
         }
+        # Confidence survives MINIMAL (~30 tokens, highest value density)
+        if "confidence" in data:
+            result["confidence"] = data["confidence"]
+        return result
 
     def _micro_enhanced(self, data: dict[str, Any]) -> dict[str, Any]:
         """Micro format for enhanced prompt: absolute minimum."""

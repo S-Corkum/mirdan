@@ -1,0 +1,25 @@
+name: "Error Handling Strategy"
+triggers:
+  - error
+  - exception
+  - error handling
+  - result type
+  - try catch
+  - error boundary
+approaches:
+  - name: "Exception-based (try/catch/except)"
+    when_best: "Unexpected failures, I/O errors, language conventions (Python, Java)"
+    when_avoid: "Expected business logic outcomes, performance-critical paths"
+    complexity: "low"
+  - name: "Result types (Result, Either, Option)"
+    when_best: "Expected failure modes, functional style, explicit error paths"
+    when_avoid: "Languages without good type support, simple scripts"
+    complexity: "medium"
+  - name: "Error codes / sentinel values"
+    when_best: "C-style APIs, inter-process communication, performance-critical code"
+    when_avoid: "Modern applications, when error context matters, complex error hierarchies"
+    complexity: "low"
+senior_questions:
+  - "What errors are expected vs. unexpected? Are they handled differently?"
+  - "How is error context (stack trace, variables) preserved for debugging?"
+  - "What does the user see when an error occurs? Is it actionable?"

@@ -1,0 +1,26 @@
+name: "API Design"
+triggers:
+  - api
+  - endpoint
+  - rest
+  - graphql
+  - grpc
+  - rpc
+  - route
+approaches:
+  - name: "REST"
+    when_best: "Public APIs, CRUD operations, caching with HTTP semantics, broad tooling"
+    when_avoid: "Complex nested data fetching, real-time requirements, tight coupling needed"
+    complexity: "low"
+  - name: "GraphQL"
+    when_best: "Complex data requirements, multiple clients with different needs, reducing over-fetching"
+    when_avoid: "Simple CRUD, file uploads, when caching simplicity matters"
+    complexity: "high"
+  - name: "gRPC / RPC"
+    when_best: "Internal microservices, high performance, strong typing, streaming"
+    when_avoid: "Browser clients without proxy, public APIs, simple request-response"
+    complexity: "medium"
+senior_questions:
+  - "Who are the API consumers? How will the API evolve without breaking them?"
+  - "What is the versioning and deprecation strategy?"
+  - "How are errors communicated? Is the error format consistent and documented?"

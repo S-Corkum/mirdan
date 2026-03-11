@@ -1,5 +1,7 @@
 """Data models for Mirdan."""
 
+from __future__ import annotations
+
 from dataclasses import asdict, dataclass, field
 from enum import Enum, IntEnum
 from typing import Any
@@ -83,7 +85,7 @@ class Intent:
     primary_language: str | None = None
     frameworks: list[str] = field(default_factory=list)
     framework_versions: dict[str, str] = field(default_factory=dict)
-    entities: list["ExtractedEntity"] = field(default_factory=list)
+    entities: list[ExtractedEntity] = field(default_factory=list)
     touches_security: bool = False
     touches_rag: bool = False
     touches_knowledge_graph: bool = False
@@ -454,7 +456,7 @@ class CompactState:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CompactState":
+    def from_dict(cls, data: dict[str, Any]) -> CompactState:
         """Create from dictionary."""
         return cls(
             session_id=data.get("session_id", ""),
@@ -544,6 +546,96 @@ class TidyFirstAnalysis:
             "suggestions": [s.to_dict() for s in self.suggestions],
             "target_files": self.target_files,
             "skipped_files": self.skipped_files,
+        }
+
+
+@dataclass
+class DecisionApproach:
+    """A single approach option within a decision domain."""
+
+    name: str
+    when_best: str
+    when_avoid: str
+    complexity: str = "medium"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "when_best": self.when_best,
+            "when_avoid": self.when_avoid,
+            "complexity": self.complexity,
+        }
+
+
+@dataclass
+class DecisionGuidance:
+    """Trade-off analysis for a decision domain."""
+
+    domain: str
+    approaches: list[DecisionApproach] = field(default_factory=list)
+    senior_questions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "domain": self.domain,
+            "approaches": [a.to_dict() for a in self.approaches],
+            "senior_questions": self.senior_questions,
+        }
+
+
+@dataclass
+class GuardrailAnalysis:
+    """Domain-aware pre-flight guardrails."""
+
+    domain: str
+    guardrails: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "domain": self.domain,
+            "guardrails": self.guardrails,
+        }
+
+
+@dataclass
+class ConfidenceAssessment:
+    """Calibrated confidence level for validation results."""
+
+    level: str  # "high" | "medium" | "low"
+    reason: str
+    attention_focus: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "level": self.level,
+            "reason": self.reason,
+            "attention_focus": self.attention_focus,
+        }
+
+
+@dataclass
+class ArchLayer:
+    """A single architectural layer with import constraints."""
+
+    name: str
+    patterns: list[str] = field(default_factory=list)
+    allowed_imports: list[str] = field(default_factory=list)
+    forbidden_imports: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ArchDriftResult:
+    """Result of architecture drift detection."""
+
+    violations: list[Violation] = field(default_factory=list)
+    file_layer: str = ""
+    context_warnings: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "violations": [v.to_dict() for v in self.violations],
+            "file_layer": self.file_layer,
+            "context_warnings": self.context_warnings,
         }
 
 

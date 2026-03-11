@@ -1,0 +1,25 @@
+name: "State Management"
+triggers:
+  - state
+  - store
+  - redux
+  - context
+  - event sourcing
+  - shared state
+approaches:
+  - name: "Local component state"
+    when_best: "UI-only state, form inputs, simple toggles, single-component scope"
+    when_avoid: "State shared across components, data that needs persistence"
+    complexity: "low"
+  - name: "Shared state store (Redux, Zustand, Pinia)"
+    when_best: "Cross-component state, complex UI interactions, time-travel debugging"
+    when_avoid: "Simple apps with few components, server-rendered pages"
+    complexity: "medium"
+  - name: "Event-sourced state"
+    when_best: "Audit trail required, complex domain logic, undo/redo, CQRS patterns"
+    when_avoid: "Simple CRUD, high-frequency updates, when eventual consistency is unacceptable"
+    complexity: "high"
+senior_questions:
+  - "What happens to state during network failures or page refreshes?"
+  - "Is the state shape designed for the queries that will read it?"
+  - "How do you prevent state mutations from unintended sources?"

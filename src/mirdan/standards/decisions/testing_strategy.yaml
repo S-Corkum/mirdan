@@ -1,0 +1,26 @@
+name: "Testing Strategy"
+triggers:
+  - test
+  - testing
+  - unit test
+  - integration test
+  - e2e
+  - coverage
+  - mock
+approaches:
+  - name: "Unit-heavy (70/20/10)"
+    when_best: "Pure logic, algorithms, utilities, fast CI feedback, high confidence in units"
+    when_avoid: "Heavy I/O, complex integrations, when mocking hides real bugs"
+    complexity: "low"
+  - name: "Integration-heavy (20/60/20)"
+    when_best: "Database-heavy apps, API services, when integration points are the risk"
+    when_avoid: "Pure computation, when integration tests are slow or flaky"
+    complexity: "medium"
+  - name: "E2E-focused (10/20/70)"
+    when_best: "User-facing flows, critical business paths, when behavior matters more than units"
+    when_avoid: "Backend services, when E2E tests are brittle, fast feedback needed"
+    complexity: "high"
+senior_questions:
+  - "What is the test pyramid balance? Are tests testing behavior or implementation?"
+  - "How fast is the test suite? Can developers run it before every commit?"
+  - "What is the mock boundary? Are you testing mocks or real behavior?"

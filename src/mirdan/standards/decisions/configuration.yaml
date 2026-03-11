@@ -1,0 +1,25 @@
+name: "Configuration Management"
+triggers:
+  - config
+  - configuration
+  - env
+  - environment variable
+  - feature flag
+  - settings
+approaches:
+  - name: "Environment variables"
+    when_best: "12-factor apps, secrets, deployment-specific values, container environments"
+    when_avoid: "Complex structured config, many related settings, non-secret defaults"
+    complexity: "low"
+  - name: "Configuration files (YAML, TOML, JSON)"
+    when_best: "Structured config, version-controlled defaults, complex hierarchical settings"
+    when_avoid: "Secrets, deployment-specific overrides that change per environment"
+    complexity: "low"
+  - name: "Feature flags (LaunchDarkly, Unleash)"
+    when_best: "Gradual rollouts, A/B testing, kill switches, trunk-based development"
+    when_avoid: "Simple on/off settings, when flag management overhead exceeds benefit"
+    complexity: "medium"
+senior_questions:
+  - "How are secrets separated from non-secret configuration?"
+  - "What happens when a configuration value is missing or invalid at startup?"
+  - "How do you roll back a configuration change that causes issues?"

@@ -10,12 +10,16 @@ from typing import Any
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
 from mirdan.core.agent_coordinator import AgentCoordinator
+from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
 from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.ceremony import CeremonyAdvisor
 from mirdan.core.code_validator import CodeValidator
+from mirdan.core.confidence import ConfidenceCalibrator
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.convention_extractor import ConventionExtractor
+from mirdan.core.decision_analyzer import DecisionAnalyzer
 from mirdan.core.environment_detector import IDEType, detect_environment
+from mirdan.core.guardrail_analyzer import GuardrailAnalyzer
 from mirdan.core.intent_analyzer import IntentAnalyzer
 from mirdan.core.knowledge_producer import KnowledgeProducer
 from mirdan.core.linter_orchestrator import create_linter_runner
@@ -108,6 +112,10 @@ class ComponentProvider:
         # AgentCoordinator must be created BEFORE SessionManager (Step 15 passes it)
         self.agent_coordinator = AgentCoordinator(config.coordination)
         self.tidy_analyzer = TidyFirstAnalyzer(config.tidy_first)
+        self.decision_analyzer = DecisionAnalyzer(config.decisions)
+        self.guardrail_analyzer = GuardrailAnalyzer(config.guardrails)
+        self.architecture_analyzer = ArchitectureAnalyzer(config.architecture)
+        self.architecture_analyzer.load_model(project_dir)
 
         # Store all components as instance attributes
         self.intent_analyzer = IntentAnalyzer(config.project, manifest_parser=manifest_parser)
@@ -136,6 +144,7 @@ class ComponentProvider:
         self.knowledge_producer = KnowledgeProducer()
         self.linter_runner: LinterRunner = create_linter_runner(config)
         self.session_tracker = SessionTracker()
+        self.confidence_calibrator = ConfidenceCalibrator()
         self.auto_fixer = AutoFixer()
         self.convention_extractor = ConventionExtractor(config)
         self.violation_explainer = _create_violation_explainer()
@@ -168,6 +177,9 @@ class ComponentProvider:
             ceremony_advisor=self.ceremony_advisor,
             agent_coordinator=self.agent_coordinator,
             tidy_analyzer=self.tidy_analyzer,
+            decision_analyzer=self.decision_analyzer,
+            guardrail_analyzer=self.guardrail_analyzer,
+            architecture_analyzer=self.architecture_analyzer,
         )
 
     def create_validate_code_usecase(
@@ -188,6 +200,8 @@ class ComponentProvider:
             active_orchestrator=self.active_orchestrator,
             background_tasks=background_tasks,
             agent_coordinator=self.agent_coordinator,
+            confidence_calibrator=self.confidence_calibrator,
+            architecture_analyzer=self.architecture_analyzer,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:

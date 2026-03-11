@@ -1,0 +1,114 @@
+domains:
+  - name: "Payment & Billing"
+    triggers:
+      - payment
+      - billing
+      - charge
+      - stripe
+      - invoice
+    guardrails:
+      - "Have you confirmed idempotency? Duplicate charges are worse than failed ones."
+      - "What happens if the payment succeeds but the webhook/callback fails?"
+      - "How are partial failures handled (charged but not provisioned)?"
+
+  - name: "Authentication & Authorization"
+    triggers:
+      - auth
+      - login
+      - permission
+      - role
+      - access control
+    guardrails:
+      - "Is the auth check happening BEFORE any data access, not after?"
+      - "What happens with expired/revoked credentials mid-request?"
+      - "Have you verified this cannot be bypassed with null/empty/malformed tokens?"
+
+  - name: "Data Migration & Schema"
+    triggers:
+      - migration
+      - schema
+      - alter table
+      - migrate
+    guardrails:
+      - "Can this migration run without downtime? What about rollback?"
+      - "Have you tested with production-scale data volumes?"
+
+  - name: "File Upload & Processing"
+    triggers:
+      - upload
+      - file
+      - multipart
+      - attachment
+    guardrails:
+      - "What are the size limits? What happens when they are exceeded?"
+      - "Is the file type validated on content (magic bytes), not just extension?"
+      - "Where are files stored? Can a malicious filename cause path traversal?"
+
+  - name: "Caching & Invalidation"
+    triggers:
+      - cache
+      - invalidation
+      - ttl
+      - stale
+    guardrails:
+      - "What is the invalidation strategy? How do you prevent serving stale data?"
+      - "What happens during a cold start or cache stampede?"
+
+  - name: "Real-time & WebSocket"
+    triggers:
+      - websocket
+      - real-time
+      - socket
+      - sse
+      - push notification
+    guardrails:
+      - "What happens when the connection drops and reconnects? Is state reconciled?"
+      - "How do you handle backpressure when the client is slower than the server?"
+
+  - name: "Third-party Integration"
+    triggers:
+      - api integration
+      - third-party
+      - external api
+      - webhook
+      - sdk
+    guardrails:
+      - "What happens when the third-party API is down or slow? Is there a timeout and fallback?"
+      - "How are API rate limits handled? Is there retry with backoff?"
+      - "Are API keys/secrets stored securely and rotatable?"
+
+  - name: "Concurrency & Async"
+    triggers:
+      - async
+      - concurrent
+      - parallel
+      - thread
+      - lock
+      - race condition
+    guardrails:
+      - "Can two concurrent executions corrupt shared state? Trace the data flow."
+      - "Are database operations within a proper transaction boundary?"
+
+  - name: "Deployment & Infrastructure"
+    triggers:
+      - deploy
+      - infrastructure
+      - ci/cd
+      - docker
+      - kubernetes
+    guardrails:
+      - "Can this be rolled back without data loss if the deployment fails?"
+      - "What is the health check and readiness probe strategy?"
+
+  - name: "User Data & Privacy"
+    triggers:
+      - gdpr
+      - pii
+      - personal data
+      - privacy
+      - user data
+      - consent
+    guardrails:
+      - "Is personal data encrypted at rest and in transit?"
+      - "How is data deletion handled for right-to-be-forgotten requests?"
+      - "Are access logs maintained for audit compliance?"

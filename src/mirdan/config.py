@@ -396,6 +396,45 @@ class CoordinationConfig(BaseModel):
     )
 
 
+class DecisionConfig(BaseModel):
+    """Decision Intelligence Engine configuration."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable decision trade-off analysis in enhance_prompt.",
+    )
+    max_decisions: int = Field(
+        default=1,
+        description="Maximum decision domains to surface per prompt.",
+    )
+
+
+class GuardrailConfig(BaseModel):
+    """Cognitive guardrails configuration."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable domain-aware pre-flight guardrails.",
+    )
+    max_guardrails: int = Field(
+        default=3,
+        description="Maximum guardrail items per prompt.",
+    )
+
+
+class ArchitectureConfig(BaseModel):
+    """Architecture drift detection configuration."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable architecture model validation when .mirdan/architecture.yaml exists.",
+    )
+    warn_in_prompt: bool = Field(
+        default=True,
+        description="Surface architectural context in enhance_prompt.",
+    )
+
+
 class MirdanConfig(BaseModel):
     """Main Mirdan configuration."""
 
@@ -425,6 +464,9 @@ class MirdanConfig(BaseModel):
     ceremony: CeremonyConfig = Field(default_factory=CeremonyConfig)
     coordination: CoordinationConfig = Field(default_factory=CoordinationConfig)
     tidy_first: TidyFirstConfig = Field(default_factory=TidyFirstConfig)
+    decisions: DecisionConfig = Field(default_factory=DecisionConfig)
+    guardrails: GuardrailConfig = Field(default_factory=GuardrailConfig)
+    architecture: ArchitectureConfig = Field(default_factory=ArchitectureConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @property

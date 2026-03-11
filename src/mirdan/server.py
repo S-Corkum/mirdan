@@ -307,19 +307,23 @@ async def get_quality_trends(
 async def scan_conventions(
     directory: str = ".",
     language: str = "auto",
+    scan_architecture: bool = False,
 ) -> dict[str, Any]:
     """Scan a codebase to discover implicit conventions and patterns.
 
     Args:
         directory: Directory to scan (default: current directory)
         language: Language filter or "auto" to detect
+        scan_architecture: When True, also infer architectural layer boundaries from import patterns
 
     Returns:
         Scan result with discovered conventions and quality baselines
     """
     p = _get_provider()
     uc = p.create_scan_conventions_usecase()
-    return await uc.execute(directory=directory, language=language)
+    return await uc.execute(
+        directory=directory, language=language, scan_architecture=scan_architecture
+    )
 
 
 @mcp.tool()

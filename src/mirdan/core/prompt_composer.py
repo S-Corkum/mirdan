@@ -31,14 +31,16 @@ class PromptComposer:
             "## Implementation Approach\n"
             "Focus on integrating with existing patterns. "
             "Before writing new code, read similar implementations in the codebase. "
-            "New functions must have clear inputs/outputs and be easy to test independently."
+            "New functions must have clear inputs/outputs and be easy to test independently.\n"
+            "If decision_guidance is provided, review the trade-offs before choosing an approach."
         ),
         TaskType.REFACTOR: (
             "## Refactoring Protocol\n"
             "1. Identify all callers of the code being refactored\n"
             "2. Ensure all existing tests pass BEFORE making changes\n"
             "3. Make incremental changes — each commit should be independently correct\n"
-            "4. After refactoring, verify no public API signatures changed"
+            "4. After refactoring, verify no public API signatures changed\n"
+            "If decision_guidance is provided, review the trade-offs before choosing an approach."
         ),
         TaskType.DEBUG: (
             "## Debugging Protocol\n"

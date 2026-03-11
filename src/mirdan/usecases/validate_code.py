@@ -21,7 +21,9 @@ if TYPE_CHECKING:
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
     from mirdan.core.agent_coordinator import AgentCoordinator
+    from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
     from mirdan.core.code_validator import CodeValidator
+    from mirdan.core.confidence import ConfidenceCalibrator
     from mirdan.core.knowledge_producer import KnowledgeProducer
     from mirdan.core.linter_runner import LinterRunner
     from mirdan.core.output_formatter import OutputFormatter
@@ -53,6 +55,8 @@ class ValidateCodeUseCase:
         active_orchestrator: ToolExecutor,
         background_tasks: set[asyncio.Task[Any]],
         agent_coordinator: AgentCoordinator | None = None,
+        confidence_calibrator: ConfidenceCalibrator | None = None,
+        architecture_analyzer: ArchitectureAnalyzer | None = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -68,6 +72,8 @@ class ValidateCodeUseCase:
         self._active_orchestrator = active_orchestrator
         self._background_tasks = background_tasks
         self._agent_coordinator = agent_coordinator
+        self._confidence_calibrator = confidence_calibrator
+        self._architecture_analyzer = architecture_analyzer
 
     async def execute(
         self,
@@ -158,6 +164,17 @@ class ValidateCodeUseCase:
                         result, linter_violations, self._config.thresholds
                     )
 
+        # Architecture drift detection — merge violations before enrichment
+        arch_result = None
+        if self._architecture_analyzer is not None and file_path:
+            arch_result = self._architecture_analyzer.analyze_file(
+                file_path=file_path, code=code, language=result.language_detected
+            )
+            if arch_result.violations:
+                result.violations.extend(arch_result.violations)
+                result.score = self._code_validator._calculate_score(result.violations)
+                result.passed = not any(v.severity == "error" for v in result.violations)
+
         # Enrich violations with contextual explanations
         if result.violations:
             try:
@@ -222,6 +239,9 @@ class ValidateCodeUseCase:
                 ],
             }
 
+        # Initialize semantic_checks before block for use by confidence calibrator
+        semantic_checks: list[Any] = []
+
         # Generate semantic review questions (Layer 1)
         if self._config.semantic.enabled:
             semantic_checks = self._code_validator.generate_semantic_checks(
@@ -242,6 +262,19 @@ class ValidateCodeUseCase:
                 )
                 if protocol:
                     output["analysis_protocol"] = protocol.to_dict()
+
+        # Confidence calibration
+        if self._confidence_calibrator is not None:
+            confidence = self._confidence_calibrator.assess(
+                violations=result.violations,
+                semantic_checks=semantic_checks,
+                test_file=test_file,
+            )
+            output["confidence"] = confidence.to_dict()
+
+        # Architecture drift enrichment (Part B — structured report in output)
+        if arch_result is not None and (arch_result.violations or arch_result.context_warnings):
+            output["architecture_drift"] = arch_result.to_dict()
 
         # Include session quality summary if session is active
         if session and session.validation_count > 0:

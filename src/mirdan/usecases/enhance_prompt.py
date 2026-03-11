@@ -21,8 +21,11 @@ if TYPE_CHECKING:
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
     from mirdan.core.agent_coordinator import AgentCoordinator
+    from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
     from mirdan.core.ceremony import CeremonyAdvisor
     from mirdan.core.context_aggregator import ContextAggregator
+    from mirdan.core.decision_analyzer import DecisionAnalyzer
+    from mirdan.core.guardrail_analyzer import GuardrailAnalyzer
     from mirdan.core.intent_analyzer import IntentAnalyzer
     from mirdan.core.knowledge_producer import KnowledgeProducer
     from mirdan.core.orchestrator import ToolAdvisor
@@ -99,6 +102,9 @@ class EnhancePromptUseCase:
         ceremony_advisor: CeremonyAdvisor | None = None,
         agent_coordinator: AgentCoordinator | None = None,
         tidy_analyzer: TidyFirstAnalyzer | None = None,
+        decision_analyzer: DecisionAnalyzer | None = None,
+        guardrail_analyzer: GuardrailAnalyzer | None = None,
+        architecture_analyzer: ArchitectureAnalyzer | None = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -115,6 +121,9 @@ class EnhancePromptUseCase:
         self._ceremony_advisor = ceremony_advisor
         self._agent_coordinator = agent_coordinator
         self._tidy_analyzer = tidy_analyzer
+        self._decision_analyzer = decision_analyzer
+        self._guardrail_analyzer = guardrail_analyzer
+        self._architecture_analyzer = architecture_analyzer
 
     async def execute(
         self,
@@ -271,6 +280,30 @@ class EnhancePromptUseCase:
         ):
             tidy_analysis = self._tidy_analyzer.analyze(intent)
 
+        # Decision intelligence — only at STANDARD+ ceremony
+        decision_guidance = None
+        if (
+            self._decision_analyzer is not None
+            and level >= CeremonyLevel.STANDARD
+        ):
+            decision_guidance = self._decision_analyzer.analyze(intent)
+
+        # Cognitive guardrails — only at STANDARD+ ceremony
+        guardrail_analysis = None
+        if (
+            self._guardrail_analyzer is not None
+            and level >= CeremonyLevel.STANDARD
+        ):
+            guardrail_analysis = self._guardrail_analyzer.analyze(intent)
+
+        # Architecture context — only at STANDARD+ when model loaded
+        arch_context = None
+        if (
+            self._architecture_analyzer is not None
+            and level >= CeremonyLevel.STANDARD
+        ):
+            arch_context = self._architecture_analyzer.get_context_warnings(intent)
+
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
 
@@ -334,6 +367,15 @@ class EnhancePromptUseCase:
 
         if tidy_analysis is not None and tidy_analysis.suggestions:
             result_dict["tidy_suggestions"] = tidy_analysis.to_dict()
+
+        if decision_guidance:
+            result_dict["decision_guidance"] = [d.to_dict() for d in decision_guidance]
+
+        if guardrail_analysis:
+            result_dict["cognitive_guardrails"] = [g.to_dict() for g in guardrail_analysis]
+
+        if arch_context:
+            result_dict["architecture_context"] = arch_context
 
         result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 

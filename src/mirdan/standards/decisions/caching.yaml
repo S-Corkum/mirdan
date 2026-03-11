@@ -1,0 +1,25 @@
+name: "Caching Strategy"
+triggers:
+  - cache
+  - caching
+  - memoize
+  - redis
+  - memcached
+  - invalidation
+approaches:
+  - name: "In-process cache"
+    when_best: "Single-instance apps, small datasets, read-heavy with low write frequency"
+    when_avoid: "Multi-instance deployments, large datasets, data that changes frequently"
+    complexity: "low"
+  - name: "Distributed cache (Redis/Memcached)"
+    when_best: "Multi-instance apps, shared state, high throughput, need TTL control"
+    when_avoid: "Simple single-instance apps, tight budget, data that rarely repeats"
+    complexity: "medium"
+  - name: "HTTP caching (CDN/browser)"
+    when_best: "Static or semi-static content, API responses with clear freshness rules"
+    when_avoid: "Per-user dynamic content, real-time data, authenticated endpoints"
+    complexity: "low"
+senior_questions:
+  - "What is the cache invalidation strategy? How do you handle stale data?"
+  - "What is the expected cache hit ratio? Is caching even worth the complexity?"
+  - "How does the cache behave under cold-start or cache-miss storms?"

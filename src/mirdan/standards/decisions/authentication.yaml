@@ -1,0 +1,26 @@
+name: "Authentication Strategy"
+triggers:
+  - authentication
+  - auth
+  - login
+  - jwt
+  - oauth
+  - session
+  - token
+approaches:
+  - name: "Session-based authentication"
+    when_best: "Server-rendered apps, single domain, need immediate revocation"
+    when_avoid: "Stateless APIs, mobile apps, microservices, cross-domain scenarios"
+    complexity: "low"
+  - name: "JWT (JSON Web Tokens)"
+    when_best: "Stateless APIs, microservices, mobile apps, cross-domain"
+    when_avoid: "Need immediate token revocation, server-rendered apps with simple needs"
+    complexity: "medium"
+  - name: "OAuth 2.0 / OpenID Connect"
+    when_best: "Third-party login, delegated authorization, enterprise SSO"
+    when_avoid: "Simple internal apps, no third-party integration needed"
+    complexity: "high"
+senior_questions:
+  - "How are tokens/sessions revoked? What happens if a credential is compromised?"
+  - "What is the token lifetime and refresh strategy?"
+  - "How does this handle concurrent sessions across devices?"

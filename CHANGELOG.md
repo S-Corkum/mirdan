@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-03-11
+
+### Added
+
+- **Decision Intelligence Engine** — `enhance_prompt` surfaces trade-off analysis for 8
+  decision domains (caching, authentication, state management, data access, error handling,
+  API design, testing strategy, configuration). YAML-template-based, fully deterministic.
+  Matched via keyword triggers against prompt text. Config-gated (`decisions` section),
+  ceremony-gated (STANDARD+). Output includes approaches with when_best/when_avoid and
+  senior engineer questions.
+
+- **Cognitive Guardrails** — `enhance_prompt` surfaces domain-aware pre-flight thinking
+  prompts for 10 domains (payment, auth, migration, file upload, caching, real-time,
+  third-party, concurrency, deployment, privacy). Different from quality_requirements —
+  these are THINKING prompts, not rules. Config-gated (`guardrails` section),
+  ceremony-gated (STANDARD+).
+
+- **Confidence Calibration** — `validate_code_quality` returns calibrated confidence level
+  (HIGH/MEDIUM/LOW) with attention_focus pointing to the most important manual verification.
+  Rules: LOW for errors/security violations, MEDIUM for >3 warnings or missing test file,
+  HIGH otherwise. Survives all output compression levels including MINIMAL.
+
+- **Architectural Drift Detection** — Validates code against layer boundaries defined in
+  `.mirdan/architecture.yaml`. Produces ARCH004 (forbidden layer import) and ARCH005
+  (unexpected dependency) violations. Integrated into both `enhance_prompt` (context
+  warnings) and `validate_code_quality` (violation merging). Config-gated (`architecture`
+  section). Use `scan_conventions --scan-architecture` to infer initial layer boundaries.
+
+- **New config classes** — `DecisionConfig`, `GuardrailConfig`, `ArchitectureConfig` added
+  to `MirdanConfig`. All default to enabled with sensible limits.
+
+- **New models** — `DecisionApproach`, `DecisionGuidance`, `GuardrailAnalysis`,
+  `ConfidenceAssessment`, `ArchLayer`, `ArchDriftResult` dataclasses with `to_dict()`.
+
+- **Import extractor** — Python AST-based and regex-based (JS/TS/Go/Rust/Java) import
+  extraction for architecture drift detection.
+
+- **scan_conventions architecture mode** — New `scan_architecture` parameter infers
+  architectural layer boundaries from import patterns and suggests an initial
+  `architecture.yaml`.
+
+### Changed
+
+- `PromptComposer` TASK_GUIDANCE for GENERATION and REFACTOR now references decision_guidance.
+- `OutputFormatter` compression methods preserve new fields at appropriate tiers.
+- `models.py` now uses `from __future__ import annotations` for forward references.
+
 ## [1.9.0] - 2026-03-11
 
 ### Added
