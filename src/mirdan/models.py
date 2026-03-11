@@ -468,6 +468,86 @@ class CompactState:
 
 
 @dataclass
+class FileClaim:
+    """A file ownership claim by an agent session."""
+
+    session_id: str
+    file_path: str
+    claim_type: str  # "read" | "write"
+    timestamp: float
+    agent_label: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "file_path": self.file_path,
+            "claim_type": self.claim_type,
+            "agent_label": self.agent_label,
+        }
+
+
+@dataclass
+class ConflictWarning:
+    """A warning about potential multi-agent conflicts."""
+
+    type: str  # "write_overlap" | "stale_read"
+    message: str
+    conflicting_sessions: list[str]
+    file_path: str
+    severity: str = "warning"  # "warning" | "info"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self.type,
+            "message": self.message,
+            "conflicting_sessions": self.conflicting_sessions,
+            "file_path": self.file_path,
+            "severity": self.severity,
+        }
+
+
+@dataclass
+class TidySuggestion:
+    """A preparatory refactoring suggestion (Tidy First pattern)."""
+
+    type: str  # "extract_method" | "simplify_conditional" | "reduce_nesting" | "split_file"
+    file_path: str
+    line: int | None = None
+    description: str = ""
+    effort: str = "small"  # "trivial" | "small" | "medium"
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "type": self.type,
+            "file_path": self.file_path,
+            "description": self.description,
+            "effort": self.effort,
+        }
+        if self.line is not None:
+            result["line"] = self.line
+        if self.reason:
+            result["reason"] = self.reason
+        return result
+
+
+@dataclass
+class TidyFirstAnalysis:
+    """Result of Tidy First analysis on target files."""
+
+    suggestions: list[TidySuggestion] = field(default_factory=list)
+    target_files: list[str] = field(default_factory=list)
+    skipped_files: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "suggestions": [s.to_dict() for s in self.suggestions],
+            "target_files": self.target_files,
+            "skipped_files": self.skipped_files,
+        }
+
+
+@dataclass
 class SemanticCheck:
     """A semantic review question for the calling LLM to investigate."""
 

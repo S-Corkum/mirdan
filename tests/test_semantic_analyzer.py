@@ -90,6 +90,80 @@ class TestSemanticAnalyzer:
         assert protocol is None
 
 
+class TestDeepAnalysisPatterns:
+    """Tests for Last 30% deep analysis semantic patterns."""
+
+    def setup_method(self) -> None:
+        self.analyzer = SemanticAnalyzer(config=SemanticConfig(enabled=True))
+
+    def test_concurrency_pattern_async_def(self) -> None:
+        code = "async def fetch_data():\n    return await client.get(url)"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        concurrency = [c for c in checks if c.concern == "concurrency"]
+        assert len(concurrency) >= 1
+        assert concurrency[0].severity == "warning"
+
+    def test_boundary_pattern_division(self) -> None:
+        code = "result = total / count"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        boundary = [c for c in checks if c.concern == "boundary"]
+        assert len(boundary) >= 1
+
+    def test_error_propagation_pattern_swallowed(self) -> None:
+        code = "except ValueError as e:\n    pass"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        error_prop = [c for c in checks if c.concern == "error_propagation"]
+        assert len(error_prop) >= 1
+
+    def test_state_machine_pattern_string_comparison(self) -> None:
+        code = 'if status == "active":\n    process()'
+        checks = self.analyzer.generate_checks(code, "python", [])
+        state = [c for c in checks if c.concern == "state_machine"]
+        assert len(state) >= 1
+
+    def test_deep_analysis_disabled_skips_new_patterns(self) -> None:
+        analyzer = SemanticAnalyzer(
+            config=SemanticConfig(enabled=True, deep_analysis=False)
+        )
+        code = 'async def f(): pass\nresult = x / y\nif status == "active": pass'
+        checks = analyzer.generate_checks(code, "python", [])
+        deep_concerns = {"concurrency", "boundary", "error_propagation", "state_machine"}
+        deep_checks = [c for c in checks if c.concern in deep_concerns]
+        assert len(deep_checks) == 0
+
+    def test_severity_mapping_concurrency_is_warning(self) -> None:
+        code = "async def handler():\n    pass"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        concurrency = [c for c in checks if c.concern == "concurrency"]
+        assert len(concurrency) >= 1
+        assert all(c.severity == "warning" for c in concurrency)
+
+    def test_severity_mapping_boundary_is_info(self) -> None:
+        code = "value = items[idx]"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        boundary = [c for c in checks if c.concern == "boundary"]
+        assert len(boundary) >= 1
+        assert all(c.severity == "info" for c in boundary)
+
+    def test_analysis_protocol_includes_concurrency(self) -> None:
+        code = "async def process():\n    await asyncio.gather(a(), b())"
+        checks = self.analyzer.generate_checks(code, "python", [])
+        protocol = self.analyzer.generate_analysis_protocol(code, "python", [], checks)
+        assert protocol is not None
+        assert protocol.type == "deep_analysis"
+
+    def test_analysis_protocol_comprehensive(self) -> None:
+        code = (
+            'cursor.execute(f"SELECT * FROM users WHERE id={uid}")\n'
+            "async def process():\n"
+            "    await asyncio.gather(a(), b())"
+        )
+        checks = self.analyzer.generate_checks(code, "python", [])
+        protocol = self.analyzer.generate_analysis_protocol(code, "python", [], checks)
+        assert protocol is not None
+        assert protocol.type == "comprehensive_analysis"
+
+
 class TestSemanticCheckModel:
     """Tests for SemanticCheck dataclass."""
 

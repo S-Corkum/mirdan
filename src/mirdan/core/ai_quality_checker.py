@@ -29,6 +29,10 @@ from mirdan.core.rules.ai006_heavy_imports import AI006HeavyImportsRule
 from mirdan.core.rules.ai007_security_theater import AI007SecurityTheaterRule
 from mirdan.core.rules.ai008_injection import AI008InjectionRule
 from mirdan.core.rules.base import RuleContext, RuleRegistry, RuleTier
+from mirdan.core.rules.deep_analysis_rules import (
+    DEEP001SwallowedExceptionRule,
+    DEEP004LostExceptionContextRule,
+)
 from mirdan.core.rules.sec014_vulnerable_deps import SEC014VulnerableDepsRule
 from mirdan.core.rules.test_body_rules import (
     TEST001EmptyTestRule,
@@ -104,6 +108,10 @@ class AIQualityChecker:
         self._registry.register(TEST008HardcodedDataRule())
         self._registry.register(TEST009ExecutionOrderRule())
         self._registry.register(TEST010BroadExceptionRule())
+
+        # DEEP analysis rules
+        self._registry.register(DEEP001SwallowedExceptionRule())
+        self._registry.register(DEEP004LostExceptionContextRule())
 
     def check(
         self,

@@ -30,6 +30,11 @@ class SemanticConfig(BaseModel):
         pattern="^(none|security|comprehensive)$",
         description="When to generate structured analysis protocols",
     )
+    deep_analysis: bool = Field(
+        default=True,
+        description="Enable deep analysis patterns "
+        "(concurrency, boundary, error_propagation, state_machine)",
+    )
 
 
 class DependencyConfig(BaseModel):
@@ -349,6 +354,48 @@ class CeremonyConfig(BaseModel):
     )
 
 
+class TidyFirstConfig(BaseModel):
+    """Tidy First refactoring intelligence configuration."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable Tidy First analysis in enhance_prompt.",
+    )
+    max_suggestions: int = Field(
+        default=3,
+        description="Maximum tidy suggestions per enhance_prompt call.",
+    )
+    max_file_size_kb: int = Field(
+        default=50,
+        description="Skip files larger than this (KB). Prevents slow analysis on generated code.",
+    )
+    min_function_length: int = Field(
+        default=25,
+        description="Minimum function body lines to suggest extract_method.",
+    )
+    min_nesting_depth: int = Field(
+        default=3,
+        description="Minimum nesting depth to suggest simplify_conditional.",
+    )
+
+
+class CoordinationConfig(BaseModel):
+    """Multi-agent coordination configuration."""
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable multi-agent file claim tracking and conflict detection.",
+    )
+    warn_on_write_overlap: bool = Field(
+        default=True,
+        description="Warn when multiple sessions claim write access to the same file.",
+    )
+    warn_on_stale_read: bool = Field(
+        default=True,
+        description="Warn when a file is modified by one session while another has a read claim.",
+    )
+
+
 class MirdanConfig(BaseModel):
     """Main Mirdan configuration."""
 
@@ -376,6 +423,8 @@ class MirdanConfig(BaseModel):
     dependencies: DependencyConfig = Field(default_factory=DependencyConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
     ceremony: CeremonyConfig = Field(default_factory=CeremonyConfig)
+    coordination: CoordinationConfig = Field(default_factory=CoordinationConfig)
+    tidy_first: TidyFirstConfig = Field(default_factory=TidyFirstConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @property

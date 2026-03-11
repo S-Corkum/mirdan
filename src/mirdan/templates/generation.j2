@@ -1,5 +1,5 @@
 {# Template for standard code generation/refactor/debug/review tasks #}
-{% from "base.j2" import role_section, context_section, task_section, quality_requirements_section, constraints_section, verification_section, tools_section %}
+{% from "base.j2" import role_section, context_section, task_section, quality_requirements_section, constraints_section, verification_section, tools_section, tidy_first_section %}
 
 {{ role_section(language, frameworks) }}
 
@@ -7,6 +7,10 @@
 
 {% if task_guidance -%}
 {{ task_guidance }}
+
+{% endif -%}
+{% if tidy_suggestions -%}
+{{ tidy_first_section(tidy_suggestions) }}
 
 {% endif -%}
 {{ task_section(original_prompt) }}

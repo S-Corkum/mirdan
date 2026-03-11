@@ -11,6 +11,7 @@ from mirdan.models import Intent, SessionContext, TaskType
 
 if TYPE_CHECKING:
     from mirdan.config import SessionConfig
+    from mirdan.core.agent_coordinator import AgentCoordinator
 
 
 class SessionManager:
@@ -20,11 +21,14 @@ class SessionManager:
     and other tools can reference, avoiding redundant parameter passing.
     """
 
-    def __init__(self, config: SessionConfig | None = None) -> None:
+    def __init__(
+        self, config: SessionConfig | None = None, coordinator: AgentCoordinator | None = None
+    ) -> None:
         from mirdan.config import SessionConfig
 
         self._config = config or SessionConfig()
         self._sessions: dict[str, SessionContext] = {}
+        self._coordinator = coordinator
 
     def create_from_intent(self, intent: Intent) -> SessionContext:
         """Create a new session from an analyzed intent.
@@ -82,7 +86,10 @@ class SessionManager:
         Returns:
             True if the session was removed, False if not found.
         """
-        return self._sessions.pop(session_id, None) is not None
+        removed = self._sessions.pop(session_id, None) is not None
+        if removed and self._coordinator is not None:
+            self._coordinator.release_session(session_id)
+        return removed
 
     @property
     def active_count(self) -> int:
@@ -100,6 +107,8 @@ class SessionManager:
         expired = [sid for sid, s in self._sessions.items() if self._is_expired(s)]
         for sid in expired:
             del self._sessions[sid]
+        if expired and self._coordinator is not None:
+            self._coordinator.cleanup_stale(set(self._sessions.keys()))
 
     def _enforce_max_sessions(self) -> None:
         """Evict oldest sessions if at capacity."""
@@ -107,6 +116,8 @@ class SessionManager:
             # Remove the session with the oldest last_accessed time
             oldest_id = min(self._sessions, key=lambda sid: self._sessions[sid].last_accessed)
             del self._sessions[oldest_id]
+            if self._coordinator is not None:
+                self._coordinator.release_session(oldest_id)
 
     def apply_session_defaults(
         self,

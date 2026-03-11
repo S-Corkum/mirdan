@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
+    from mirdan.core.agent_coordinator import AgentCoordinator
     from mirdan.core.code_validator import CodeValidator
     from mirdan.core.knowledge_producer import KnowledgeProducer
     from mirdan.core.linter_runner import LinterRunner
@@ -51,6 +52,7 @@ class ValidateCodeUseCase:
         config: MirdanConfig,
         active_orchestrator: ToolExecutor,
         background_tasks: set[asyncio.Task[Any]],
+        agent_coordinator: AgentCoordinator | None = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -65,6 +67,7 @@ class ValidateCodeUseCase:
         self._config = config
         self._active_orchestrator = active_orchestrator
         self._background_tasks = background_tasks
+        self._agent_coordinator = agent_coordinator
 
     async def execute(
         self,
@@ -285,6 +288,17 @@ class ValidateCodeUseCase:
             output["checklist_note"] = (
                 "Re-validation. Review session_context.resolved for progress."
             )
+
+        # Check for multi-agent conflicts on the validated file
+        if (
+            self._agent_coordinator is not None
+            and self._agent_coordinator.is_enabled
+            and file_path
+            and session_id
+        ):
+            coord_warnings = self._agent_coordinator.check_conflicts(session_id, file_path)
+            if coord_warnings:
+                output["coordination"] = {"warnings": [w.to_dict() for w in coord_warnings]}
 
         output["timing_ms"] = {
             "validation": round(_t_validate * 1000, 1),

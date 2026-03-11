@@ -85,3 +85,14 @@ These are NOT optional. Complete ALL of these BEFORE writing any plan steps.
 {%- endif %}
 {%- endif %}
 {%- endmacro %}
+
+{% macro tidy_first_section(tidy_suggestions) -%}
+{% if tidy_suggestions -%}
+## Tidy First (Optional Preparatory Refactoring)
+Before implementing the main change, consider these structural improvements that would make the change easier:
+{% for s in tidy_suggestions -%}
+- **{{ s.type }}** ({{ s.effort }}): {{ s.description }}{% if s.file_path %} [{{ s.file_path }}{% if s.line %}:{{ s.line }}{% endif %}]{% endif %}
+{% endfor %}
+These are suggestions, not requirements. Apply only if they simplify your task.
+{%- endif %}
+{%- endmacro %}

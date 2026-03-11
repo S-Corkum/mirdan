@@ -47,6 +47,40 @@ _PATTERNS: dict[str, list[tuple[str, str]]] = {
         (r"assert\s+True\s*$", "assert True placeholder"),
         (r"@patch.*\n.*@patch.*\n.*@patch.*\n.*@patch", "heavily mocked test"),
     ],
+    "concurrency": [
+        (
+            r"(?:async\s+def|asyncio\.gather|asyncio\.create_task"
+            r"|threading\.Thread|concurrent\.futures)",
+            "concurrent code",
+        ),
+        (r"(?:global\s+\w+\s*$|Lock\(\)|Semaphore\(\)|RLock\(\))", "synchronization primitive"),
+    ],
+    "boundary": [
+        (r"(?<=[\w)\]])\s*/\s*[a-zA-Z_]\w*(?!\w)", "division with variable denominator"),
+        (r"\[\s*[a-zA-Z_]\w*\s*(?:[+-]\s*\d+\s*)?\]", "dynamic index access"),
+        (
+            r"(?:\bint\s*\(|\bfloat\s*\(|parseFloat\s*\(|parseInt\s*\("
+            r"|strconv\.(?:Atoi|ParseFloat))",
+            "numeric parsing from string",
+        ),
+    ],
+    "error_propagation": [
+        (
+            r"except\s+\w[\w.]*(?:\s+as\s+\w+)?:\s*$",
+            "exception handler (verify error is not swallowed)",
+        ),
+        (
+            r"\.catch\s*\(\s*(?:\(\s*\w*\s*\)\s*=>|function\s*\()\s*\{",
+            "JS catch handler (verify error is handled)",
+        ),
+    ],
+    "state_machine": [
+        (
+            r"\b(?:status|state|phase|stage|mode)\s*(?:==|===|!=|!==)\s*['\"]",
+            "string-based state comparison",
+        ),
+        (r"(?:\.status|\.state|\.phase|\.stage)\s*=\s*['\"]", "direct string state assignment"),
+    ],
 }
 
 # Question templates for each detected pattern
@@ -82,6 +116,26 @@ _QUESTION_TEMPLATES: dict[str, str] = {
     "test_quality": (
         "Line {line}: {context}. Verify this test exercises real behavior. "
         "Check: does it assert meaningful outcomes? Are mocks minimal and realistic?"
+    ),
+    "concurrency": (
+        "Line {line}: {context}. If this code runs concurrently (multiple "
+        "coroutines, threads, or requests), verify shared mutable state is "
+        "protected. Check: can two executions interleave and corrupt data?"
+    ),
+    "boundary": (
+        "Line {line}: {context}. Verify behavior at boundary values: "
+        "zero denominator, empty collection, negative index, max-int overflow. "
+        "Add explicit guards if the caller cannot guarantee safe inputs."
+    ),
+    "error_propagation": (
+        "Line {line}: {context}. Verify this error path preserves diagnostic "
+        "context (stack trace, original exception, relevant variables). "
+        "Check: does the caller receive enough information to diagnose failures?"
+    ),
+    "state_machine": (
+        "Line {line}: {context}. Verify all valid state transitions are handled "
+        "and invalid transitions are rejected. Check: what happens if the state "
+        "is an unexpected value? Consider using an enum instead of strings."
     ),
 }
 
@@ -122,10 +176,27 @@ _VIOLATION_FOLLOW_UPS: dict[str, str] = {
         "Excessive mocking detected. Consider: are you testing the mocks or the code? "
         "Remove mocks for units that are fast and deterministic. Mock only I/O boundaries."
     ),
+    "DEEP001": (
+        "Swallowed exception detected. What failure does this exception represent? "
+        "At minimum, log the exception. If truly ignorable, use contextlib.suppress() "
+        "to document the intent explicitly."
+    ),
+    "DEEP004": (
+        "Exception re-raised without `from` clause — original traceback is lost. "
+        "Add `from original_exception` to preserve the diagnostic chain."
+    ),
 }
 
 # Severity mapping for pattern types
-_SECURITY_PATTERNS = frozenset({"sql", "auth", "crypto"})
+_PATTERN_SEVERITY: dict[str, str] = {
+    "sql": "warning",
+    "auth": "warning",
+    "crypto": "warning",
+    "concurrency": "warning",
+    "error_propagation": "warning",
+    "boundary": "info",
+    "state_machine": "info",
+}
 
 
 class SemanticAnalyzer:
@@ -155,8 +226,15 @@ class SemanticAnalyzer:
         checks: list[SemanticCheck] = []
         lines = code.split("\n")
 
+        # Deep analysis patterns (gated by config)
+        deep_pattern_types = frozenset({
+            "concurrency", "boundary", "error_propagation", "state_machine",
+        })
+
         # Phase 1: Pattern-based checks
         for pattern_type, patterns in _PATTERNS.items():
+            if pattern_type in deep_pattern_types and not self._config.deep_analysis:
+                continue
             for line_num, line_text in enumerate(lines, 1):
                 for regex, context_label in patterns:
                     if re.search(regex, line_text, re.IGNORECASE):
@@ -170,9 +248,7 @@ class SemanticAnalyzer:
                                         context=f"{context_label} detected:"
                                         f" `{line_text.strip()[:80]}`",
                                     ),
-                                    severity=(
-                                        "warning" if pattern_type in _SECURITY_PATTERNS else "info"
-                                    ),
+                                    severity=_PATTERN_SEVERITY.get(pattern_type, "info"),
                                     focus_lines=[line_num],
                                 )
                             )
@@ -209,6 +285,10 @@ class SemanticAnalyzer:
         semantic_checks: list[SemanticCheck],
     ) -> AnalysisProtocol | None:
         """Generate structured analysis protocol for security-critical code."""
+        security_concerns = {"sql", "auth", "crypto", "violation_deep_dive"}
+        deep_concerns = {"concurrency", "error_propagation", "boundary", "state_machine"}
+        protocol_concerns = security_concerns | deep_concerns
+
         focus_areas: list[dict[str, Any]] = [
             {
                 "concern": check.concern,
@@ -216,14 +296,24 @@ class SemanticAnalyzer:
                 "focus_lines": check.focus_lines,
             }
             for check in semantic_checks
-            if check.concern in ("sql", "auth", "crypto", "violation_deep_dive")
+            if check.concern in protocol_concerns
         ]
 
         if not focus_areas:
             return None
 
+        concern_types = {fa["concern"] for fa in focus_areas}
+        has_security = bool(concern_types & security_concerns)
+        has_deep = bool(concern_types & deep_concerns)
+        if has_security and has_deep:
+            protocol_type = "comprehensive_analysis"
+        elif has_deep:
+            protocol_type = "deep_analysis"
+        else:
+            protocol_type = "security_flow_analysis"
+
         return AnalysisProtocol(
-            type="security_flow_analysis",
+            type=protocol_type,
             focus_areas=focus_areas,
             response_format={
                 "findings": [

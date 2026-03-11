@@ -9,6 +9,7 @@ from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
+from mirdan.core.agent_coordinator import AgentCoordinator
 from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.ceremony import CeremonyAdvisor
 from mirdan.core.code_validator import CodeValidator
@@ -29,6 +30,7 @@ from mirdan.core.quality_standards import QualityStandards
 from mirdan.core.semantic_analyzer import SemanticAnalyzer
 from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
+from mirdan.core.tidy_first import TidyFirstAnalyzer
 from mirdan.core.vuln_scanner import VulnScanner
 from mirdan.usecases.enhance_prompt import EnhancePromptUseCase
 from mirdan.usecases.quality_standards import GetQualityStandardsUseCase
@@ -103,6 +105,10 @@ class ComponentProvider:
         semantic_analyzer = SemanticAnalyzer(config=config.semantic)
         context_aggregator = ContextAggregator(config)
 
+        # AgentCoordinator must be created BEFORE SessionManager (Step 15 passes it)
+        self.agent_coordinator = AgentCoordinator(config.coordination)
+        self.tidy_analyzer = TidyFirstAnalyzer(config.tidy_first)
+
         # Store all components as instance attributes
         self.intent_analyzer = IntentAnalyzer(config.project, manifest_parser=manifest_parser)
         self.quality_standards = quality_standards
@@ -120,7 +126,7 @@ class ComponentProvider:
             workspace_resolver=workspace_resolver,
         )
         self.plan_validator = PlanValidator(config.planning, thresholds=config.thresholds)
-        self.session_manager = SessionManager(config.session)
+        self.session_manager = SessionManager(config.session, coordinator=self.agent_coordinator)
         self.output_formatter = OutputFormatter(
             compact_threshold=compact_threshold,
             minimal_threshold=minimal_threshold,
@@ -160,6 +166,8 @@ class ComponentProvider:
             active_orchestrator=self.active_orchestrator,
             background_tasks=background_tasks,
             ceremony_advisor=self.ceremony_advisor,
+            agent_coordinator=self.agent_coordinator,
+            tidy_analyzer=self.tidy_analyzer,
         )
 
     def create_validate_code_usecase(
@@ -179,6 +187,7 @@ class ComponentProvider:
             config=self.config,
             active_orchestrator=self.active_orchestrator,
             background_tasks=background_tasks,
+            agent_coordinator=self.agent_coordinator,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:

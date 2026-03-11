@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -103,6 +104,7 @@ class PromptComposer:
         tool_recommendations: list[ToolRecommendation],
         extra_requirements: Sequence[str] = (),
         session: SessionContext | None = None,
+        tidy_suggestions: list[dict[str, Any]] | None = None,
     ) -> EnhancedPrompt:
         """Compose the final enhanced prompt."""
         # Prepend persistent violation feedback before static standards so they
@@ -114,7 +116,8 @@ class PromptComposer:
 
         # Build the enhanced prompt text
         enhanced_text = self._build_prompt_text(
-            intent, context, quality_requirements, verification_steps, tool_recommendations
+            intent, context, quality_requirements, verification_steps, tool_recommendations,
+            tidy_suggestions=tidy_suggestions,
         )
 
         return EnhancedPrompt(
@@ -224,6 +227,7 @@ class PromptComposer:
         quality_requirements: list[str],
         verification_steps: list[str],
         tool_recommendations: list[ToolRecommendation],
+        tidy_suggestions: list[dict[str, Any]] | None = None,
     ) -> str:
         """Build the final prompt text using Jinja2 templates."""
         # Dispatch to planning template for PLANNING tasks
@@ -276,6 +280,7 @@ class PromptComposer:
             include_verification=include_verification,
             include_tool_hints=include_tool_hints,
             task_guidance=task_guidance,
+            tidy_suggestions=tidy_suggestions if verbosity != "minimal" else None,
         ).strip()
 
     def _get_task_constraints(self, intent: Intent) -> list[str]:

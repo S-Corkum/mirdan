@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
+    from mirdan.core.agent_coordinator import AgentCoordinator
     from mirdan.core.ceremony import CeremonyAdvisor
     from mirdan.core.context_aggregator import ContextAggregator
     from mirdan.core.intent_analyzer import IntentAnalyzer
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from mirdan.core.prompt_composer import PromptComposer
     from mirdan.core.session_manager import SessionManager
     from mirdan.core.session_tracker import SessionTracker
+    from mirdan.core.tidy_first import TidyFirstAnalyzer
     from mirdan.models import SessionContext
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,8 @@ class EnhancePromptUseCase:
         active_orchestrator: ToolExecutor,
         background_tasks: set[asyncio.Task[Any]],
         ceremony_advisor: CeremonyAdvisor | None = None,
+        agent_coordinator: AgentCoordinator | None = None,
+        tidy_analyzer: TidyFirstAnalyzer | None = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -109,6 +113,8 @@ class EnhancePromptUseCase:
         self._active_orchestrator = active_orchestrator
         self._background_tasks = background_tasks
         self._ceremony_advisor = ceremony_advisor
+        self._agent_coordinator = agent_coordinator
+        self._tidy_analyzer = tidy_analyzer
 
     async def execute(
         self,
@@ -199,6 +205,21 @@ class EnhancePromptUseCase:
         else:
             session = self._session_manager.create_from_intent(intent)
 
+        # Auto-claim files from extracted entities for coordination
+        coordination_warnings: list[dict[str, Any]] = []
+        if self._agent_coordinator is not None and self._agent_coordinator.is_enabled:
+            from mirdan.models import EntityType
+
+            file_entities = [e.value for e in intent.entities if e.type == EntityType.FILE_PATH]
+            if file_entities:
+                claim_type = "write" if intent.task_type in (
+                    TaskType.GENERATION, TaskType.REFACTOR
+                ) else "read"
+                warnings = self._agent_coordinator.claim_files(
+                    session.session_id, file_entities, claim_type
+                )
+                coordination_warnings = [w.to_dict() for w in warnings]
+
         # Determine ceremony level (after session is available for escalation checks)
         if self._ceremony_advisor is not None:
             if ceremony_level != "auto":
@@ -241,6 +262,15 @@ class EnhancePromptUseCase:
             policy = None
             effective_context_level = context_level
 
+        # Tidy First analysis — only at STANDARD+ ceremony for GENERATION/REFACTOR
+        tidy_analysis = None
+        if (
+            self._tidy_analyzer is not None
+            and level >= CeremonyLevel.STANDARD
+            and intent.task_type in (TaskType.GENERATION, TaskType.REFACTOR)
+        ):
+            tidy_analysis = self._tidy_analyzer.analyze(intent)
+
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
 
@@ -266,6 +296,10 @@ class EnhancePromptUseCase:
             tool_recommendations,
             extra_requirements=persistent_reqs,
             session=session,
+            tidy_suggestions=(
+                [s.to_dict() for s in tidy_analysis.suggestions]
+                if tidy_analysis and tidy_analysis.suggestions else None
+            ),
         )
 
         result_dict = enhanced.to_dict()
@@ -294,6 +328,12 @@ class EnhancePromptUseCase:
         if policy is not None and self._ceremony_advisor is not None:
             result_dict["recommended_validation"] = policy.recommended_validation
             result_dict["ceremony_reason"] = self._ceremony_advisor.explain(level, intent)
+
+        if coordination_warnings:
+            result_dict["coordination"] = {"warnings": coordination_warnings}
+
+        if tidy_analysis is not None and tidy_analysis.suggestions:
+            result_dict["tidy_suggestions"] = tidy_analysis.to_dict()
 
         result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 

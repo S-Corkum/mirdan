@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Tidy First Refactoring Intelligence** — `enhance_prompt` analyzes target files for
+  preparatory refactoring opportunities before the main task begins, implementing Kent Beck's
+  "Tidy First" principle. Python files get AST-based analysis; other languages use
+  indentation-based heuristics. Detects long functions (`extract_method`), deep nesting
+  (`simplify_conditional`), and large files (`split_file`). Config-gated via `tidy_first`
+  section. Suggestions appear in enhanced prompt output and Jinja2 template rendering.
+
+- **Deep Semantic Analysis Expansion** — 4 new pattern categories for `SemanticAnalyzer`:
+  `concurrency` (async/threading detection), `boundary` (division-by-zero, index access,
+  numeric parsing), `error_propagation` (swallowed exceptions, JS catch handlers), and
+  `state_machine` (string-based state comparisons). Config-gated via `deep_analysis` flag
+  on `SemanticConfig`. Pattern severity now uses a tiered mapping instead of a binary
+  security-only check.
+
+- **DEEP001 / DEEP004 compiled rules** — Two new AST-based `BaseRule` subclasses:
+  `DEEP001SwallowedExceptionRule` detects empty exception handlers (pass, ellipsis, bare
+  return); `DEEP004LostExceptionContextRule` detects re-raised exceptions without `from`
+  clause. Both run at FULL tier with `deep_analysis` category.
+
+- **Multi-Agent Coordination Intelligence** — `AgentCoordinator` tracks file claims across
+  concurrent agent sessions. Detects write-write overlaps and stale-read conflicts.
+  Integrated into `enhance_prompt` (auto-claims files from intent entities) and
+  `validate_code_quality` (checks for conflicts on validated files). Claims are cleaned up
+  on session expiry/eviction. Config-gated via `coordination` section.
+
 - **Adaptive Ceremony** — `enhance_prompt` automatically scales guidance depth based on
   task complexity. Trivial changes (typo fixes) get fast MICRO feedback; complex
   multi-framework tasks get deep THOROUGH analysis. Validation integrity is never compromised.
