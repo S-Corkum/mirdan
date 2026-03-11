@@ -1,7 +1,7 @@
 """Data models for Mirdan."""
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Any
 
 
@@ -34,6 +34,36 @@ class TaskType(Enum):
     TEST = "test"
     PLANNING = "planning"
     UNKNOWN = "unknown"
+
+
+class CeremonyLevel(IntEnum):
+    """Guidance depth level for enhance_prompt. Higher = more ceremony.
+
+    MICRO: Trivial changes (typo fix, version bump). Returns intent analysis only.
+    LIGHT: Simple single-file tasks. Critical tool recs only, minimal context.
+    STANDARD: Normal development tasks. Full quality sandwich.
+    THOROUGH: Complex multi-framework or security-sensitive tasks. Deep analysis.
+    """
+
+    MICRO = 0
+    LIGHT = 1
+    STANDARD = 2
+    THOROUGH = 3
+
+
+@dataclass(frozen=True)
+class CeremonyPolicy:
+    """Frozen policy mapping for a ceremony level.
+
+    Maps each CeremonyLevel to concrete parameter values that control
+    enhance_prompt behavior. Immutable to prevent runtime mutation.
+    """
+
+    level: CeremonyLevel
+    enhancement_mode: str  # "analyze_only" | "auto" | "auto" | "auto"
+    context_level: str  # "none" | "minimal" | "auto" | "comprehensive"
+    recommended_validation: str  # "skip" | "quick" | "standard" | "full"
+    filter_tool_recs: bool  # True for LIGHT (critical-only), False otherwise
 
 
 class EntityType(Enum):

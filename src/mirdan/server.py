@@ -114,6 +114,7 @@ async def enhance_prompt(
     max_tokens: int = 0,
     model_tier: str = "auto",
     session_id: str = "",
+    ceremony_level: str = "auto",
 ) -> dict[str, Any]:
     """
     Automatically enhance a coding prompt with quality requirements,
@@ -133,6 +134,10 @@ async def enhance_prompt(
         session_id: Resume an existing session to thread validation feedback into this
                     prompt. Persistent violations from prior validate_code_quality calls
                     are injected as priority quality requirements.
+        ceremony_level: Guidance depth (auto|micro|light|standard|thorough).
+                       "auto" scales based on task complexity. "micro" for trivial
+                       changes, "thorough" for complex multi-framework tasks.
+                       Security-touching tasks escalate to at least "standard".
 
     Returns:
         Enhanced prompt with quality requirements and tool recommendations
@@ -146,6 +151,7 @@ async def enhance_prompt(
         max_tokens=max_tokens,
         model_tier=model_tier,
         session_id=session_id,
+        ceremony_level=ceremony_level,
     )
 
 

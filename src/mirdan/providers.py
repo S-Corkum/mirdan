@@ -10,6 +10,7 @@ from typing import Any
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
 from mirdan.core.auto_fixer import AutoFixer
+from mirdan.core.ceremony import CeremonyAdvisor
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.convention_extractor import ConventionExtractor
@@ -135,6 +136,7 @@ class ComponentProvider:
         self.manifest_parser = manifest_parser
         self.vuln_scanner = vuln_scanner
         self.semantic_analyzer = semantic_analyzer
+        self.ceremony_advisor = CeremonyAdvisor(config.ceremony)
         self.active_orchestrator = ToolExecutor(context_aggregator.registry)
         self.config = config
         self.workspace_resolver = workspace_resolver
@@ -157,6 +159,7 @@ class ComponentProvider:
             config=self.config,
             active_orchestrator=self.active_orchestrator,
             background_tasks=background_tasks,
+            ceremony_advisor=self.ceremony_advisor,
         )
 
     def create_validate_code_usecase(

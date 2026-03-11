@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-03-11
+
+### Added
+
+- **Adaptive Ceremony** — `enhance_prompt` automatically scales guidance depth based on
+  task complexity. Trivial changes (typo fixes) get fast MICRO feedback; complex
+  multi-framework tasks get deep THOROUGH analysis. Validation integrity is never compromised.
+- `CeremonyLevel` enum: MICRO, LIGHT, STANDARD, THOROUGH (orderable via IntEnum)
+- `CeremonyPolicy` frozen dataclass mapping each level to concrete parameter values
+- `CeremonyAdvisor` — stateless scoring algorithm with escalation rules:
+  - Security/RAG/KG tasks escalate to at least STANDARD
+  - PLANNING tasks always get THOROUGH
+  - Persistent validation failures escalate +1 level
+  - High ambiguity (>=0.6) escalates to STANDARD
+- `ceremony_level` parameter on `enhance_prompt` (default: "auto")
+- `ceremony` config section with `enabled`, `default_level`, `min_level`,
+  `security_escalation`, `ambiguity_escalation`, `ambiguity_threshold`
+- Response fields: `ceremony_level`, `recommended_validation`, `ceremony_reason`
+- LIGHT ceremony filters tool recommendations to critical-priority only
+- MICRO ceremony returns analyze-only response with ceremony metadata
+
 ## [1.8.0] - 2026-03-11
 
 ### Added

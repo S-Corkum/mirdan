@@ -315,6 +315,40 @@ class ProjectConfig(BaseModel):
     github_repo: str = ""
 
 
+class CeremonyConfig(BaseModel):
+    """Adaptive ceremony configuration.
+
+    Controls how enhance_prompt scales guidance depth based on task complexity.
+    """
+
+    enabled: bool = Field(
+        default=True,
+        description="Master switch for adaptive ceremony. When False, always uses STANDARD.",
+    )
+    default_level: str = Field(
+        default="auto",
+        pattern="^(auto|micro|light|standard|thorough)$",
+        description="Default ceremony level. 'auto' uses scoring algorithm.",
+    )
+    min_level: str = Field(
+        default="micro",
+        pattern="^(micro|light|standard|thorough)$",
+        description="Floor level. Enterprise teams can set 'standard' to prevent MICRO/LIGHT.",
+    )
+    security_escalation: bool = Field(
+        default=True,
+        description="Always escalate security-touching tasks to at least STANDARD.",
+    )
+    ambiguity_escalation: bool = Field(
+        default=True,
+        description="Escalate high-ambiguity tasks to at least STANDARD.",
+    )
+    ambiguity_threshold: float = Field(
+        default=0.6,
+        description="Ambiguity score threshold for escalation (0.0-1.0).",
+    )
+
+
 class MirdanConfig(BaseModel):
     """Main Mirdan configuration."""
 
@@ -341,6 +375,7 @@ class MirdanConfig(BaseModel):
     semantic: SemanticConfig = Field(default_factory=SemanticConfig)
     dependencies: DependencyConfig = Field(default_factory=DependencyConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
+    ceremony: CeremonyConfig = Field(default_factory=CeremonyConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @property

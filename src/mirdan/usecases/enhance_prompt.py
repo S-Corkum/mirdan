@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
+    from mirdan.core.ceremony import CeremonyAdvisor
     from mirdan.core.context_aggregator import ContextAggregator
     from mirdan.core.intent_analyzer import IntentAnalyzer
     from mirdan.core.knowledge_producer import KnowledgeProducer
@@ -93,6 +94,7 @@ class EnhancePromptUseCase:
         config: MirdanConfig,
         active_orchestrator: ToolExecutor,
         background_tasks: set[asyncio.Task[Any]],
+        ceremony_advisor: CeremonyAdvisor | None = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -106,6 +108,7 @@ class EnhancePromptUseCase:
         self._config = config
         self._active_orchestrator = active_orchestrator
         self._background_tasks = background_tasks
+        self._ceremony_advisor = ceremony_advisor
 
     async def execute(
         self,
@@ -115,6 +118,7 @@ class EnhancePromptUseCase:
         max_tokens: int = 0,
         model_tier: str = "auto",
         session_id: str = "",
+        ceremony_level: str = "auto",
     ) -> dict[str, Any]:
         """Execute the enhance_prompt use case.
 
@@ -128,12 +132,14 @@ class EnhancePromptUseCase:
             model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku).
             session_id: Resume an existing session to thread validation feedback into this
                         prompt.
+            ceremony_level: Guidance depth (auto|micro|light|standard|thorough).
+                           "auto" scales based on task complexity.
 
         Returns:
             Enhanced prompt with quality requirements and tool recommendations
         """
         from mirdan.core.environment_detector import detect_environment
-        from mirdan.models import ContextBundle, TaskType
+        from mirdan.models import CeremonyLevel, ContextBundle, TaskType
 
         # Validate input size
         max_length = _MAX_PLAN_LENGTH if task_type == "plan_validation" else _MAX_PROMPT_LENGTH
@@ -193,6 +199,48 @@ class EnhancePromptUseCase:
         else:
             session = self._session_manager.create_from_intent(intent)
 
+        # Determine ceremony level (after session is available for escalation checks)
+        if self._ceremony_advisor is not None:
+            if ceremony_level != "auto":
+                # Explicit override — bypasses scoring and escalation (user knows best)
+                try:
+                    level = CeremonyLevel[ceremony_level.upper()]
+                except KeyError:
+                    level = CeremonyLevel.STANDARD
+                policy = self._ceremony_advisor.get_policy(level)
+            else:
+                level = self._ceremony_advisor.determine_level(
+                    intent, len(prompt), session=session
+                )
+                policy = self._ceremony_advisor.get_policy(level)
+
+            # MICRO: return minimal analysis with ceremony metadata
+            if policy.enhancement_mode == "analyze_only":
+                intent_result = {
+                    "task_type": intent.task_type.value,
+                    "task_types": [t.value for t in intent.task_types],
+                    "language": intent.primary_language,
+                    "frameworks": intent.frameworks,
+                    "touches_security": intent.touches_security,
+                    "ceremony_level": level.name.lower(),
+                    "recommended_validation": policy.recommended_validation,
+                    "ceremony_reason": self._ceremony_advisor.explain(level, intent),
+                    "timing_ms": {"total": round((perf_counter() - _t0) * 1000, 1)},
+                }
+                return self._output_formatter.format_enhanced_prompt(
+                    intent_result, max_tokens=max_tokens, model_tier=_parse_model_tier(model_tier)
+                )
+
+            # Apply ceremony policy to context_level (primary overhead reduction)
+            if context_level == "auto":
+                effective_context_level = policy.context_level
+            else:
+                effective_context_level = context_level
+        else:
+            level = CeremonyLevel.STANDARD
+            policy = None
+            effective_context_level = context_level
+
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
 
@@ -200,11 +248,16 @@ class EnhancePromptUseCase:
         tool_recommendations = self._mcp_orchestrator.suggest_tools(intent, session=session)
         session.tool_recommendations = [r.to_dict() for r in tool_recommendations]
 
+        # LIGHT ceremony: filter tool recommendations to critical-priority only
+        # (session already stores unfiltered recs above for compliance tracking)
+        if policy is not None and policy.filter_tool_recs:
+            tool_recommendations = [r for r in tool_recommendations if r.priority == "critical"]
+
         # Gather context from configured MCPs (skip if "none")
-        if context_level == "none":
+        if effective_context_level == "none":
             context = ContextBundle()
         else:
-            context = await self._context_aggregator.gather_all(intent, context_level)
+            context = await self._context_aggregator.gather_all(intent, effective_context_level)
 
         # Compose enhanced prompt with session feedback wired through
         enhanced = self._prompt_composer.compose(
@@ -235,6 +288,12 @@ class EnhancePromptUseCase:
         # Detect environment for context
         env_info = detect_environment()
         result_dict["environment"] = env_info.to_dict()
+
+        # Add ceremony metadata
+        result_dict["ceremony_level"] = level.name.lower()
+        if policy is not None and self._ceremony_advisor is not None:
+            result_dict["recommended_validation"] = policy.recommended_validation
+            result_dict["ceremony_reason"] = self._ceremony_advisor.explain(level, intent)
 
         result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 

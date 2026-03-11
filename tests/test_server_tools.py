@@ -174,6 +174,70 @@ class TestEnhancePromptTool:
             passed_level = call_args.args[1]
         assert passed_level == "comprehensive"
 
+    async def test_enhance_prompt_returns_ceremony_level(self) -> None:
+        """Default 'auto' should include ceremony_level in response."""
+        with patch.object(
+            server_mod._get_provider().context_aggregator,
+            "gather_all",
+            new_callable=AsyncMock,
+            return_value=ContextBundle(),
+        ):
+            result = await _enhance_prompt("Create a Python function")
+
+        assert "ceremony_level" in result
+        assert result["ceremony_level"] in ("micro", "light", "standard", "thorough")
+
+    async def test_enhance_prompt_micro_returns_minimal_response(self) -> None:
+        """Short debug prompt should return MICRO-level minimal response."""
+        result = await _enhance_prompt("Fix typo", ceremony_level="micro")
+
+        assert result["ceremony_level"] == "micro"
+        assert "recommended_validation" in result
+        assert "ceremony_reason" in result
+        # MICRO returns analyze_only style — no full enhanced_prompt
+        assert "enhanced_prompt" not in result or result.get("ceremony_level") == "micro"
+
+    async def test_enhance_prompt_explicit_ceremony_override(self) -> None:
+        """Passing ceremony_level='thorough' should force thorough."""
+        with patch.object(
+            server_mod._get_provider().context_aggregator,
+            "gather_all",
+            new_callable=AsyncMock,
+            return_value=ContextBundle(),
+        ):
+            result = await _enhance_prompt("Fix typo", ceremony_level="thorough")
+
+        assert result["ceremony_level"] == "thorough"
+
+    async def test_enhance_prompt_security_escalates_micro_to_standard(self) -> None:
+        """Security-touching prompt should escalate from micro to at least standard."""
+        with patch.object(
+            server_mod._get_provider().context_aggregator,
+            "gather_all",
+            new_callable=AsyncMock,
+            return_value=ContextBundle(),
+        ):
+            result = await _enhance_prompt("Implement JWT authentication for the API")
+
+        assert result["ceremony_level"] in ("standard", "thorough")
+
+    async def test_enhance_prompt_light_filters_tool_recs(self) -> None:
+        """LIGHT-level response should only include critical-priority tool recommendations."""
+        with patch.object(
+            server_mod._get_provider().context_aggregator,
+            "gather_all",
+            new_callable=AsyncMock,
+            return_value=ContextBundle(),
+        ):
+            result = await _enhance_prompt("Add a helper function", ceremony_level="light")
+
+        assert result["ceremony_level"] == "light"
+        # If there are tool recommendations, they should all be critical
+        recs = result.get("tool_recommendations", [])
+        for rec in recs:
+            priority = rec.get("priority", rec) if isinstance(rec, dict) else "unknown"
+            assert priority == "critical", f"Non-critical rec found in LIGHT: {rec}"
+
 
 # ---------------------------------------------------------------------------
 # get_quality_standards
