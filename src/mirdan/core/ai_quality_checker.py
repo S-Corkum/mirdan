@@ -1,4 +1,4 @@
-"""AI-specific code quality checks.
+"""AI-specific and test quality checks.
 
 Detects common AI-generated code issues that traditional linters miss:
 - AI001: Placeholder code (raise NotImplementedError, pass with TODO)
@@ -9,6 +9,7 @@ Detects common AI-generated code issues that traditional linters miss:
 - AI006: Unnecessary heavy imports
 - AI007: Security theater detection
 - AI008: Injection vulnerabilities via f-string interpolation
+- TEST001-TEST010: Test quality anti-pattern detection
 """
 
 from __future__ import annotations
@@ -20,15 +21,29 @@ from mirdan.core.rules.ai001_placeholders import (
     AI001PlaceholderRule,
     get_ast_confirmed_placeholder_lines,
 )
-from mirdan.core.rules.ai002_imports import AI002ImportRule, PYTHON_STDLIB_MODULES
+from mirdan.core.rules.ai002_imports import PYTHON_STDLIB_MODULES, AI002ImportRule
 from mirdan.core.rules.ai003_over_engineering import AI003OverEngineeringRule
 from mirdan.core.rules.ai004_duplicate_blocks import AI004DuplicateBlocksRule
 from mirdan.core.rules.ai005_error_handling import AI005ErrorHandlingRule
 from mirdan.core.rules.ai006_heavy_imports import AI006HeavyImportsRule
 from mirdan.core.rules.ai007_security_theater import AI007SecurityTheaterRule
 from mirdan.core.rules.ai008_injection import AI008InjectionRule
-from mirdan.core.rules.base import RuleContext, RuleRegistry
+from mirdan.core.rules.base import RuleContext, RuleRegistry, RuleTier
 from mirdan.core.rules.sec014_vulnerable_deps import SEC014VulnerableDepsRule
+from mirdan.core.rules.test_body_rules import (
+    TEST001EmptyTestRule,
+    TEST002AssertTrueRule,
+    TEST003NoAssertionsRule,
+    TEST005MockAbuseRule,
+    TEST010BroadExceptionRule,
+)
+from mirdan.core.rules.test_structure_rules import (
+    TEST004NoCoverageRule,
+    TEST006DuplicateTestRule,
+    TEST007MissingEdgeCaseRule,
+    TEST008HardcodedDataRule,
+    TEST009ExecutionOrderRule,
+)
 from mirdan.core.skip_regions import build_skip_regions
 from mirdan.models import Violation
 
@@ -37,7 +52,7 @@ if TYPE_CHECKING:
     from mirdan.core.vuln_scanner import VulnScanner
 
 # Re-export for backward compatibility
-__all__ = ["AIQualityChecker", "PYTHON_STDLIB_MODULES"]
+__all__ = ["PYTHON_STDLIB_MODULES", "AIQualityChecker"]
 
 
 class AIQualityChecker:
@@ -78,16 +93,39 @@ class AIQualityChecker:
             )
         )
 
-    def check(self, code: str, language: str, file_path: str = "") -> list[Violation]:
-        """Run all AI-specific rules.
+        # TEST rules
+        self._registry.register(TEST001EmptyTestRule())
+        self._registry.register(TEST002AssertTrueRule())
+        self._registry.register(TEST003NoAssertionsRule())
+        self._registry.register(TEST004NoCoverageRule())
+        self._registry.register(TEST005MockAbuseRule())
+        self._registry.register(TEST006DuplicateTestRule())
+        self._registry.register(TEST007MissingEdgeCaseRule())
+        self._registry.register(TEST008HardcodedDataRule())
+        self._registry.register(TEST009ExecutionOrderRule())
+        self._registry.register(TEST010BroadExceptionRule())
+
+    def check(
+        self,
+        code: str,
+        language: str,
+        file_path: str = "",
+        is_test: bool = False,
+        implementation_code: str | None = None,
+        max_tier: RuleTier = RuleTier.FULL,
+    ) -> list[Violation]:
+        """Run AI-specific and test quality rules.
 
         Args:
             code: Source code to check.
             language: Detected programming language.
             file_path: Optional file path for workspace-aware AI002 resolution.
+            is_test: Whether the code is test code (enables TEST rules).
+            implementation_code: Source of implementation for cross-referencing.
+            max_tier: Maximum rule tier to include (for incremental validation).
 
         Returns:
-            List of AI-specific violations.
+            List of violations.
         """
         if not code or not code.strip():
             return []
@@ -96,9 +134,11 @@ class AIQualityChecker:
         context = RuleContext(
             skip_regions=skip_regions,
             file_path=file_path,
+            is_test=is_test,
+            implementation_code=implementation_code,
         )
 
-        violations = self._registry.check_all(code, language, context)
+        violations = self._registry.check_by_tier(code, language, context, max_tier=max_tier)
 
         # Mark verifiability: AST-confirmed placeholders are verifiable
         ast_confirmed = get_ast_confirmed_placeholder_lines(code, language)

@@ -80,6 +80,8 @@ class ValidateCodeUseCase:
         input_type: str = "code",
         compare: bool = False,
         file_path: str = "",
+        test_file: str = "",
+        changed_lines: frozenset[int] | None = None,
     ) -> dict[str, Any]:
         """Execute the validate_code_quality use case.
 
@@ -138,6 +140,8 @@ class ValidateCodeUseCase:
             check_style=check_style,
             thresholds=resolved_thresholds,
             file_path=file_path,
+            test_file=test_file,
+            changed_lines=changed_lines,
         )
         _t_validate = perf_counter() - _t0
 

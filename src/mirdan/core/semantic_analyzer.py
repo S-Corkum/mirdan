@@ -42,6 +42,11 @@ _PATTERNS: dict[str, list[tuple[str, str]]] = {
     "loops": [
         (r"(?:for\s+\w+\s+in\b|while\s|for\s*\()", "loop"),
     ],
+    "test_quality": [
+        (r"def\s+test_\w+.*:\s*\n\s+(?:pass|\.\.\.)\s*$", "empty test function"),
+        (r"assert\s+True\s*$", "assert True placeholder"),
+        (r"@patch.*\n.*@patch.*\n.*@patch.*\n.*@patch", "heavily mocked test"),
+    ],
 }
 
 # Question templates for each detected pattern
@@ -74,6 +79,10 @@ _QUESTION_TEMPLATES: dict[str, str] = {
         "Line {line}: {context}. Verify loop termination condition is guaranteed. "
         "Check for off-by-one errors and empty collection edge cases."
     ),
+    "test_quality": (
+        "Line {line}: {context}. Verify this test exercises real behavior. "
+        "Check: does it assert meaningful outcomes? Are mocks minimal and realistic?"
+    ),
 }
 
 # Violation-informed follow-ups — existing violations trigger deeper questions
@@ -96,6 +105,22 @@ _VIOLATION_FOLLOW_UPS: dict[str, str] = {
     "AI003": (
         "Over-engineering flagged. Count actual call sites for this "
         "abstraction — if fewer than 3, inline it."
+    ),
+    "TEST001": (
+        "Empty test detected. What SPECIFIC behavior should this test verify? "
+        "Check the corresponding implementation function's contract and edge cases."
+    ),
+    "TEST002": (
+        "Assert True placeholder. Replace with an assertion that verifies "
+        "the ACTUAL return value or side effect of the function under test."
+    ),
+    "TEST003": (
+        "Test has no assertions. Add assertions that verify: (1) return values, "
+        "(2) expected side effects, (3) exception behavior for invalid inputs."
+    ),
+    "TEST005": (
+        "Excessive mocking detected. Consider: are you testing the mocks or the code? "
+        "Remove mocks for units that are fast and deterministic. Mock only I/O boundaries."
     ),
 }
 

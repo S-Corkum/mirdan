@@ -1,66 +1,69 @@
 # mirdan Testing Quality Standards
-# Applied when validating test files (detected via is_likely_test_code)
+# Applied when task type is TEST. IDs align with compiled TEST rules in core/rules/.
 
 testing:
-  naming:
+  body_quality:
     - id: TEST001
-      description: "Test names should describe the behavior being tested"
-      pattern: "def test_\\d+|def test_it_"
-      severity: warning
-      message: "Test name is not descriptive. Use: test_<action>_<context>_<expected>"
-      suggestion: "Rename to describe what is being tested, e.g., test_validates_email_format"
+      description: "Test functions must not have empty bodies (pass, ..., docstring-only)"
+      severity: error
+      message: "Empty test body provides no verification"
+      suggestion: "Add assertions that verify the expected behavior"
 
     - id: TEST002
-      description: "Test class names should indicate what is being tested"
-      pattern: "class Tests?\\d*[^a-zA-Z]|class Tests?$"
-      severity: info
-      message: "Test class name is generic. Use: Test<Component> or Test<Feature>"
+      description: "Tests must not use assert True as their only assertion"
+      severity: error
+      message: "Assert True is a placeholder that tests nothing"
+      suggestion: "Replace with assertions on actual return values or behavior"
 
-  assertions:
     - id: TEST003
-      description: "No bare assert True in tests"
-      pattern: "assert\\s+True\\s*$"
-      severity: error
-      message: "Bare 'assert True' provides no actual test verification"
-      suggestion: "Replace with a meaningful assertion that verifies behavior"
-
-    - id: TEST004
-      description: "No empty test bodies"
-      pattern: "def test_\\w+.*:\\s*\\n\\s+pass\\s*$"
-      severity: error
-      message: "Empty test body (pass) provides no verification"
-      suggestion: "Add assertions or remove the empty test"
-
-    - id: TEST005
-      description: "Tests should have at least one assertion"
+      description: "Every test function should have at least one assertion"
       severity: warning
-      message: "Test function has no assert statement"
-      suggestion: "Add at least one assertion to verify expected behavior"
-
-  isolation:
-    - id: TEST006
-      description: "Tests should not write to fixed file paths"
-      pattern: "open\\(['\"]\\/"
-      severity: warning
-      message: "Test writes to an absolute path. Use tmp_path or tempfile fixtures"
-      suggestion: "Use pytest's tmp_path fixture for temporary files"
-
-    - id: TEST007
-      description: "Tests should not depend on environment variables without defaults"
-      pattern: "os\\.environ\\[(?!.*\\.get)"
-      severity: info
-      message: "Test depends on environment variable. Use os.environ.get() with defaults"
-
-  mocking:
-    - id: TEST008
-      description: "Avoid overly broad mocks"
-      pattern: "@patch\\(['\"]builtins"
-      severity: info
-      message: "Mocking builtins is overly broad. Mock at the narrowest scope possible"
-      suggestion: "Mock the specific function or method being called"
+      message: "Test has no assert statements, pytest.raises, or mock assertions"
+      suggestion: "Add assertions to verify expected outcomes"
 
   coverage:
-    - id: TEST009
-      description: "Test files should test the corresponding source module"
+    - id: TEST004
+      description: "Tests should exercise the code under test (cross-reference check)"
+      severity: warning
+      message: "Tests do not call any functions from the implementation under test"
+      suggestion: "Import and call the functions/classes being tested"
+
+  mocking:
+    - id: TEST005
+      description: "Avoid excessive mocking that prevents testing real behavior"
+      severity: warning
+      message: "Test has 4+ mock patches — likely testing mocks, not code"
+      suggestion: "Reduce mocks to external I/O boundaries only"
+
+  structure:
+    - id: TEST006
+      description: "Avoid duplicate test logic across test functions"
       severity: info
-      message: "Test file name doesn't match any source module"
+      message: "Multiple test functions have identical AST structure"
+      suggestion: "Use parametrize or refactor shared setup into fixtures"
+
+    - id: TEST007
+      description: "Test files should include edge case tests"
+      severity: info
+      message: "No tests for edge cases (empty, None, error, boundary)"
+      suggestion: "Add tests for empty inputs, None values, error paths, and boundaries"
+
+    - id: TEST008
+      description: "Magic values in assertions should be explained"
+      severity: info
+      message: "Assertion contains unexplained numeric or string literal"
+      suggestion: "Add a comment or use a named constant to explain the expected value"
+
+  isolation:
+    - id: TEST009
+      description: "Tests should not modify global or module-level state"
+      severity: warning
+      message: "Test modifies global state, creating execution order dependency"
+      suggestion: "Use fixtures for setup/teardown. Avoid global/nonlocal in tests"
+
+  exceptions:
+    - id: TEST010
+      description: "Use specific exception types, not bare Exception, in pytest.raises"
+      severity: warning
+      message: "pytest.raises(Exception) or assertRaises(Exception) is too broad"
+      suggestion: "Use the specific exception type: pytest.raises(ValueError)"

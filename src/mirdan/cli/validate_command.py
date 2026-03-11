@@ -17,6 +17,29 @@ from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ValidationResult
 
 
+def _parse_cli_changed_lines(raw: str) -> frozenset[int] | None:
+    """Parse a changed-lines string like '1,5,10-15' into a frozenset."""
+    if not raw or not raw.strip():
+        return None
+    lines: set[int] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            if "-" in part and not part.startswith("-"):
+                start_s, end_s = part.split("-", 1)
+                start, end = int(start_s), int(end_s)
+                lines.update(range(min(start, end), max(start, end) + 1))
+            else:
+                val = int(part)
+                if val > 0:
+                    lines.add(val)
+        except ValueError:
+            continue
+    return frozenset(lines) if lines else None
+
+
 def run_validate(args: list[str]) -> None:
     """Run code quality validation from the CLI.
 
@@ -45,6 +68,8 @@ def run_validate(args: list[str]) -> None:
 
     run_lint = parsed.get("lint", False)
     quick_mode = parsed.get("quick", False)
+    scope = parsed.get("scope", "security")
+    changed_lines = _parse_cli_changed_lines(parsed.get("changed_lines", ""))
 
     try:
         if parsed.get("staged"):
@@ -67,7 +92,10 @@ def run_validate(args: list[str]) -> None:
                         standards_checked=["security"],
                     )
                 else:
-                    result = validator.validate_quick(code=added_code, language=language)
+                    result = validator.validate_quick(
+                            code=added_code, language=language,
+                            scope=scope, changed_lines=changed_lines,
+                        )
             else:
                 result = _validate_diff(validator, diff_text, language, check_security)
         elif parsed.get("diff"):
@@ -83,13 +111,19 @@ def run_validate(args: list[str]) -> None:
                         standards_checked=["security"],
                     )
                 else:
-                    result = validator.validate_quick(code=added_code, language=language)
+                    result = validator.validate_quick(
+                            code=added_code, language=language,
+                            scope=scope, changed_lines=changed_lines,
+                        )
             else:
                 result = _validate_diff(validator, diff_text, language, check_security)
         elif parsed.get("stdin"):
             code = sys.stdin.read()
             if quick_mode:
-                result = validator.validate_quick(code=code, language=language)
+                result = validator.validate_quick(
+                    code=code, language=language,
+                    scope=scope, changed_lines=changed_lines,
+                )
             else:
                 result = validator.validate(
                     code=code,
@@ -103,7 +137,10 @@ def run_validate(args: list[str]) -> None:
                 sys.exit(2)
             code = file_path.read_text()
             if quick_mode:
-                result = validator.validate_quick(code=code, language=language)
+                result = validator.validate_quick(
+                    code=code, language=language,
+                    scope=scope, changed_lines=changed_lines,
+                )
             else:
                 result = validator.validate(
                     code=code,
@@ -279,6 +316,12 @@ def _parse_args(args: list[str]) -> dict[str, Any]:
         elif arg == "--quick":
             parsed["quick"] = True
             i += 1
+        elif arg == "--scope" and i + 1 < len(args):
+            parsed["scope"] = args[i + 1]
+            i += 2
+        elif arg == "--changed-lines" and i + 1 < len(args):
+            parsed["changed_lines"] = args[i + 1]
+            i += 2
         elif arg == "--staged":
             parsed["staged"] = True
             i += 1
@@ -315,6 +358,8 @@ def _print_validate_help() -> None:
     print("  --lint             Run external linters (ruff, eslint, mypy)")
     print("  --no-lint          Skip external linters (default)")
     print("  --quick            Fast security-only validation (for hooks)")
+    print("  --scope SCOPE      Validation scope: security (default) or essential")
+    print("  --changed-lines L  Focus on lines (e.g., '1,5,10-15')")
     print("  --format FORMAT    Output format (text|json|github|micro)")
     print("  -h, --help         Show this help")
     print()

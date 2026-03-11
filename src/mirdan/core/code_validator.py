@@ -14,6 +14,7 @@ import yaml
 from mirdan.config import QualityConfig
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
+from mirdan.core.rules.base import RuleTier
 from mirdan.core.skip_regions import build_skip_regions, is_in_skip_region
 from mirdan.models import ValidationResult, Violation
 
@@ -807,6 +808,8 @@ class CodeValidator:
         check_style: bool = True,
         thresholds: ThresholdsConfig | None = None,
         file_path: str = "",
+        test_file: str = "",
+        changed_lines: frozenset[int] | None = None,
     ) -> ValidationResult:
         """
         Validate code against quality standards.
@@ -851,6 +854,14 @@ class CodeValidator:
         is_test = self._language_detector.is_likely_test_code(code)
         if is_test:
             limitations.append("Code appears to be test code - some rules relaxed")
+
+        # Read test_file for cross-referencing if provided
+        test_file_code: str | None = None
+        if test_file:
+            try:
+                test_file_code = Path(test_file).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                limitations.append(f"Could not read test_file: {test_file}")
 
         violations: list[Violation] = []
 
@@ -907,10 +918,32 @@ class CodeValidator:
                 violations.extend(fw_violations)
 
         # AI-specific quality checks
-        ai_violations = self._ai_checker.check(code, detected_lang, file_path=file_path)
+        ai_violations = self._ai_checker.check(
+            code, detected_lang, file_path=file_path, is_test=is_test
+        )
         if ai_violations:
             standards_checked.append("ai_quality")
             violations.extend(ai_violations)
+
+        # Run TEST rules on test_file with implementation cross-reference
+        if test_file_code and not is_test:
+            test_violations = self._ai_checker.check(
+                test_file_code, detected_lang, file_path=test_file,
+                is_test=True, implementation_code=code
+            )
+            if test_violations:
+                standards_checked.append("test_quality")
+                violations.extend(test_violations)
+        elif is_test and test_file_code:
+            # Main code is test code, test_file is the implementation
+            test_cross_violations = self._ai_checker.check(
+                code, detected_lang, file_path=file_path,
+                is_test=True, implementation_code=test_file_code
+            )
+            existing_test_ids = {v.id for v in ai_violations if v.id.startswith("TEST")}
+            new_cross = [v for v in test_cross_violations if v.id not in existing_test_ids]
+            if new_cross:
+                violations.extend(new_cross)
 
         # AST-enhanced Python validation (PY014, PY015, and AST-verified PY001/PY002/PY003/PY004)
         if detected_lang == "python":
@@ -933,6 +966,18 @@ class CodeValidator:
             except Exception:
                 logger.debug("Python AST validation failed", exc_info=True)
 
+        # Filter violations to changed lines if provided (with ±2 line buffer)
+        if changed_lines is not None:
+            _buffer = 2
+            expanded: set[int] = set()
+            for ln in changed_lines:
+                for offset in range(-_buffer, _buffer + 1):
+                    expanded.add(ln + offset)
+            violations = [
+                v for v in violations
+                if v.line is None or v.line in expanded
+            ]
+
         # Calculate results
         passed = not any(v.severity == "error" for v in violations)
         score = self._calculate_score(violations, thresholds=effective_thresholds)
@@ -950,19 +995,24 @@ class CodeValidator:
         self,
         code: str,
         language: str = "auto",
+        scope: str = "security",
+        changed_lines: frozenset[int] | None = None,
     ) -> ValidationResult:
-        """Fast security-only validation for hooks and real-time feedback.
-
-        Runs only security rules — skips style, architecture, framework,
-        custom rules, minified code detection, and test code detection.
-        Targets <500ms execution time.
+        """Fast validation for hooks and real-time feedback (<500ms target).
 
         Args:
             code: The code to validate.
             language: Programming language or "auto" for detection.
+            scope: Validation scope. "security" runs only security rules (default,
+                backward compatible). "essential" adds language-specific regex rules
+                and AI/TEST rules at ESSENTIAL tier — broader coverage while
+                staying under 500ms. Unrecognized values fall back to "security".
+            changed_lines: Optional set of line numbers to filter violations to.
+                When set, only violations on or near (±2 lines) these lines are
+                reported. Violations without a line number are always included.
 
         Returns:
-            ValidationResult with only security violations.
+            ValidationResult with violations filtered by scope and changed_lines.
         """
         # Handle empty code
         if not code or not code.strip():
@@ -974,6 +1024,10 @@ class CodeValidator:
                 standards_checked=["security"],
                 limitations=["No code provided for validation"],
             )
+
+        # Normalize scope — unrecognized values fall back to security-only
+        if scope not in ("security", "essential"):
+            scope = "security"
 
         detected_lang, limitations = self._resolve_language(code, language)
 
@@ -993,6 +1047,46 @@ class CodeValidator:
         standards_checked = ["security"]
         if ai_violations:
             standards_checked.append("ai_quality")
+
+        # Essential scope: also run language-specific regex rules and ESSENTIAL-tier AI/TEST rules
+        if scope == "essential":
+            # Language-specific compiled rules (regex-based, fast)
+            if detected_lang in self._compiled_rules:
+                lang_violations = self._check_rules(
+                    code,
+                    self._compiled_rules[detected_lang],
+                    is_test=False,
+                    skip_regions=skip_regions,
+                )
+                violations.extend(lang_violations)
+                if lang_violations:
+                    standards_checked.append(f"{detected_lang}_style")
+
+            # Replace AI quick results with ESSENTIAL-tier results (superset).
+            # Quick rules are AI001, AI007, AI008, SEC014. ESSENTIAL tier includes
+            # all of these plus any rules marked ESSENTIAL (e.g., TEST rules).
+            ai_quick_ids = {v.id for v in ai_violations}
+            violations = [v for v in violations if v.id not in ai_quick_ids]
+            essential_violations = self._ai_checker.check(
+                code, detected_lang, file_path="",
+                is_test=self._language_detector.is_likely_test_code(code),
+                max_tier=RuleTier.ESSENTIAL,
+            )
+            violations.extend(essential_violations)
+            if essential_violations:
+                standards_checked.append("ai_quality")
+
+        # Apply changed_lines filtering
+        if changed_lines is not None:
+            _buffer = 2
+            expanded: set[int] = set()
+            for ln in changed_lines:
+                for offset in range(-_buffer, _buffer + 1):
+                    expanded.add(ln + offset)
+            violations = [
+                v for v in violations
+                if v.line is None or v.line in expanded
+            ]
 
         passed = not any(v.severity == "error" for v in violations)
         score = self._calculate_score(violations)
@@ -1136,7 +1230,7 @@ class CodeValidator:
         lines: list[str],
         max_file_length: int,
     ) -> list[Violation]:
-        """ARCH002: Check for files that exceed the maximum length (non-empty, non-comment lines)."""
+        """ARCH002: Check for files exceeding max length (non-empty, non-comment lines)."""
         non_empty_lines = sum(
             1 for line in lines if line.strip() and not line.strip().startswith("#")
         )

@@ -295,7 +295,7 @@ class HookTemplateGenerator:
                     {
                         "type": "command",
                         "command": (
-                            f"{self._mirdan_cmd} validate --quick"
+                            f"{self._mirdan_cmd} validate --quick --scope essential"
                             " --file $TOOL_INPUT_FILE_PATH --format micro"
                         ),
                         "timeout": self._config.quick_validate_timeout,

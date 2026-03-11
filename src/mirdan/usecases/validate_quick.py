@@ -31,25 +31,28 @@ class ValidateQuickUseCase:
         language: str = "auto",
         max_tokens: int = 0,
         model_tier: str = "auto",
+        scope: str = "security",
+        changed_lines: frozenset[int] | None = None,
     ) -> dict[str, Any]:
         """Execute the validate_quick use case.
-
-        Runs only security rules — skips style, architecture, framework, and custom checks.
-        Ideal for PostToolUse hooks where speed matters more than comprehensive analysis.
 
         Args:
             code: The code to validate
             language: Programming language (python|typescript|javascript|rust|go|auto)
             max_tokens: Maximum token budget for the response (0=unlimited)
             model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+            scope: Validation scope. "security" (default) or "essential".
+            changed_lines: Optional set of line numbers to filter violations to.
 
         Returns:
-            Validation results with pass/fail, score, and security-only violations
+            Validation results with pass/fail, score, and scope-filtered violations
         """
         if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
             return error
 
-        result = self._code_validator.validate_quick(code=code, language=language)
+        result = self._code_validator.validate_quick(
+            code=code, language=language, scope=scope, changed_lines=changed_lines
+        )
 
         output = result.to_dict(severity_threshold="warning")
 

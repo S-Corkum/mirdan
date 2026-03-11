@@ -323,6 +323,22 @@ class QualityStandards:
                     for rule in category_rules[:test_count]
                     if isinstance(rule, dict) and "description" in rule
                 )
+            # Add compiled TEST rule awareness
+            requirements.extend([
+                "Tests MUST have at least one assertion — "
+                "empty bodies and assert True are errors (TEST001-TEST003)",
+                "Avoid mocking everything — test real behavior, "
+                "mock only external dependencies (TEST005)",
+                "Use specific exception types in "
+                "pytest.raises(), not bare Exception (TEST010)",
+            ])
+
+        # Add testability reminder for new code
+        if intent.task_type == TaskType.GENERATION:
+            requirements.append(
+                "New functions/classes should be designed for testability — "
+                "use dependency injection, avoid hidden state, keep functions pure where possible"
+            )
 
         # Add architecture standards (use architecture stringency)
         arch_count = self._get_stringency_count("architecture")

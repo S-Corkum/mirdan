@@ -60,7 +60,12 @@ class PromptComposer:
             "2. Each test should verify ONE behavior — name it descriptively\n"
             "3. Tests must be isolated — no shared mutable state between tests\n"
             "4. Mock external dependencies, don't mock the code under test\n"
-            "5. Assert specific values, not just that no error occurred"
+            "5. Assert specific values, not just that no error occurred\n"
+            "6. Every test must have at least one meaningful assertion (TEST003)\n"
+            "7. Never write empty test bodies or assert True placeholders (TEST001/TEST002)\n"
+            "8. Avoid excessive mocking — if everything is mocked, nothing is tested (TEST005)\n"
+            "9. Use pytest.raises(SpecificError), not pytest.raises(Exception) (TEST010)\n"
+            "10. Include edge case tests: empty inputs, None, boundaries, error paths (TEST007)"
         ),
         TaskType.DOCUMENTATION: (
             "## Documentation Standards\n"
@@ -160,6 +165,9 @@ class PromptComposer:
                 [
                     "Ensure tests cover both happy path and edge cases",
                     "Verify test isolation - no shared state between tests",
+                    "Verify every test has at least one meaningful assertion",
+                    "Verify no empty test bodies or assert True placeholders",
+                    "Verify test_file parameter is used for implementation cross-referencing",
                 ]
             )
 

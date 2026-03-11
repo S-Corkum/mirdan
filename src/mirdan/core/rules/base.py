@@ -4,9 +4,23 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import Protocol, runtime_checkable
 
 from mirdan.models import Violation
+
+
+class RuleTier(IntEnum):
+    """Performance tier for rules. Controls which rules run in each validation scope.
+
+    QUICK: Security-critical, <10ms. Runs in validate_quick scope="security".
+    ESSENTIAL: Fast pattern checks, <50ms. Runs in validate_quick scope="essential".
+    FULL: All checks including AST analysis. Runs in validate_code_quality.
+    """
+
+    QUICK = 0
+    ESSENTIAL = 1
+    FULL = 2
 
 
 @dataclass
@@ -16,6 +30,9 @@ class RuleContext:
     skip_regions: list[int]
     project_deps: frozenset[str] | None = None
     file_path: str = ""
+    is_test: bool = False
+    implementation_code: str | None = None
+    changed_lines: frozenset[int] | None = None
 
 
 @runtime_checkable
@@ -56,6 +73,11 @@ class BaseRule(ABC):
     def is_quick(self) -> bool:
         return False
 
+    @property
+    def tier(self) -> RuleTier:
+        """Performance tier. Defaults based on is_quick for backward compatibility."""
+        return RuleTier.QUICK if self.is_quick else RuleTier.FULL
+
     @abstractmethod
     def check(self, code: str, language: str, context: RuleContext) -> list[Violation]: ...
 
@@ -85,6 +107,38 @@ class RuleRegistry:
         lang = language.lower()
         for rule in self._rules:
             if not rule.is_quick:
+                continue
+            if lang in rule.languages or "auto" in rule.languages:
+                violations.extend(rule.check(code, language, context))
+        return violations
+
+    def check_by_tier(
+        self,
+        code: str,
+        language: str,
+        context: RuleContext,
+        max_tier: RuleTier = RuleTier.FULL,
+    ) -> list[Violation]:
+        """Run rules up to the specified tier.
+
+        Tier filtering happens here. Changed-lines filtering is NOT done here —
+        it is applied once in CodeValidator.validate()/validate_quick() after all
+        rule sources (compiled + registry) have been collected, to avoid
+        double-filtering and to ensure consistent behavior across both rule systems.
+
+        Args:
+            code: Source code to check.
+            language: Programming language.
+            context: Rule context.
+            max_tier: Maximum tier to include. Rules with tier > max_tier are skipped.
+
+        Returns:
+            List of violations from rules at or below max_tier.
+        """
+        violations: list[Violation] = []
+        lang = language.lower()
+        for rule in self._rules:
+            if getattr(rule, "tier", RuleTier.FULL) > max_tier:
                 continue
             if lang in rule.languages or "auto" in rule.languages:
                 violations.extend(rule.check(code, language, context))

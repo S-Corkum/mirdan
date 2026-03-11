@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-03-11
+
+### Added
+
+- **Test-Awareness Integration** — 10 new compiled TEST rules (TEST001-TEST010) that detect
+  AI-generated test anti-patterns: empty test bodies, assert True placeholders, missing assertions,
+  tests that don't exercise code under test, excessive mocking, duplicate test logic, missing edge
+  case coverage, unexplained magic values, execution order dependencies, and overly broad exception
+  testing.
+
+- **test_file parameter** — `validate_code_quality` accepts `test_file` path for cross-referencing
+  implementation coverage. When validating implementation code, point to the test file to get TEST
+  rule violations. When validating test code, point to the implementation for TEST004 cross-reference.
+
+- **Incremental Validation** — Rule tier system (QUICK/ESSENTIAL/FULL) and changed-lines filtering
+  enable broader coverage in fast validation paths without creating new tools.
+  - `validate_quick` gains `scope` parameter: "security" (default, backward compatible) or
+    "essential" (adds language-specific rules + ESSENTIAL-tier AI/TEST rules, still <500ms).
+  - Both `validate_quick` and `validate_code_quality` gain `changed_lines` parameter to focus
+    validation on specific line ranges (e.g., "5,10-15"). Only violations near those lines are
+    reported.
+
+- **RuleTier enum** — Rules declare their performance tier (QUICK/ESSENTIAL/FULL). Existing rules
+  derive tier from `is_quick` for backward compatibility. New TEST rules declare tier explicitly.
+  `RuleRegistry.check_by_tier()` dispatches by tier.
+
+- **Enhanced test-aware prompts** — `enhance_prompt` detects testable code and injects test quality
+  requirements. TEST task guidance expanded with TEST001-TEST010 awareness. GENERATION tasks include
+  testability reminders.
+
+- **Test completeness semantic checks** — SemanticAnalyzer generates test-specific review questions
+  when test code is detected. Violation follow-ups for TEST001, TEST002, TEST003, TEST005.
+
+### Changed
+
+- **RuleContext** — Extended with `is_test`, `implementation_code`, and `changed_lines` fields
+- **AIQualityChecker.check()** — Accepts `is_test`, `implementation_code`, and `max_tier` parameters;
+  uses `check_by_tier()` internally instead of `check_all()`
+- **CodeValidator.validate()** — Accepts `test_file` and `changed_lines` parameters
+- **CodeValidator.validate_quick()** — Accepts `scope` and `changed_lines` parameters
+- **validate_quick MCP tool** — Accepts `scope` and `changed_lines` string parameters
+- **validate_code_quality MCP tool** — Accepts `test_file` and `changed_lines` string parameters
+- **CLI `mirdan validate`** — Accepts `--scope` and `--changed-lines` flags
+- **PostToolUse hook template** — Now uses `--scope essential` for broader coverage in hooks
+- **testing.yaml** — Aligned YAML standard descriptions with compiled rule semantics
+
 ## [1.6.0] - 2026-03-09
 
 ### Added

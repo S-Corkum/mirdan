@@ -376,8 +376,8 @@ class TestTestingStandards:
         standards = QualityStandards()
         testing = standards.get_testing_standards()
         testing_data = testing.get("testing", {})
-        assert "naming" in testing_data
-        assert "assertions" in testing_data
+        assert "body_quality" in testing_data
+        assert "coverage" in testing_data
 
 
 # ---------------------------------------------------------------------------

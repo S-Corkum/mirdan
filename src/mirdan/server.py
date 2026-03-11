@@ -66,6 +66,42 @@ mcp = FastMCP("Mirdan", instructions="AI Code Quality Orchestrator", lifespan=_l
 
 
 # ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+
+def _parse_changed_lines(raw: str) -> frozenset[int] | None:
+    """Parse a changed-lines string like '1,5,10-15,20' into a frozenset of ints.
+
+    Handles edge cases gracefully:
+    - Empty/whitespace input returns None (no filtering)
+    - Non-numeric entries are silently skipped
+    - Reversed ranges (e.g., "15-10") are normalized
+    - Negative line numbers are skipped (line numbers are 1-based)
+    - Fully unparseable input returns None
+    """
+    if not raw or not raw.strip():
+        return None
+    lines: set[int] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            if "-" in part and not part.startswith("-"):
+                start_s, end_s = part.split("-", 1)
+                start, end = int(start_s), int(end_s)
+                lines.update(range(min(start, end), max(start, end) + 1))
+            else:
+                val = int(part)
+                if val > 0:
+                    lines.add(val)
+        except ValueError:
+            continue  # Skip unparseable entries
+    return frozenset(lines) if lines else None
+
+
+# ---------------------------------------------------------------------------
 # Tool handlers — thin routing to use cases
 # ---------------------------------------------------------------------------
 
@@ -127,6 +163,8 @@ async def validate_code_quality(
     input_type: str = "code",
     compare: bool = False,
     file_path: str = "",
+    test_file: str = "",
+    changed_lines: str = "",
 ) -> dict[str, Any]:
     """
     Validate generated code against quality standards.
@@ -147,6 +185,13 @@ async def validate_code_quality(
         compare: If True, treat `code` as JSON array of implementations to compare
         file_path: Optional file path for external linter analysis. When provided,
                    runs ruff/eslint/mypy on the file and merges results.
+        test_file: Optional path to the corresponding test file (when validating
+                   implementation) or implementation file (when validating tests).
+                   Enables cross-referencing for TEST004 coverage analysis.
+        changed_lines: Optional comma-separated line numbers or ranges to focus
+                       validation on (e.g., "1,5,10-15"). Only violations on or
+                       near these lines are reported. Useful for incremental
+                       validation after edits.
 
     Returns:
         Validation results with pass/fail, score, violations, and summary
@@ -166,6 +211,8 @@ async def validate_code_quality(
         input_type=input_type,
         compare=compare,
         file_path=file_path,
+        test_file=test_file,
+        changed_lines=_parse_changed_lines(changed_lines),
     )
 
 
@@ -175,20 +222,24 @@ async def validate_quick(
     language: str = "auto",
     max_tokens: int = 0,
     model_tier: str = "auto",
+    scope: str = "security",
+    changed_lines: str = "",
 ) -> dict[str, Any]:
-    """Fast security-only validation for hooks and real-time feedback (<500ms target).
-
-    Runs only security rules — skips style, architecture, framework, and custom checks.
-    Ideal for PostToolUse hooks where speed matters more than comprehensive analysis.
+    """Fast validation for hooks and real-time feedback (<500ms target).
 
     Args:
         code: The code to validate
         language: Programming language (python|typescript|javascript|rust|go|auto)
         max_tokens: Maximum token budget for the response (0=unlimited)
         model_tier: Target model tier for output optimization (auto|opus|sonnet|haiku)
+        scope: Validation scope. "security" (default) runs only security rules.
+            "essential" also runs language-specific style rules and ESSENTIAL-tier
+            AI/TEST quality rules — broader coverage while targeting <500ms.
+        changed_lines: Optional comma-separated line numbers or ranges to focus
+            on (e.g., "5,10-20"). Only violations near these lines are reported.
 
     Returns:
-        Validation results with pass/fail, score, and security-only violations
+        Validation results with pass/fail, score, and scope-filtered violations
     """
     p = _get_provider()
     uc = p.create_validate_quick_usecase()
@@ -197,6 +248,8 @@ async def validate_quick(
         language=language,
         max_tokens=max_tokens,
         model_tier=model_tier,
+        scope=scope,
+        changed_lines=_parse_changed_lines(changed_lines),
     )
 
 

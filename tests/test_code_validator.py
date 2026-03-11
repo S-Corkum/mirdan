@@ -4,9 +4,9 @@ import pytest
 
 from mirdan.config import ThresholdsConfig
 from mirdan.core.code_validator import CodeValidator
-from mirdan.core.skip_regions import build_skip_regions, is_in_skip_region
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
+from mirdan.core.skip_regions import build_skip_regions, is_in_skip_region
 
 
 @pytest.fixture
