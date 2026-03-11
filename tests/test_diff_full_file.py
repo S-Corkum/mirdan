@@ -6,8 +6,6 @@ import asyncio
 import textwrap
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
-
 import pytest
 
 
@@ -27,15 +25,25 @@ class TestFullFileDiffValidation:
         self.tmp_path = tmp_path
 
     def _run_handle_diff(self, diff: str, cwd: Path | None = None) -> dict[str, Any]:
-        from mirdan.server import _handle_diff
+        from mirdan.server import _background_tasks, _get_provider
+        from mirdan.usecases.validate_code import ValidateCodeUseCase
 
-        with patch("mirdan.server.Path") as mock_path_cls:
-            # Make Path.cwd() return our tmp_path
-            mock_path_cls.cwd.return_value = cwd or self.tmp_path
-            # But Path(x) / y should still work normally
-            mock_path_cls.__truediv__ = Path.__truediv__
-            # Actually, patching Path is too invasive. Let's use a different approach.
-            pass
+        c = _get_provider()
+        uc = ValidateCodeUseCase(
+            code_validator=c.code_validator,
+            session_manager=c.session_manager,
+            linter_runner=c.linter_runner,
+            violation_explainer=c.violation_explainer,
+            quality_persistence=c.quality_persistence,
+            session_tracker=c.session_tracker,
+            semantic_analyzer=c.semantic_analyzer,
+            output_formatter=c.output_formatter,
+            knowledge_producer=c.knowledge_producer,
+            prompt_composer=c.prompt_composer,
+            config=c.config,
+            active_orchestrator=c.active_orchestrator,
+            background_tasks=_background_tasks,
+        )
 
         # Use monkeypatch-style approach - just chdir
         import os
@@ -46,7 +54,7 @@ class TestFullFileDiffValidation:
             loop = asyncio.new_event_loop()
             try:
                 return loop.run_until_complete(
-                    _handle_diff(
+                    uc._validate_diff(
                         diff=diff,
                         language="auto",
                         check_security=True,

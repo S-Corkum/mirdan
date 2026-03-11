@@ -1,6 +1,6 @@
 """Data models for Mirdan."""
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -98,7 +98,7 @@ class SessionContext:
     created_at: float = 0.0
     last_accessed: float = 0.0
 
-    # Session-wide quality tracking (Phase 2)
+    # Session-wide quality tracking
     validation_count: int = 0
     cumulative_score: float = 0.0
     unresolved_errors: int = 0
@@ -142,16 +142,7 @@ class PlanQualityScore:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
-        return {
-            "overall_score": self.overall_score,
-            "grounding_score": self.grounding_score,
-            "completeness_score": self.completeness_score,
-            "atomicity_score": self.atomicity_score,
-            "clarity_score": self.clarity_score,
-            "issues": self.issues,
-            "recommendations": self.recommendations,
-            "ready_for_cheap_model": self.ready_for_cheap_model,
-        }
+        return asdict(self)
 
 
 @dataclass
@@ -315,13 +306,7 @@ class ComparisonEntry:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "label": self.label,
-            "score": self.score,
-            "passed": self.passed,
-            "violation_counts": self.violation_counts,
-            "summary": self.summary,
-        }
+        return asdict(self)
 
 
 @dataclass
@@ -356,15 +341,7 @@ class QualitySnapshot:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
-            "timestamp": self.timestamp,
-            "project_path": self.project_path,
-            "language": self.language,
-            "score": self.score,
-            "passed": self.passed,
-            "violation_counts": self.violation_counts,
-            "standards_checked": self.standards_checked,
-        }
+        return asdict(self)
 
 
 @dataclass
@@ -444,15 +421,7 @@ class CompactState:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
-        return {
-            "session_id": self.session_id,
-            "task_type": self.task_type,
-            "language": self.language,
-            "touches_security": self.touches_security,
-            "last_score": self.last_score,
-            "open_violations": self.open_violations,
-            "frameworks": self.frameworks,
-        }
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "CompactState":
@@ -500,11 +469,7 @@ class AnalysisProtocol:
     response_format: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": self.type,
-            "focus_areas": self.focus_areas,
-            "response_format": self.response_format,
-        }
+        return asdict(self)
 
 
 @dataclass

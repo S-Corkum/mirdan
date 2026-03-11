@@ -71,6 +71,9 @@ def detect_project(directory: Path | None = None) -> DetectedProject:
 def detect_framework_version(framework: str, directory: Path | None = None) -> str | None:
     """Detect the version of a specific framework from project manifests.
 
+    Delegates to ManifestParser.get_framework_version() for unified version
+    detection. Kept as a convenience function for CLI callers.
+
     Args:
         framework: Framework name to look up (e.g., "react", "fastapi").
         directory: Project root directory. Defaults to cwd.
@@ -78,24 +81,13 @@ def detect_framework_version(framework: str, directory: Path | None = None) -> s
     Returns:
         Version string if found, None otherwise.
     """
+    from mirdan.core.manifest_parser import ManifestParser
+
     if directory is None:
         directory = Path.cwd()
 
-    # Check pyproject.toml
-    pyproject = directory / "pyproject.toml"
-    if pyproject.exists():
-        version = _get_python_dep_version(pyproject, framework)
-        if version:
-            return version
-
-    # Check package.json
-    pkg_json = directory / "package.json"
-    if pkg_json.exists():
-        version = _get_node_dep_version(pkg_json, framework)
-        if version:
-            return version
-
-    return None
+    parser = ManifestParser(project_dir=directory)
+    return parser.get_framework_version(framework)
 
 
 def _detect_from_pyproject(directory: Path, result: DetectedProject) -> None:

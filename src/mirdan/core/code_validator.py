@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import bisect
 import logging
 import re
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ import yaml
 from mirdan.config import QualityConfig
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
+from mirdan.core.skip_regions import build_skip_regions, is_in_skip_region
 from mirdan.models import ValidationResult, Violation
 
 if TYPE_CHECKING:
@@ -24,173 +24,6 @@ if TYPE_CHECKING:
     from mirdan.core.vuln_scanner import VulnScanner
 
 logger = logging.getLogger(__name__)
-
-
-# Languages where # starts a line comment
-_HASH_COMMENT_LANGUAGES = frozenset({"python", "ruby", "perl", "shell", "bash"})
-
-# Languages that support /* */ block comments
-_BLOCK_COMMENT_LANGUAGES = frozenset(
-    {
-        "typescript",
-        "javascript",
-        "java",
-        "go",
-        "rust",
-        "c",
-        "cpp",
-        "c++",
-        "c#",
-        "kotlin",
-        "swift",
-        "csharp",
-    }
-)
-
-# Languages that support `` ` `` template literals
-_TEMPLATE_LITERAL_LANGUAGES = frozenset({"typescript", "javascript"})
-
-
-def _build_skip_regions(code: str, language: str = "unknown") -> list[int]:
-    """Build a flat sorted list of skip-region boundaries.
-
-    Scans the code once to identify all string literal and comment regions.
-    Returns a flat list of [start1, end1, start2, end2, ...] suitable for
-    bisect-based lookup.
-
-    Args:
-        code: Source code to scan.
-        language: Detected language (controls which comment syntaxes apply).
-
-    Returns:
-        Flat sorted list of region boundaries (even indices = start, odd = end).
-    """
-    boundaries: list[int] = []
-    lang = language.lower()
-    supports_hash = lang in _HASH_COMMENT_LANGUAGES
-    supports_block = lang in _BLOCK_COMMENT_LANGUAGES or lang == "unknown"
-    supports_template = lang in _TEMPLATE_LITERAL_LANGUAGES
-
-    i = 0
-    length = len(code)
-
-    while i < length:
-        c = code[i]
-
-        # --- Triple-quoted strings (Python) - must check before single quotes ---
-        if c in ('"', "'") and i + 2 < length and code[i + 1] == c and code[i + 2] == c:
-            quote = code[i : i + 3]
-            start = i
-            i += 3
-            while i < length - 2:
-                if code[i] == "\\":
-                    i += 2
-                    continue
-                if code[i : i + 3] == quote:
-                    i += 3
-                    break
-                i += 1
-            else:
-                i = length  # unterminated
-            boundaries.extend((start, i))
-            continue
-
-        # --- Line comments: # (Python/Ruby) ---
-        if supports_hash and c == "#":
-            start = i
-            newline = code.find("\n", i)
-            i = newline + 1 if newline != -1 else length
-            boundaries.extend((start, i))
-            continue
-
-        # --- Line comments: // (C-family) ---
-        if c == "/" and i + 1 < length and code[i + 1] == "/":
-            start = i
-            newline = code.find("\n", i)
-            i = newline + 1 if newline != -1 else length
-            boundaries.extend((start, i))
-            continue
-
-        # --- Block comments: /* */ (C-family) ---
-        if supports_block and c == "/" and i + 1 < length and code[i + 1] == "*":
-            start = i
-            end = code.find("*/", i + 2)
-            i = end + 2 if end != -1 else length
-            boundaries.extend((start, i))
-            continue
-
-        # --- Template literals: `...` (JS/TS) ---
-        if supports_template and c == "`":
-            start = i
-            i += 1
-            while i < length:
-                if code[i] == "\\":
-                    i += 2
-                    continue
-                if code[i] == "`":
-                    i += 1
-                    break
-                i += 1
-            else:
-                i = length
-            boundaries.extend((start, i))
-            continue
-
-        # --- Single/double quoted strings ---
-        if c in ('"', "'"):
-            quote = c
-            start = i
-            i += 1
-            while i < length:
-                if code[i] == "\\":
-                    i += 2
-                    continue
-                if code[i] == quote:
-                    i += 1
-                    break
-                if code[i] == "\n":
-                    # Unterminated single-line string
-                    break
-                i += 1
-            else:
-                i = length
-            boundaries.extend((start, i))
-            continue
-
-        i += 1
-
-    return boundaries
-
-
-def _is_in_skip_region(position: int, boundaries: list[int]) -> bool:
-    """Check if a position falls strictly inside any skip region.
-
-    A match AT the opening delimiter (quote or comment marker) is NOT
-    considered "inside" — only positions AFTER the delimiter are.  This
-    preserves the correct behavior for rules that intentionally match
-    comment text (``# type: ignore``) or string-concatenation patterns
-    (``"SELECT ..." + var``).
-
-    Uses binary search on the flat boundaries list for O(log n) lookup.
-
-    Args:
-        position: Character position to check.
-        boundaries: Flat list from _build_skip_regions.
-
-    Returns:
-        True if position is strictly inside a string literal or comment.
-    """
-    if not boundaries:
-        return False
-    # bisect_right gives us the insertion point.
-    # If the index is odd, we're between a start and end (i.e., inside a region).
-    idx = bisect.bisect_right(boundaries, position)
-    if idx % 2 == 0:
-        return False
-    # Position is within [region_start, region_end).
-    # Only skip if it's STRICTLY after the start (not at the delimiter itself).
-    region_start = boundaries[idx - 1]
-    return position > region_start
 
 
 @dataclass
@@ -1022,7 +855,7 @@ class CodeValidator:
         violations: list[Violation] = []
 
         # Build skip regions once for all rule checks
-        skip_regions = _build_skip_regions(code, detected_lang)
+        skip_regions = build_skip_regions(code, detected_lang)
 
         # Apply language-specific rules
         if check_style and detected_lang in self._compiled_rules:
@@ -1145,7 +978,7 @@ class CodeValidator:
         detected_lang, limitations = self._resolve_language(code, language)
 
         # Build skip regions and run security rules only
-        skip_regions = _build_skip_regions(code, detected_lang)
+        skip_regions = build_skip_regions(code, detected_lang)
         violations = self._check_rules(
             code,
             self._compiled_rules["_security"],
@@ -1240,8 +1073,6 @@ class CodeValidator:
         except SyntaxError:
             return ([], ["Code has syntax errors - AST validation skipped"])
 
-        violations: list[Violation] = []
-
         # Get thresholds from config or use defaults
         if effective:
             max_func_length = effective.arch_max_function_length
@@ -1256,7 +1087,23 @@ class CodeValidator:
 
         lines = code.split("\n")
 
-        # ARCH001: function-too-long
+        violations: list[Violation] = []
+        violations.extend(self._check_arch001_function_length(tree, lines, max_func_length))
+        violations.extend(self._check_arch002_file_length(lines, max_file_length))
+        violations.extend(self._check_arch003_missing_return_type(tree, lines))
+        violations.extend(self._check_arch004_nesting_depth(tree, lines, max_nesting))
+        violations.extend(self._check_arch005_god_class(tree, lines, max_class_methods))
+
+        return (violations, [])
+
+    def _check_arch001_function_length(
+        self,
+        tree: ast.Module,
+        lines: list[str],
+        max_func_length: int,
+    ) -> list[Violation]:
+        """ARCH001: Check for functions that exceed the maximum length."""
+        violations: list[Violation] = []
         for node in ast.walk(tree):
             if (
                 isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -1282,13 +1129,19 @@ class CodeValidator:
                             suggestion="Break this function into smaller, focused functions",
                         )
                     )
+        return violations
 
-        # ARCH002: file-too-long (non-empty, non-comment lines)
+    def _check_arch002_file_length(
+        self,
+        lines: list[str],
+        max_file_length: int,
+    ) -> list[Violation]:
+        """ARCH002: Check for files that exceed the maximum length (non-empty, non-comment lines)."""
         non_empty_lines = sum(
             1 for line in lines if line.strip() and not line.strip().startswith("#")
         )
         if non_empty_lines > max_file_length:
-            violations.append(
+            return [
                 Violation(
                     id="ARCH002",
                     rule="file-too-long",
@@ -1300,9 +1153,16 @@ class CodeValidator:
                     code_snippet="",
                     suggestion="Split this file into smaller, focused modules",
                 )
-            )
+            ]
+        return []
 
-        # ARCH003: missing-return-type (public functions without return annotation)
+    def _check_arch003_missing_return_type(
+        self,
+        tree: ast.Module,
+        lines: list[str],
+    ) -> list[Violation]:
+        """ARCH003: Check for public functions missing return type annotations."""
+        violations: list[Violation] = []
         _exempt_decorators = {"property", "abstractmethod"}
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -1341,8 +1201,15 @@ class CodeValidator:
                             suggestion="Add return type annotation: def func() -> ReturnType:",
                         )
                     )
+        return violations
 
-        # ARCH004: excessive-nesting (recursive depth walk)
+    def _check_arch004_nesting_depth(
+        self,
+        tree: ast.Module,
+        lines: list[str],
+        max_nesting: int,
+    ) -> list[Violation]:
+        """ARCH004: Check for excessive nesting depth in functions."""
         nesting_nodes = (
             ast.If,
             ast.For,
@@ -1365,6 +1232,7 @@ class CodeValidator:
                 max_depth = max(max_depth, child_depth)
             return max_depth
 
+        violations: list[Violation] = []
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 depth = _max_nesting_depth(node)
@@ -1389,8 +1257,16 @@ class CodeValidator:
                             ),
                         )
                     )
+        return violations
 
-        # ARCH005: god-class (too many methods in a class)
+    def _check_arch005_god_class(
+        self,
+        tree: ast.Module,
+        lines: list[str],
+        max_class_methods: int,
+    ) -> list[Violation]:
+        """ARCH005: Check for classes with too many methods."""
+        violations: list[Violation] = []
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef):
                 method_count = sum(
@@ -1417,8 +1293,7 @@ class CodeValidator:
                             suggestion="Split this class into smaller, focused classes",
                         )
                     )
-
-        return (violations, [])
+        return violations
 
     def _check_rules(
         self,
@@ -1439,7 +1314,7 @@ class CodeValidator:
 
             for match in rule.pattern.finditer(code):
                 # Skip false positives inside strings or comments
-                if _is_in_skip_region(match.start(), regions):
+                if is_in_skip_region(match.start(), regions):
                     continue
 
                 # Calculate line number

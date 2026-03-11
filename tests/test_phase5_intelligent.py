@@ -612,19 +612,18 @@ class TestForecastInTrends:
 
 
 class TestExplainerInServer:
-    """Tests that violation_explainer is wired into _Components."""
+    """Tests that violation_explainer is wired into ComponentProvider."""
 
     def test_components_has_violation_explainer(self) -> None:
         import inspect
 
-        import mirdan.server as server_mod
+        from mirdan.providers import ComponentProvider
 
-        source = inspect.getsource(server_mod._Components)
+        source = inspect.getsource(ComponentProvider)
         assert "violation_explainer" in source
 
     def test_explainer_created(self) -> None:
-        import mirdan.server as server_mod
+        from mirdan.providers import _create_violation_explainer
 
-        assert hasattr(server_mod, "_create_violation_explainer")
-        explainer = server_mod._create_violation_explainer()
+        explainer = _create_violation_explainer()
         assert hasattr(explainer, "enrich_violations")

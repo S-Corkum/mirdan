@@ -616,18 +616,18 @@ class TestEnvironmentOutput:
     """Tests for environment-aware output optimization."""
 
     def test_server_imports_ide_type(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "IDEType" in source
 
     def test_claude_code_gets_higher_compact_threshold(self) -> None:
         """In Claude Code env, compact_threshold should be raised."""
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "IDEType.CLAUDE_CODE" in source
         assert "compact_threshold" in source
 
     def test_cursor_gets_lower_compact_threshold(self) -> None:
         """In Cursor env, compact_threshold should be lowered."""
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "IDEType.CURSOR" in source
 
 
@@ -640,57 +640,57 @@ class TestServerSessionTracking:
     """Tests for SessionTracker wiring in server.py."""
 
     def test_server_has_session_tracker(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_Components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "session_tracker" in source
 
     def test_server_has_auto_fixer(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_Components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "auto_fixer" in source
 
     def test_validate_code_quality_records_session(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "record_validation" in source
 
     def test_validate_quick_includes_auto_fixes(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_quick"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_quick", fromlist=["ValidateQuickUseCase"]))
         assert "quick_fix" in source
         assert "auto_fixes" in source
 
     def test_enhance_prompt_stores_tool_recommendations(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["enhance_prompt"]))
+        source = inspect.getsource(__import__("mirdan.usecases.enhance_prompt", fromlist=["EnhancePromptUseCase"]))
         assert "tool_recommendations" in source
         assert "session.tool_recommendations" in source
 
     def test_validate_includes_timing_ms(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "timing_ms" in source
         assert "perf_counter" in source
 
     def test_validate_includes_session_context_delta(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "session_context" in source
         assert "get_previous_violations" in source
         assert "get_violation_persistence" in source
 
     def test_validate_includes_recommendation_reminders(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "recommendation_reminders" in source
 
     def test_validate_includes_checklist_note_on_revalidation(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "checklist_note" in source
 
     def test_scan_conventions_persists_yaml(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["scan_conventions"]))
+        source = inspect.getsource(__import__("mirdan.usecases.scan_conventions", fromlist=["ScanConventionsUseCase"]))
         assert "conventions.yaml" in source
         assert "yaml.dump" in source
 
     def test_intent_analyzer_receives_manifest_parser(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "manifest_parser=manifest_parser" in source
 
     def test_quality_standards_receives_project_dir(self) -> None:
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["_get_components"]))
+        source = inspect.getsource(__import__("mirdan.providers", fromlist=["ComponentProvider"]))
         assert "project_dir=project_dir" in source
 
 
@@ -884,7 +884,7 @@ class TestGap1ValidationFeedbackLoop:
     """Gap 1: Persistent violation requirements injected into enhance_prompt."""
 
     def test_empty_reqs_on_new_session(self) -> None:
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         session = SessionContext(session_id="test-1")
         tracker = SessionTracker()
@@ -892,7 +892,7 @@ class TestGap1ValidationFeedbackLoop:
         assert result == []
 
     def test_empty_reqs_when_no_files_validated(self) -> None:
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         session = SessionContext(session_id="test-2", validation_count=3)
         tracker = SessionTracker()
@@ -900,7 +900,7 @@ class TestGap1ValidationFeedbackLoop:
         assert result == []
 
     def test_persistent_reqs_formatted_for_recurring_violations(self) -> None:
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         # Record three consecutive validations with the same failing rule
@@ -935,7 +935,7 @@ class TestGap1ValidationFeedbackLoop:
         assert any("recurring" in r.lower() or "consecutive" in r.lower() for r in reqs)
 
     def test_persistent_reqs_capped_at_three(self) -> None:
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         # Create 5 different recurring violations
@@ -965,7 +965,7 @@ class TestGap1ValidationFeedbackLoop:
 
 
 class TestGap3SessionAwareRouting:
-    """Gap 3: Session-aware tool routing in MCPOrchestrator."""
+    """Gap 3: Session-aware tool routing in ToolAdvisor."""
 
     def _make_session(
         self, validation_count: int = 0, unresolved_errors: int = 0
@@ -977,10 +977,10 @@ class TestGap3SessionAwareRouting:
         )
 
     def test_first_call_generic_enyal_recall(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent
 
-        orc = MCPOrchestrator()
+        orc = ToolAdvisor()
         intent = Intent(original_prompt="create endpoint", task_type=TaskType.GENERATION)
         session = self._make_session(validation_count=0)
         recs = orc.suggest_tools(
@@ -992,10 +992,10 @@ class TestGap3SessionAwareRouting:
         assert "conventions" in recall_recs[0].action.lower()
 
     def test_reuse_with_errors_gives_targeted_enyal(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent
 
-        orc = MCPOrchestrator()
+        orc = ToolAdvisor()
         intent = Intent(original_prompt="fix the auth", task_type=TaskType.DEBUG)
         session = self._make_session(validation_count=2, unresolved_errors=3)
         recs = orc.suggest_tools(
@@ -1009,10 +1009,10 @@ class TestGap3SessionAwareRouting:
         )
 
     def test_reuse_after_passing_skips_enyal(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent
 
-        orc = MCPOrchestrator()
+        orc = ToolAdvisor()
         intent = Intent(original_prompt="add a feature", task_type=TaskType.GENERATION)
         session = self._make_session(validation_count=1, unresolved_errors=0)
         recs = orc.suggest_tools(
@@ -1022,10 +1022,10 @@ class TestGap3SessionAwareRouting:
         assert len(enyal_recs) == 0
 
     def test_no_session_uses_generic_enyal(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent
 
-        orc = MCPOrchestrator()
+        orc = ToolAdvisor()
         intent = Intent(original_prompt="implement feature", task_type=TaskType.GENERATION)
         recs = orc.suggest_tools(intent, available_mcps=list(orc.KNOWN_MCPS.keys()), session=None)
         enyal_recs = [r for r in recs if r.mcp == "enyal"]
@@ -1120,7 +1120,7 @@ class TestStructuredViolationFeedback:
 
     def test_enriched_string_includes_message(self) -> None:
         """Feedback string contains the violation message."""
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         v = Violation(
@@ -1145,7 +1145,7 @@ class TestStructuredViolationFeedback:
 
     def test_enriched_string_includes_suggestion(self) -> None:
         """Feedback string contains the fix suggestion."""
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         v = Violation(
@@ -1169,7 +1169,7 @@ class TestStructuredViolationFeedback:
 
     def test_enriched_string_includes_line(self) -> None:
         """Feedback string contains 'at line N'."""
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         v = Violation(
@@ -1192,7 +1192,7 @@ class TestStructuredViolationFeedback:
 
     def test_enriched_string_omits_empty_suggestion(self) -> None:
         """When suggestion is None/empty, no 'Fix:' appears."""
-        from mirdan.server import _get_persistent_violation_reqs
+        from mirdan.usecases.enhance_prompt import _get_persistent_violation_reqs
 
         tracker = SessionTracker()
         v = Violation(
@@ -1290,13 +1290,12 @@ class TestASTPlaceholderVerification:
 
     def test_ast_confirms_ellipsis_in_confirmed_lines(self) -> None:
         """Pure '...' body is detected by AST as a placeholder line."""
-        from mirdan.core.ai_quality_checker import AIQualityChecker
+        from mirdan.core.rules.ai001_placeholders import get_ast_confirmed_placeholder_lines
 
-        checker = AIQualityChecker()
         code = "def stub():\n    ...\n"
         # The regex pattern for AI001 doesn't detect standalone '...',
-        # but the AST method correctly identifies it as a placeholder line.
-        confirmed = checker._get_ast_confirmed_placeholder_lines(code, "python")
+        # but the AST function correctly identifies it as a placeholder line.
+        confirmed = get_ast_confirmed_placeholder_lines(code, "python")
         assert 2 in confirmed  # line 2 is the ellipsis
 
     def test_ast_skips_abstractmethod(self) -> None:
@@ -1447,10 +1446,10 @@ class TestQualityBaseline:
         assert first_call == second_call
 
     def test_drift_detection_in_server_output(self) -> None:
-        """Server adds quality_drift key when score drops > 0.15 below baseline."""
+        """Use case adds quality_drift key when score drops > 0.15 below baseline."""
         import inspect
 
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "quality_drift" in source
         assert "get_baseline_score" in source
         assert "0.15" in source
@@ -1621,9 +1620,9 @@ class TestSecurityRegression:
         assert tracker.detect_security_regression("db.py", style_fail.violations) is False
 
     def test_regression_surfaced_in_server_output(self) -> None:
-        """Server adds security_regression key to output when detected."""
+        """Use case adds security_regression key to output when detected."""
         import inspect
 
-        source = inspect.getsource(__import__("mirdan.server", fromlist=["validate_code_quality"]))
+        source = inspect.getsource(__import__("mirdan.usecases.validate_code", fromlist=["ValidateCodeUseCase"]))
         assert "security_regression" in source
         assert "detect_security_regression" in source

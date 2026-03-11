@@ -11,7 +11,7 @@ from mirdan.config import (
     ThresholdsConfig,
 )
 from mirdan.core.intent_analyzer import IntentAnalyzer
-from mirdan.core.orchestrator import MCPOrchestrator
+from mirdan.core.orchestrator import ToolAdvisor
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ContextBundle, Intent, TaskType
@@ -305,14 +305,14 @@ class TestPromptComposerConfigWiring:
         assert len(no_config_result.enhanced_text) == len(balanced_result.enhanced_text)
 
 
-class TestMCPOrchestratorConfigWiring:
-    """Tests for MCPOrchestrator configuration wiring."""
+class TestToolAdvisorConfigWiring:
+    """Tests for ToolAdvisor configuration wiring."""
 
     def test_prefer_mcps_reorders_recommendations(self) -> None:
         """Should reorder recommendations based on prefer_mcps."""
         # Prefer filesystem first, then enyal
         config = OrchestrationConfig(prefer_mcps=["filesystem", "enyal"])
-        orchestrator = MCPOrchestrator(config)
+        orchestrator = ToolAdvisor(config)
 
         intent = Intent(
             original_prompt="create a React component",
@@ -332,7 +332,7 @@ class TestMCPOrchestratorConfigWiring:
 
     def test_works_without_config(self) -> None:
         """Should work normally when no config provided (backward compatible)."""
-        orchestrator = MCPOrchestrator()  # No config
+        orchestrator = ToolAdvisor()  # No config
 
         intent = Intent(
             original_prompt="add authentication",
@@ -356,7 +356,7 @@ class TestServerIntegration:
         intent_analyzer = IntentAnalyzer(config.project)
         quality_standards = QualityStandards(config=config.quality)
         prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
-        mcp_orchestrator = MCPOrchestrator(config.orchestration)
+        mcp_orchestrator = ToolAdvisor(config.orchestration)
 
         # Run through the flow
         prompt = "add user authentication with JWT"
@@ -380,7 +380,7 @@ class TestServerIntegration:
         intent_analyzer = IntentAnalyzer(config.project)
         quality_standards = QualityStandards(config=config.quality)
         PromptComposer(quality_standards, config=config.enhancement)
-        mcp_orchestrator = MCPOrchestrator(config.orchestration)
+        mcp_orchestrator = ToolAdvisor(config.orchestration)
 
         # Analyze a generic prompt - should get python/fastapi from config
         intent = intent_analyzer.analyze("add validation to the endpoint")

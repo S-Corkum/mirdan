@@ -6,11 +6,12 @@ import json
 from pathlib import Path
 
 from mirdan.config import QualityConfig
-from mirdan.core.quality_standards import QualityStandards, _detect_version_from_manifests
+from mirdan.core.manifest_parser import ManifestParser
+from mirdan.core.quality_standards import QualityStandards
 
 
-class TestDetectVersionFromManifests:
-    """Tests for _detect_version_from_manifests helper."""
+class TestManifestParserFrameworkVersion:
+    """Tests for ManifestParser.get_framework_version()."""
 
     def test_python_pyproject_version(self, tmp_path: Path) -> None:
         """Should extract version from pyproject.toml dependencies."""
@@ -19,7 +20,8 @@ class TestDetectVersionFromManifests:
             '[project]\nname = "app"\ndependencies = [\n  "fastapi>=0.115.0",\n]\n'
         )
 
-        version = _detect_version_from_manifests("fastapi", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("fastapi")
         assert version == "0.115.0"
 
     def test_python_pyproject_exact_version(self, tmp_path: Path) -> None:
@@ -27,7 +29,8 @@ class TestDetectVersionFromManifests:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('[project]\nname = "app"\ndependencies = [\n  "django==4.2.1",\n]\n')
 
-        version = _detect_version_from_manifests("django", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("django")
         assert version == "4.2.1"
 
     def test_node_package_json_version(self, tmp_path: Path) -> None:
@@ -41,7 +44,8 @@ class TestDetectVersionFromManifests:
             )
         )
 
-        version = _detect_version_from_manifests("react", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("react")
         assert version == "19.0.0"
 
     def test_node_dev_dependency(self, tmp_path: Path) -> None:
@@ -55,12 +59,14 @@ class TestDetectVersionFromManifests:
             )
         )
 
-        version = _detect_version_from_manifests("typescript", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("typescript")
         assert version == "5.3.0"
 
     def test_not_found_returns_none(self, tmp_path: Path) -> None:
         """Should return None when framework not found."""
-        version = _detect_version_from_manifests("react", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("react")
         assert version is None
 
     def test_invalid_json_returns_none(self, tmp_path: Path) -> None:
@@ -68,7 +74,8 @@ class TestDetectVersionFromManifests:
         pkg = tmp_path / "package.json"
         pkg.write_text("not json")
 
-        version = _detect_version_from_manifests("react", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("react")
         assert version is None
 
     def test_version_with_multiple_specifiers(self, tmp_path: Path) -> None:
@@ -78,7 +85,8 @@ class TestDetectVersionFromManifests:
             '[project]\nname = "app"\ndependencies = [\n  "pydantic>=2.0,<3.0",\n]\n'
         )
 
-        version = _detect_version_from_manifests("pydantic", tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        version = parser.get_framework_version("pydantic")
         assert version == "2.0"
 
 
@@ -96,12 +104,13 @@ class TestVersionAwareStandards:
             )
         )
 
-        standards = QualityStandards(project_dir=tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        standards = QualityStandards(project_dir=tmp_path, manifest_parser=parser)
         version = standards.detect_framework_version("react")
         assert version == "18.2.0"
 
-    def test_detect_framework_version_without_project_dir(self) -> None:
-        """Should return None when project_dir is not set."""
+    def test_detect_framework_version_without_manifest_parser(self) -> None:
+        """Should return None when manifest_parser is not set."""
         standards = QualityStandards()
         version = standards.detect_framework_version("react")
         assert version is None
@@ -126,7 +135,8 @@ class TestVersionAwareStandards:
             )
         )
 
-        standards = QualityStandards(project_dir=tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        standards = QualityStandards(project_dir=tmp_path, manifest_parser=parser)
         # vue-4.yaml doesn't exist, should fall back to vue.yaml
         result = standards.get_for_framework("vue")
         assert isinstance(result, dict)
@@ -142,7 +152,8 @@ class TestVersionAwareStandards:
             )
         )
 
-        standards = QualityStandards(project_dir=tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        standards = QualityStandards(project_dir=tmp_path, manifest_parser=parser)
         result = standards.get_for_framework("react")
         # react-19.yaml adds React 19-specific principles — merged result should be a non-empty dict
         assert isinstance(result, dict)
@@ -156,17 +167,18 @@ class TestVersionAwareStandards:
 
     def test_nextjs15_versioned_standards_loaded(self, tmp_path: Path) -> None:
         """Should merge next.js-15.yaml on top of next.js standards for Next.js 15 projects."""
-        # Detection uses exact key match: "next.js" in package.json deps
+        # The npm package is "next" which maps to framework "next.js"
         pkg = tmp_path / "package.json"
         pkg.write_text(
             json.dumps(
                 {
-                    "dependencies": {"next.js": "^15.0.0"},
+                    "dependencies": {"next": "^15.0.0"},
                 }
             )
         )
 
-        standards = QualityStandards(project_dir=tmp_path)
+        parser = ManifestParser(project_dir=tmp_path)
+        standards = QualityStandards(project_dir=tmp_path, manifest_parser=parser)
         result = standards.get_for_framework("next.js")
         assert isinstance(result, dict)
         assert "principles" in result

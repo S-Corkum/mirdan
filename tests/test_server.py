@@ -9,7 +9,7 @@ from typing import Any
 from mirdan.config import MirdanConfig
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.intent_analyzer import IntentAnalyzer
-from mirdan.core.orchestrator import MCPOrchestrator
+from mirdan.core.orchestrator import ToolAdvisor
 from mirdan.core.plan_validator import PlanValidator
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
@@ -25,7 +25,7 @@ class TestEnhancePromptLogic:
         self.intent_analyzer = IntentAnalyzer(config.project)
         self.quality_standards = QualityStandards(config=config.quality)
         self.prompt_composer = PromptComposer(self.quality_standards, config=config.enhancement)
-        self.mcp_orchestrator = MCPOrchestrator(config.orchestration)
+        self.mcp_orchestrator = ToolAdvisor(config.orchestration)
 
     def test_enhance_prompt_basic(self) -> None:
         """Should enhance a basic prompt."""
@@ -166,7 +166,7 @@ class TestSuggestToolsLogic:
         """Set up test fixtures."""
         config = MirdanConfig()
         self.intent_analyzer = IntentAnalyzer(config.project)
-        self.mcp_orchestrator = MCPOrchestrator(config.orchestration)
+        self.mcp_orchestrator = ToolAdvisor(config.orchestration)
 
     def test_suggest_tools_basic(self) -> None:
         """Should suggest tools for a given intent."""
@@ -383,7 +383,7 @@ class TestServerComponentIntegration:
         intent_analyzer = IntentAnalyzer(config.project)
         quality_standards = QualityStandards(config=config.quality)
         prompt_composer = PromptComposer(quality_standards, config=config.enhancement)
-        mcp_orchestrator = MCPOrchestrator(config.orchestration)
+        mcp_orchestrator = ToolAdvisor(config.orchestration)
 
         # Analyze intent
         prompt = "Create a REST API endpoint with FastAPI"
@@ -411,14 +411,14 @@ class TestInputSizeLimits:
 
     def test_check_input_size_within_limit(self) -> None:
         """Should return None when input is within limit."""
-        from mirdan.server import _check_input_size
+        from mirdan.usecases.helpers import _check_input_size
 
         result = _check_input_size("short input", "prompt", 50_000)
         assert result is None
 
     def test_check_input_size_exceeds_limit(self) -> None:
         """Should return error dict when input exceeds limit."""
-        from mirdan.server import _check_input_size
+        from mirdan.usecases.helpers import _check_input_size
 
         oversized = "x" * 100
         result = _check_input_size(oversized, "prompt", 50)
@@ -429,7 +429,7 @@ class TestInputSizeLimits:
 
     def test_check_input_size_at_boundary(self) -> None:
         """Should return None when input is exactly at the limit."""
-        from mirdan.server import _check_input_size
+        from mirdan.usecases.helpers import _check_input_size
 
         exact = "x" * 100
         result = _check_input_size(exact, "prompt", 100)
@@ -437,7 +437,7 @@ class TestInputSizeLimits:
 
     def test_check_input_size_error_message_format(self) -> None:
         """Error message should include field name and sizes."""
-        from mirdan.server import _check_input_size
+        from mirdan.usecases.helpers import _check_input_size
 
         result = _check_input_size("x" * 200, "code", 100)
         assert result is not None
@@ -447,7 +447,7 @@ class TestInputSizeLimits:
 
     def test_constants_are_sensible(self) -> None:
         """Size limit constants should be reasonable values."""
-        from mirdan.server import (
+        from mirdan.usecases.helpers import (
             _MAX_CODE_LENGTH,
             _MAX_PLAN_LENGTH,
             _MAX_PROMPT_LENGTH,
@@ -471,7 +471,7 @@ class TestInputSizeLimitsIntegration:
         self.prompt_composer = PromptComposer(
             self.quality_standards, config=self.config.enhancement
         )
-        self.mcp_orchestrator = MCPOrchestrator(self.config.orchestration)
+        self.mcp_orchestrator = ToolAdvisor(self.config.orchestration)
         self.code_validator = CodeValidator(
             self.quality_standards,
             config=self.config.quality,
@@ -481,7 +481,7 @@ class TestInputSizeLimitsIntegration:
 
     def _simulate_enhance_prompt(self, prompt: str) -> dict[str, Any]:
         """Simulate enhance_prompt tool logic (sync parts only)."""
-        from mirdan.server import (
+        from mirdan.usecases.helpers import (
             _MAX_PROMPT_LENGTH,
             _check_input_size,
         )
@@ -496,7 +496,7 @@ class TestInputSizeLimitsIntegration:
 
     def _simulate_analyze_intent(self, prompt: str) -> dict[str, Any]:
         """Simulate analyze_intent tool logic."""
-        from mirdan.server import (
+        from mirdan.usecases.helpers import (
             _MAX_PROMPT_LENGTH,
             _check_input_size,
         )
@@ -508,7 +508,7 @@ class TestInputSizeLimitsIntegration:
 
     def _simulate_validate_code(self, code: str) -> dict[str, Any]:
         """Simulate validate_code_quality tool logic."""
-        from mirdan.server import _MAX_CODE_LENGTH, _check_input_size
+        from mirdan.usecases.helpers import _MAX_CODE_LENGTH, _check_input_size
 
         if error := _check_input_size(code, "code", _MAX_CODE_LENGTH):
             return error
@@ -517,7 +517,7 @@ class TestInputSizeLimitsIntegration:
 
     def _simulate_validate_plan(self, plan: str) -> dict[str, Any]:
         """Simulate validate_plan_quality tool logic."""
-        from mirdan.server import _MAX_PLAN_LENGTH, _check_input_size
+        from mirdan.usecases.helpers import _MAX_PLAN_LENGTH, _check_input_size
 
         if error := _check_input_size(plan, "plan", _MAX_PLAN_LENGTH):
             return error
@@ -568,7 +568,7 @@ class TestInputSizeLimitsIntegration:
 
     def test_error_response_structure_consistent(self) -> None:
         """All oversized errors should have same structure."""
-        from mirdan.server import _check_input_size
+        from mirdan.usecases.helpers import _check_input_size
 
         for name, limit in [
             ("prompt", 10),
@@ -682,28 +682,29 @@ class TestLazyInitialization:
     """Tests for lazy component initialization."""
 
     def test_get_components_returns_components(self) -> None:
-        """_get_components() should return a _Components instance."""
-        from mirdan.server import _Components, _get_components
+        """_get_provider() should return a ComponentProvider instance."""
+        from mirdan.providers import ComponentProvider
+        from mirdan.server import _get_provider
 
-        result = _get_components()
-        assert isinstance(result, _Components)
+        result = _get_provider()
+        assert isinstance(result, ComponentProvider)
         assert result.intent_analyzer is not None
         assert result.quality_standards is not None
         assert result.code_validator is not None
 
     def test_get_components_returns_same_instance(self) -> None:
-        """_get_components() should return the same singleton instance."""
-        from mirdan.server import _get_components
+        """_get_provider() should return the same singleton instance."""
+        from mirdan.server import _get_provider
 
-        result1 = _get_components()
-        result2 = _get_components()
+        result1 = _get_provider()
+        result2 = _get_provider()
         assert result1 is result2
 
     def test_components_have_new_fields(self) -> None:
-        """_Components should include manifest_parser, vuln_scanner, semantic_analyzer."""
-        from mirdan.server import _get_components
+        """ComponentProvider should include manifest_parser, vuln_scanner, semantic_analyzer."""
+        from mirdan.server import _get_provider
 
-        c = _get_components()
+        c = _get_provider()
         assert c.manifest_parser is not None
         assert c.vuln_scanner is not None
         assert c.semantic_analyzer is not None
@@ -716,19 +717,19 @@ class TestValidateCodeQualitySemanticChecks:
         """Reset components singleton."""
         import mirdan.server as server_mod
 
-        server_mod._components = None
+        server_mod._provider = None
 
     def teardown_method(self) -> None:
         import mirdan.server as server_mod
 
-        server_mod._components = None
+        server_mod._provider = None
 
     def test_validate_code_quality_includes_semantic_checks(self) -> None:
         """Code with SQL patterns should include semantic_checks in response."""
         import mirdan.server as server_mod
         from mirdan.server import validate_code_quality
 
-        server_mod._get_components()
+        server_mod._get_provider()
         fn = validate_code_quality.fn
 
         import asyncio

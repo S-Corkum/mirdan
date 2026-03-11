@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from mirdan.config import QualityConfig
 from mirdan.models import Intent, TaskType
+
+if TYPE_CHECKING:
+    from mirdan.core.manifest_parser import ManifestParser
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class QualityStandards:
         standards_dir: Path | None = None,
         config: QualityConfig | None = None,
         project_dir: Path | None = None,
+        manifest_parser: ManifestParser | None = None,
     ):
         """Initialize with optional custom standards directory and quality config.
 
@@ -30,9 +33,11 @@ class QualityStandards:
             standards_dir: Directory with custom YAML standards
             config: Quality config for stringency levels
             project_dir: Project root for version detection from manifests
+            manifest_parser: Optional manifest parser for version detection
         """
         self._config = config
         self._project_dir = project_dir
+        self._manifest_parser = manifest_parser
         self.standards_dir = standards_dir
         self.standards = self._load_default_standards()
         if standards_dir and standards_dir.exists():
@@ -103,9 +108,6 @@ class QualityStandards:
         Returns:
             Parsed YAML content as dict, or empty dict on error
         """
-        import logging
-
-        logger = logging.getLogger(__name__)
         try:
             content = file_traversable.read_text()
             parsed = yaml.safe_load(content)
@@ -119,10 +121,7 @@ class QualityStandards:
 
     def _load_default_standards(self) -> dict[str, Any]:
         """Load built-in quality standards from YAML files."""
-        import logging
         from importlib.resources import files
-
-        logger = logging.getLogger(__name__)
         standards: dict[str, Any] = {}
 
         try:
@@ -193,8 +192,8 @@ class QualityStandards:
     def detect_framework_version(self, framework: str) -> str | None:
         """Detect the installed version of a framework from project manifests.
 
-        Reads pyproject.toml and package.json in the project directory
-        to find the dependency version.
+        Delegates to ManifestParser.get_framework_version() for unified
+        version detection.
 
         Args:
             framework: Framework name (e.g., "react", "fastapi").
@@ -202,9 +201,9 @@ class QualityStandards:
         Returns:
             Version string if found, None otherwise.
         """
-        if self._project_dir is None:
-            return None
-        return _detect_version_from_manifests(framework, self._project_dir)
+        if self._manifest_parser is not None:
+            return self._manifest_parser.get_framework_version(framework)
+        return None
 
     def get_for_language(self, language: str) -> dict[str, Any]:
         """Get standards for a specific language."""
@@ -375,55 +374,3 @@ class QualityStandards:
                 result["knowledge_graph_standards"] = kg_standards
 
         return result
-
-
-def _detect_version_from_manifests(framework: str, project_dir: Path) -> str | None:
-    """Detect framework version from project manifest files.
-
-    Checks pyproject.toml and package.json for the framework dependency.
-
-    Args:
-        framework: Framework name to look up.
-        project_dir: Project root directory.
-
-    Returns:
-        Version string if found, None otherwise.
-    """
-    # Check pyproject.toml
-    pyproject = project_dir / "pyproject.toml"
-    if pyproject.exists():
-        try:
-            content = pyproject.read_text()
-            for line in content.splitlines():
-                stripped = line.strip().strip('"').strip("'").strip(",")
-                if framework in stripped.lower():
-                    for sep in [">=", "==", "~=", "<=", ">"]:
-                        if sep in stripped:
-                            version = (
-                                stripped.split(sep, 1)[1]
-                                .strip()
-                                .rstrip('"')
-                                .rstrip("'")
-                                .rstrip(",")
-                                .split(",")[0]
-                                .strip()
-                            )
-                            if version and version[0].isdigit():
-                                return version
-        except OSError:
-            pass
-
-    # Check package.json
-    pkg_json = project_dir / "package.json"
-    if pkg_json.exists():
-        try:
-            data = json.loads(pkg_json.read_text())
-            for section in ["dependencies", "devDependencies"]:
-                deps = data.get(section, {})
-                if framework in deps:
-                    pkg_version: str = str(deps[framework]).lstrip("^~>=<")
-                    return pkg_version
-        except (OSError, json.JSONDecodeError):
-            pass
-
-    return None

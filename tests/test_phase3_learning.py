@@ -420,17 +420,17 @@ class TestAutoMemoryInOutput:
         assert "auto_store" not in d
 
 
-class TestActiveOrchestratorStoreKnowledge:
-    """Tests for ActiveOrchestrator.store_knowledge()."""
+class TestToolExecutorStoreKnowledge:
+    """Tests for ToolExecutor.store_knowledge()."""
 
     @pytest.mark.asyncio
     async def test_store_skips_unconfigured_enyal(self) -> None:
-        from mirdan.core.active_orchestrator import ActiveOrchestrator
+        from mirdan.core.active_orchestrator import ToolExecutor
 
         mock_registry = MagicMock()
         mock_registry.is_configured.return_value = False
 
-        orchestrator = ActiveOrchestrator(mock_registry)
+        orchestrator = ToolExecutor(mock_registry)
         entries = [
             KnowledgeEntry(content="test", content_type="fact", confidence=0.9),
         ]
@@ -439,13 +439,13 @@ class TestActiveOrchestratorStoreKnowledge:
 
     @pytest.mark.asyncio
     async def test_store_filters_by_confidence(self) -> None:
-        from mirdan.core.active_orchestrator import ActiveOrchestrator
+        from mirdan.core.active_orchestrator import ToolExecutor
 
         mock_registry = MagicMock()
         mock_registry.is_configured.return_value = True
         mock_registry.call_tools_parallel = AsyncMock(return_value=[])
 
-        orchestrator = ActiveOrchestrator(mock_registry)
+        orchestrator = ToolExecutor(mock_registry)
         entries = [
             KnowledgeEntry(content="low", content_type="fact", confidence=0.3),
             KnowledgeEntry(content="high", content_type="fact", confidence=0.9),

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from mirdan.config import ProjectConfig
 from mirdan.core.entity_extractor import EntityExtractor
+from mirdan.core.manifest_parser import PACKAGE_TO_FRAMEWORK
 from mirdan.core.pattern_matcher import PatternMatcher
 from mirdan.models import Intent, TaskType
 
@@ -20,48 +21,6 @@ logger = logging.getLogger(__name__)
 
 class IntentAnalyzer:
     """Analyzes developer prompts to understand intent."""
-
-    # Package name → framework name mapping for manifest-based detection.
-    # Used to discover frameworks from installed dependencies even when
-    # the user's prompt doesn't mention them explicitly.
-    PACKAGE_TO_FRAMEWORK: dict[str, str] = {
-        # Python (PyPI normalized names)
-        "fastapi": "fastapi",
-        "django": "django",
-        "flask": "flask",
-        "sqlalchemy": "sqlalchemy",
-        "langchain": "langchain",
-        "langgraph": "langgraph",
-        "chromadb": "chromadb",
-        "pinecone-client": "pinecone",
-        "faiss-cpu": "faiss",
-        "neo4j": "neo4j",
-        "weaviate-client": "weaviate",
-        "pymilvus": "milvus",
-        "qdrant-client": "qdrant",
-        "anthropic": "anthropic-sdk",
-        "openai": "openai-sdk",
-        "llama-index": "llamaindex",
-        "pyautogen": "autogen",
-        "instructor": "instructor",
-        "pydantic-ai": "pydantic-ai",
-        "haystack-ai": "haystack",
-        "opentelemetry-api": "opentelemetry",
-        # npm
-        "react": "react",
-        "next": "next.js",
-        "vue": "vue",
-        "express": "express",
-        "@prisma/client": "prisma",
-        "tailwindcss": "tailwind",
-        "@tanstack/react-query": "tanstack-query",
-        "zustand": "zustand",
-        "graphql": "graphql",
-        "@anthropic-ai/sdk": "anthropic-sdk",
-        "ai": "vercel-ai",
-        # Rust (crates.io)
-        "axum": "axum",
-    }
 
     def __init__(
         self,
@@ -475,16 +434,17 @@ class IntentAnalyzer:
             return []
         dep_names = self._manifest_parser.get_dep_names()
         detected: list[str] = []
-        for pkg_name, fw_name in self.PACKAGE_TO_FRAMEWORK.items():
+        for pkg_name, fw_name in PACKAGE_TO_FRAMEWORK.items():
             if pkg_name in dep_names and fw_name not in detected:
                 detected.append(fw_name)
         return detected
 
     def _detect_framework_versions(self, frameworks: list[str]) -> dict[str, str]:
-        """Detect framework versions from dependency manifests in the current directory.
+        """Detect framework versions from dependency manifests.
 
-        Searches pyproject.toml, package.json, Cargo.toml, and go.mod for
-        version information of the detected frameworks.
+        Delegates to ManifestParser.get_framework_version() which uses
+        FRAMEWORK_TO_PACKAGE to look up the package name and then searches
+        parsed manifests.
 
         Args:
             frameworks: List of detected framework names.
@@ -492,17 +452,13 @@ class IntentAnalyzer:
         Returns:
             Mapping of framework name to version string.
         """
-        if not frameworks:
+        if not frameworks or self._manifest_parser is None:
             return {}
 
-        from mirdan.cli.detect import detect_framework_version
-
         versions: dict[str, str] = {}
-        cwd = Path.cwd()
-
         for framework in frameworks:
             try:
-                version = detect_framework_version(framework, cwd)
+                version = self._manifest_parser.get_framework_version(framework)
                 if version:
                     versions[framework] = version
             except Exception:

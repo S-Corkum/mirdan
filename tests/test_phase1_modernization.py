@@ -28,20 +28,12 @@ class TestSaveSnapshotWired:
     """Verify save_snapshot() is called after validation."""
 
     def test_server_calls_save_snapshot(self) -> None:
-        """validate_code_quality source should call save_snapshot."""
+        """ValidateCodeUseCase.execute source should call save_snapshot."""
         import inspect
-        from typing import cast
 
-        from mirdan.server import validate_code_quality
+        from mirdan.usecases.validate_code import ValidateCodeUseCase
 
-        # Verify the tool function source references save_snapshot
-        # (FastMCP wraps the function, so get the underlying fn)
-        fn = (
-            validate_code_quality.fn
-            if hasattr(validate_code_quality, "fn")
-            else validate_code_quality
-        )
-        source = inspect.getsource(cast(type, fn))
+        source = inspect.getsource(ValidateCodeUseCase.execute)
         assert "save_snapshot" in source
 
 
@@ -54,12 +46,12 @@ class TestProfileWiring:
     """Verify quality profiles are applied when configured."""
 
     def test_get_components_calls_apply_profile(self) -> None:
-        """_get_components source should reference apply_profile."""
+        """ComponentProvider.__init__ source should reference apply_profile."""
         import inspect
 
-        from mirdan.server import _get_components
+        from mirdan.providers import ComponentProvider
 
-        source = inspect.getsource(_get_components)
+        source = inspect.getsource(ComponentProvider.__init__)
         assert "apply_profile" in source
         assert 'quality_profile != "default"' in source
 

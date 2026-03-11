@@ -15,9 +15,9 @@ _enhance_prompt = server_mod.enhance_prompt.fn
 
 @pytest.fixture(autouse=True)
 def _reset_components() -> Iterator[None]:
-    server_mod._components = None
+    server_mod._provider = None
     yield
-    server_mod._components = None
+    server_mod._provider = None
 
 
 class TestLeanEnhancePrompt:
@@ -25,9 +25,9 @@ class TestLeanEnhancePrompt:
 
     async def test_skips_context_gathering(self) -> None:
         """context_level='none' should NOT call gather_all."""
-        server_mod._get_components()
+        server_mod._get_provider()
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
         ) as mock_gather:
@@ -36,9 +36,9 @@ class TestLeanEnhancePrompt:
 
     async def test_returns_quality_requirements(self) -> None:
         """Should still include quality_requirements even without context."""
-        server_mod._get_components()
+        server_mod._get_provider()
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
         ):
@@ -48,9 +48,9 @@ class TestLeanEnhancePrompt:
 
     async def test_returns_verification_steps(self) -> None:
         """Should still include verification_steps."""
-        server_mod._get_components()
+        server_mod._get_provider()
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
         ):
@@ -59,9 +59,9 @@ class TestLeanEnhancePrompt:
 
     async def test_returns_session_id(self) -> None:
         """Should still create a session and return session_id."""
-        server_mod._get_components()
+        server_mod._get_provider()
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
         ):
@@ -71,10 +71,10 @@ class TestLeanEnhancePrompt:
 
     async def test_existing_context_levels_still_work(self) -> None:
         """context_level='auto' should still call gather_all."""
-        server_mod._get_components()
+        server_mod._get_provider()
         mock_gather = AsyncMock(return_value=ContextBundle())
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             mock_gather,
         ):
@@ -83,10 +83,10 @@ class TestLeanEnhancePrompt:
 
     async def test_minimal_context_level(self) -> None:
         """context_level='minimal' should still call gather_all."""
-        server_mod._get_components()
+        server_mod._get_provider()
         mock_gather = AsyncMock(return_value=ContextBundle())
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             mock_gather,
         ):

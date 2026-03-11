@@ -527,13 +527,13 @@ class TestQualityStandardsTestingIntegration:
 
 
 class TestOrchestratorPlanning:
-    """Tests for MCPOrchestrator.suggest_tools_for_planning."""
+    """Tests for ToolAdvisor.suggest_tools_for_planning."""
 
     def test_planning_suggestions_include_enyal(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent, TaskType
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         intent = Intent(
             original_prompt="plan a new auth system",
             task_type=TaskType.PLANNING,
@@ -544,10 +544,10 @@ class TestOrchestratorPlanning:
         assert "enyal" in mcp_names
 
     def test_planning_suggestions_include_filesystem(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent, TaskType
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         intent = Intent(
             original_prompt="plan a refactor",
             task_type=TaskType.PLANNING,
@@ -558,10 +558,10 @@ class TestOrchestratorPlanning:
         assert "filesystem" in mcp_names
 
     def test_planning_with_framework_includes_context7(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent, TaskType
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         intent = Intent(
             original_prompt="plan fastapi migration",
             task_type=TaskType.PLANNING,
@@ -574,10 +574,10 @@ class TestOrchestratorPlanning:
         assert "context7" in mcp_names
 
     def test_planning_with_custom_available_mcps(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent, TaskType
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         intent = Intent(
             original_prompt="plan something",
             task_type=TaskType.PLANNING,
@@ -588,10 +588,10 @@ class TestOrchestratorPlanning:
         assert "filesystem" not in mcp_names
 
     def test_planning_suggestions_include_sequential_thinking(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
         from mirdan.models import Intent, TaskType
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         intent = Intent(
             original_prompt="plan a new auth system",
             task_type=TaskType.PLANNING,
@@ -604,9 +604,9 @@ class TestOrchestratorPlanning:
         assert rec.priority == "critical"
 
     def test_get_available_mcp_info(self) -> None:
-        from mirdan.core.orchestrator import MCPOrchestrator
+        from mirdan.core.orchestrator import ToolAdvisor
 
-        orchestrator = MCPOrchestrator()
+        orchestrator = ToolAdvisor()
         info = orchestrator.get_available_mcp_info()
         assert "context7" in info
         assert "enyal" in info

@@ -50,7 +50,7 @@ class TestToolBudgetFiltering:
         server_mod.mcp._tool_manager._tools.clear()
         server_mod.mcp._tool_manager._tools.update(original_tools)
         # Also reset components
-        server_mod._components = None
+        server_mod._provider = None
 
     @pytest.mark.asyncio
     async def test_budget_two_keeps_top_two(self) -> None:

@@ -17,6 +17,8 @@ import pytest
 
 import mirdan.server as server_mod
 from mirdan.models import ContextBundle
+from mirdan.providers import ComponentProvider
+from mirdan.usecases.helpers import _MAX_CODE_LENGTH, _MAX_PROMPT_LENGTH
 
 # Extract raw async functions from FastMCP FunctionTool wrappers
 _enhance_prompt = server_mod.enhance_prompt.fn
@@ -27,15 +29,15 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 @pytest.fixture(autouse=True)
 def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
-    server_mod._components = None
+    server_mod._provider = None
     yield
-    server_mod._components = None
+    server_mod._provider = None
 
 
 @pytest.fixture()
-def components() -> server_mod._Components:
+def components() -> ComponentProvider:
     """Eagerly initialize and return the component singleton."""
-    return server_mod._get_components()
+    return server_mod._get_provider()
 
 
 # ---------------------------------------------------------------------------
@@ -47,24 +49,24 @@ class TestLifespan:
     """Tests for the server lifespan context manager."""
 
     async def test_lifespan_initializes_components(self) -> None:
-        """_lifespan should eagerly init components on startup."""
-        assert server_mod._components is None
+        """_lifespan should eagerly init provider on startup."""
+        assert server_mod._provider is None
         async with server_mod._lifespan(server_mod.mcp):
-            assert server_mod._components is not None
+            assert server_mod._provider is not None
 
     async def test_lifespan_cleanup_with_close(self) -> None:
         """_lifespan should call close on context_aggregator during shutdown."""
         mock_close = AsyncMock()
         async with server_mod._lifespan(server_mod.mcp):
-            assert server_mod._components is not None
-            server_mod._components.context_aggregator.close = mock_close  # type: ignore[method-assign]
+            assert server_mod._provider is not None
+            server_mod._provider.context_aggregator.close = mock_close  # type: ignore[method-assign]
         mock_close.assert_awaited_once()
 
     async def test_lifespan_cleanup_when_no_components(self) -> None:
         """_lifespan shutdown should handle None _components gracefully."""
         async with server_mod._lifespan(server_mod.mcp):
             # Force components to None (simulates init failure scenario)
-            server_mod._components = None
+            server_mod._provider = None
         # Should not raise
 
 
@@ -79,7 +81,7 @@ class TestEnhancePromptTool:
     async def test_enhance_prompt_returns_expected_keys(self) -> None:
         """Should return dict with all expected keys."""
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
             return_value=ContextBundle(),
@@ -97,7 +99,7 @@ class TestEnhancePromptTool:
     async def test_enhance_prompt_detects_language(self) -> None:
         """Should detect the language from the prompt."""
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
             return_value=ContextBundle(),
@@ -108,17 +110,17 @@ class TestEnhancePromptTool:
 
     async def test_enhance_prompt_rejects_oversized(self) -> None:
         """Should return error for prompt exceeding max length."""
-        oversized = "x" * (server_mod._MAX_PROMPT_LENGTH + 1)
+        oversized = "x" * (_MAX_PROMPT_LENGTH + 1)
         result = await _enhance_prompt(oversized)
 
         assert "error" in result
         assert "prompt" in result["error"]
-        assert result["max_length"] == server_mod._MAX_PROMPT_LENGTH
+        assert result["max_length"] == _MAX_PROMPT_LENGTH
 
     async def test_enhance_prompt_task_type_override(self) -> None:
         """Should override task type when specified."""
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
             return_value=ContextBundle(),
@@ -130,7 +132,7 @@ class TestEnhancePromptTool:
     async def test_enhance_prompt_invalid_task_type_ignored(self) -> None:
         """Invalid task_type should be silently ignored (contextlib.suppress)."""
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
             return_value=ContextBundle(),
@@ -143,7 +145,7 @@ class TestEnhancePromptTool:
     async def test_enhance_prompt_auto_task_type(self) -> None:
         """task_type='auto' should use auto-detection (no override)."""
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
             return_value=ContextBundle(),
@@ -157,7 +159,7 @@ class TestEnhancePromptTool:
         """context_level argument should be forwarded to gather_all."""
         mock_gather = AsyncMock(return_value=ContextBundle())
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             mock_gather,
         ):
@@ -183,32 +185,32 @@ class TestGetQualityStandardsTool:
 
     async def test_get_standards_python(self) -> None:
         """Should return Python standards."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _get_quality_standards("python")
         assert isinstance(result, dict)
         assert "language_standards" in result
 
     async def test_get_standards_with_framework(self) -> None:
         """Should include framework-specific standards."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _get_quality_standards("python", framework="fastapi")
         assert "framework_standards" in result
 
     async def test_get_standards_security_category(self) -> None:
         """Should filter to security category."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _get_quality_standards("python", category="security")
         assert "security_standards" in result
 
     async def test_get_standards_typescript(self) -> None:
         """Should return TypeScript standards."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _get_quality_standards("typescript")
         assert isinstance(result, dict)
 
     async def test_get_standards_unknown_language(self) -> None:
         """Should handle unknown languages gracefully."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _get_quality_standards("brainfuck")
         assert isinstance(result, dict)
 
@@ -223,7 +225,7 @@ class TestValidateCodeQualityTool:
 
     async def test_validate_clean_code(self) -> None:
         """Clean code should pass."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = 'def add(a: int, b: int) -> int:\n    """Add two numbers."""\n    return a + b\n'
         result = await _validate_code_quality(code, language="python")
         assert result["passed"] is True
@@ -231,7 +233,7 @@ class TestValidateCodeQualityTool:
 
     async def test_validate_code_with_violations(self) -> None:
         """Code with violations should fail."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = "result = eval(user_input)\n"
         result = await _validate_code_quality(code, language="python")
         assert result["passed"] is False
@@ -239,21 +241,21 @@ class TestValidateCodeQualityTool:
 
     async def test_validate_rejects_oversized_code(self) -> None:
         """Should return error for code exceeding max length."""
-        oversized = "x" * (server_mod._MAX_CODE_LENGTH + 1)
+        oversized = "x" * (_MAX_CODE_LENGTH + 1)
         result = await _validate_code_quality(oversized)
         assert "error" in result
-        assert result["max_length"] == server_mod._MAX_CODE_LENGTH
+        assert result["max_length"] == _MAX_CODE_LENGTH
 
     async def test_validate_auto_detect_language(self) -> None:
         """Should auto-detect language when 'auto' is specified."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = 'fn main() {\n    let x = 5;\n    println!("{}", x);\n}\n'
         result = await _validate_code_quality(code, language="auto")
         assert result["language_detected"] == "rust"
 
     async def test_validate_severity_threshold_filters(self) -> None:
         """severity_threshold should filter violations in the response."""
-        server_mod._get_components()
+        server_mod._get_provider()
         lines = ["def long_function() -> int:"] + ["    x = 1"] * 34 + ["    return x"]
         code = "\n".join(lines)
         result = await _validate_code_quality(code, language="python", severity_threshold="error")
@@ -267,7 +269,7 @@ class TestValidateCodeQualityTool:
         Note: Language-level rules like PY001 (no-eval) are NOT affected
         by check_security — they fall under language/style checks.
         """
-        server_mod._get_components()
+        server_mod._get_provider()
         # Use code that would trigger a SEC rule specifically
         code = 'query = "SELECT * FROM users WHERE id=" + user_id\n'
         result_with = await _validate_code_quality(code, language="python", check_security=True)
@@ -284,13 +286,13 @@ class TestValidateCodeQualityTool:
 
     async def test_validate_empty_code(self) -> None:
         """Should handle empty code gracefully."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _validate_code_quality("", language="python")
         assert result["passed"] is True
 
     async def test_validate_check_architecture_flag(self) -> None:
         """check_architecture=False should skip architecture checks."""
-        server_mod._get_components()
+        server_mod._get_provider()
         lines = ["def long_function() -> int:"] + ["    x = 1"] * 34 + ["    return x"]
         code = "\n".join(lines)
         result = await _validate_code_quality(code, language="python", check_architecture=False)
@@ -301,7 +303,7 @@ class TestValidateCodeQualityTool:
 
     async def test_validate_check_style_flag(self) -> None:
         """check_style=False should disable style checks."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = "from typing import List\nx: List[int] = []\n"
         result = await _validate_code_quality(code, language="python", check_style=False)
         style_violations = [
@@ -320,7 +322,7 @@ class TestKnowledgeStorageHint:
 
     async def test_hint_present_when_knowledge_entries_exist(self) -> None:
         """Should include knowledge_storage_hint when knowledge_entries are generated."""
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         # Code with 3+ same violations triggers KnowledgeProducer pattern extraction
         code = "try:\n    pass\nexcept:\n    pass\ntry:\n    pass\nexcept:\n    pass\ntry:\n    pass\nexcept:\n    pass\n"
         result = await _validate_code_quality(code, language="python")
@@ -332,7 +334,7 @@ class TestKnowledgeStorageHint:
 
     async def test_hint_absent_when_no_knowledge_entries(self) -> None:
         """Should NOT include knowledge_storage_hint when no entries generated."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = 'def add(a: int, b: int) -> int:\n    """Add two numbers."""\n    return a + b\n'
         result = await _validate_code_quality(code, language="python")
         assert "knowledge_storage_hint" not in result
@@ -380,18 +382,18 @@ class TestGetComponents:
 
     def test_returns_components_instance(self) -> None:
         """Should return a _Components dataclass."""
-        c = server_mod._get_components()
-        assert isinstance(c, server_mod._Components)
+        c = server_mod._get_provider()
+        assert isinstance(c, ComponentProvider)
 
     def test_returns_singleton(self) -> None:
         """Subsequent calls should return the same instance."""
-        c1 = server_mod._get_components()
-        c2 = server_mod._get_components()
+        c1 = server_mod._get_provider()
+        c2 = server_mod._get_provider()
         assert c1 is c2
 
     def test_all_components_initialized(self) -> None:
         """All component fields should be non-None."""
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         assert c.intent_analyzer is not None
         assert c.quality_standards is not None
         assert c.prompt_composer is not None

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from mirdan.core.active_orchestrator import ActiveOrchestrator
+from mirdan.core.active_orchestrator import ToolExecutor
 from mirdan.models import MCPToolResult, ToolRecommendation
 
 
@@ -26,7 +26,7 @@ class TestRecommendationToCall:
     def test_explicit_tool_name_in_params(self) -> None:
         """Should use explicit tool_name from params."""
         registry = _mock_registry({"context7"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         rec = ToolRecommendation(
             mcp="context7",
@@ -41,7 +41,7 @@ class TestRecommendationToCall:
     def test_infer_tool_from_action_keyword(self) -> None:
         """Should infer tool name from action keywords."""
         registry = _mock_registry({"enyal"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         rec = ToolRecommendation(
             mcp="enyal",
@@ -54,7 +54,7 @@ class TestRecommendationToCall:
     def test_infer_context7_documentation(self) -> None:
         """Should map documentation keyword to resolve-library-id."""
         registry = _mock_registry({"context7"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         rec = ToolRecommendation(
             mcp="context7",
@@ -67,7 +67,7 @@ class TestRecommendationToCall:
     def test_infer_github_commits(self) -> None:
         """Should map commits keyword to list_commits."""
         registry = _mock_registry({"github"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         rec = ToolRecommendation(
             mcp="github",
@@ -80,7 +80,7 @@ class TestRecommendationToCall:
     def test_unknown_action_returns_none(self) -> None:
         """Should return None when tool cannot be inferred."""
         registry = _mock_registry({"unknown-mcp"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         rec = ToolRecommendation(
             mcp="unknown-mcp",
@@ -101,7 +101,7 @@ class TestRecommendationToCall:
         )
         registry.get_capabilities.return_value = capabilities
 
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
         rec = ToolRecommendation(
             mcp="custom",
             action="do something unusual",
@@ -129,7 +129,7 @@ class TestInvokeRecommendations:
             ]
         )
 
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
         recs = [
             ToolRecommendation(
                 mcp="enyal",
@@ -147,7 +147,7 @@ class TestInvokeRecommendations:
     async def test_skips_unconfigured_mcps(self) -> None:
         """Should skip recommendations for unconfigured MCPs."""
         registry = _mock_registry(set())  # Nothing configured
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         recs = [
             ToolRecommendation(mcp="context7", action="Fetch documentation"),
@@ -172,7 +172,7 @@ class TestInvokeRecommendations:
             ]
         )
 
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
         recs = [
             ToolRecommendation(mcp="context7", action="Fetch documentation"),
             ToolRecommendation(mcp="enyal", action="Recall conventions"),
@@ -185,7 +185,7 @@ class TestInvokeRecommendations:
     async def test_empty_recommendations(self) -> None:
         """Should handle empty recommendation list."""
         registry = _mock_registry()
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         results = await orchestrator.invoke_recommendations([])
         assert results == []
@@ -196,7 +196,7 @@ class TestInvokeRecommendations:
         registry = _mock_registry({"enyal"})
         registry.call_tools_parallel = AsyncMock(return_value=[])
 
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
         recs = [
             ToolRecommendation(mcp="enyal", action="Recall conventions"),
         ]
@@ -213,7 +213,7 @@ class TestGetInvocableCount:
     def test_all_configured(self) -> None:
         """Should count all when all MCPs configured."""
         registry = _mock_registry({"enyal", "context7"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         recs = [
             ToolRecommendation(mcp="enyal", action="Recall conventions"),
@@ -225,7 +225,7 @@ class TestGetInvocableCount:
     def test_none_configured(self) -> None:
         """Should return 0 when no MCPs configured."""
         registry = _mock_registry(set())
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         recs = [
             ToolRecommendation(mcp="enyal", action="Recall conventions"),
@@ -236,7 +236,7 @@ class TestGetInvocableCount:
     def test_partially_configured(self) -> None:
         """Should count only configured and inferable recommendations."""
         registry = _mock_registry({"enyal"})
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
 
         recs = [
             ToolRecommendation(mcp="enyal", action="Recall conventions"),
@@ -248,5 +248,5 @@ class TestGetInvocableCount:
     def test_empty_list(self) -> None:
         """Should return 0 for empty list."""
         registry = _mock_registry()
-        orchestrator = ActiveOrchestrator(registry)
+        orchestrator = ToolExecutor(registry)
         assert orchestrator.get_invocable_count([]) == 0

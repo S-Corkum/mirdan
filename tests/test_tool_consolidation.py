@@ -18,9 +18,9 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 @pytest.fixture(autouse=True)
 def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
-    server_mod._components = None
+    server_mod._provider = None
     yield
-    server_mod._components = None
+    server_mod._provider = None
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ class TestEnhancePromptAnalyzeOnly:
 
     async def test_returns_intent_keys(self) -> None:
         """Should return dict with all analyze_intent keys."""
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _enhance_prompt("Write a login function in Python", task_type="analyze_only")
         expected_keys = {
             "task_type",
@@ -48,7 +48,7 @@ class TestEnhancePromptAnalyzeOnly:
         assert expected_keys.issubset(result.keys())
 
     async def test_detects_security(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _enhance_prompt(
             "Implement password hashing for user authentication",
             task_type="analyze_only",
@@ -56,7 +56,7 @@ class TestEnhancePromptAnalyzeOnly:
         assert result["touches_security"] is True
 
     async def test_detects_rag(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _enhance_prompt(
             "Build a RAG pipeline with vector embeddings",
             task_type="analyze_only",
@@ -64,7 +64,7 @@ class TestEnhancePromptAnalyzeOnly:
         assert result["touches_rag"] is True
 
     async def test_ambiguity_levels(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _enhance_prompt("fix it", task_type="analyze_only")
         assert result["ambiguity_level"] in ("low", "medium", "high")
 
@@ -79,7 +79,7 @@ class TestEnhancePromptPlanValidation:
 
     async def test_returns_plan_quality_keys(self) -> None:
         """Should return plan quality score dict."""
-        server_mod._get_components()
+        server_mod._get_provider()
         plan = """
 ## Research Notes (Pre-Plan Verification)
 ### Files Verified
@@ -98,7 +98,7 @@ class TestEnhancePromptPlanValidation:
         assert "ready_for_cheap_model" in result
 
     async def test_vague_plan_low_score(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _enhance_prompt(
             "I think we should probably fix it",
             task_type="plan_validation",
@@ -117,10 +117,10 @@ class TestEnhancePromptContextNone:
 
     async def test_returns_without_context(self) -> None:
         """context_level='none' should skip context gathering."""
-        server_mod._get_components()
+        server_mod._get_provider()
         # Should NOT call gather_all
         with patch.object(
-            server_mod._get_components().context_aggregator,
+            server_mod._get_provider().context_aggregator,
             "gather_all",
             new_callable=AsyncMock,
         ) as mock_gather:
@@ -140,13 +140,13 @@ class TestValidateCodeQualityDiff:
     """Tests for validate_code_quality(input_type='diff')."""
 
     async def test_diff_validation(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         diff = "--- a/test.py\n+++ b/test.py\n@@ -1,3 +1,4 @@\n x = 1\n+y = 2\n z = 3\n"
         result = await _validate_code_quality(diff, language="python", input_type="diff")
         assert "passed" in result
 
     async def test_empty_diff(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         diff = "--- a/test.py\n+++ b/test.py\n@@ -1,3 +1,2 @@\n x = 1\n-removed = 2\n z = 3\n"
         result = await _validate_code_quality(diff, input_type="diff")
         assert result["passed"] is True
@@ -162,7 +162,7 @@ class TestValidateCodeQualityCompare:
     """Tests for validate_code_quality(compare=True)."""
 
     async def test_compare_two_implementations(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         impls = json.dumps(
             [
                 "def greet(name: str) -> str:\n    return f'Hello, {name}'\n",
@@ -175,17 +175,17 @@ class TestValidateCodeQualityCompare:
         assert len(result["entries"]) == 2
 
     async def test_compare_invalid_json(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _validate_code_quality("not json", compare=True)
         assert "error" in result
 
     async def test_compare_not_list(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _validate_code_quality(json.dumps({"a": 1}), compare=True)
         assert "error" in result
 
     async def test_compare_too_few(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         result = await _validate_code_quality(json.dumps(["single"]), compare=True)
         assert "error" in result
 
@@ -199,7 +199,7 @@ class TestValidateCodeQualityChecklist:
     """Tests for checklist field in validate_code_quality output."""
 
     async def test_output_includes_checklist(self) -> None:
-        server_mod._get_components()
+        server_mod._get_provider()
         code = "def add(a: int, b: int) -> int:\n    return a + b\n"
         result = await _validate_code_quality(code, language="python")
         assert "checklist" in result

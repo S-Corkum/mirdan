@@ -40,7 +40,7 @@ _ACTION_TO_TOOL: dict[str, dict[str, str]] = {
 }
 
 
-class ActiveOrchestrator:
+class ToolExecutor:
     """Executes MCP tool recommendations via the client registry.
 
     Translates high-level ToolRecommendation objects into concrete
@@ -67,7 +67,7 @@ class ActiveOrchestrator:
         warning-level log.
 
         Args:
-            recommendations: Tool recommendations from MCPOrchestrator.
+            recommendations: Tool recommendations from ToolAdvisor.
             timeout: Optional timeout override for execution.
 
         Returns:

@@ -14,6 +14,7 @@ import pytest
 
 import mirdan.server as server_mod
 from mirdan.config import MirdanConfig
+from mirdan.usecases.helpers import _MAX_CODE_LENGTH
 from mirdan.core.code_validator import CodeValidator
 from mirdan.core.quality_standards import QualityStandards
 
@@ -24,9 +25,9 @@ _validate_quick = server_mod.validate_quick.fn
 @pytest.fixture(autouse=True)
 def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
-    server_mod._components = None
+    server_mod._provider = None
     yield
-    server_mod._components = None
+    server_mod._provider = None
 
 
 @pytest.fixture()
@@ -118,7 +119,7 @@ class TestValidateQuickTool:
 
     async def test_clean_code_passes(self) -> None:
         """Clean code should pass quick validation."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = 'def add(a: int, b: int) -> int:\n    """Add."""\n    return a + b\n'
         result = await _validate_quick(code, language="python")
         assert result["passed"] is True
@@ -126,7 +127,7 @@ class TestValidateQuickTool:
 
     async def test_security_violation_detected(self) -> None:
         """Code with security issues should fail."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = 'query = "SELECT * FROM users WHERE id=" + user_id\n'
         result = await _validate_quick(code, language="python")
         sec_violations = [
@@ -136,7 +137,7 @@ class TestValidateQuickTool:
 
     async def test_no_style_violations_returned(self) -> None:
         """Quick validation should not include style violations."""
-        server_mod._get_components()
+        server_mod._get_provider()
         # Code that would trigger style rules but not security rules
         code = "from typing import List\nx: List[int] = []\n"
         result = await _validate_quick(code, language="python")
@@ -147,13 +148,13 @@ class TestValidateQuickTool:
 
     async def test_rejects_oversized_code(self) -> None:
         """Should return error for code exceeding max length."""
-        oversized = "x" * (server_mod._MAX_CODE_LENGTH + 1)
+        oversized = "x" * (_MAX_CODE_LENGTH + 1)
         result = await _validate_quick(oversized)
         assert "error" in result
 
     async def test_standards_checked_is_security_only(self) -> None:
         """standards_checked should only contain security."""
-        server_mod._get_components()
+        server_mod._get_provider()
         code = "x = 1\n"
         result = await _validate_quick(code, language="python")
         assert result["standards_checked"] == ["security"]

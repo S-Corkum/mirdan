@@ -3,11 +3,8 @@
 import pytest
 
 from mirdan.config import ThresholdsConfig
-from mirdan.core.code_validator import (
-    CodeValidator,
-    _build_skip_regions,
-    _is_in_skip_region,
-)
+from mirdan.core.code_validator import CodeValidator
+from mirdan.core.skip_regions import build_skip_regions, is_in_skip_region
 from mirdan.core.language_detector import LanguageDetector
 from mirdan.core.quality_standards import QualityStandards
 
@@ -1269,13 +1266,13 @@ class TestArchitectureAST:
 
 
 class TestBuildSkipRegions:
-    """Unit tests for _build_skip_regions()."""
+    """Unit tests for build_skip_regions()."""
 
     # -- Python comments --
 
     def test_python_hash_comment(self) -> None:
         code = "x = 1  # a comment\ny = 2"
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         # Region should cover from '#' to the newline
         assert len(regions) == 2
         assert code[regions[0]] == "#"
@@ -1284,40 +1281,40 @@ class TestBuildSkipRegions:
     def test_hash_not_comment_in_javascript(self) -> None:
         """# is NOT a comment in JavaScript — should not create a region."""
         code = "const x = 1  # not a comment"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 0
 
     def test_hash_not_comment_in_java(self) -> None:
         """# is NOT a comment in Java — should not create a region."""
         code = "int x = 1;  # not a comment"
-        regions = _build_skip_regions(code, "java")
+        regions = build_skip_regions(code, "java")
         assert len(regions) == 0
 
     # -- Block comments --
 
     def test_block_comment_in_javascript(self) -> None:
         code = "const x = 1; /* block comment */ const y = 2;"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 2
         comment_text = code[regions[0] : regions[1]]
         assert comment_text == "/* block comment */"
 
     def test_block_comment_in_java(self) -> None:
         code = "int x = 1; /* block */ int y = 2;"
-        regions = _build_skip_regions(code, "java")
+        regions = build_skip_regions(code, "java")
         assert len(regions) == 2
         assert code[regions[0] : regions[1]] == "/* block */"
 
     def test_block_comment_in_go(self) -> None:
         code = "x := 1 /* block */ + 2"
-        regions = _build_skip_regions(code, "go")
+        regions = build_skip_regions(code, "go")
         assert len(regions) == 2
         assert code[regions[0] : regions[1]] == "/* block */"
 
     def test_block_comment_not_in_python(self) -> None:
         """Python does NOT support /* */ — should not create a region."""
         code = "x = 1 /* not a comment */ + 2"
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         # The only regions should be from quote characters, not /* */
         for i in range(0, len(regions), 2):
             region_text = code[regions[i] : regions[i + 1]]
@@ -1325,7 +1322,7 @@ class TestBuildSkipRegions:
 
     def test_multiline_block_comment(self) -> None:
         code = "var x;\n/* line1\n   line2\n   line3 */\nvar y;"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 2
         comment_text = code[regions[0] : regions[1]]
         assert "line1" in comment_text
@@ -1334,7 +1331,7 @@ class TestBuildSkipRegions:
     def test_unterminated_block_comment(self) -> None:
         """Unterminated block comments should extend to end of code."""
         code = "var x; /* unterminated"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 2
         assert regions[1] == len(code)
 
@@ -1342,13 +1339,13 @@ class TestBuildSkipRegions:
 
     def test_template_literal_in_javascript(self) -> None:
         code = "const s = `hello ${name}`;"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 2
         assert code[regions[0]] == "`"
 
     def test_template_literal_in_typescript(self) -> None:
         code = "const s = `template`;"
-        regions = _build_skip_regions(code, "typescript")
+        regions = build_skip_regions(code, "typescript")
         assert len(regions) == 2
         literal_text = code[regions[0] : regions[1]]
         assert literal_text == "`template`"
@@ -1356,7 +1353,7 @@ class TestBuildSkipRegions:
     def test_template_literal_not_in_python(self) -> None:
         """Backtick is not a template literal in Python."""
         code = "x = `not a template`"
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         # Should not create a template literal region
         for i in range(0, len(regions), 2):
             region_text = code[regions[i] : regions[i + 1]]
@@ -1365,7 +1362,7 @@ class TestBuildSkipRegions:
     def test_template_literal_not_in_java(self) -> None:
         """Java does not support template literals."""
         code = "String x = `not valid`;"
-        regions = _build_skip_regions(code, "java")
+        regions = build_skip_regions(code, "java")
         for i in range(0, len(regions), 2):
             region_text = code[regions[i] : regions[i + 1]]
             assert "`" not in region_text
@@ -1374,21 +1371,21 @@ class TestBuildSkipRegions:
 
     def test_double_slash_comment_in_javascript(self) -> None:
         code = "var x = 1; // a comment\nvar y = 2;"
-        regions = _build_skip_regions(code, "javascript")
+        regions = build_skip_regions(code, "javascript")
         assert len(regions) == 2
         comment_text = code[regions[0] : regions[1]]
         assert comment_text.startswith("//")
 
     def test_double_slash_comment_in_go(self) -> None:
         code = "x := 1 // comment\ny := 2"
-        regions = _build_skip_regions(code, "go")
+        regions = build_skip_regions(code, "go")
         assert len(regions) == 2
 
     # -- Triple-quoted strings (Python) --
 
     def test_triple_double_quoted_string(self) -> None:
         code = '"""\nThis is a docstring with eval() in it.\n"""\nx = 1'
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         assert len(regions) == 2
         docstring = code[regions[0] : regions[1]]
         assert docstring.startswith('"""')
@@ -1396,7 +1393,7 @@ class TestBuildSkipRegions:
 
     def test_triple_single_quoted_string(self) -> None:
         code = "'''\nAnother docstring\n'''\nx = 1"
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         assert len(regions) == 2
 
     # -- Mixed regions --
@@ -1404,23 +1401,23 @@ class TestBuildSkipRegions:
     def test_multiple_region_types(self) -> None:
         """Code with both strings and comments creates multiple regions."""
         code = 'msg = "hello"  # a comment\neval(x)'
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         # At least 2 regions: the string and the comment (4 boundaries)
         assert len(regions) >= 4
 
     def test_empty_code(self) -> None:
-        assert _build_skip_regions("", "python") == []
+        assert build_skip_regions("", "python") == []
 
     def test_no_strings_or_comments(self) -> None:
         code = "x = 1 + 2\ny = 3"
-        assert _build_skip_regions(code, "python") == []
+        assert build_skip_regions(code, "python") == []
 
     # -- Unknown language --
 
     def test_unknown_language_supports_block_comments(self) -> None:
         """Unknown languages should support /* */ as a fallback."""
         code = "x = 1; /* a block comment */ + 2"
-        regions = _build_skip_regions(code, "unknown")
+        regions = build_skip_regions(code, "unknown")
         assert len(regions) >= 2
         found_block = False
         for i in range(0, len(regions), 2):
@@ -1430,39 +1427,39 @@ class TestBuildSkipRegions:
 
 
 class TestIsInSkipRegion:
-    """Unit tests for _is_in_skip_region()."""
+    """Unit tests for is_in_skip_region()."""
 
     def test_empty_boundaries(self) -> None:
-        assert _is_in_skip_region(5, []) is False
+        assert is_in_skip_region(5, []) is False
 
     def test_position_before_region(self) -> None:
         # Region: [10, 20)
-        assert _is_in_skip_region(5, [10, 20]) is False
+        assert is_in_skip_region(5, [10, 20]) is False
 
     def test_position_at_region_start(self) -> None:
         """Position AT the opening delimiter is NOT inside (strictly after)."""
-        assert _is_in_skip_region(10, [10, 20]) is False
+        assert is_in_skip_region(10, [10, 20]) is False
 
     def test_position_strictly_inside_region(self) -> None:
-        assert _is_in_skip_region(15, [10, 20]) is True
+        assert is_in_skip_region(15, [10, 20]) is True
 
     def test_position_at_region_end(self) -> None:
         """Position at the end boundary is NOT inside (half-open interval)."""
-        assert _is_in_skip_region(20, [10, 20]) is False
+        assert is_in_skip_region(20, [10, 20]) is False
 
     def test_position_after_region(self) -> None:
-        assert _is_in_skip_region(25, [10, 20]) is False
+        assert is_in_skip_region(25, [10, 20]) is False
 
     def test_between_two_regions(self) -> None:
         # Regions: [5, 10), [20, 30)
-        assert _is_in_skip_region(15, [5, 10, 20, 30]) is False
+        assert is_in_skip_region(15, [5, 10, 20, 30]) is False
 
     def test_inside_second_region(self) -> None:
-        assert _is_in_skip_region(25, [5, 10, 20, 30]) is True
+        assert is_in_skip_region(25, [5, 10, 20, 30]) is True
 
     def test_one_past_start(self) -> None:
         """Position one past the start delimiter IS inside."""
-        assert _is_in_skip_region(11, [10, 20]) is True
+        assert is_in_skip_region(11, [10, 20]) is True
 
 
 # ---------------------------------------------------------------------------
@@ -1588,7 +1585,7 @@ class TestLanguageSpecificCommentBehavior:
         """
         # This is a basic verification that # doesn't create a skip region in Rust
         code = "#[allow(unused)]\nfn main() {}"
-        regions = _build_skip_regions(code, "rust")
+        regions = build_skip_regions(code, "rust")
         # The # should NOT be a comment — check no region starts at the #
         if regions:
             for i in range(0, len(regions), 2):
@@ -1597,7 +1594,7 @@ class TestLanguageSpecificCommentBehavior:
     def test_hash_is_comment_in_python(self) -> None:
         """# IS a comment in Python and should create a skip region."""
         code = "x = 1  # comment\ny = 2"
-        regions = _build_skip_regions(code, "python")
+        regions = build_skip_regions(code, "python")
         found_hash_region = False
         for i in range(0, len(regions), 2):
             if code[regions[i]] == "#":
@@ -1607,7 +1604,7 @@ class TestLanguageSpecificCommentBehavior:
     def test_hash_is_comment_in_ruby(self) -> None:
         """# IS a comment in Ruby and should create a skip region."""
         code = "x = 1  # comment\ny = 2"
-        regions = _build_skip_regions(code, "ruby")
+        regions = build_skip_regions(code, "ruby")
         found_hash_region = False
         for i in range(0, len(regions), 2):
             if code[regions[i]] == "#":
@@ -1617,14 +1614,14 @@ class TestLanguageSpecificCommentBehavior:
     def test_block_comment_in_typescript(self) -> None:
         """TypeScript supports /* */ block comments."""
         code = "/* block */ const x = 1;"
-        regions = _build_skip_regions(code, "typescript")
+        regions = build_skip_regions(code, "typescript")
         assert len(regions) >= 2
         assert code[regions[0] : regions[0] + 2] == "/*"
 
     def test_block_comment_not_in_ruby(self) -> None:
         """Ruby does NOT use /* */ for comments."""
         code = "x = 1 /* not a comment */"
-        regions = _build_skip_regions(code, "ruby")
+        regions = build_skip_regions(code, "ruby")
         for i in range(0, len(regions), 2):
             region_text = code[regions[i] : regions[i + 1]]
             assert not region_text.startswith("/*")

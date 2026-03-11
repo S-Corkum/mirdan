@@ -8,7 +8,7 @@ from mirdan.config import MCPClientConfig, MirdanConfig, OrchestrationConfig
 from mirdan.core.context_aggregator import ContextAggregator
 from mirdan.core.gatherers.base import GathererResult
 from mirdan.core.intent_analyzer import IntentAnalyzer
-from mirdan.core.orchestrator import MCPOrchestrator
+from mirdan.core.orchestrator import ToolAdvisor
 from mirdan.core.prompt_composer import PromptComposer
 from mirdan.core.quality_standards import QualityStandards
 from mirdan.models import ContextBundle
@@ -27,7 +27,7 @@ class TestEnhancePromptIntegration:
         intent_analyzer = IntentAnalyzer()
         quality_standards = QualityStandards()
         prompt_composer = PromptComposer(quality_standards)
-        mcp_orchestrator = MCPOrchestrator()
+        mcp_orchestrator = ToolAdvisor()
         context_aggregator = ContextAggregator(config)
 
         # Simulate the enhance_prompt flow
@@ -80,7 +80,7 @@ class TestEnhancePromptIntegration:
         intent_analyzer = IntentAnalyzer()
         quality_standards = QualityStandards()
         prompt_composer = PromptComposer(quality_standards)
-        mcp_orchestrator = MCPOrchestrator()
+        mcp_orchestrator = ToolAdvisor()
         context_aggregator = ContextAggregator(config)
 
         prompt = "create a FastAPI endpoint using Pydantic models"
@@ -123,7 +123,7 @@ class TestEnhancePromptIntegration:
         intent_analyzer = IntentAnalyzer()
         quality_standards = QualityStandards()
         prompt_composer = PromptComposer(quality_standards)
-        mcp_orchestrator = MCPOrchestrator()
+        mcp_orchestrator = ToolAdvisor()
         context_aggregator = ContextAggregator(config)
 
         prompt = "implement JWT authentication with password hashing"
@@ -162,7 +162,7 @@ class TestEnhancePromptIntegration:
         intent_analyzer = IntentAnalyzer()
         quality_standards = QualityStandards()
         prompt_composer = PromptComposer(quality_standards)
-        mcp_orchestrator = MCPOrchestrator()
+        mcp_orchestrator = ToolAdvisor()
         context_aggregator = ContextAggregator(config)
 
         prompt = "create a React component"

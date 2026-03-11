@@ -9,6 +9,51 @@ from pathlib import Path
 
 from mirdan.models import PackageInfo
 
+# Package name → framework name mapping for manifest-based detection.
+# Used to discover frameworks from installed dependencies even when
+# the user's prompt doesn't mention them explicitly.
+PACKAGE_TO_FRAMEWORK: dict[str, str] = {
+    # Python (PyPI normalized names)
+    "fastapi": "fastapi",
+    "django": "django",
+    "flask": "flask",
+    "sqlalchemy": "sqlalchemy",
+    "langchain": "langchain",
+    "langgraph": "langgraph",
+    "chromadb": "chromadb",
+    "pinecone-client": "pinecone",
+    "faiss-cpu": "faiss",
+    "neo4j": "neo4j",
+    "weaviate-client": "weaviate",
+    "pymilvus": "milvus",
+    "qdrant-client": "qdrant",
+    "anthropic": "anthropic-sdk",
+    "openai": "openai-sdk",
+    "llama-index": "llamaindex",
+    "pyautogen": "autogen",
+    "instructor": "instructor",
+    "pydantic-ai": "pydantic-ai",
+    "haystack-ai": "haystack",
+    "opentelemetry-api": "opentelemetry",
+    # npm
+    "react": "react",
+    "next": "next.js",
+    "vue": "vue",
+    "express": "express",
+    "@prisma/client": "prisma",
+    "tailwindcss": "tailwind",
+    "@tanstack/react-query": "tanstack-query",
+    "zustand": "zustand",
+    "graphql": "graphql",
+    "@anthropic-ai/sdk": "anthropic-sdk",
+    "ai": "vercel-ai",
+    # Rust (crates.io)
+    "axum": "axum",
+}
+
+# Inverse mapping: framework name → package name
+FRAMEWORK_TO_PACKAGE: dict[str, str] = {v: k for k, v in PACKAGE_TO_FRAMEWORK.items()}
+
 # Ecosystem mapping
 _ECOSYSTEM_MAP = {
     "pyproject.toml": "PyPI",
@@ -74,6 +119,25 @@ class ManifestParser:
         for p in packages:
             if p.name == package and p.ecosystem == ecosystem:
                 return p.version
+        return None
+
+    def get_framework_version(self, framework: str) -> str | None:
+        """Get the version of a framework by looking up its package name.
+
+        Uses FRAMEWORK_TO_PACKAGE to find the package name, then searches
+        parsed manifests across all ecosystems.
+
+        Args:
+            framework: Framework name (e.g., "react", "fastapi").
+
+        Returns:
+            Version string if found, None otherwise.
+        """
+        package_name = FRAMEWORK_TO_PACKAGE.get(framework, framework)
+        packages = self.parse()
+        for p in packages:
+            if p.name == package_name:
+                return p.version or None
         return None
 
     def _cache_valid(self, root: Path) -> bool:

@@ -629,6 +629,6 @@ class TestManifestFirstDetection:
 
     def test_package_to_framework_excludes_pydantic(self) -> None:
         """pydantic alone should not map to fastapi (it's standalone)."""
-        from mirdan.core.intent_analyzer import IntentAnalyzer
+        from mirdan.core.manifest_parser import PACKAGE_TO_FRAMEWORK
 
-        assert "pydantic" not in IntentAnalyzer.PACKAGE_TO_FRAMEWORK
+        assert "pydantic" not in PACKAGE_TO_FRAMEWORK

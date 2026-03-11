@@ -27,9 +27,9 @@ _validate_code_quality = server_mod.validate_code_quality.fn
 @pytest.fixture(autouse=True)
 def _reset_components() -> Iterator[None]:
     """Reset the server singleton before each test."""
-    server_mod._components = None
+    server_mod._provider = None
     yield
-    server_mod._components = None
+    server_mod._provider = None
 
 
 @pytest.fixture()
@@ -213,7 +213,7 @@ class TestValidateCodeQualityWithLinters:
         test_file = tmp_path / "test.py"
         test_file.write_text("x = 1\n")
 
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         mock_run = AsyncMock(return_value=[])
         with patch.object(c.linter_runner, "run", mock_run):
             await _validate_code_quality("x = 1\n", language="python", file_path=str(test_file))
@@ -222,7 +222,7 @@ class TestValidateCodeQualityWithLinters:
 
     async def test_no_file_path_skips_linters(self) -> None:
         """Without file_path, linters should not run."""
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         mock_run = AsyncMock(return_value=[])
         with patch.object(c.linter_runner, "run", mock_run):
             await _validate_code_quality("x = 1\n", language="python")
@@ -244,7 +244,7 @@ class TestValidateCodeQualityWithLinters:
             )
         ]
 
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         mock_run = AsyncMock(return_value=linter_violations)
         with patch.object(c.linter_runner, "run", mock_run):
             result = await _validate_code_quality(
@@ -258,7 +258,7 @@ class TestValidateCodeQualityWithLinters:
 
     async def test_nonexistent_file_path_skips_linters(self) -> None:
         """Non-existent file_path should skip linters gracefully."""
-        c = server_mod._get_components()
+        c = server_mod._get_provider()
         mock_run = AsyncMock(return_value=[])
         with patch.object(c.linter_runner, "run", mock_run):
             result = await _validate_code_quality(

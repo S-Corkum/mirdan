@@ -6,7 +6,7 @@ from mirdan.config import OrchestrationConfig
 from mirdan.models import Intent, SessionContext, TaskType, ToolRecommendation
 
 
-class MCPOrchestrator:
+class ToolAdvisor:
     """Determines which MCP tools should be used for a given intent."""
 
     def __init__(self, config: OrchestrationConfig | None = None):
@@ -57,58 +57,83 @@ class MCPOrchestrator:
         if intent.task_type == TaskType.PLANNING:
             return self.suggest_tools_for_planning(intent, available_mcps, session)
 
-        recommendations: list[ToolRecommendation] = []
-
         # If no MCPs specified, assume common ones are available
         if available_mcps is None:
             available_mcps = list(self.KNOWN_MCPS.keys())
 
-        # Documentation needs
-        if intent.uses_external_framework and "context7" in available_mcps:
-            frameworks_str = ", ".join(intent.frameworks) if intent.frameworks else "the framework"
-            recommendations.append(
-                ToolRecommendation(
-                    mcp="context7",
-                    action=f"Fetch documentation for {frameworks_str}",
-                    priority="high",
-                    params={"libraries": intent.frameworks},
-                    reason="Get current API documentation to avoid hallucinated methods",
-                )
+        recommendations: list[ToolRecommendation] = []
+        recommendations.extend(self._recommend_context7(intent, available_mcps))
+        recommendations.extend(self._recommend_enyal(intent, available_mcps, session))
+        recommendations.extend(self._recommend_sequential_thinking(intent, available_mcps))
+        recommendations.extend(self._recommend_filesystem(intent, available_mcps))
+        recommendations.extend(self._recommend_github(intent, available_mcps))
+        recommendations.extend(self._recommend_security_scanner(intent, available_mcps))
+
+        # Sort by preference before returning
+        return self._sort_by_preference(recommendations)
+
+    def _recommend_context7(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+    ) -> list[ToolRecommendation]:
+        """Recommend context7 tools for documentation needs."""
+        if not (intent.uses_external_framework and "context7" in available_mcps):
+            return []
+
+        frameworks_str = ", ".join(intent.frameworks) if intent.frameworks else "the framework"
+        return [
+            ToolRecommendation(
+                mcp="context7",
+                action=f"Fetch documentation for {frameworks_str}",
+                priority="high",
+                params={"libraries": intent.frameworks},
+                reason="Get current API documentation to avoid hallucinated methods",
             )
+        ]
+
+    def _recommend_enyal(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+        session: SessionContext | None = None,
+    ) -> list[ToolRecommendation]:
+        """Recommend enyal tools for project context, persistence, and graph operations."""
+        if "enyal" not in available_mcps:
+            return []
+
+        recommendations: list[ToolRecommendation] = []
 
         # Project context from memory — routing depends on session state
-        if "enyal" in available_mcps:
-            if session and session.validation_count > 0 and session.unresolved_errors > 0:
-                # Re-call with persistent failures: target recall to resolution patterns
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="enyal",
-                        action=(
-                            "Recall patterns for resolving validation"
-                            " failures and similar past fixes"
-                        ),
-                        priority="high",
-                        params={"query": "fix bug error violation resolution patterns"},
-                        reason="Targeted recall for persistent quality failures across sessions",
-                    )
+        if session and session.validation_count > 0 and session.unresolved_errors > 0:
+            # Re-call with persistent failures: target recall to resolution patterns
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action=(
+                        "Recall patterns for resolving validation"
+                        " failures and similar past fixes"
+                    ),
+                    priority="high",
+                    params={"query": "fix bug error violation resolution patterns"},
+                    reason="Targeted recall for persistent quality failures across sessions",
                 )
-            elif not (session and session.validation_count > 0 and session.unresolved_errors == 0):
-                # First call or no session: standard convention recall
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="enyal",
-                        action="Recall project conventions and past decisions",
-                        priority="high",
-                        params={"query": "conventions decisions patterns"},
-                        reason="Apply consistent patterns from project history",
-                    )
+            )
+        elif not (session and session.validation_count > 0 and session.unresolved_errors == 0):
+            # First call or no session: standard convention recall
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="enyal",
+                    action="Recall project conventions and past decisions",
+                    priority="high",
+                    params={"query": "conventions decisions patterns"},
+                    reason="Apply consistent patterns from project history",
                 )
-            # else: prior validation passed — skip generic recall (already effective)
+            )
+        # else: prior validation passed — skip generic recall (already effective)
 
         # Post-task knowledge persistence (first call only)
-        if "enyal" in available_mcps and not (
-            session and session.validation_count > 0
-        ):
+        if not (session and session.validation_count > 0):
             recommendations.append(
                 ToolRecommendation(
                     mcp="enyal",
@@ -122,8 +147,8 @@ class MCPOrchestrator:
                 )
             )
 
-        # Enyal graph operations for architecture-aware tasks
-        if "enyal" in available_mcps and intent.task_type == TaskType.REFACTOR:
+        # Graph operations for architecture-aware tasks
+        if intent.task_type == TaskType.REFACTOR:
             recommendations.append(
                 ToolRecommendation(
                     mcp="enyal",
@@ -149,104 +174,139 @@ class MCPOrchestrator:
                 )
             )
 
-        # Deep analysis for complex tasks
-        if "sequential-thinking" in available_mcps:
-            if intent.task_type == TaskType.DEBUG:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="sequential-thinking",
-                        action=(
-                            "Form structured hypotheses about root cause, "
-                            "then plan systematic verification for each"
-                        ),
-                        priority="high",
-                        reason="Structured reasoning prevents unfocused investigation",
-                    )
-                )
-            elif intent.task_type == TaskType.REFACTOR:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="sequential-thinking",
-                        action=(
-                            "Analyze refactoring scope: all callers, dependencies, "
-                            "and potential regressions before making changes"
-                        ),
-                        priority="medium",
-                        reason=(
-                            "Refactoring has cascading effects that benefit"
-                            " from upfront analysis"
-                        ),
-                    )
-                )
-            elif intent.touches_security:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="sequential-thinking",
-                        action=(
-                            "Analyze security implications: threat model, "
-                            "attack surface, and defense-in-depth strategy"
-                        ),
-                        priority="high",
-                        reason="Security-sensitive code requires thorough threat analysis",
-                    )
-                )
+        return recommendations
 
-        # Codebase analysis needs
-        if intent.task_type in [TaskType.GENERATION, TaskType.REFACTOR]:
-            if "filesystem" in available_mcps:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="filesystem",
-                        action="Search for similar patterns in the codebase",
-                        priority="high",
-                        params={"task_type": intent.task_type.value},
-                        reason="Find existing patterns to maintain consistency",
-                    )
-                )
-            elif "desktop-commander" in available_mcps:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="desktop-commander",
-                        action="Read relevant source files for context",
-                        priority="high",
-                        reason="Understand existing code structure",
-                    )
-                )
+    def _recommend_sequential_thinking(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+    ) -> list[ToolRecommendation]:
+        """Recommend sequential-thinking tools for deep analysis."""
+        if "sequential-thinking" not in available_mcps:
+            return []
 
-        # GitHub context
-        if "github" in available_mcps:
-            if intent.task_type == TaskType.DEBUG:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="github",
-                        action="Check recent commits for related changes",
-                        priority="medium",
-                        reason="Understand recent changes that might be relevant",
-                    )
+        if intent.task_type == TaskType.DEBUG:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Form structured hypotheses about root cause, "
+                        "then plan systematic verification for each"
+                    ),
+                    priority="high",
+                    reason="Structured reasoning prevents unfocused investigation",
                 )
-            if intent.task_type == TaskType.REVIEW:
-                recommendations.append(
-                    ToolRecommendation(
-                        mcp="github",
-                        action="Get PR details and diff for review context",
-                        priority="high",
-                        reason="Understand full scope of changes being reviewed",
-                    )
+            ]
+        elif intent.task_type == TaskType.REFACTOR:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Analyze refactoring scope: all callers, dependencies, "
+                        "and potential regressions before making changes"
+                    ),
+                    priority="medium",
+                    reason=(
+                        "Refactoring has cascading effects that benefit"
+                        " from upfront analysis"
+                    ),
                 )
+            ]
+        elif intent.touches_security:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Analyze security implications: threat model, "
+                        "attack surface, and defense-in-depth strategy"
+                    ),
+                    priority="high",
+                    reason="Security-sensitive code requires thorough threat analysis",
+                )
+            ]
 
-        # Security scanning recommendations (only when explicitly available)
-        if intent.touches_security and "security-scanner" in available_mcps:
+        return []
+
+    def _recommend_filesystem(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+    ) -> list[ToolRecommendation]:
+        """Recommend filesystem tools for codebase analysis, with desktop-commander fallback."""
+        if intent.task_type not in [TaskType.GENERATION, TaskType.REFACTOR]:
+            return []
+
+        if "filesystem" in available_mcps:
+            return [
+                ToolRecommendation(
+                    mcp="filesystem",
+                    action="Search for similar patterns in the codebase",
+                    priority="high",
+                    params={"task_type": intent.task_type.value},
+                    reason="Find existing patterns to maintain consistency",
+                )
+            ]
+        elif "desktop-commander" in available_mcps:
+            return [
+                ToolRecommendation(
+                    mcp="desktop-commander",
+                    action="Read relevant source files for context",
+                    priority="high",
+                    reason="Understand existing code structure",
+                )
+            ]
+
+        return []
+
+    def _recommend_github(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+    ) -> list[ToolRecommendation]:
+        """Recommend GitHub tools for repository context."""
+        if "github" not in available_mcps:
+            return []
+
+        recommendations: list[ToolRecommendation] = []
+
+        if intent.task_type == TaskType.DEBUG:
             recommendations.append(
                 ToolRecommendation(
-                    mcp="security-scanner",
-                    action="Scan generated code for vulnerabilities",
+                    mcp="github",
+                    action="Check recent commits for related changes",
+                    priority="medium",
+                    reason="Understand recent changes that might be relevant",
+                )
+            )
+        if intent.task_type == TaskType.REVIEW:
+            recommendations.append(
+                ToolRecommendation(
+                    mcp="github",
+                    action="Get PR details and diff for review context",
                     priority="high",
-                    reason="Validate security posture of security-related code",
+                    reason="Understand full scope of changes being reviewed",
                 )
             )
 
-        # Sort by preference before returning
-        return self._sort_by_preference(recommendations)
+        return recommendations
+
+    def _recommend_security_scanner(
+        self,
+        intent: Intent,
+        available_mcps: list[str],
+    ) -> list[ToolRecommendation]:
+        """Recommend security scanner when security is relevant."""
+        if not (intent.touches_security and "security-scanner" in available_mcps):
+            return []
+
+        return [
+            ToolRecommendation(
+                mcp="security-scanner",
+                action="Scan generated code for vulnerabilities",
+                priority="high",
+                reason="Validate security posture of security-related code",
+            )
+        ]
 
     def _sort_by_preference(
         self, recommendations: list[ToolRecommendation]
