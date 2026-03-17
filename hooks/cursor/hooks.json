@@ -7,13 +7,6 @@
         "prompt": "The file {file_path} was just edited. Call mcp__mirdan__validate_code_quality on the changed code to check for quality violations. Fix any errors found."
       }
     ],
-    "preToolUse": [
-      {
-        "type": "prompt",
-        "matcher": "Write|Edit",
-        "prompt": "Before writing/editing files, keep the current task's quality requirements in mind. For files that handle authentication, user input, or database queries, apply extra care."
-      }
-    ],
     "postToolUseFailure": [
       {
         "type": "prompt",

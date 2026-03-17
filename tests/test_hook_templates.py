@@ -24,7 +24,7 @@ def default_generator() -> HookTemplateGenerator:
 def full_generator() -> HookTemplateGenerator:
     """Create a generator with all events enabled."""
     config = HookConfig(
-        enabled_events=["PreToolUse", "PostToolUse", "Stop"],
+        enabled_events=["PostToolUse", "Stop"],
         session_hooks=True,
         subagent_hooks=True,
         compaction_resilience=True,
@@ -37,12 +37,11 @@ class TestHookConfig:
     """Tests for HookConfig defaults."""
 
     def test_default_events(self) -> None:
-        """Default config should have 3 basic events."""
+        """Default config should have 2 basic events."""
         config = HookConfig()
-        assert "PreToolUse" in config.enabled_events
         assert "PostToolUse" in config.enabled_events
         assert "Stop" in config.enabled_events
-        assert len(config.enabled_events) == 3
+        assert len(config.enabled_events) == 2
 
     def test_default_timeout(self) -> None:
         """Default timeout should be 5000ms."""
@@ -72,11 +71,6 @@ class TestDefaultGeneration:
         result = default_generator.generate()
         assert "hooks" in result
 
-    def test_has_pre_tool_use(self, default_generator: HookTemplateGenerator) -> None:
-        """Default should include PreToolUse."""
-        hooks = default_generator.generate()["hooks"]
-        assert "PreToolUse" in hooks
-
     def test_has_post_tool_use(self, default_generator: HookTemplateGenerator) -> None:
         """Default should include PostToolUse."""
         hooks = default_generator.generate()["hooks"]
@@ -104,9 +98,9 @@ class TestFullGeneration:
     """Tests for full (all-event) hook generation."""
 
     def test_has_all_core_events(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should have all 9 events."""
+        """Full config should have all 8 events."""
         hooks = full_generator.generate()["hooks"]
-        assert len(hooks) >= 9
+        assert len(hooks) >= 8
 
     def test_has_session_start(self, full_generator: HookTemplateGenerator) -> None:
         """Full config should include SessionStart."""
@@ -137,31 +131,6 @@ class TestFullGeneration:
         """Full config should include Notification."""
         hooks = full_generator.generate()["hooks"]
         assert "Notification" in hooks
-
-
-class TestPreToolUse:
-    """Tests for PreToolUse hook generation."""
-
-    def test_matches_write_edit_multiedit(self, default_generator: HookTemplateGenerator) -> None:
-        """PreToolUse should match Write|Edit|MultiEdit."""
-        hooks = default_generator.generate()["hooks"]
-        pre_tool = hooks["PreToolUse"]
-        assert len(pre_tool) > 0
-        assert "Write|Edit|MultiEdit" in pre_tool[0].get("matcher", "")
-
-    def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
-        """PreToolUse should use prompt type."""
-        hooks = default_generator.generate()["hooks"]
-        pre_tool = hooks["PreToolUse"]
-        hook_item = pre_tool[0]["hooks"][0]
-        assert hook_item["type"] == "prompt"
-
-    def test_mentions_enhance_prompt(self, default_generator: HookTemplateGenerator) -> None:
-        """PreToolUse prompt should mention enhance_prompt."""
-        hooks = default_generator.generate()["hooks"]
-        pre_tool = hooks["PreToolUse"]
-        hook_item = pre_tool[0]["hooks"][0]
-        assert "enhance_prompt" in hook_item["prompt"]
 
 
 class TestPostToolUse:
@@ -241,13 +210,13 @@ class TestGenerateAndWrite:
 class TestAllHookEvents:
     """Tests for the ALL_HOOK_EVENTS constant."""
 
-    def test_has_seventeen_events(self) -> None:
-        """Should define 17 hook events."""
-        assert len(ALL_HOOK_EVENTS) == 17
+    def test_has_sixteen_events(self) -> None:
+        """Should define 16 hook events."""
+        assert len(ALL_HOOK_EVENTS) == 16
 
     def test_includes_core_events(self) -> None:
         """Should include all core events."""
-        for event in ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"):
+        for event in ("UserPromptSubmit", "PostToolUse", "Stop"):
             assert event in ALL_HOOK_EVENTS
 
     def test_includes_advanced_events(self) -> None:

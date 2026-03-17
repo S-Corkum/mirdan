@@ -42,11 +42,10 @@ class TestHookStringency:
         assert "PostToolUse" in events
         assert "Stop" in events
 
-    def test_standard_has_five_events(self) -> None:
+    def test_standard_has_four_events(self) -> None:
         events = STRINGENCY_EVENTS[HookStringency.STANDARD]
-        assert len(events) == 5
+        assert len(events) == 4
         assert "UserPromptSubmit" in events
-        assert "PreToolUse" in events
         assert "PostToolUse" in events
         assert "Stop" in events
         assert "SubagentStart" in events
@@ -54,7 +53,6 @@ class TestHookStringency:
     def test_comprehensive_events(self) -> None:
         events = STRINGENCY_EVENTS[HookStringency.COMPREHENSIVE]
         assert "UserPromptSubmit" in events
-        assert "PreToolUse" in events
         assert "PostToolUse" in events
         assert "Stop" in events
         assert "PreCompact" in events
@@ -69,10 +67,10 @@ class TestGenerateClaudeCodeHooks:
         result = generator.generate_claude_code_hooks(HookStringency.MINIMAL)
         assert len(result["hooks"]) == 2
 
-    def test_standard_generates_five_hooks(self) -> None:
+    def test_standard_generates_four_hooks(self) -> None:
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
-        assert len(result["hooks"]) == 5
+        assert len(result["hooks"]) == 4
 
     def test_comprehensive_is_default(self) -> None:
         generator = HookTemplateGenerator()
@@ -329,7 +327,6 @@ class TestPluginHooks:
 
     def test_has_core_events(self, hooks: dict[str, Any]) -> None:
         assert "UserPromptSubmit" in hooks
-        assert "PreToolUse" in hooks
         assert "PostToolUse" in hooks
         assert "Stop" in hooks
         assert "PreCompact" in hooks

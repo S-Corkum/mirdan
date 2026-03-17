@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2026-03-17
+
+### Fixed
+
+- **Remove PreToolUse hook blocking Write/Edit tools** — The `preToolUse` hook with
+  `matcher: "Write|Edit"` created asymmetric friction that caused Cursor's agent to
+  avoid native Write/Edit tools and fall back to shell commands. Removed from both
+  Cursor and Claude Code hook configurations. Quality enforcement remains intact via
+  `afterFileEdit` (post-edit validation) and the `stop` gate (completion verification).
+
+### Changed
+
+- Cursor STANDARD stringency reduced from 5 to 4 events.
+- Cursor COMPREHENSIVE stringency reduced from 8 to 7 events.
+- Claude Code `ALL_HOOK_EVENTS` reduced from 17 to 16 events.
+- Claude Code STANDARD stringency reduced from 5 to 4 events.
+- Default `HookConfig.enabled_events` reduced from 3 to 2 events.
+
 ## [1.10.0] - 2026-03-11
 
 ### Added

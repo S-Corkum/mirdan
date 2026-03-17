@@ -174,16 +174,15 @@ class TestOverlaySkills:
 
 
 class TestHookEventsComplete:
-    """Verify all 17 Claude Code hook events are defined."""
+    """Verify all 16 Claude Code hook events are defined."""
 
     def test_all_hook_events_count(self) -> None:
-        assert len(ALL_HOOK_EVENTS) == 17
+        assert len(ALL_HOOK_EVENTS) == 16
 
     @pytest.mark.parametrize(
         "event",
         [
             "UserPromptSubmit",
-            "PreToolUse",
             "PostToolUse",
             "PostToolUseFailure",
             "Stop",
@@ -263,7 +262,7 @@ class TestCursorEventsComplete:
         )
 
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.COMPREHENSIVE]
-        assert len(events) == 8
+        assert len(events) == 7
 
     def test_standard_count(self) -> None:
         from mirdan.integrations.cursor import (
@@ -272,13 +271,12 @@ class TestCursorEventsComplete:
         )
 
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.STANDARD]
-        assert len(events) == 5
+        assert len(events) == 4
 
     @pytest.mark.parametrize(
         "event",
         [
             "afterFileEdit",
-            "preToolUse",
             "postToolUseFailure",
             "stop",
             "sessionStart",
@@ -562,14 +560,14 @@ class TestAllHooksGenerate:
         gen = HookTemplateGenerator(mirdan_command="mirdan")
         hooks = gen.generate_claude_code_hooks(stringency=HookStringency.COMPREHENSIVE)
         assert "hooks" in hooks
-        # All 15 COMPREHENSIVE events should produce hooks
-        assert len(hooks["hooks"]) >= 15
+        # All 14 COMPREHENSIVE events should produce hooks
+        assert len(hooks["hooks"]) >= 14
 
     def test_standard_generates(self) -> None:
         gen = HookTemplateGenerator(mirdan_command="mirdan")
         hooks = gen.generate_claude_code_hooks(stringency=HookStringency.STANDARD)
         assert "hooks" in hooks
-        assert len(hooks["hooks"]) >= 5
+        assert len(hooks["hooks"]) >= 4
 
     def test_minimal_generates(self) -> None:
         gen = HookTemplateGenerator(mirdan_command="mirdan")

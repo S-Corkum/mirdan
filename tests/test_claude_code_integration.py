@@ -270,15 +270,6 @@ class TestHookDelegation:
         data = json.loads(hooks_path.read_text())
         assert "PreCompact" in data["hooks"]
 
-    def test_hooks_has_pre_tool_use(self, tmp_path: Path, detected_python: DetectedProject) -> None:
-        """Should include PreToolUse hook with prompt type."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        pre = data["hooks"]["PreToolUse"]
-        assert len(pre) > 0
-        assert pre[0]["hooks"][0]["type"] == "prompt"
-
     def test_post_tool_use_has_prompt(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:

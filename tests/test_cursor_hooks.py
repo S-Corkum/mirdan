@@ -30,21 +30,19 @@ class TestCursorHookStringency:
         assert "stop" in events
 
     def test_stringency_events_standard(self) -> None:
-        """STANDARD should have 5 events."""
+        """STANDARD should have 4 events."""
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.STANDARD]
-        assert len(events) == 5
+        assert len(events) == 4
         assert "afterFileEdit" in events
-        assert "preToolUse" in events
         assert "postToolUse" in events
         assert "sessionStart" in events
         assert "stop" in events
 
     def test_stringency_events_comprehensive(self) -> None:
-        """COMPREHENSIVE should have 8 events (reduced from 16 to cut low-value hooks)."""
+        """COMPREHENSIVE should have 7 events."""
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.COMPREHENSIVE]
-        assert len(events) == 8
+        assert len(events) == 7
         assert "afterFileEdit" in events
-        assert "preToolUse" in events
         assert "postToolUseFailure" in events
         assert "stop" in events
         assert "sessionStart" in events
@@ -72,21 +70,21 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         assert data["version"] == 1
 
-    def test_comprehensive_has_eight_events(self, tmp_path: Path) -> None:
-        """COMPREHENSIVE should produce 8 hook events (reduced to cut low-value hooks)."""
+    def test_comprehensive_has_seven_events(self, tmp_path: Path) -> None:
+        """COMPREHENSIVE should produce 7 hook events."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE)
         assert result is not None
         data = json.loads(result.read_text())
-        assert len(data["hooks"]) == 8
+        assert len(data["hooks"]) == 7
 
-    def test_standard_has_five_events(self, tmp_path: Path) -> None:
-        """STANDARD should produce 5 hook events."""
+    def test_standard_has_four_events(self, tmp_path: Path) -> None:
+        """STANDARD should produce 4 hook events."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir, CursorHookStringency.STANDARD)
         assert result is not None
         data = json.loads(result.read_text())
-        assert len(data["hooks"]) == 5
+        assert len(data["hooks"]) == 4
 
     def test_minimal_has_two_events(self, tmp_path: Path) -> None:
         """MINIMAL should produce 2 hook events."""
@@ -164,17 +162,8 @@ class TestGenerateCursorHooks:
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
-        # COMPREHENSIVE has 8 events (reduced from 16)
-        assert len(data["hooks"]) == 8
-
-    def test_pre_tool_use_has_matcher(self, tmp_path: Path) -> None:
-        """preToolUse hook should have matcher field."""
-        cursor_dir = tmp_path / ".cursor"
-        result = generate_cursor_hooks(cursor_dir, CursorHookStringency.STANDARD)
-        assert result is not None
-        data = json.loads(result.read_text())
-        hooks = data["hooks"]["preToolUse"]
-        assert any("matcher" in h for h in hooks)
+        # COMPREHENSIVE has 7 events
+        assert len(data["hooks"]) == 7
 
 
 class TestCommandTypeHooks:

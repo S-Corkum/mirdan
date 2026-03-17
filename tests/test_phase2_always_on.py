@@ -722,9 +722,9 @@ class TestStringencyCompatibility:
         events = STRINGENCY_EVENTS[HookStringency.MINIMAL]
         assert len(events) == 2
 
-    def test_standard_has_five_events(self) -> None:
+    def test_standard_has_four_events(self) -> None:
         events = STRINGENCY_EVENTS[HookStringency.STANDARD]
-        assert len(events) == 5
+        assert len(events) == 4
 
     def test_comprehensive_includes_task_completed(self) -> None:
         events = STRINGENCY_EVENTS[HookStringency.COMPREHENSIVE]

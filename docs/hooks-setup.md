@@ -28,7 +28,6 @@ Generates `.cursor/hooks.json` with **prompt-type hooks** that leverage Cursor's
 | Event | Behavior |
 |-------|----------|
 | `afterFileEdit` | Calls `validate_code_quality` on changed code, fixes errors automatically |
-| `preToolUse` | Security review before Write/Edit (SQL injection, secrets, command injection) |
 | `stop` | Final quality gate — verifies all files validated before completion (loop_limit: 3) |
 | `beforeSubmitPrompt` | Suggests `enhance_prompt` for quality requirements |
 
@@ -45,8 +44,8 @@ Hooks are generated at COMPREHENSIVE level by default. The stringency levels are
 | Level | Events | Best For |
 |-------|--------|----------|
 | MINIMAL | afterFileEdit, stop | Low-friction onboarding |
-| STANDARD | + preToolUse | Daily development |
-| COMPREHENSIVE | + beforeSubmitPrompt | Teams, production projects |
+| STANDARD | + postToolUse, sessionStart | Daily development |
+| COMPREHENSIVE | + beforeShellExecution, subagentStart, preCompact | Teams, production projects |
 
 #### Tool Budget
 
@@ -94,7 +93,6 @@ pre-commit install
 All Cursor hooks use the **prompt type**, meaning the LLM evaluates the hook instruction in context (with access to MCP tools). This is more powerful than command-type hooks because the AI can reason about what to validate.
 
 - **afterFileEdit**: Non-blocking — reports and fixes issues inline
-- **preToolUse**: Advisory — provides security guidance before writes
 - **stop**: Blocking loop — re-runs up to 3 times until all files are validated
 - **beforeSubmitPrompt**: Advisory — suggests quality enhancement
 

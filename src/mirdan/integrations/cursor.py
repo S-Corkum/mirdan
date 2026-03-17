@@ -25,8 +25,8 @@ class CursorHookStringency(Enum):
     """Hook stringency levels for Cursor hooks.json generation."""
 
     MINIMAL = "minimal"  # 2 events: afterFileEdit, stop
-    STANDARD = "standard"  # 5 events: + preToolUse, postToolUse, sessionStart
-    COMPREHENSIVE = "comprehensive"  # All events (~16)
+    STANDARD = "standard"  # 4 events: + postToolUse, sessionStart
+    COMPREHENSIVE = "comprehensive"  # 7 events: all enforcement hooks
 
 
 # Events for each stringency level
@@ -34,14 +34,12 @@ CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
     CursorHookStringency.MINIMAL: ["afterFileEdit", "stop"],
     CursorHookStringency.STANDARD: [
         "afterFileEdit",
-        "preToolUse",
         "postToolUse",
         "sessionStart",
         "stop",
     ],
     CursorHookStringency.COMPREHENSIVE: [
         "afterFileEdit",
-        "preToolUse",
         "postToolUseFailure",
         "stop",
         "sessionStart",
@@ -153,22 +151,6 @@ def _hook_after_file_edit() -> list[dict[str, str | int]]:
                 "The file {file_path} was just edited. Call"
                 " mcp__mirdan__validate_code_quality on the changed code to"
                 " check for quality violations. Fix any errors found."
-            ),
-        }
-    ]
-
-
-def _hook_pre_tool_use() -> list[dict[str, str | int]]:
-    """preToolUse: Lightweight quality reminder before Write/Edit."""
-    return [
-        {
-            "type": "prompt",
-            "matcher": "Write|Edit",
-            "prompt": (
-                "Before writing/editing files, keep the current task's"
-                " quality requirements in mind. For files that handle"
-                " authentication, user input, or database queries, apply"
-                " extra care."
             ),
         }
     ]
@@ -499,7 +481,6 @@ def generate_cursor_hook_scripts(cursor_dir: Path) -> list[Path]:
 
 _CURSOR_HOOK_GENERATORS: dict[str, Callable[[], list[dict[str, str | int]]]] = {
     "afterFileEdit": _hook_after_file_edit,
-    "preToolUse": _hook_pre_tool_use,
     "postToolUse": _hook_post_tool_use,
     "postToolUseFailure": _hook_post_tool_use_failure,
     "stop": _hook_stop,

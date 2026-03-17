@@ -6,7 +6,7 @@ hook event lifecycle with 17 supported events across 4 hook types
 
 Supports three stringency levels:
 - minimal: PostToolUse + Stop (2 hooks)
-- standard: UserPromptSubmit + PreToolUse + PostToolUse + Stop + SubagentStart (5 hooks)
+- standard: UserPromptSubmit + PostToolUse + Stop + SubagentStart (4 hooks)
 - comprehensive: All enforcement hooks including new March 2026 events
 """
 
@@ -32,14 +32,12 @@ STRINGENCY_EVENTS: dict[HookStringency, list[str]] = {
     HookStringency.MINIMAL: ["PostToolUse", "Stop"],
     HookStringency.STANDARD: [
         "UserPromptSubmit",
-        "PreToolUse",
         "PostToolUse",
         "Stop",
         "SubagentStart",
     ],
     HookStringency.COMPREHENSIVE: [
         "UserPromptSubmit",
-        "PreToolUse",
         "PostToolUse",
         "PostToolUseFailure",
         "Stop",
@@ -63,7 +61,6 @@ class HookConfig:
 
     enabled_events: list[str] = field(
         default_factory=lambda: [
-            "PreToolUse",
             "PostToolUse",
             "Stop",
         ]
@@ -82,7 +79,6 @@ class HookConfig:
 # All supported Claude Code hook events (17 total, March 2026)
 ALL_HOOK_EVENTS = [
     "UserPromptSubmit",
-    "PreToolUse",
     "PostToolUse",
     "PostToolUseFailure",
     "Stop",
@@ -217,7 +213,6 @@ class HookTemplateGenerator:
         """Map event names to their generator methods."""
         return {
             "UserPromptSubmit": self._user_prompt_submit,
-            "PreToolUse": self._pre_tool_use,
             "PostToolUse": self._post_tool_use,
             "PostToolUseFailure": self._post_tool_use_failure,
             "Stop": self._stop,
@@ -254,27 +249,6 @@ class HookTemplateGenerator:
                             " detected language."
                             " 3) Follow the quality_requirements from enhance_prompt"
                             " output as constraints during implementation."
-                        ),
-                    }
-                ],
-            }
-        ]
-
-    def _pre_tool_use(self) -> list[dict[str, Any]]:
-        """PreToolUse: Security-aware reminder before Write/Edit."""
-        return [
-            {
-                "matcher": "Write|Edit|MultiEdit",
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Before writing code: ensure you have called"
-                            " mcp__mirdan__enhance_prompt for this task's quality"
-                            " requirements. If writing security-sensitive code"
-                            " (auth, input handling, SQL, API endpoints), note that"
-                            " mcp__mirdan__validate_code_quality must be called"
-                            " with check_security=true after this edit."
                         ),
                     }
                 ],
