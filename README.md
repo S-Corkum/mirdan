@@ -7,7 +7,7 @@ AI Code Quality Orchestrator — prevent AI slop before it reaches your codebase
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```bash
-uv tool install mirdan
+uv tool install mirdan      # Install globally
 mirdan init --claude-code   # or --cursor, or --all
 # Done. Quality enforcement is now automatic.
 ```
@@ -61,15 +61,12 @@ The AI gets structured guidance instead of a bare prompt, producing better code 
 ### Install
 
 ```bash
-uv tool install mirdan           # Core
+uv tool install mirdan           # Core (installs globally in isolated environment)
 uv tool install 'mirdan[ast]'   # + tree-sitter for TS/JS AST analysis
-```
 
-> **Homebrew Python users:** If you installed Python via Homebrew, you may need the `--break-system-packages` flag when using `uv pip install` instead:
-> ```bash
-> uv pip install mirdan --system --break-system-packages
-> ```
-> Using `uv tool install` (recommended above) avoids this issue entirely since it installs into an isolated environment.
+# Upgrade to latest version
+uv tool upgrade mirdan
+```
 
 ### Set Up Your IDE
 
@@ -303,7 +300,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv pip install mirdan --system
+      - run: uv tool install mirdan
       - run: mirdan gate
 ```
 
@@ -488,10 +485,11 @@ When combined with [enyal](https://github.com/S-Corkum/enyal) (persistent knowle
 ### Upgrading
 
 ```bash
-mirdan init --upgrade
+uv tool upgrade mirdan     # Upgrade to latest version
+mirdan init --upgrade      # Regenerate IDE integration files
 ```
 
-Merges new configuration fields into existing `.mirdan/config.yaml`, regenerates integration files, and preserves your customizations.
+`uv tool upgrade` updates the package. `mirdan init --upgrade` merges new configuration fields into existing `.mirdan/config.yaml`, regenerates integration files, and preserves your customizations.
 
 ---
 
