@@ -8,6 +8,11 @@ alwaysApply: false
 Enhance Cursor's native plan mode with structured thinking and verified facts.
 Do NOT override Cursor's plan format — improve the plan's quality and accuracy.
 
+## Context (Before Planning)
+Call `mcp__enyal__enyal_recall("architecture conventions decisions")` to load
+project context. Then call `mcp__enyal__enyal_traverse` with the planned area
+to discover related decisions and dependencies.
+
 ## Deep Analysis (Before Planning)
 Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
 generating plan steps. Think through:

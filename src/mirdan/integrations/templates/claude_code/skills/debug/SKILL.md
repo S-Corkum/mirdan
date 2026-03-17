@@ -35,7 +35,9 @@ Recent changes:
    - Set `check_security=true` if touches_security was flagged
    - Ensure the fix doesn't introduce new violations
 
-7. **Verify** — Confirm:
+7. **Persist** — Call `mcp__enyal__enyal_remember` to store the fix pattern so similar issues can be resolved faster in future sessions
+
+8. **Verify** — Confirm:
    - Root cause addressed (not just symptoms)
    - No new validation errors introduced
    - Regression test coverage considered

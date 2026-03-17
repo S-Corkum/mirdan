@@ -10,8 +10,12 @@ Use the mirdan MCP server for code quality enforcement on every coding task.
 
 ## Entry Point
 
-Before writing any code, call `mcp__mirdan__enhance_prompt` with the task description.
-Use the returned quality requirements as constraints during implementation.
+Before writing any code:
+1. Call `mcp__mirdan__enhance_prompt` with the task description.
+   Use the returned quality requirements as constraints during implementation.
+2. Call `mcp__enyal__enyal_recall` with the task description to load project
+   conventions, past decisions, and relevant patterns. Follow these conventions
+   during implementation.
 
 ## Exit Gate
 
@@ -21,6 +25,11 @@ After writing code, call `mcp__mirdan__validate_code_quality` with:
 - The detected language
 
 Fix all errors before proceeding. Note warnings and address if reasonable.
+
+## Knowledge Persistence
+
+After completing the task, call `mcp__enyal__enyal_remember` to store any new
+decisions, patterns, or conventions discovered during implementation.
 
 ## Completion
 

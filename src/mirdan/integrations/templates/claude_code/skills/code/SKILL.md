@@ -25,18 +25,22 @@ Recent changes:
    - Security sensitivity (touches_security)
    - A session_id for the task
 
-2. **Standards** — Call `mcp__mirdan__get_quality_standards` for the detected language/framework
+2. **Recall** — Call `mcp__enyal__enyal_recall` with the task description to load project conventions, past decisions, and relevant patterns before writing any code
 
-3. **Think** — Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation approach: break down the task, identify components, dependencies, and edge cases before writing code
+3. **Standards** — Call `mcp__mirdan__get_quality_standards` for the detected language/framework
 
-4. **Implement** — Write the code following the quality_requirements from step 1
+4. **Think** — Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation approach: break down the task, identify components, dependencies, and edge cases before writing code
 
-5. **Validate** — Call `mcp__mirdan__validate_code_quality` on each changed file:
+5. **Implement** — Write the code following the quality_requirements from step 1 and conventions from step 2
+
+6. **Validate** — Call `mcp__mirdan__validate_code_quality` on each changed file:
    - Set `check_security=true` if touches_security was flagged
    - Fix all errors immediately
    - Note warnings for review
 
-6. **Complete** — Confirm:
+7. **Persist** — Call `mcp__enyal__enyal_remember` to store any new decisions, patterns, or conventions discovered during implementation
+
+8. **Complete** — Confirm:
    - All validation errors resolved
    - Quality requirements from enhance_prompt satisfied
    - No placeholder code (AI001) or hallucinated imports (AI002)

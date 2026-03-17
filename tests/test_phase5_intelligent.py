@@ -579,7 +579,7 @@ class TestGAPolish:
     def test_version_is_current(self) -> None:
         from mirdan import __version__
 
-        assert __version__ == "1.10.2"
+        assert __version__ == "1.10.3"
 
     def test_classifier_is_stable(self) -> None:
         import tomllib

@@ -1191,20 +1191,26 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 1. Call `mcp__mirdan__enhance_prompt` with the task to get quality requirements,
    detected language, and security sensitivity.
 
-2. Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation
+2. Call `mcp__enyal__enyal_recall` with the task description to load project
+   conventions, past decisions, and relevant patterns before writing any code.
+
+3. Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation
    approach: break down the task, identify components, dependencies, and edge
    cases before writing code.
 
-3. Use `@Docs [library-name]` to look up current API documentation for any
+4. Use `@Docs [library-name]` to look up current API documentation for any
    libraries involved in this task.
 
-4. Follow the `quality_requirements` from enhance_prompt as constraints during
-   implementation.
+5. Follow the `quality_requirements` from enhance_prompt and conventions from
+   enyal_recall as constraints during implementation.
 
-5. After writing code, call `mcp__mirdan__validate_code_quality` on changed files.
+6. After writing code, call `mcp__mirdan__validate_code_quality` on changed files.
    Set `check_security=true` if `touches_security` was flagged.
 
-6. Fix all errors before marking complete. Note warnings for review.
+7. Call `mcp__enyal__enyal_remember` to store any new decisions, patterns, or
+   conventions discovered during implementation.
+
+8. Fix all errors before marking complete. Note warnings for review.
 """
 
 _COMMAND_DEBUG = """\
@@ -1216,18 +1222,23 @@ Debug issues with mirdan quality analysis to prevent introducing new problems.
 
 1. Call `mcp__mirdan__enhance_prompt` with the bug description to get context.
 
-2. Use `mcp__sequential-thinking__sequentialthinking` to form structured
+2. Call `mcp__enyal__enyal_recall` with the bug description to check if a similar
+   issue was previously solved.
+
+3. Use `mcp__sequential-thinking__sequentialthinking` to form structured
    hypotheses about root cause, then plan systematic verification for each.
 
-3. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
+4. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
    incorrect assumptions about library APIs.
 
-4. Read relevant code and trace the actual error path to verify hypotheses.
+5. Read relevant code and trace the actual error path to verify hypotheses.
 
-5. Apply the minimal fix targeting the root cause, not just symptoms.
+6. Apply the minimal fix targeting the root cause, not just symptoms.
 
-6. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
+7. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
    does not introduce new violations.
+
+8. Call `mcp__enyal__enyal_remember` to store the fix pattern for future reference.
 """
 
 _COMMAND_REVIEW = """\
@@ -1240,16 +1251,20 @@ Review code against mirdan quality standards.
 1. Call `mcp__mirdan__get_quality_standards` for the language/framework to establish
    review criteria.
 
-2. Read each changed file. Check for:
+2. Call `mcp__enyal__enyal_recall` with the file path to get project code conventions.
+   Use the `file_path` parameter for scope-weighted results.
+
+3. Read each changed file. Check for:
    - AI quality rules: AI001 (placeholders), AI002 (hallucinated imports),
      AI007 (security theater), AI008 (injection vulnerabilities)
    - Security rules: SEC001-SEC014
    - Architecture rules: ARCH001-ARCH005
+   - Deviations from project conventions loaded from enyal
 
-3. Call `mcp__mirdan__validate_code_quality` with `check_security=true` on
+4. Call `mcp__mirdan__validate_code_quality` with `check_security=true` on
    security-sensitive files.
 
-4. Report findings grouped by severity: errors (must fix), warnings (should fix).
+5. Report findings grouped by severity: errors (must fix), warnings (should fix).
 """
 
 _COMMAND_PLAN = """\
@@ -1259,20 +1274,25 @@ Create plans enhanced with structured analysis and grounded facts.
 
 ## Workflow
 
-1. **Analyze** — Use `mcp__sequential-thinking__sequentialthinking` to think
+1. **Context** — Call `mcp__enyal__enyal_recall("architecture conventions decisions")`
+   to load project context. Then call `mcp__enyal__enyal_traverse` with the planned
+   area to discover related decisions and dependencies.
+
+2. **Analyze** — Use `mcp__sequential-thinking__sequentialthinking` to think
    through the task deeply before generating steps. Cover scope, phases,
    dependencies, edge cases, and completeness. Start with `totalThoughts: 8`,
    adjust as needed.
 
-2. **Ground** — Read all files that will be modified — verify they exist, note
+3. **Ground** — Read all files that will be modified — verify they exist, note
    current structure and relevant line numbers. Use `@Docs [library-name]`
    for every external API involved — never plan around assumed APIs.
 
-3. **Plan** — Output a clear task list using Cursor's native plan format. Use
+4. **Plan** — Output a clear task list using Cursor's native plan format. Use
    file paths in backticks for clickable links. Each step: one atomic action.
 
-4. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
-   paths only. Include tests, imports, and config changes.
+5. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
+   paths only. Include tests, imports, and config changes. Architecture decisions
+   from enyal must be respected.
 
 ## During Build Execution
 
@@ -1289,13 +1309,16 @@ Run mirdan quality validation on demand.
 
 1. Identify files to validate — changed files, staged files, or specific path.
 
-2. Call `mcp__mirdan__validate_code_quality` on each file:
+2. Call `mcp__enyal__enyal_recall("quality conventions")` to load project quality
+   standards for comparison.
+
+3. Call `mcp__mirdan__validate_code_quality` on each file:
    - Use `check_security=true` for auth, input handling, database, or API code
    - Use `severity_threshold="info"` for comprehensive results
 
-3. Call `mcp__mirdan__get_quality_trends` to check session-wide quality trends.
+4. Call `mcp__mirdan__get_quality_trends` to check session-wide quality trends.
 
-4. Report findings:
+5. Report findings:
    - Errors (must fix before completing)
    - Warnings (should fix, note if deferring)
    - Overall quality score
@@ -1308,19 +1331,23 @@ Scan the codebase for quality violations and convention patterns.
 
 ## Workflow
 
-1. Identify files to scan — all source files, or scope by argument (path or language).
+1. Call `mcp__enyal__enyal_recall("conventions patterns")` to load known project
+   conventions for comparison.
 
-2. Call `mcp__mirdan__scan_conventions` to discover patterns and violations.
+2. Identify files to scan — all source files, or scope by argument (path or language).
 
-3. Call `mcp__mirdan__get_quality_standards` for the project language to verify
+3. Call `mcp__mirdan__scan_conventions` to discover patterns and violations.
+
+4. Call `mcp__mirdan__get_quality_standards` for the project language to verify
    findings against defined rules.
 
-4. Report:
+5. Report:
    - Violations by rule ID and count
    - New patterns discovered
-   - Conventions that diverge from standards
+   - Conventions that diverge from standards or stored knowledge
 
-5. If new high-confidence conventions are discovered, store them for future reference.
+6. If new high-confidence conventions are discovered, call `mcp__enyal__enyal_remember`
+   to persist them for future sessions.
 """
 
 _COMMAND_GATE = """\
@@ -1342,7 +1369,10 @@ Run the full quality gate before committing or completing a task.
 
 5. Re-validate after fixes to confirm PASS status.
 
-6. Only mark the task complete after all files pass the quality gate.
+6. If validation produced `knowledge_entries`, call `mcp__enyal__enyal_remember`
+   to store them with the suggested tags and scope.
+
+7. Only mark the task complete after all files pass the quality gate.
 """
 
 _COMMAND_AUTOMATIONS = """\
