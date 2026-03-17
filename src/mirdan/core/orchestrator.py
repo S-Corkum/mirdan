@@ -180,9 +180,29 @@ class ToolAdvisor:
         intent: Intent,
         available_mcps: list[str],
     ) -> list[ToolRecommendation]:
-        """Recommend sequential-thinking tools for deep analysis."""
+        """Recommend sequential-thinking tools for deep analysis.
+
+        Sequential-thinking is recommended for ALL task types to encourage
+        structured reasoning before implementation. Priority varies by task
+        complexity: security-sensitive and debugging tasks get "high",
+        generation/refactor/review/test get "medium".
+        """
         if "sequential-thinking" not in available_mcps:
             return []
+
+        # Security-sensitive tasks always get high-priority thinking
+        if intent.touches_security:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Analyze security implications: threat model, "
+                        "attack surface, and defense-in-depth strategy"
+                    ),
+                    priority="high",
+                    reason="Security-sensitive code requires thorough threat analysis",
+                )
+            ]
 
         if intent.task_type == TaskType.DEBUG:
             return [
@@ -196,7 +216,8 @@ class ToolAdvisor:
                     reason="Structured reasoning prevents unfocused investigation",
                 )
             ]
-        elif intent.task_type == TaskType.REFACTOR:
+
+        if intent.task_type == TaskType.REFACTOR:
             return [
                 ToolRecommendation(
                     mcp="sequential-thinking",
@@ -205,19 +226,49 @@ class ToolAdvisor:
                         "and potential regressions before making changes"
                     ),
                     priority="medium",
-                    reason=("Refactoring has cascading effects that benefit from upfront analysis"),
+                    reason="Refactoring has cascading effects that benefit from upfront analysis",
                 )
             ]
-        elif intent.touches_security:
+
+        if intent.task_type == TaskType.GENERATION:
             return [
                 ToolRecommendation(
                     mcp="sequential-thinking",
                     action=(
-                        "Analyze security implications: threat model, "
-                        "attack surface, and defense-in-depth strategy"
+                        "Plan the implementation approach: break down the task, "
+                        "identify components, dependencies, and edge cases "
+                        "before writing code"
                     ),
-                    priority="high",
-                    reason="Security-sensitive code requires thorough threat analysis",
+                    priority="medium",
+                    reason="Upfront planning produces better-structured code with fewer iterations",
+                )
+            ]
+
+        if intent.task_type == TaskType.REVIEW:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Structure the review: identify areas of concern, "
+                        "check for patterns across changes, and assess "
+                        "overall design coherence before commenting"
+                    ),
+                    priority="medium",
+                    reason="Structured review catches systemic issues, not just line-level problems",
+                )
+            ]
+
+        if intent.task_type == TaskType.TEST:
+            return [
+                ToolRecommendation(
+                    mcp="sequential-thinking",
+                    action=(
+                        "Analyze what needs testing: identify edge cases, "
+                        "boundary conditions, error paths, and interaction "
+                        "points before writing test code"
+                    ),
+                    priority="medium",
+                    reason="Thinking through test scenarios first produces better coverage",
                 )
             ]
 

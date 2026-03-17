@@ -1191,16 +1191,20 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 1. Call `mcp__mirdan__enhance_prompt` with the task to get quality requirements,
    detected language, and security sensitivity.
 
-2. Use `@Docs [library-name]` to look up current API documentation for any
+2. Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation
+   approach: break down the task, identify components, dependencies, and edge
+   cases before writing code.
+
+3. Use `@Docs [library-name]` to look up current API documentation for any
    libraries involved in this task.
 
-3. Follow the `quality_requirements` from enhance_prompt as constraints during
+4. Follow the `quality_requirements` from enhance_prompt as constraints during
    implementation.
 
-4. After writing code, call `mcp__mirdan__validate_code_quality` on changed files.
+5. After writing code, call `mcp__mirdan__validate_code_quality` on changed files.
    Set `check_security=true` if `touches_security` was flagged.
 
-5. Fix all errors before marking complete. Note warnings for review.
+6. Fix all errors before marking complete. Note warnings for review.
 """
 
 _COMMAND_DEBUG = """\
@@ -1212,14 +1216,17 @@ Debug issues with mirdan quality analysis to prevent introducing new problems.
 
 1. Call `mcp__mirdan__enhance_prompt` with the bug description to get context.
 
-2. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
+2. Use `mcp__sequential-thinking__sequentialthinking` to form structured
+   hypotheses about root cause, then plan systematic verification for each.
+
+3. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
    incorrect assumptions about library APIs.
 
-3. Read relevant code and trace the actual error path before forming hypotheses.
+4. Read relevant code and trace the actual error path to verify hypotheses.
 
-4. Apply the minimal fix targeting the root cause, not just symptoms.
+5. Apply the minimal fix targeting the root cause, not just symptoms.
 
-5. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
+6. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
    does not introduce new violations.
 """
 

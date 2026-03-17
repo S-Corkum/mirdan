@@ -27,7 +27,7 @@ Recent changes:
 
 2. **Standards** — Call `mcp__mirdan__get_quality_standards` for the detected language/framework
 
-3. **Plan** (if complex) — If the task involves security, multi-file changes, or architectural decisions, use `mcp__sequential-thinking__sequentialthinking` to plan the approach before implementing
+3. **Think** — Use `mcp__sequential-thinking__sequentialthinking` to plan the implementation approach: break down the task, identify components, dependencies, and edge cases before writing code
 
 4. **Implement** — Write the code following the quality_requirements from step 1
 

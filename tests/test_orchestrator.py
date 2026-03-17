@@ -249,12 +249,32 @@ class TestSequentialThinkingRecommendations:
         rec = next(r for r in result if r.mcp == "sequential-thinking")
         assert rec.priority == "high"
 
-    def test_no_sequential_thinking_for_simple_generation(self, orchestrator: ToolAdvisor) -> None:
-        """Should NOT recommend sequential-thinking for simple GENERATION tasks."""
+    def test_sequential_thinking_for_generation(self, orchestrator: ToolAdvisor) -> None:
+        """Should recommend sequential-thinking for GENERATION tasks."""
         intent = Intent(original_prompt="add a button", task_type=TaskType.GENERATION)
         result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
         mcp_names = [r.mcp for r in result]
-        assert "sequential-thinking" not in mcp_names
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "medium"
+
+    def test_sequential_thinking_for_review(self, orchestrator: ToolAdvisor) -> None:
+        """Should recommend sequential-thinking for REVIEW tasks."""
+        intent = Intent(original_prompt="review the PR", task_type=TaskType.REVIEW)
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "medium"
+
+    def test_sequential_thinking_for_test(self, orchestrator: ToolAdvisor) -> None:
+        """Should recommend sequential-thinking for TEST tasks."""
+        intent = Intent(original_prompt="write tests for auth", task_type=TaskType.TEST)
+        result = orchestrator.suggest_tools(intent, available_mcps=["sequential-thinking"])
+        mcp_names = [r.mcp for r in result]
+        assert "sequential-thinking" in mcp_names
+        rec = next(r for r in result if r.mcp == "sequential-thinking")
+        assert rec.priority == "medium"
 
     def test_no_sequential_thinking_when_unavailable(self, orchestrator: ToolAdvisor) -> None:
         """Should NOT recommend sequential-thinking when not in available_mcps."""
