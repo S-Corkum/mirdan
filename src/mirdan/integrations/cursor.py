@@ -735,129 +735,30 @@ alwaysApply: true
 
 
 def _build_planning_mdc() -> str:
-    """Build the planning .mdc rule — enhances Cursor's native Plan Mode."""
-    return """---
-description: >-
-  mirdan planning enhancement — activate when creating implementation plans,
-  task breakdowns, or roadmaps in Plan Mode
-alwaysApply: false
----
-
-# mirdan Planning Enhancement
-
-Enhance Cursor's native plan mode with structured thinking and verified facts.
-Do NOT override Cursor's plan format — improve the plan's quality and accuracy.
-
-## Deep Analysis (Before Planning)
-Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
-generating plan steps. Think through:
-- Full scope: what needs to change and why
-- Phases: logical grouping and ordering of changes
-- Dependencies: which changes depend on others
-- Completeness: imports, tests, config, types — nothing missing
-- Risks: edge cases, breaking changes, security implications
-
-Start with `totalThoughts: 8` and adjust as complexity demands. For simple
-tasks use fewer; for architectural changes use 10-15.
-
-## Grounding (Before Each Step)
-- Read every file the plan will modify — verify it exists, note structure
-- Use `@Docs [library-name]` for any external API the plan references
-- No step should reference a file, function, or API without verification
-
-## Quality Constraints
-- No vague language ("should", "probably", "maybe") — these signal unverified facts
-- Every file path verified to exist (or explicitly marked as new)
-- Atomic steps — one action per step
-- Include test, import, and config steps when applicable
-
-## During Build Execution
-When executing plan steps after Build is clicked:
-- Execute each step directly
-- Do NOT call enhance_prompt or sequential-thinking during execution
-- `mcp__mirdan__validate_code_quality` runs automatically via afterFileEdit
-"""
+    """Build the planning .mdc rule — loads from static template."""
+    templates = _load_templates()
+    try:
+        return templates["mirdan-planning.mdc"]
+    except KeyError:
+        return "# mirdan Planning Enhancement\n\nTemplate not found.\n"
 
 
 def _build_debug_mdc() -> str:
-    """Build the debug .mdc rule — description-based, activates in Debug Mode."""
-    return """---
-description: >-
-  mirdan quality standards for debugging — activate when investigating bugs,
-  errors, or unexpected behavior in Debug Mode
-alwaysApply: false
----
-
-# mirdan Debug Mode Standards
-
-When debugging, mirdan helps prevent fixes that introduce new problems.
-
-## Documentation Lookup
-Use `@Docs [library-name]` to look up correct API behavior before assuming a bug.
-Incorrect assumptions about library behavior are a common source of phantom fixes.
-
-## Debug Workflow
-1. Call `mcp__mirdan__enhance_prompt` with the bug description
-2. Check if a similar issue was previously solved (use project memory/history)
-3. Trace the actual error path through verified code — read files first
-4. Hypothesize root cause, not just symptoms
-5. Apply the minimal fix
-6. Call `mcp__mirdan__validate_code_quality` on the changed files
-
-## Fix Quality Standards
-- Root cause addressed, not just symptoms
-- Fix must not introduce new violations — validate after fixing
-- Regression test considered for the fixed behavior
-- No silent exception swallowing in the fix
-
-## Runtime Instrumentation (v2.6+)
-- Use Cursor's built-in runtime instrumentation to capture actual execution paths
-- Compare runtime behavior against expected behavior before hypothesizing
-- Leverage breakpoint and step-through capabilities for complex state issues
-- Capture runtime data (variable states, call stacks) to ground your diagnosis
-"""
+    """Build the debug .mdc rule — loads from static template."""
+    templates = _load_templates()
+    try:
+        return templates["mirdan-debug.mdc"]
+    except KeyError:
+        return "# mirdan Debug Mode Standards\n\nTemplate not found.\n"
 
 
 def _build_agent_mdc() -> str:
-    """Build the agent .mdc rule — description-based, activates for Background Agents."""
-    return """---
-description: >-
-  mirdan quality standards for autonomous agent execution — activate for
-  Background Agents, multi-agent runs, and autonomous task execution
-alwaysApply: false
----
-
-# mirdan Agent Mode Standards
-
-Background agents and autonomous task runners must follow stricter quality gates.
-
-## Mandatory Agent Checkpoints
-- Call `mcp__mirdan__enhance_prompt` at task start to establish quality context
-- Validate every file edit with `mcp__mirdan__validate_code_quality` before proceeding
-- Quality score must be >= 0.7 before marking any step complete
-- Security-sensitive files require score >= 0.8 with `check_security=true`
-
-## Multi-Agent Coordination
-- Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
-- Do not duplicate validation work already performed in the session
-
-## Async Subagent Coordination
-- Background subagents (background: true) run asynchronously — do not wait for them to complete
-- Use agent IDs to resume background subagents and retrieve results
-- Subagents can spawn their own child subagents for parallel work
-- Coordinate quality state through `mcp__mirdan__get_quality_trends`
-
-## Long-Running Sessions (>1 hour)
-- Run `validate_code_quality` on all modified files every 30 minutes
-- Before any PR creation, re-validate the full changeset
-- If quality score drops below 0.7 on any file, fix before continuing
-- Persist quality findings across compaction events via `preCompact` hook
-
-## Autonomous Completion Gate
-- Before returning results: run validation on all changed files
-- If any file has unresolved errors: fix before surfacing results
-- Include quality summary in task completion report
-"""
+    """Build the agent .mdc rule — loads from static template."""
+    templates = _load_templates()
+    try:
+        return templates["mirdan-agent.mdc"]
+    except KeyError:
+        return "# mirdan Agent Mode Standards\n\nTemplate not found.\n"
 
 
 # ---------------------------------------------------------------------------
@@ -1290,9 +1191,37 @@ Create plans enhanced with structured analysis and grounded facts.
 4. **Plan** — Output a clear task list using Cursor's native plan format. Use
    file paths in backticks for clickable links. Each step: one atomic action.
 
+   For tasks with independent work streams, group TODOs into parallel streams:
+
+   ```
+   ## Stream A: Data Layer [mirdan-implementer]
+   - [ ] Add model class in `src/models.py`
+   - [ ] Add migration in `src/migrations/`
+
+   ## Stream B: API Layer [mirdan-implementer]
+   (Depends on: Stream A)
+   - [ ] Add endpoint in `src/api.py`
+   - [ ] Add input validation
+
+   ## Stream C: Tests [mirdan-test-writer]
+   (Depends on: Stream A, Stream B)
+   - [ ] Add model tests
+   - [ ] Add API endpoint tests
+   ```
+
 5. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
    paths only. Include tests, imports, and config changes. Architecture decisions
    from enyal must be respected.
+
+## Multi-Agent Execution
+
+When the plan has parallel streams, send each stream's TODOs to a separate agent:
+1. Select Stream A TODOs → send to agent (uses `mirdan-implementer`)
+2. Select Stream B TODOs → send to agent (uses `mirdan-implementer`)
+3. Select Stream C TODOs → send to agent (uses `mirdan-test-writer`)
+
+Independent streams run in parallel. Dependent streams wait for their
+dependencies to complete. Each agent spawns readonly validators as subagents.
 
 ## During Build Execution
 
@@ -1715,12 +1644,94 @@ This subagent runs in the foreground. For multi-module projects, it may
 spawn child subagents to review each module's architecture in parallel.
 """
 
+_SUBAGENT_IMPLEMENTER = """\
+---
+name: mirdan-implementer
+description: >-
+  Execute implementation TODO groups from plan streams. Use when the user
+  sends a Stream of TODOs from a mirdan parallel plan for code implementation.
+model: inherit
+readonly: false
+background: false
+---
+
+# mirdan Implementer
+
+Execute TODO groups from plan streams — write code following mirdan quality standards.
+
+## Instructions
+
+1. Call `mcp__mirdan__enhance_prompt` with a summary of the TODO group to
+   establish quality context and detect security sensitivity.
+
+2. Call `mcp__enyal__enyal_recall` with relevant queries to load project
+   conventions and patterns for the area being implemented.
+
+3. For each TODO in the stream:
+   - Read the target file before modifying it
+   - Implement the change following the plan's exact details
+   - Call `mcp__mirdan__validate_code_quality` after each file edit
+   - If `touches_security` was flagged, use `check_security=true`
+
+4. After all TODOs are complete, store any new decisions or patterns via
+   `mcp__enyal__enyal_remember` for future reference.
+
+## Subagent Coordination
+
+This subagent runs in the foreground — it receives TODO groups explicitly
+from the user and must complete before reporting back. It may spawn readonly
+subagents for parallel validation:
+- `mirdan-quality-validator` (background) for async quality checks
+- `mirdan-slop-detector` (background) for async AI slop detection
+"""
+
+_SUBAGENT_TEST_WRITER = """\
+---
+name: mirdan-test-writer
+description: >-
+  Write tests for implementation TODO groups from plan streams. Use when the
+  user sends a test-writing Stream of TODOs from a mirdan parallel plan.
+model: inherit
+readonly: false
+background: false
+---
+
+# mirdan Test Writer
+
+Write tests for implementation streams — ensure coverage and correctness.
+
+## Instructions
+
+1. Read the implementation code being tested to understand its API surface,
+   edge cases, and error paths.
+
+2. Call `mcp__enyal__enyal_recall("testing conventions")` to load project
+   test patterns (fixtures, naming, structure).
+
+3. For each test TODO in the stream:
+   - Write tests following the project's existing test patterns
+   - Include positive cases, error cases, and boundary conditions
+   - Call `mcp__mirdan__validate_code_quality` on each test file
+
+4. Run the test suite to confirm all new tests pass:
+   - Fix any failures before marking the TODO complete
+
+## Subagent Coordination
+
+This subagent runs in the foreground — it receives test TODO groups explicitly
+from the user and must complete before reporting back. It may spawn readonly
+subagents for test quality review:
+- `mirdan-test-auditor` (foreground) for test quality auditing
+"""
+
 _CURSOR_SUBAGENTS: dict[str, str] = {
     "mirdan-quality-validator.md": _SUBAGENT_QUALITY_VALIDATOR,
     "mirdan-security-scanner.md": _SUBAGENT_SECURITY_SCANNER,
     "mirdan-test-auditor.md": _SUBAGENT_TEST_AUDITOR,
     "mirdan-slop-detector.md": _SUBAGENT_SLOP_DETECTOR,
     "mirdan-architecture-reviewer.md": _SUBAGENT_ARCHITECTURE_REVIEWER,
+    "mirdan-implementer.md": _SUBAGENT_IMPLEMENTER,
+    "mirdan-test-writer.md": _SUBAGENT_TEST_WRITER,
 }
 
 
@@ -1916,7 +1927,13 @@ Create implementation plans with anti-hallucination standards.
    - Verification method
    - Grounding (which tool confirmed the facts)
 
-5. No vague language: "should", "probably", "maybe" are not allowed in
+5. For tasks with independent work streams, group TODOs into parallel
+   streams with agent annotations:
+   `## Stream A: Data Layer [mirdan-implementer]`
+   `## Stream C: Tests [mirdan-test-writer]`
+   Use `(Depends on: Stream X)` to declare inter-stream dependencies.
+
+6. No vague language: "should", "probably", "maybe" are not allowed in
    plan steps.
 """
 

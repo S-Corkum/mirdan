@@ -38,6 +38,9 @@ Project config:
 5. **Draft** — Write the plan with required sections:
    - **Research Notes** — verified facts with tool citations
    - **Step-by-step implementation** — each step needs: File, Action, Details, Depends On, Verify, Grounding
+   - For tasks with independent work streams, group TODOs into parallel streams:
+     `## Stream A: Data Layer [mirdan-implementer]` / `## Stream C: Tests [mirdan-test-writer]`
+     Use `(Depends on: Stream X)` for inter-stream dependencies
 
 6. **Validate** — Call `mcp__mirdan__validate_code_quality` on any code snippets in the plan
    - Verify all file paths referenced actually exist

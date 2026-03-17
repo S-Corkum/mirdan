@@ -36,6 +36,29 @@ tasks use fewer; for architectural changes use 10-15.
 - Atomic steps — one action per step
 - Include test, import, and config steps when applicable
 
+## Parallel Stream Format (Optional)
+
+For tasks with independent work streams, group TODOs into assignable streams:
+
+```
+## Stream A: Data Layer [mirdan-implementer]
+- [ ] Add model class in `src/models.py`
+- [ ] Add migration in `src/migrations/`
+
+## Stream B: API Layer [mirdan-implementer]
+(Depends on: Stream A)
+- [ ] Add endpoint in `src/api.py`
+
+## Stream C: Tests [mirdan-test-writer]
+(Depends on: Stream A, Stream B)
+- [ ] Add model tests
+- [ ] Add API endpoint tests
+```
+
+Valid agent annotations: `[mirdan-implementer]`, `[mirdan-test-writer]`.
+Use `(Depends on: Stream X)` for inter-stream dependencies.
+Independent streams can be sent to separate agents for parallel execution.
+
 ## During Build Execution
 When executing plan steps after Build is clicked:
 - Execute each step directly

@@ -276,3 +276,71 @@ class TestPlanQualityScoreSerialization:
         assert 0.0 <= result.completeness_score <= 1.0
         assert 0.0 <= result.atomicity_score <= 1.0
         assert 0.0 <= result.clarity_score <= 1.0
+
+
+class TestStreamValidation:
+    """Tests for parallel stream format validation."""
+
+    @pytest.fixture
+    def validator(self) -> PlanValidator:
+        return PlanValidator()
+
+    def test_serial_plan_still_validates(self, validator: PlanValidator) -> None:
+        """A plan with only serial steps (no streams) validates normally."""
+        plan = """
+## Research Notes
+### Files Verified
+- `src/main.py`: verified
+### Step 1: Add import
+**File:** `src/main.py`
+**Action:** Edit
+**Details:** Add import at line 1
+**Verify:** Read file
+**Grounding:** Verified via Read
+"""
+        result = validator.validate(plan)
+        assert result.completeness_score >= 0.9
+        # No stream-related issues
+        assert not any("Stream" in i for i in result.issues)
+
+    def test_valid_stream_format_passes(self, validator: PlanValidator) -> None:
+        """A plan with valid stream annotations passes validation."""
+        plan = """
+## Research Notes
+### Files Verified
+- `src/models.py`: verified
+
+## Stream A: Data Layer [mirdan-implementer]
+- [ ] Add model class in `src/models.py`
+
+## Stream B: Tests [mirdan-test-writer]
+- [ ] Add model tests
+"""
+        result = validator.validate(plan)
+        assert not any("Stream" in i for i in result.issues)
+
+    def test_stream_with_invalid_agent(self, validator: PlanValidator) -> None:
+        """A stream with an unrecognized agent name is flagged."""
+        plan = """
+## Research Notes
+### Files Verified
+- test
+
+## Stream A: Data Layer [mirdan-invalid-agent]
+- [ ] Do something
+"""
+        result = validator.validate(plan)
+        assert any("invalid agent" in i for i in result.issues)
+
+    def test_stream_format_detected_as_plan_steps(self, validator: PlanValidator) -> None:
+        """Stream headers satisfy the 'Plan Steps' required section check."""
+        plan = """
+## Research Notes
+### Files Verified
+- test
+
+## Stream A: Data Layer [mirdan-implementer]
+- [ ] Do something
+"""
+        result = validator.validate(plan)
+        assert not any("Plan Steps" in i for i in result.issues)
