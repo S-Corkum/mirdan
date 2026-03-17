@@ -1190,38 +1190,22 @@ Create plans enhanced with structured analysis and grounded facts.
 
 4. **Plan** — Output a clear task list using Cursor's native plan format. Use
    file paths in backticks for clickable links. Each step: one atomic action.
-
-   For tasks with independent work streams, group TODOs into parallel streams:
-
-   ```
-   ## Stream A: Data Layer [mirdan-implementer]
-   - [ ] Add model class in `src/models.py`
-   - [ ] Add migration in `src/migrations/`
-
-   ## Stream B: API Layer [mirdan-implementer]
-   (Depends on: Stream A)
-   - [ ] Add endpoint in `src/api.py`
-   - [ ] Add input validation
-
-   ## Stream C: Tests [mirdan-test-writer]
-   (Depends on: Stream A, Stream B)
-   - [ ] Add model tests
-   - [ ] Add API endpoint tests
-   ```
+   Order steps by execution phase — group steps that must run together, not by
+   file or module.
 
 5. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
    paths only. Include tests, imports, and config changes. Architecture decisions
    from enyal must be respected.
 
-## Multi-Agent Execution
+## Subagent Dispatch
 
-When the plan has parallel streams, send each stream's TODOs to a separate agent:
-1. Select Stream A TODOs → send to agent (uses `mirdan-implementer`)
-2. Select Stream B TODOs → send to agent (uses `mirdan-implementer`)
-3. Select Stream C TODOs → send to agent (uses `mirdan-test-writer`)
+After the plan is finalized, select TODO groups and send them to implementation
+subagents:
+- **`mirdan-implementer`** — for code implementation TODOs
+- **`mirdan-test-writer`** — for test creation TODOs
 
-Independent streams run in parallel. Dependent streams wait for their
-dependencies to complete. Each agent spawns readonly validators as subagents.
+Each subagent enforces mirdan quality standards and spawns readonly validators
+(quality-validator, slop-detector, test-auditor) as background subagents.
 
 ## During Build Execution
 
@@ -1648,8 +1632,9 @@ _SUBAGENT_IMPLEMENTER = """\
 ---
 name: mirdan-implementer
 description: >-
-  Execute implementation TODO groups from plan streams. Use when the user
-  sends a Stream of TODOs from a mirdan parallel plan for code implementation.
+  Implement code changes with mirdan quality enforcement. Use when dispatching
+  implementation TODOs — new features, refactors, bug fixes, or any code
+  modifications. Automatically validates quality and spawns readonly validators.
 model: inherit
 readonly: false
 background: false
@@ -1657,40 +1642,53 @@ background: false
 
 # mirdan Implementer
 
-Execute TODO groups from plan streams — write code following mirdan quality standards.
+Implement code changes with full mirdan quality enforcement.
 
 ## Instructions
 
-1. Call `mcp__mirdan__enhance_prompt` with a summary of the TODO group to
-   establish quality context and detect security sensitivity.
+1. **Quality Context** — Call `mcp__mirdan__enhance_prompt` with a summary of the
+   implementation task to establish quality requirements and detect security sensitivity.
 
-2. Call `mcp__enyal__enyal_recall` with relevant queries to load project
-   conventions and patterns for the area being implemented.
+2. **Project Context** — Call `mcp__enyal__enyal_recall` with relevant queries to load
+   project conventions, architecture decisions, and patterns for the area being modified.
 
-3. For each TODO in the stream:
-   - Read the target file before modifying it
-   - Implement the change following the plan's exact details
+3. **Language Standards** — Call `mcp__mirdan__get_quality_standards` for the detected
+   language to get specific rules and idioms to follow.
+
+4. **Implement** — For each TODO or task:
+   - Read the target file completely before modifying it
+   - Follow the plan's exact details — do not add unrequested changes
+   - Use `@Docs [library-name]` to verify API signatures before calling them
    - Call `mcp__mirdan__validate_code_quality` after each file edit
    - If `touches_security` was flagged, use `check_security=true`
+   - Fix all errors before proceeding to the next file
 
-4. After all TODOs are complete, store any new decisions or patterns via
-   `mcp__enyal__enyal_remember` for future reference.
+5. **Persist** — After all TODOs are complete:
+   - Store any new decisions or patterns via `mcp__enyal__enyal_remember`
+   - Run the relevant test suite to confirm nothing is broken
+
+## Quality Rules (Always Active)
+- **AI001**: No placeholder code (NotImplementedError, bare pass, TODO)
+- **AI002**: No hallucinated imports — verify every import exists
+- **AI003**: No invented APIs — verify function signatures with docs or source
+- **AI008**: No injection vulnerabilities (no f-string SQL, eval, exec)
 
 ## Subagent Coordination
 
-This subagent runs in the foreground — it receives TODO groups explicitly
-from the user and must complete before reporting back. It may spawn readonly
-subagents for parallel validation:
-- `mirdan-quality-validator` (background) for async quality checks
-- `mirdan-slop-detector` (background) for async AI slop detection
+This subagent runs in the foreground. It may spawn readonly subagents for
+parallel validation while continuing implementation work:
+- `mirdan-quality-validator` (background) — async quality checks on edited files
+- `mirdan-slop-detector` (background) — async AI slop detection
+- `mirdan-security-scanner` (foreground) — blocking security review for sensitive files
 """
 
 _SUBAGENT_TEST_WRITER = """\
 ---
 name: mirdan-test-writer
 description: >-
-  Write tests for implementation TODO groups from plan streams. Use when the
-  user sends a test-writing Stream of TODOs from a mirdan parallel plan.
+  Write tests with mirdan quality enforcement. Use when dispatching test
+  creation TODOs — unit tests, integration tests, or test updates for new
+  or changed functionality. Validates test quality automatically.
 model: inherit
 readonly: false
 background: false
@@ -1698,30 +1696,48 @@ background: false
 
 # mirdan Test Writer
 
-Write tests for implementation streams — ensure coverage and correctness.
+Write tests with full mirdan quality enforcement.
 
 ## Instructions
 
-1. Read the implementation code being tested to understand its API surface,
-   edge cases, and error paths.
+1. **Understand the Code** — Read the implementation code being tested to understand:
+   - Public API surface (functions, classes, methods)
+   - Edge cases and error paths
+   - Input validation and boundary conditions
+   - Dependencies and external calls that need mocking
 
-2. Call `mcp__enyal__enyal_recall("testing conventions")` to load project
-   test patterns (fixtures, naming, structure).
+2. **Project Conventions** — Call `mcp__enyal__enyal_recall("testing conventions")`
+   to load project test patterns:
+   - Test framework (pytest, unittest, jest, etc.)
+   - Fixture patterns and conftest structure
+   - Naming conventions for test files and functions
+   - Mocking strategy (when to mock vs. use real dependencies)
 
-3. For each test TODO in the stream:
-   - Write tests following the project's existing test patterns
-   - Include positive cases, error cases, and boundary conditions
+3. **Write Tests** — For each test TODO:
+   - Follow the project's existing test patterns exactly
+   - Include: positive cases, error cases, boundary conditions, edge cases
+   - Use descriptive test names that document expected behavior
+   - Keep tests focused — one assertion concept per test
    - Call `mcp__mirdan__validate_code_quality` on each test file
 
-4. Run the test suite to confirm all new tests pass:
+4. **Verify** — Run the test suite to confirm all new tests pass:
    - Fix any failures before marking the TODO complete
+   - Ensure new tests don't break existing tests
+   - Check that tests actually assert meaningful behavior (not just "no error")
+
+## Quality Rules (Always Active)
+- No tests with zero assertions
+- No tests that only assert `True` or check no exception
+- No tests coupled to implementation details (test behavior, not internals)
+- No external service dependencies without mocking
+- No shared mutable state between tests
 
 ## Subagent Coordination
 
-This subagent runs in the foreground — it receives test TODO groups explicitly
-from the user and must complete before reporting back. It may spawn readonly
-subagents for test quality review:
-- `mirdan-test-auditor` (foreground) for test quality auditing
+This subagent runs in the foreground. It may spawn readonly subagents for
+test quality review:
+- `mirdan-test-auditor` (foreground) — audit test coverage and correctness
+- `mirdan-quality-validator` (background) — validate test code quality
 """
 
 _CURSOR_SUBAGENTS: dict[str, str] = {
@@ -1927,14 +1943,12 @@ Create implementation plans with anti-hallucination standards.
    - Verification method
    - Grounding (which tool confirmed the facts)
 
-5. For tasks with independent work streams, group TODOs into parallel
-   streams with agent annotations:
-   `## Stream A: Data Layer [mirdan-implementer]`
-   `## Stream C: Tests [mirdan-test-writer]`
-   Use `(Depends on: Stream X)` to declare inter-stream dependencies.
-
-6. No vague language: "should", "probably", "maybe" are not allowed in
+5. No vague language: "should", "probably", "maybe" are not allowed in
    plan steps.
+
+6. After the plan is finalized, send TODO groups to implementation subagents:
+   `mirdan-implementer` for code, `mirdan-test-writer` for tests. Each
+   subagent enforces mirdan quality standards automatically.
 """
 
 _SKILL_QUALITY = """\

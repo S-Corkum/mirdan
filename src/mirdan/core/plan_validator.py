@@ -12,10 +12,6 @@ if TYPE_CHECKING:
     from mirdan.config import ThresholdsConfig
 
 
-# Valid agent names for parallel stream annotations
-VALID_STREAM_AGENTS = {"mirdan-implementer", "mirdan-test-writer"}
-
-
 class PlanValidator:
     """Validates implementation plans for execution by less capable models."""
 
@@ -38,7 +34,7 @@ class PlanValidator:
     REQUIRED_SECTIONS: dict[str, str] = {
         "Research Notes": r"##?\s*Research\s+Notes",
         "Files Verified": r"###?\s*Files\s+Verified",
-        "Plan Steps": r"###?\s*Step\s+\d+:|##\s*Stream\s+[A-Z]:",
+        "Plan Steps": r"###?\s*Step\s+\d+:",
     }
 
     # Required fields per step
@@ -100,11 +96,6 @@ class PlanValidator:
                 if not re.search(pattern, step_text, re.IGNORECASE):
                     step_issues += 1
                     issues.append(f"Step {step_num}: {message}")
-
-        # Validate parallel streams if present
-        streams = self._extract_streams(plan_text)
-        stream_issues = self._validate_streams(streams)
-        issues.extend(stream_issues)
 
         # Check for compound steps (multiple actions in one step)
         compound_patterns = [
@@ -194,37 +185,3 @@ class PlanValidator:
             "capable": 0.75,  # More lenient for Sonnet-class
         }
         return thresholds.get(target_model, 0.9)
-
-    def _extract_streams(
-        self, plan_text: str
-    ) -> list[tuple[str, str, str]]:
-        """Extract parallel streams from plan text.
-
-        Returns:
-            List of (label, description, agent_name) tuples.
-        """
-        pattern = r"##\s*Stream\s+([A-Z]):\s*(.+?)\s*\[([^\]]+)\]"
-        return re.findall(pattern, plan_text)
-
-    def _validate_streams(
-        self, streams: list[tuple[str, str, str]]
-    ) -> list[str]:
-        """Validate extracted streams for correct agent names and dependencies.
-
-        Returns:
-            List of issue strings (empty if all valid).
-        """
-        if not streams:
-            return []
-
-        issues: list[str] = []
-        labels = {label for label, _, _ in streams}
-
-        for label, _description, agent in streams:
-            if agent not in VALID_STREAM_AGENTS:
-                issues.append(
-                    f"Stream {label}: invalid agent '{agent}' "
-                    f"(valid: {', '.join(sorted(VALID_STREAM_AGENTS))})"
-                )
-
-        return issues

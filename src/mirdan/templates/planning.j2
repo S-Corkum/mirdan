@@ -82,30 +82,6 @@ After completing research, BEFORE any plan steps, write a Research Notes section
 - Convention: enyal_recall for naming pattern
 ```
 
-## Parallel Stream Format (Optional)
-
-For tasks with independent work streams, group TODOs into assignable streams
-instead of (or in addition to) serial steps:
-
-```markdown
-## Stream A: Data Layer [mirdan-implementer]
-- [ ] Add model class in `src/models.py`
-- [ ] Add migration in `src/migrations/`
-
-## Stream B: API Layer [mirdan-implementer]
-(Depends on: Stream A)
-- [ ] Add endpoint in `src/api.py`
-
-## Stream C: Tests [mirdan-test-writer]
-(Depends on: Stream A, Stream B)
-- [ ] Add model tests
-- [ ] Add API endpoint tests
-```
-
-Valid agent annotations: `[mirdan-implementer]`, `[mirdan-test-writer]`.
-Use `(Depends on: Stream X)` for inter-stream dependencies.
-Independent streams can be dispatched to separate agents for parallel execution.
-
 ## Anti-Slop Rules (VIOLATIONS WILL CAUSE IMPLEMENTATION FAILURE)
 
 ### FORBIDDEN language - the implementing model cannot interpret these:
@@ -152,6 +128,5 @@ Self-verify against these criteria:
 - [ ] No steps combine multiple actions
 - [ ] Dependencies between steps are explicit
 - [ ] All imports, exports, tests, types are included
-- [ ] If using parallel streams: agent annotations are valid, dependencies declared
 
 If ANY check fails, fix BEFORE presenting the plan.
