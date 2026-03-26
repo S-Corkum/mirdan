@@ -21,7 +21,7 @@ Recent changes:
 
 1. **Scope** — Identify files to scan (all Python, staged changes, or specific path from argument)
 
-2. **Recall** — Call `mcp__enyal__enyal_recall("conventions patterns")` to load known project conventions for comparison
+2. **Recall** — Call `mcp__enyal__enyal_recall` with `input: { query: "conventions patterns" }` to load known project conventions for comparison
 
 3. **Scan** — Call `mcp__mirdan__scan_conventions` to discover patterns and violations across the codebase
 
@@ -32,4 +32,4 @@ Recent changes:
    - New patterns discovered
    - Conventions that differ from stored knowledge
 
-6. **Store** — If new high-confidence conventions discovered, call `mcp__enyal__enyal_remember` to persist them
+6. **Store** — If new high-confidence conventions discovered, call `mcp__enyal__enyal_remember` with `input: { content: "<convention>", content_type: "convention", tags: [...] }` to persist them

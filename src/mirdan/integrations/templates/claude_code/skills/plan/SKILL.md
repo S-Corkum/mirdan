@@ -24,7 +24,7 @@ Project config:
    - Get tool recommendations for research
    - Identify frameworks and security concerns
 
-2. **Context** — Call `mcp__enyal__enyal_recall("architecture conventions decisions")` to load project context, then `mcp__enyal__enyal_traverse` with the planned area to discover related decisions and dependencies
+2. **Context** — Call `mcp__enyal__enyal_recall` with `input: { query: "architecture conventions decisions" }` to load project context, then `mcp__enyal__enyal_traverse` with `input: { start_query: "<planned area>" }` to discover related decisions and dependencies
 
 3. **Think** — Use `mcp__sequential-thinking__sequentialthinking` to analyze:
    - Scope, phases, dependencies, risks, and completeness

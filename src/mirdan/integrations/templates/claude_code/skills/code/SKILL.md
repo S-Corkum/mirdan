@@ -25,7 +25,7 @@ Recent changes:
    - Security sensitivity (touches_security)
    - A session_id for the task
 
-2. **Recall** — Call `mcp__enyal__enyal_recall` with the task description to load project conventions, past decisions, and relevant patterns before writing any code
+2. **Recall** — Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to load project conventions, past decisions, and relevant patterns before writing any code
 
 3. **Standards** — Call `mcp__mirdan__get_quality_standards` for the detected language/framework
 
@@ -38,7 +38,7 @@ Recent changes:
    - Fix all errors immediately
    - Note warnings for review
 
-7. **Persist** — Call `mcp__enyal__enyal_remember` to store any new decisions, patterns, or conventions discovered during implementation
+7. **Persist** — Call `mcp__enyal__enyal_remember` with `input: { content: "<knowledge>", content_type: "<type>", tags: [...] }` to store any new decisions, patterns, or conventions discovered during implementation
 
 8. **Complete** — Confirm:
    - All validation errors resolved

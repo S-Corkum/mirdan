@@ -23,9 +23,7 @@ Recent changes:
 
 1. **Read** — Read the code to review (specific file or recent changes)
 
-2. **Conventions** — Call `mcp__enyal__enyal_recall` with the file path to get project code conventions
-   - Use `file_path` parameter for scope-weighted results
-   - Use `content_type="convention"` to filter to conventions only
+2. **Conventions** — Call `mcp__enyal__enyal_recall` with `input: { query: "code conventions", file_path: "<file path>", content_type: "convention" }` to get project code conventions with scope-weighted results
 
 3. **Validate** — Call `mcp__mirdan__validate_code_quality` on the code
    - Set `check_security=true` for security-sensitive files

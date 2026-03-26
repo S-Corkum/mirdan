@@ -13,12 +13,15 @@ Incorrect assumptions about library behavior are a common source of phantom fixe
 
 ## Debug Workflow
 1. Call `mcp__mirdan__enhance_prompt` with the bug description
-2. Call `mcp__enyal__enyal_recall` with the bug description to check if a similar issue was previously solved
+2. Call `mcp__enyal__enyal_recall` with `input: { query: "<bug description>" }` to check if a similar issue was previously solved
 3. Use `mcp__sequential-thinking__sequentialthinking` to form structured hypotheses about root cause
 4. Trace the actual error path through verified code — read files first
 5. Apply the minimal fix targeting root cause, not just symptoms
 6. Call `mcp__mirdan__validate_code_quality` on the changed files
-7. Call `mcp__enyal__enyal_remember` to store the fix pattern for future reference
+7. Call `mcp__enyal__enyal_remember` with `input: { content: "<fix pattern>", content_type: "pattern", tags: [...] }` to store the fix pattern for future reference
+
+**Important:** All enyal tools require parameters wrapped in an `input` object.
+For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall(query: "...")`.
 
 ## Fix Quality Standards
 - Root cause addressed, not just symptoms

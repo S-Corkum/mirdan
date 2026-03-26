@@ -46,15 +46,17 @@ are persisted to `.mirdan/conventions.yaml` and automatically included in future
 
 ## Enyal Knowledge Integration
 
-When enyal is available, mirdan leverages it for persistent quality intelligence:
+When enyal is available, mirdan leverages it for persistent quality intelligence.
+
+**Important:** All enyal tools require parameters wrapped in an `input` object.
 
 | Enyal Tool | When to Use | Example |
 |------------|-------------|---------|
-| `enyal_recall` | Before coding — get conventions | `recall("conventions", file_path=current_file)` |
-| `enyal_traverse` | Before refactoring — understand dependencies | `traverse(start_query="auth patterns", max_depth=2)` |
-| `enyal_impact` | Before architecture changes — check what depends on a decision | `impact(query="database convention")` |
-| `enyal_remember` | After task completion — store decisions and patterns | With `suggest_supersedes=true` for evolving conventions |
-| `enyal_status` | Periodically — monitor knowledge health | `status(view="health")` — act if score < 0.7 |
+| `enyal_recall` | Before coding — get conventions | `input: { query: "conventions", file_path: "<current_file>" }` |
+| `enyal_traverse` | Before refactoring — understand dependencies | `input: { start_query: "auth patterns", max_depth: 2 }` |
+| `enyal_impact` | Before architecture changes — check what depends on a decision | `input: { query: "database convention" }` |
+| `enyal_remember` | After task completion — store decisions and patterns | `input: { content: "...", content_type: "decision", suggest_supersedes: true }` |
+| `enyal_status` | Periodically — monitor knowledge health | `input: { view: "health" }` — act if score < 0.7 |
 
 ## Project Context
 - **Language**: {{language}}

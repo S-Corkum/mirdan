@@ -31,6 +31,6 @@ Changed files:
 
 5. **Re-gate** — Run the gate again to confirm PASS status
 
-6. **Persist** — If validation produced `knowledge_entries`, store them via `mcp__enyal__enyal_remember` with the suggested tags and scope
+6. **Persist** — If validation produced `knowledge_entries`, store them via `mcp__enyal__enyal_remember` with `input: { content: "<entry>", content_type: "<type>", tags: [...], scope: "<scope>" }`
 
 7. **Complete** — Only mark task complete if gate returns PASS

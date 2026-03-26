@@ -23,7 +23,7 @@ Recent changes:
    - Get security context and quality requirements
    - Note if touches_security is flagged
 
-2. **Check Known Issues** — Call `mcp__enyal__enyal_recall` with the bug description to check if a similar issue was previously solved
+2. **Check Known Issues** — Call `mcp__enyal__enyal_recall` with `input: { query: "<bug description>" }` to check if a similar issue was previously solved
 
 3. **Hypothesize** — Use `mcp__sequential-thinking__sequentialthinking` to form structured hypotheses about root cause before investigating code
 
@@ -35,7 +35,7 @@ Recent changes:
    - Set `check_security=true` if touches_security was flagged
    - Ensure the fix doesn't introduce new violations
 
-7. **Persist** — Call `mcp__enyal__enyal_remember` to store the fix pattern so similar issues can be resolved faster in future sessions
+7. **Persist** — Call `mcp__enyal__enyal_remember` with `input: { content: "<fix pattern>", content_type: "pattern", tags: [...] }` to store the fix pattern so similar issues can be resolved faster in future sessions
 
 8. **Verify** — Confirm:
    - Root cause addressed (not just symptoms)

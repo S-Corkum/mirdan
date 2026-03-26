@@ -47,6 +47,9 @@ Code is NOT complete until `mcp__mirdan__validate_code_quality` returns a passin
 ## Knowledge Persistence
 
 When `validate_code_quality` returns `knowledge_entries` with `auto_store: true`:
-- Call `enyal_remember` for each entry — tags, scope, and confidence are pre-set
-- For convention entries, use `suggest_supersedes=true` to detect and link entries this supersedes
+- Call `mcp__enyal__enyal_remember` with `input: { content: "<entry>", content_type: "<type>", tags: [...], scope: "<scope>" }` for each entry — tags, scope, and confidence are pre-set
+- For convention entries, include `suggest_supersedes: true` in the input to detect and link entries this supersedes
 - Deduplication and conflict detection are on by default in enyal
+
+**Important:** All enyal tools require parameters wrapped in an `input` object.
+For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall(query: "...")`.

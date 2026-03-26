@@ -21,7 +21,7 @@ Run mirdan quality validation on specific code or files in an isolated context.
 
 1. **Identify** — Determine which code to validate (file, selection, or recent changes)
 
-2. **Conventions** — Call `mcp__enyal__enyal_recall("quality conventions")` to load project quality standards for comparison
+2. **Conventions** — Call `mcp__enyal__enyal_recall` with `input: { query: "quality conventions" }` to load project quality standards for comparison
 
 3. **Read** — Read the target code
 

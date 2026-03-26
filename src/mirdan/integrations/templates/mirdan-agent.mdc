@@ -9,11 +9,14 @@ Background agents and autonomous task runners must follow stricter quality gates
 
 ## Mandatory Agent Checkpoints
 - Call `mcp__mirdan__enhance_prompt` at task start to establish quality context
-- Call `mcp__enyal__enyal_recall` with the task description to load project conventions and past decisions
+- Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to load project conventions and past decisions
 - Validate every file edit with `mcp__mirdan__validate_code_quality` before proceeding
 - Quality score must be >= 0.7 before marking any step complete
 - Security-sensitive files require score >= 0.8 with `check_security=true`
-- Call `mcp__enyal__enyal_remember` after completing the task to store decisions and patterns
+- Call `mcp__enyal__enyal_remember` with `input: { content: "<knowledge>", content_type: "<type>", tags: [...] }` after completing the task to store decisions and patterns
+
+**Important:** All enyal tools require parameters wrapped in an `input` object.
+For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall(query: "...")`.
 
 ## Multi-Agent Coordination
 - Use `mcp__mirdan__get_quality_trends` to check session-wide validation state
