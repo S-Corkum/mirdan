@@ -37,12 +37,21 @@ class TestGenerateSkills:
 
     def test_creates_seven_skills(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
-        assert len(paths) == 7
+        assert len(paths) == 8
 
     def test_skill_names(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
         names = {p.parent.name for p in paths}
-        assert names == {"code", "debug", "review", "plan", "quality", "scan", "gate"}
+        assert names == {
+            "code",
+            "debug",
+            "review",
+            "plan",
+            "plan-review",
+            "quality",
+            "scan",
+            "gate",
+        }
 
     def test_skills_are_valid_markdown(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
@@ -90,13 +99,14 @@ class TestGenerateAgents:
 
     def test_creates_all_agents(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_agents(tmp_path, detected)
-        assert len(paths) == 5
+        assert len(paths) == 6
         names = {p.name for p in paths}
         assert "quality-gate.md" in names
         assert "security-audit.md" in names
         assert "test-quality.md" in names
         assert "architecture-reviewer.md" in names
         assert "convention-check.md" in names
+        assert "plan-reviewer.md" in names
 
     def test_agent_has_frontmatter(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_agents(tmp_path, detected)

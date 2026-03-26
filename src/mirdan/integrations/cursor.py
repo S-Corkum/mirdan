@@ -629,6 +629,12 @@ def _generate_dynamic_rules(
     path.write_text(planning_content)
     generated.append(path)
 
+    # Plan review rule (always)
+    plan_review_content = _build_plan_review_mdc()
+    path = rules_dir / "mirdan-plan-review.mdc"
+    path.write_text(plan_review_content)
+    generated.append(path)
+
     # Debug rule (always)
     debug_content = _build_debug_mdc()
     path = rules_dir / "mirdan-debug.mdc"
@@ -743,6 +749,15 @@ def _build_planning_mdc() -> str:
         return "# mirdan Planning Enhancement\n\nTemplate not found.\n"
 
 
+def _build_plan_review_mdc() -> str:
+    """Build the plan-review .mdc rule — loads from static template."""
+    templates = _load_templates()
+    try:
+        return templates["mirdan-plan-review.mdc"]
+    except KeyError:
+        return "# mirdan Plan Review\n\nTemplate not found.\n"
+
+
 def _build_debug_mdc() -> str:
     """Build the debug .mdc rule — loads from static template."""
     templates = _load_templates()
@@ -812,6 +827,11 @@ def _generate_static_rules(
     if "mirdan-planning.mdc" in templates:
         path = rules_dir / "mirdan-planning.mdc"
         path.write_text(templates["mirdan-planning.mdc"])
+        generated.append(path)
+
+    if "mirdan-plan-review.mdc" in templates:
+        path = rules_dir / "mirdan-plan-review.mdc"
+        path.write_text(templates["mirdan-plan-review.mdc"])
         generated.append(path)
 
     if "mirdan-debug.mdc" in templates:
@@ -1757,6 +1777,68 @@ test quality review:
 - `mirdan-quality-validator` (background) — validate test code quality
 """
 
+_SUBAGENT_PLAN_REVIEWER = """\
+---
+name: mirdan-plan-reviewer
+description: >-
+  Plan review subagent — verifies AI-generated implementation plans for
+  grounding accuracy and cheap-model executability. Produces a structured
+  7-dimension review report with PASS/REVISE/FAIL verdict.
+model: sonnet
+readonly: true
+background: true
+---
+
+# mirdan Plan Reviewer
+
+You are a plan review agent. Verify AI-generated implementation plans for
+factual accuracy and executability by cheaper models (Haiku, Flash).
+
+## Instructions
+
+1. Read the plan from the provided path.
+
+2. Call `mcp__mirdan__enhance_prompt` with plan text and
+   `task_type="plan_validation"` for structural validation.
+
+3. Extract all verifiable references (file paths, line numbers,
+   function names, imports, step refs, directories).
+
+4. For each reference, verify with tools (Read, Glob, Grep).
+   Apply false-positive prevention:
+   - NEW files → verify parent directory instead
+   - Cumulative state: Step N creates → Step M>N can reference
+   - Line drift from insertions → warning, not error
+   Classify: VERIFIED / MISMATCH / NOT_FOUND / EXPECTED_NEW / UNVERIFIABLE
+
+5. For any code snippets in the plan, call `mcp__mirdan__validate_code_quality`
+   to check for AI quality rules (AI001-AI008).
+
+6. Check dependency ordering (circular deps, creation before modification).
+
+7. Semantic review: completeness, executability, safety, architecture.
+
+8. Score 7 dimensions (Grounding 30%, Completeness 20%, Atomicity 15%,
+   Clarity 10%, Dependency 10%, Executability 10%, Safety 5%).
+
+9. Output verdict: PASS (>=0.95 for haiku) / REVISE (>=0.5) / FAIL (<0.5).
+
+## Report Format
+
+Report each finding as:
+- **[DIMENSION/CONFIDENCE]** Description — Fix: recommendation
+
+Example:
+- **[GROUNDING/HIGH]** File `src/auth.py` exists but line 45 is `import os`,
+  not `def validate_token()` as claimed. Fix: Update to line 72.
+
+## Async Execution Notes
+
+This subagent runs in the background. It reads the plan, verifies references,
+and produces a review report. It does not modify any files (readonly).
+Results are returned as a structured report when the subagent completes.
+"""
+
 _CURSOR_SUBAGENTS: dict[str, str] = {
     "mirdan-quality-validator.md": _SUBAGENT_QUALITY_VALIDATOR,
     "mirdan-security-scanner.md": _SUBAGENT_SECURITY_SCANNER,
@@ -1765,6 +1847,7 @@ _CURSOR_SUBAGENTS: dict[str, str] = {
     "mirdan-architecture-reviewer.md": _SUBAGENT_ARCHITECTURE_REVIEWER,
     "mirdan-implementer.md": _SUBAGENT_IMPLEMENTER,
     "mirdan-test-writer.md": _SUBAGENT_TEST_WRITER,
+    "mirdan-plan-reviewer.md": _SUBAGENT_PLAN_REVIEWER,
 }
 
 
@@ -1968,6 +2051,85 @@ Create implementation plans with anti-hallucination standards.
    subagent enforces mirdan quality standards automatically.
 """
 
+_SKILL_PLAN_REVIEW = """\
+---
+name: mirdan-plan-review
+description: >-
+  Staff-engineer-grade plan review. Use after creating implementation plans
+  in Plan Mode to verify accuracy and cheap-model executability before
+  switching to Build.
+disable-model-invocation: true
+---
+
+# mirdan Plan Review — Staff-Engineer Plan Verification
+
+Review AI-generated implementation plans for factual accuracy and executability
+by cheaper models (Haiku, Flash). Judge half of Judge/Planner separation.
+
+## When to Use
+
+Invoke explicitly with `/mirdan-plan-review` when you want to:
+- Verify a plan before switching from Plan Mode to Build
+- Review a plan created by another agent or session
+- Validate that a plan is executable by a cheaper model
+
+## Effort Calibration
+
+- Small plans (1-5 steps): Verify ALL references
+- Medium plans (6-15 steps): Verify file paths + line numbers, sample functions
+- Large plans (16+ steps): Verify file paths for all, deep-verify 5 highest-risk
+- Budget: Maximum 20 tool calls for grounding verification
+
+## Workflow
+
+1. **Read Plan** — Read the plan from the provided path or most recent plan file.
+
+2. **Structural Validate** — Call `mcp__mirdan__enhance_prompt` with the plan
+   text and `task_type="plan_validation"`. Record the PlanQualityScore.
+
+3. **Extract References** — Scan the plan for verifiable claims:
+   - File paths (backtick-wrapped with `/` and extension)
+   - Line numbers (preceded by `line `, `:`, or `L`)
+   - Function/class names (backtick `def name()` or `class Name`)
+   - Import references (backtick `from X import Y`)
+   - Step dependency refs ("Depends On: Step N")
+   - Directory refs (paths ending in `/`)
+
+4. **Grounding Verification** — For each reference, verify with tools.
+   Apply false-positive prevention first:
+   - "Write"/"Create" actions or "NEW:" prefix → EXPECTED_NEW, verify parent dir
+   - Step N creates something, Step M>N references it → EXPECTED_NEW
+   - Line insertions may shift later line numbers → warning, not error
+
+   Classify: VERIFIED / MISMATCH / NOT_FOUND / EXPECTED_NEW / UNVERIFIABLE
+
+5. **Dependency Analysis** — Check step graph ordering, circular deps,
+   creation-before-modification, import-before-usage.
+
+6. **Semantic Review** — Assess:
+   - COMPLETENESS: Missing tests, exports, configs?
+   - EXECUTABILITY: Can Haiku execute each step with only its context?
+   - SAFETY: Auth/input/DB changes have validation?
+
+7. **Synthesize Report** — Score 7 dimensions, determine verdict.
+
+## Scoring (weights)
+
+| Dimension | Weight | 1.0 means |
+|-----------|--------|-----------|
+| Grounding | 30% | All refs verified or expected-new |
+| Completeness | 20% | No gaps in steps |
+| Atomicity | 15% | All steps single-action |
+| Clarity | 10% | Zero vague language |
+| Dependency Order | 10% | Valid ordering |
+| Executability | 10% | Self-contained steps |
+| Safety | 5% | Security addressed |
+
+## Verdict: PASS (>=0.95 haiku) / REVISE (>=0.5) / FAIL (<0.5)
+
+Report findings as: `[DIMENSION/CONFIDENCE] Description — Fix: recommendation`
+"""
+
 _SKILL_QUALITY = """\
 ---
 name: mirdan-quality
@@ -2094,6 +2256,7 @@ _CURSOR_SKILLS: dict[str, str] = {
     "mirdan-quality": _SKILL_QUALITY,
     "mirdan-scan": _SKILL_SCAN,
     "mirdan-gate": _SKILL_GATE,
+    "mirdan-plan-review": _SKILL_PLAN_REVIEW,
 }
 
 

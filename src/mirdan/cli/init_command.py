@@ -671,7 +671,8 @@ def _setup_claude_code(
     print("  Claude Code configured! mirdan will validate edits automatically.")
     print("  Workflow rule installed — no CLAUDE.md mirdan instructions needed.")
     if skill_paths:
-        print("  Skills installed: /code, /debug, /review, /plan, /quality, /scan, /gate")
+        skills = "/code, /debug, /review, /plan, /plan-review, /quality, /scan, /gate"
+        print(f"  Skills installed: {skills}")
 
 
 def _setup_agents_md(

@@ -13,13 +13,14 @@ _EXPECTED_SKILLS = {
     "mirdan-debug",
     "mirdan-review",
     "mirdan-plan",
+    "mirdan-plan-review",
     "mirdan-quality",
     "mirdan-scan",
     "mirdan-gate",
 }
 
 # Skills that require explicit invocation (/mirdan-quality, etc.)
-_MANUAL_SKILLS = {"mirdan-quality", "mirdan-scan", "mirdan-gate"}
+_MANUAL_SKILLS = {"mirdan-quality", "mirdan-scan", "mirdan-gate", "mirdan-plan-review"}
 
 # Skills that auto-invoke based on context
 _AUTO_SKILLS = {"mirdan-code", "mirdan-debug", "mirdan-review", "mirdan-plan"}
@@ -28,10 +29,10 @@ _AUTO_SKILLS = {"mirdan-code", "mirdan-debug", "mirdan-review", "mirdan-plan"}
 class TestGenerateCursorSkills:
     """Tests for generate_cursor_skills()."""
 
-    def test_generates_seven_skill_directories(self, tmp_path: Path) -> None:
+    def test_generates_eight_skill_directories(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_skills(cursor_dir)
-        assert len(paths) == 7
+        assert len(paths) == 8
 
     def test_generates_expected_skill_names(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -52,7 +53,7 @@ class TestGenerateCursorSkills:
     def test_idempotent_does_not_overwrite_existing(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_skills(cursor_dir)
-        assert len(first) == 7
+        assert len(first) == 8
 
         # Mutate one file
         target = cursor_dir / "skills" / "mirdan-code" / "SKILL.md"
@@ -87,7 +88,7 @@ class TestGenerateCursorSkills:
         paths = generate_cursor_skills(cursor_dir)
         returned_names = {p.parent.name for p in paths}
         assert "mirdan-code" not in returned_names
-        assert len(paths) == 6
+        assert len(paths) == 7
 
 
 class TestCursorSkillFrontmatter:
@@ -251,8 +252,8 @@ class TestCursorSkillContent:
 class TestCursorSkillsDict:
     """Tests for the _CURSOR_SKILLS constant."""
 
-    def test_dict_has_seven_entries(self) -> None:
-        assert len(_CURSOR_SKILLS) == 7
+    def test_dict_has_eight_entries(self) -> None:
+        assert len(_CURSOR_SKILLS) == 8
 
     def test_dict_keys_match_expected(self) -> None:
         assert set(_CURSOR_SKILLS.keys()) == _EXPECTED_SKILLS

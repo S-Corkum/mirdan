@@ -63,7 +63,7 @@ def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
     if templates_pkg is None:
         return generated
 
-    for skill_name in ("code", "debug", "review", "plan", "quality", "scan", "gate"):
+    for skill_name in ("code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"):
         skill_dir = project_dir / ".claude" / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
 
@@ -110,6 +110,7 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
         "test-quality",
         "convention-check",
         "architecture-reviewer",
+        "plan-reviewer",
     )
     for agent_name in agent_names:
         try:
@@ -213,13 +214,14 @@ def export_plugin(output_dir: Path) -> Path:
         "version": _get_version(),
         "author": "mirdan",
         "categories": ["code-quality", "security", "ai-safety"],
-        "skills": ["code", "debug", "review", "plan", "quality", "scan", "gate"],
+        "skills": ["code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"],
         "agents": [
             "quality-gate",
             "security-audit",
             "test-quality",
             "convention-check",
             "architecture-reviewer",
+            "plan-reviewer",
         ],
         "hooks": True,
         "mcpServers": ["mirdan"],
@@ -242,7 +244,7 @@ def export_plugin(output_dir: Path) -> Path:
         json.dump(mcp_config, f, indent=2)
 
     # Copy skills
-    for skill_name in ("code", "debug", "review", "plan", "quality", "scan", "gate"):
+    for skill_name in ("code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"):
         skill_dir = output_dir / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -261,6 +263,7 @@ def export_plugin(output_dir: Path) -> Path:
         "test-quality",
         "convention-check",
         "architecture-reviewer",
+        "plan-reviewer",
     ):
         try:
             template_file = templates_pkg / "agents" / f"{agent_name}.md"

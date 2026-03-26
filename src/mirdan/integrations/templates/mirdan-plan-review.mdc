@@ -1,0 +1,52 @@
+---
+description: "mirdan plan review — activate after creating implementation plans to verify accuracy and cheap-model executability before Build"
+alwaysApply: false
+---
+
+# mirdan Plan Review
+
+After creating a plan in Plan Mode, review it before switching to Build.
+This is the Judge half of Judge/Planner separation — verify the plan's factual
+claims before delegating execution.
+
+## Quick Review (Inline)
+
+Call `mcp__mirdan__enhance_prompt` with the plan text and `task_type="plan_validation"`
+to get a structural quality score. Then perform these additional checks:
+
+1. **File existence** — For each file path in the plan, verify it exists by reading it.
+   Mark new files as "NEW" explicitly.
+
+2. **Line number accuracy** — For each line number reference, read the file at that
+   offset and confirm the content matches the plan's description.
+
+3. **Vague language** — Flag any step containing "should", "probably", "maybe",
+   "around line", "I think". These signal unverified facts.
+
+4. **Compound steps** — Flag steps with "and then", "first...then", or multiple
+   actions. Each step should be a single atomic action.
+
+5. **Missing steps** — Check for gaps: missing imports, missing `__init__.py` updates,
+   missing test steps, missing config changes.
+
+## Thorough Review (Subagent)
+
+For plans with 5+ steps or architectural changes, spawn the `mirdan-plan-reviewer`
+subagent for a full 7-dimension review:
+
+- Grounding (30%): tool-verified file paths, line numbers, symbols
+- Completeness (20%): no missing steps
+- Atomicity (15%): single-action steps
+- Clarity (10%): no vague language
+- Dependency Order (10%): correct execution sequence
+- Executability (10%): self-contained steps for cheap models
+- Safety (5%): security concerns addressed
+
+The subagent produces a PASS/REVISE/FAIL verdict. Only proceed to Build on PASS.
+
+## Quality Constraints
+
+- No step should reference a file without verification
+- No vague line references ("around line 50") — use exact numbers
+- Each step must be independently executable by a less capable model
+- Plans with GROUNDING mismatches will fail during execution — fix them first

@@ -16,6 +16,7 @@ _EXPECTED_SUBAGENTS = {
     "mirdan-architecture-reviewer.md",
     "mirdan-implementer.md",
     "mirdan-test-writer.md",
+    "mirdan-plan-reviewer.md",
 }
 
 _READONLY_SUBAGENTS = {
@@ -24,6 +25,7 @@ _READONLY_SUBAGENTS = {
     "mirdan-test-auditor.md",
     "mirdan-slop-detector.md",
     "mirdan-architecture-reviewer.md",
+    "mirdan-plan-reviewer.md",
 }
 
 _WRITABLE_SUBAGENTS = {
@@ -31,7 +33,7 @@ _WRITABLE_SUBAGENTS = {
     "mirdan-test-writer.md",
 }
 
-_VALID_MODELS = {"fast", "inherit"}
+_VALID_MODELS = {"fast", "inherit", "sonnet"}
 
 
 class TestGenerateCursorSubagents:
@@ -40,7 +42,7 @@ class TestGenerateCursorSubagents:
     def test_generates_seven_files(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_subagents(cursor_dir)
-        assert len(paths) == 7
+        assert len(paths) == 8
 
     def test_generates_expected_filenames(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -52,7 +54,7 @@ class TestGenerateCursorSubagents:
     def test_idempotent_does_not_overwrite_existing(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_subagents(cursor_dir)
-        assert len(first) == 7
+        assert len(first) == 8
 
         # Mutate one file to verify it is not overwritten
         target = cursor_dir / "agents" / "mirdan-quality-validator.md"
@@ -87,7 +89,7 @@ class TestGenerateCursorSubagents:
         paths = generate_cursor_subagents(cursor_dir)
         returned_names = {p.name for p in paths}
         assert "mirdan-quality-validator.md" not in returned_names
-        assert len(paths) == 6
+        assert len(paths) == 7
 
 
 class TestCursorSubagentFrontmatter:
@@ -250,8 +252,8 @@ class TestCursorSubagentAsyncContent:
 class TestCursorSubagentsDict:
     """Tests for the _CURSOR_SUBAGENTS constant."""
 
-    def test_dict_has_seven_entries(self) -> None:
-        assert len(_CURSOR_SUBAGENTS) == 7
+    def test_dict_has_eight_entries(self) -> None:
+        assert len(_CURSOR_SUBAGENTS) == 8
 
     def test_dict_keys_match_expected(self) -> None:
         assert set(_CURSOR_SUBAGENTS.keys()) == _EXPECTED_SUBAGENTS

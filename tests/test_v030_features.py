@@ -231,6 +231,7 @@ class TestSpecializedAgents:
             "architecture-reviewer.md",
             "convention-check.md",
             "test-quality.md",
+            "plan-reviewer.md",
         }
         actual = {p.name for p in agents_dir.iterdir() if p.suffix == ".md"}
         assert expected == actual
@@ -308,7 +309,7 @@ class TestPluginExport:
         agents_dir = tmp_path / "agents"
         assert agents_dir.exists()
         md_files = list(agents_dir.glob("*.md"))
-        assert len(md_files) == 5
+        assert len(md_files) == 6
 
 
 # ---------------------------------------------------------------------------
