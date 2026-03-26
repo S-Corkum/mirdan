@@ -204,6 +204,51 @@ TEMPLATE_FIXES: dict[str, tuple[str, str, float]] = {
         "Upgrade vulnerable dependency to patched version",
         0.5,
     ),
+    # TypeScript new rules
+    "TS008": (
+        "?.",
+        "Replace non-null assertion (!) with optional chaining (?.)",
+        0.80,
+    ),
+    # Go new rules
+    "GO010": (
+        'fmt.Errorf("message: %w", err)',
+        "Replace errors.New(fmt.Sprintf()) with fmt.Errorf()",
+        0.90,
+    ),
+    # Rust new rules
+    "RS006": (
+        "// TODO: Return Result<T, E> instead of panic!()",
+        "Replace panic! with Result return",
+        0.75,
+    ),
+    "RS007": (
+        "// TODO: Implement this functionality",
+        "Replace todo! macro with implementation",
+        0.70,
+    ),
+    # Java new rules
+    "JV008": (
+        "preparedStatement.setString(1, param)",
+        "Use PreparedStatement with parameterized queries",
+        0.90,
+    ),
+    # C# new rules
+    "CS004": (
+        "async Task",
+        "Replace 'async void' with 'async Task'",
+        0.95,
+    ),
+    "CS005": (
+        "await Task.Delay(milliseconds)",
+        "Replace Thread.Sleep() with await Task.Delay()",
+        0.90,
+    ),
+    "CS007": (
+        "System.Text.Json.JsonSerializer.Serialize(obj)",
+        "Replace BinaryFormatter with System.Text.Json",
+        0.90,
+    ),
 }
 
 

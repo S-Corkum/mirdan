@@ -31,6 +31,10 @@ forbidden:
   - "Mutable public fields (use proper encapsulation)"
   - Returning null for collection types (return empty collection)
   - Using checked exceptions for control flow
+  - "SQL query built with String.format (use PreparedStatement)"
+  - "new File() with unsanitized request input (path traversal)"
+  - "Logging unsanitized request data (log injection)"
+  - "new URL() with unsanitized user input (SSRF)"
 
 patterns:
   error_handling: "Use specific exception types with context; multi-catch where appropriate; try-with-resources for cleanup"

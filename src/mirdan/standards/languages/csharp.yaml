@@ -19,6 +19,15 @@ forbidden:
   - var for non-obvious return types - use explicit types when the right side is not a constructor or cast
   - String concatenation in loops - use StringBuilder or string interpolation with join
   - Not disposing IDisposable resources - always use using or register with DI container as scoped/transient
+  - SQL string interpolation ($"...") in queries - use parameterized queries or EF Core
+  - Process.Start with unsanitized user input - validate and use ProcessStartInfo
+  - Path.Combine with untrusted input without base directory validation
+  - BinaryFormatter for any deserialization - use System.Text.Json
+  - XmlDocument without secure XmlReaderSettings (XXE risk)
+  - Regex without timeout parameter (ReDoS risk)
+  - Logging raw request data without sanitization (log injection)
+  - LDAP queries with string concatenation
+  - Hardcoded connection strings - use configuration providers
 
 patterns:
   record_dto: "public record UserDto(int Id, string Name, string Email);"

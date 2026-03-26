@@ -31,6 +31,12 @@ forbidden:
   - Module-level side effects in library code
   - Prototype pollution via Object.prototype modification
   - innerHTML assignment without sanitization
+  - child_process.exec() for command execution (use execFile or spawn)
+  - Redirects using unsanitized request input
+  - RegExp constructor with untrusted user input (ReDoS risk)
+  - Empty catch blocks without error handling or comment
+  - Path operations (path.join/resolve) with unsanitized request input
+  - HTTP requests (fetch/axios) to user-controlled URLs without domain validation
 
 patterns:
   error_handling: "Use discriminated unions for Result types; custom error classes extending Error; typed catch with instanceof"

@@ -319,6 +319,70 @@ class CodeValidator:
                 "innerHTML assignment is an XSS risk with untrusted content",
                 "Use textContent for text or DOM APIs (createElement, appendChild) for HTML",
             ),
+            (
+                "TS006",
+                "dangerously-set-html",
+                r"dangerouslySetInnerHTML",
+                "error",
+                "dangerouslySetInnerHTML bypasses React's XSS protection (CWE-79)",
+                "Sanitize with DOMPurify before setting, or use textContent",
+            ),
+            (
+                "TS007",
+                "child-process-exec",
+                r"child_process\.exec\s*\(",
+                "warning",
+                "child_process.exec() uses shell and is vulnerable to command injection (CWE-78)",
+                "Use child_process.execFile() or child_process.spawn() with argument arrays",
+            ),
+            (
+                "TS008",
+                "no-non-null-assertion",
+                r"\w+!\.\w+",
+                "warning",
+                "Non-null assertion (!) suppresses null checks and can cause runtime errors",
+                "Use optional chaining (?.) or add a proper null check",
+            ),
+            (
+                "TS009",
+                "unvalidated-redirect",
+                r"res\.redirect\s*\(\s*req\.",
+                "warning",
+                "Redirect using unsanitized request input - open redirect risk (CWE-601)",
+                "Validate the redirect URL against an allowlist before redirecting",
+            ),
+            (
+                "TS010",
+                "regex-dos",
+                r"new\s+RegExp\s*\(",
+                "info",
+                "RegExp constructor with dynamic input can cause ReDoS (CWE-1333)",
+                "Use a static regex literal or validate/sanitize the pattern first",
+            ),
+            (
+                "TS011",
+                "no-empty-catch-ts",
+                r"catch\s*\([^)]*\)\s*\{\s*\}",
+                "warning",
+                "Empty catch block silently swallows errors",
+                "Log the error or handle it explicitly; add a comment if intentionally ignored",
+            ),
+            (
+                "TS012",
+                "path-traversal-ts",
+                r"path\.(?:join|resolve)\s*\([^)]*(?:req\.|params\.|query\.)",
+                "warning",
+                "Path operation with request input - potential path traversal (CWE-22)",
+                "Validate input and use path.resolve() with a base directory containment check",
+            ),
+            (
+                "TS013",
+                "ssrf-request-ts",
+                r"(?:fetch|axios\.get|axios\.post|http\.get)\s*\(\s*(?:req\.|params\.|query\.)",
+                "warning",
+                "HTTP request with user-controlled URL - potential SSRF (CWE-918)",
+                "Validate the URL against an allowlist of permitted domains",
+            ),
         ],
         "javascript": [
             (
@@ -361,6 +425,70 @@ class CodeValidator:
                 "child_process.exec() uses shell and is vulnerable to command injection",
                 "Use child_process.execFile() or child_process.spawn() with argument arrays",
             ),
+            (
+                "JS006",
+                "dangerously-set-html",
+                r"dangerouslySetInnerHTML",
+                "error",
+                "dangerouslySetInnerHTML bypasses React's XSS protection (CWE-79)",
+                "Sanitize with DOMPurify before setting, or use textContent",
+            ),
+            (
+                "JS007",
+                "path-traversal-js",
+                r"path\.(?:join|resolve)\s*\([^)]*(?:req\.|params\.|query\.)",
+                "warning",
+                "Path operation with request input - potential path traversal (CWE-22)",
+                "Validate input and check resolved path starts within expected base dir",
+            ),
+            (
+                "JS008",
+                "unvalidated-redirect",
+                r"res\.redirect\s*\(\s*req\.",
+                "warning",
+                "Redirect using unsanitized request input - open redirect risk (CWE-601)",
+                "Validate the redirect URL against an allowlist before redirecting",
+            ),
+            (
+                "JS009",
+                "regex-dos",
+                r"new\s+RegExp\s*\(",
+                "info",
+                "RegExp constructor with dynamic input can cause ReDoS (CWE-1333)",
+                "Use a static regex literal or validate/sanitize the pattern first",
+            ),
+            (
+                "JS010",
+                "no-empty-catch-js",
+                r"catch\s*\([^)]*\)\s*\{\s*\}",
+                "warning",
+                "Empty catch block silently swallows errors",
+                "Log the error or handle it explicitly; add a comment if intentionally ignored",
+            ),
+            (
+                "JS011",
+                "ssrf-request-js",
+                r"(?:fetch|axios\.get|axios\.post|http\.get)\s*\(\s*(?:req\.|params\.|query\.)",
+                "warning",
+                "HTTP request with user-controlled URL - potential SSRF (CWE-918)",
+                "Validate the URL against an allowlist of permitted domains",
+            ),
+            (
+                "JS012",
+                "require-dynamic",
+                r"require\s*\(\s*(?:req\.|params\.|query\.|user)",
+                "error",
+                "Dynamic require() with user input - potential code injection (CWE-94)",
+                "Use a static require path or validate against an allowlist of module names",
+            ),
+            (
+                "JS013",
+                "prototype-pollution",
+                r"__proto__",
+                "warning",
+                "Direct __proto__ access enables prototype pollution attacks (CWE-1321)",
+                "Use Object.create(null) for dict-like objects or Map for dynamic keys",
+            ),
         ],
         "rust": [
             (
@@ -378,6 +506,62 @@ class CodeValidator:
                 "warning",
                 ".expect() with empty message provides no context on panic",
                 'Provide a meaningful error message: .expect("description of failure")',
+            ),
+            (
+                "RS004",
+                "mem-transmute",
+                r"mem::transmute",
+                "error",
+                "mem::transmute is extremely unsafe and can cause undefined behavior",
+                "Prefer safe alternatives: From/Into traits, as keyword, or safe wrappers",
+            ),
+            (
+                "RS005",
+                "format-shell-cmd",
+                r"Command::new\s*\(\s*format!",
+                "error",
+                "Command with format! string - potential command injection (CWE-78)",
+                "Use Command::new(program).arg(user_input) with separate arguments",
+            ),
+            (
+                "RS006",
+                "panic-in-lib",
+                r"panic!\s*\(",
+                "warning",
+                "panic! in library code forces callers to abort - prefer returning errors",
+                "Return Result<T, E> instead of panicking for recoverable errors",
+            ),
+            (
+                "RS007",
+                "todo-macro",
+                r"todo!\s*\(",
+                "warning",
+                "todo! macro will panic at runtime if reached - implement before production",
+                "Implement the functionality or return a proper error",
+            ),
+            (
+                "RS008",
+                "sql-format-injection",
+                r'format!\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)',
+                "error",
+                "SQL query in format! macro - potential SQL injection (CWE-89)",
+                "Use parameterized queries with your database driver (sqlx::query, diesel, etc.)",
+            ),
+            (
+                "RS009",
+                "unbounded-channel",
+                r"mpsc::channel\s*\(\s*\)",
+                "warning",
+                "Unbounded channel can grow without limit and exhaust memory",
+                "Use mpsc::sync_channel(capacity) or tokio::sync::mpsc::channel(capacity)",
+            ),
+            (
+                "RS010",
+                "unimplemented-macro",
+                r"unimplemented!\s*\(",
+                "warning",
+                "unimplemented! macro will panic at runtime if reached",
+                "Implement the functionality or use todo!() during development only",
             ),
         ],
         "go": [
@@ -404,6 +588,86 @@ class CodeValidator:
                 "error",
                 "SQL query built with fmt.Sprintf - potential SQL injection",
                 'Use parameterized queries: db.Query("SELECT * FROM t WHERE id = $1", id)',
+            ),
+            (
+                "GO004",
+                "http-no-timeout",
+                r"http\.ListenAndServe\s*\(",
+                "warning",
+                "Default HTTP server has no read/write timeouts - vulnerable to slowloris attacks",
+                "Use http.Server{ReadTimeout: 10*time.Second, WriteTimeout: 10*time.Second}",
+            ),
+            (
+                "GO005",
+                "text-template-html",
+                r'"text/template"',
+                "warning",
+                "text/template does not escape HTML output - XSS risk in web contexts (CWE-79)",
+                'Use "html/template" for HTML output to get automatic escaping',
+            ),
+            (
+                "GO006",
+                "filepath-traversal",
+                r"filepath\.Join\s*\([^)]*r\.",
+                "warning",
+                "filepath.Join with request input - potential path traversal (CWE-22)",
+                "Validate input and verify the resolved path is within the expected base directory",
+            ),
+            (
+                "GO007",
+                "log-injection",
+                r"log\.(?:Print|Fatal|Panic)f?\s*\([^)]*r\.",
+                "warning",
+                "Logging unsanitized request data - potential log injection (CWE-117)",
+                "Sanitize user input before logging (remove newlines and control characters)",
+            ),
+            (
+                "GO008",
+                "goroutine-no-context",
+                r"go\s+func\s*\(",
+                "info",
+                "Anonymous goroutine without context.Context may leak on cancellation",
+                "Pass context.Context and select on ctx.Done() for graceful shutdown",
+            ),
+            (
+                "GO009",
+                "sql-backtick-concat-go",
+                r"`[^`]*(?:SELECT|INSERT|UPDATE|DELETE)[^`]*`\s*\+",
+                "error",
+                "SQL backtick string concatenation - potential SQL injection (CWE-89)",
+                'Use parameterized queries: db.Query("SELECT * FROM t WHERE id = $1", id)',
+            ),
+            (
+                "GO010",
+                "error-string-format",
+                r"errors\.New\s*\(\s*fmt\.Sprintf\s*\(",
+                "warning",
+                "Use fmt.Errorf() instead of errors.New(fmt.Sprintf()) for cleaner formatting",
+                'Replace with: fmt.Errorf("message: %w", err)',
+            ),
+            (
+                "GO011",
+                "init-func",
+                r"func\s+init\s*\(\s*\)",
+                "info",
+                "init() functions make testing and startup ordering harder to reason about",
+                "Move initialization to explicit function calls invoked from main()",
+            ),
+            (
+                "GO012",
+                "http-redirect-unvalidated",
+                r"http\.Redirect\s*\([^)]*r\.",
+                "warning",
+                "HTTP redirect with request input - open redirect risk (CWE-601)",
+                "Validate the redirect URL against an allowlist before redirecting",
+            ),
+            (
+                "GO013",
+                "ssrf-http-get",
+                r"http\.(?:Get|Post|Head)\s*\(\s*(?:r\.|req\.|params)",
+                "warning",
+                "HTTP request with user-controlled URL - potential SSRF (CWE-918)",
+                "Validate the URL against an allowlist of permitted domains",
             ),
         ],
         "java": [
@@ -463,6 +727,152 @@ class CodeValidator:
                 "XMLDecoder can execute arbitrary code during deserialization",
                 "Use JAXB or other safe XML parsing libraries instead",
             ),
+            (
+                "JV008",
+                "sql-string-format-java",
+                r"String\.format\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)",
+                "error",
+                "SQL query built with String.format - potential SQL injection (CWE-89)",
+                "Use PreparedStatement with ? placeholders: ps.setString(1, param)",
+            ),
+            (
+                "JV009",
+                "path-traversal",
+                r"new\s+File\s*\(\s*(?:req\.|request\.getParameter)",
+                "warning",
+                "File constructor with request input - path traversal risk (CWE-22)",
+                "Validate the path and use Path.normalize() with a base directory check",
+            ),
+            (
+                "JV010",
+                "log-injection",
+                r"(?:logger|log)\.(?:info|warn|error|debug)\s*\([^)]*request\.getParameter",
+                "warning",
+                "Logging unsanitized request data - log injection risk (CWE-117)",
+                "Sanitize user input before logging (remove newlines and control characters)",
+            ),
+            (
+                "JV011",
+                "ssrf-url",
+                r"new\s+URL\s*\(\s*(?:req\.|request\.getParameter)",
+                "warning",
+                "URL constructed from user input - potential SSRF (CWE-918)",
+                "Validate the URL against an allowlist of permitted domains",
+            ),
+            (
+                "JV012",
+                "thread-local-virtual",
+                r"new\s+ThreadLocal\s*<",
+                "info",
+                "ThreadLocal is problematic with virtual threads - causes pinning/memory issues",
+                "Use ScopedValue (JEP 506, Java 25) instead of ThreadLocal with virtual threads",
+            ),
+            (
+                "JV013",
+                "synchronized-virtual",
+                r"\bsynchronized\s*\(",
+                "info",
+                "synchronized blocks can pin virtual threads to platform threads",
+                "Use ReentrantLock or other java.util.concurrent lock types instead",
+            ),
+        ],
+        "csharp": [
+            (
+                "CS001",
+                "sql-interpolation-cs",
+                r'\$"[^"]*(?:SELECT|INSERT|UPDATE|DELETE)',
+                "error",
+                "SQL string interpolation - SQL injection risk (CWE-89)",
+                "Use parameterized queries with SqlCommand.Parameters or EF Core",
+            ),
+            (
+                "CS002",
+                "process-start-unsanitized",
+                r"Process\.Start\s*\(\s*(?:request\.|Request\.|user|input|args\[)",
+                "warning",
+                "Process.Start with request/user input - command injection risk (CWE-78)",
+                "Use ProcessStartInfo with UseShellExecute=false and argument list",
+            ),
+            (
+                "CS003",
+                "path-combine-traversal",
+                r"Path\.Combine\s*\([^)]*(?:request\.|Request\.|user|input|args\[)",
+                "warning",
+                "Path.Combine with user input - path traversal risk (CWE-22)",
+                "Verify Path.GetFullPath() result is within expected base directory",
+            ),
+            (
+                "CS004",
+                "async-void",
+                r"async\s+void\s+\w+",
+                "error",
+                "async void methods swallow exceptions silently and cannot be awaited",
+                "Change return type to async Task (except for event handlers)",
+            ),
+            (
+                "CS005",
+                "thread-sleep-async",
+                r"Thread\.Sleep\s*\(",
+                "info",
+                "Thread.Sleep() blocks the calling thread - prefer Task.Delay() in async code",
+                "Use 'await Task.Delay()' instead to avoid blocking the thread pool",
+            ),
+            (
+                "CS006",
+                "empty-catch-cs",
+                r"catch\s*(?:\(\s*\w+(?:\s+\w+)?\s*\))?\s*\{\s*\}",
+                "warning",
+                "Empty catch block silently swallows exceptions",
+                "Log the exception or rethrow; add a comment if intentionally ignored",
+            ),
+            (
+                "CS007",
+                "binary-formatter",
+                r"BinaryFormatter",
+                "error",
+                "BinaryFormatter is unsafe - can execute arbitrary code (CWE-502)",
+                "Use System.Text.Json, MessagePack, or Protocol Buffers for safe serialization",
+            ),
+            (
+                "CS008",
+                "xml-document-unsafe",
+                r"new\s+XmlDocument\s*\(",
+                "warning",
+                "XmlDocument may be vulnerable to XXE attacks (CWE-611)",
+                "Use XmlReader with XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit }",
+            ),
+            (
+                "CS009",
+                "regex-no-timeout",
+                r"new\s+Regex\s*\([^)]*\)(?!.*Timeout)",
+                "warning",
+                "Regex without timeout can cause ReDoS (CWE-1333)",
+                "Add a RegexOptions parameter and Regex.InfiniteMatchTimeout or explicit TimeSpan",
+            ),
+            (
+                "CS011",
+                "log-injection",
+                r"(?:_logger|logger|Log)\.(?:Log|Information|Warning|Error)\s*\([^)]*(?:Request|request\.)",
+                "warning",
+                "Logging unsanitized request data - log injection risk (CWE-117)",
+                "Use structured logging with message templates instead",
+            ),
+            (
+                "CS012",
+                "ldap-injection",
+                r"new\s+DirectorySearcher\s*\([^)]*\+",
+                "warning",
+                "LDAP query with string concatenation - injection risk (CWE-90)",
+                "Use parameterized LDAP filters or escape special characters",
+            ),
+            (
+                "CS013",
+                "hardcoded-connection-string",
+                r'(?:ConnectionString|connectionString)\s*=\s*"[^"]*(?:Server|Data Source)',
+                "warning",
+                "Hardcoded connection string detected - should use configuration",
+                "Move to appsettings.json, environment variables, or Azure Key Vault",
+            ),
         ],
     }
 
@@ -482,6 +892,46 @@ class CodeValidator:
         "JV007": "security",  # unsafe-xml-decoder
         "RAG001": "style",  # chunk-overlap-zero
         "RAG002": "style",  # deprecated-langchain-loader
+        # TypeScript new rules
+        "TS006": "security",  # dangerously-set-html
+        "TS007": "security",  # child-process-exec
+        "TS009": "security",  # unvalidated-redirect
+        "TS012": "security",  # path-traversal-ts
+        "TS013": "security",  # ssrf-request-ts
+        # JavaScript new rules
+        "JS006": "security",  # dangerously-set-html
+        "JS007": "security",  # path-traversal-js
+        "JS008": "security",  # unvalidated-redirect
+        "JS011": "security",  # ssrf-request-js
+        "JS012": "security",  # require-dynamic
+        "JS013": "security",  # prototype-pollution
+        # Go new rules
+        "GO004": "security",  # http-no-timeout
+        "GO005": "security",  # text-template-html
+        "GO006": "security",  # filepath-traversal
+        "GO007": "security",  # log-injection
+        "GO009": "security",  # sql-backtick-concat-go
+        "GO012": "security",  # http-redirect-unvalidated
+        "GO013": "security",  # ssrf-http-get
+        # Rust new rules
+        "RS004": "security",  # mem-transmute
+        "RS005": "security",  # format-shell-cmd
+        "RS008": "security",  # sql-format-injection
+        # Java new rules
+        "JV008": "security",  # sql-string-format-java
+        "JV009": "security",  # path-traversal
+        "JV010": "security",  # log-injection
+        "JV011": "security",  # ssrf-url
+        # C# new rules
+        "CS001": "security",  # sql-interpolation-cs
+        "CS002": "security",  # process-start-unsanitized
+        "CS003": "security",  # path-combine-traversal
+        "CS007": "security",  # binary-formatter
+        "CS008": "security",  # xml-document-unsafe
+        "CS009": "security",  # regex-no-timeout
+        "CS011": "security",  # log-injection
+        "CS012": "security",  # ldap-injection
+        "CS013": "security",  # hardcoded-connection-string
     }
 
     # Security rules apply to all languages
@@ -1405,7 +1855,13 @@ class CodeValidator:
 
         for rule in rules:
             # Relax certain rules for test code
-            if is_test and rule.rule in ["no-unwrap", "no-panic"]:
+            if is_test and rule.rule in [
+                "no-unwrap",
+                "no-panic",
+                "panic-in-lib",
+                "todo-macro",
+                "unimplemented-macro",
+            ]:
                 continue
 
             for match in rule.pattern.finditer(code):

@@ -31,6 +31,13 @@ forbidden:
   - Implicit global variables (missing const/let/var)
   - Direct Object.prototype modification
   - innerHTML without sanitization (use DOMPurify)
+  - dangerouslySetInnerHTML without DOMPurify sanitization (React)
+  - Path operations (path.join/resolve) with unsanitized request input
+  - Redirects using unsanitized request input
+  - RegExp constructor with untrusted user input (ReDoS risk)
+  - Empty catch blocks without error handling or comment
+  - HTTP requests (fetch/axios) to user-controlled URLs without domain validation
+  - Dynamic require() with user-controlled input
 
 patterns:
   error_handling: "Use try-catch with specific error types; always handle Promise rejections; use Error.isError() for validation"

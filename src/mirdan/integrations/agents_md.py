@@ -201,7 +201,7 @@ These rules apply to all AI agents working in this codebase:
         return """## Quality Workflow
 
 1. **Before writing code**: Call `enhance_prompt` for quality requirements
-2. **Recall context**: Call `enyal_recall` with the task description to load project conventions, past decisions, and relevant patterns
+2. **Recall context**: Call `enyal_recall` with the task to load conventions and patterns
 3. **After writing code**: Call `validate_code_quality` to check
 4. **Fix all errors** before committing or marking complete
 5. **Security-sensitive code** requires `check_security=true` validation

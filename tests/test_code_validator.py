@@ -876,8 +876,8 @@ class TestIntegrationWithQualityStandards:
         assert any(v.rule == "no-eval" for v in result.violations)
 
 
-class TestTypeScriptNewRules:
-    """Tests for new TypeScript validation rules."""
+class TestTypeScriptBaseRules:
+    """Tests for base TypeScript validation rules (TS001-TS005)."""
 
     def test_detects_inner_html(self, validator: CodeValidator) -> None:
         """Should detect innerHTML assignment (XSS risk)."""
@@ -894,8 +894,8 @@ class TestTypeScriptNewRules:
         assert violations[0].category == "security"
 
 
-class TestJavaScriptNewRules:
-    """Tests for new JavaScript validation rules."""
+class TestJavaScriptBaseRules:
+    """Tests for base JavaScript validation rules (JS001-JS005)."""
 
     def test_detects_inner_html(self, validator: CodeValidator) -> None:
         """Should detect innerHTML assignment (XSS risk)."""
@@ -918,8 +918,8 @@ class TestJavaScriptNewRules:
         assert violations[0].category == "security"
 
 
-class TestGoNewRules:
-    """Tests for new Go validation rules."""
+class TestGoBaseRules:
+    """Tests for base Go validation rules (GO001-GO003)."""
 
     def test_detects_sql_sprintf(self, validator: CodeValidator) -> None:
         """Should detect SQL query built with fmt.Sprintf (SQL injection risk)."""
@@ -942,8 +942,8 @@ class TestGoNewRules:
         assert not any(v.id == "GO003" for v in result.violations)
 
 
-class TestJavaNewRules:
-    """Tests for new Java validation rules."""
+class TestJavaBaseRules:
+    """Tests for base Java validation rules (JV001-JV007)."""
 
     def test_detects_runtime_exec(self, validator: CodeValidator) -> None:
         """Should detect Runtime.exec() (command injection risk)."""
@@ -1655,3 +1655,206 @@ class TestSemanticChecksIntegration:
         code = 'cursor.execute(f"SELECT * FROM users WHERE id={uid}")'
         checks = cv.generate_semantic_checks(code, "python", [])
         assert checks == []
+
+
+# ============================================================
+# New language parity tests
+# ============================================================
+
+
+class TestTypeScriptNewRules:
+    """Tests for TypeScript rules TS006-TS013."""
+
+    def test_detects_dangerously_set_html(self, validator: CodeValidator) -> None:
+        code = '<div dangerouslySetInnerHTML={{__html: userInput}} />'
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS006" for v in result.violations)
+
+    def test_detects_child_process_exec(self, validator: CodeValidator) -> None:
+        code = "child_process.exec(userCmd)"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS007" for v in result.violations)
+
+    def test_detects_non_null_assertion(self, validator: CodeValidator) -> None:
+        code = "const name = user!.name;"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS008" for v in result.violations)
+
+    def test_detects_unvalidated_redirect(self, validator: CodeValidator) -> None:
+        code = "res.redirect(req.query.url)"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS009" for v in result.violations)
+
+    def test_detects_empty_catch(self, validator: CodeValidator) -> None:
+        code = "try { foo(); } catch (e) {}"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS011" for v in result.violations)
+
+    def test_detects_path_traversal(self, validator: CodeValidator) -> None:
+        code = "const file = path.join(dir, req.params.filename);"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS012" for v in result.violations)
+
+    def test_detects_ssrf(self, validator: CodeValidator) -> None:
+        code = "const resp = fetch(req.query.url);"
+        result = validator.validate(code, language="typescript")
+        assert any(v.id == "TS013" for v in result.violations)
+
+    def test_clean_typescript_no_false_positives(self, validator: CodeValidator) -> None:
+        code = 'const x = path.join(__dirname, "static"); const re = /pattern/gi;'
+        result = validator.validate(code, language="typescript")
+        new_rule_ids = {"TS006", "TS007", "TS008", "TS009", "TS010", "TS011", "TS012", "TS013"}
+        assert not any(v.id in new_rule_ids for v in result.violations)
+
+
+class TestJavaScriptNewRules:
+    """Tests for JavaScript rules JS006-JS013."""
+
+    def test_detects_dangerously_set_html(self, validator: CodeValidator) -> None:
+        code = '<div dangerouslySetInnerHTML={{__html: data}} />'
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS006" for v in result.violations)
+
+    def test_detects_path_traversal(self, validator: CodeValidator) -> None:
+        code = "const file = path.join(base, req.params.file);"
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS007" for v in result.violations)
+
+    def test_detects_unvalidated_redirect(self, validator: CodeValidator) -> None:
+        code = "res.redirect(req.body.url);"
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS008" for v in result.violations)
+
+    def test_detects_prototype_pollution(self, validator: CodeValidator) -> None:
+        code = "obj.__proto__.isAdmin = true;"
+        result = validator.validate(code, language="javascript")
+        assert any(v.id == "JS013" for v in result.violations)
+
+    def test_clean_javascript_no_false_positives(self, validator: CodeValidator) -> None:
+        code = 'const x = path.join(__dirname, "lib"); const items = arr.filter(Boolean);'
+        result = validator.validate(code, language="javascript")
+        new_rule_ids = {"JS006", "JS007", "JS008", "JS009", "JS010", "JS011", "JS012", "JS013"}
+        assert not any(v.id in new_rule_ids for v in result.violations)
+
+
+class TestGoNewRules:
+    """Tests for Go rules GO004-GO013."""
+
+    def test_detects_http_no_timeout(self, validator: CodeValidator) -> None:
+        code = 'http.ListenAndServe(":8080", nil)'
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO004" for v in result.violations)
+
+    def test_detects_text_template(self, validator: CodeValidator) -> None:
+        code = 'import "text/template"'
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO005" for v in result.violations)
+
+    def test_detects_sql_backtick_concat(self, validator: CodeValidator) -> None:
+        code = 'db.Query(`SELECT * FROM users WHERE id = ` + id)'
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO009" for v in result.violations)
+
+    def test_detects_init_func(self, validator: CodeValidator) -> None:
+        code = 'func init() { globalVar = "value" }'
+        result = validator.validate(code, language="go")
+        assert any(v.id == "GO011" for v in result.violations)
+
+    def test_clean_go_no_false_positives(self, validator: CodeValidator) -> None:
+        code = 'srv := &http.Server{Addr: ":8080", ReadTimeout: 10 * time.Second}'
+        result = validator.validate(code, language="go")
+        assert not any(v.id == "GO004" for v in result.violations)
+
+
+class TestRustNewRules:
+    """Tests for Rust rules RS004-RS010."""
+
+    def test_detects_mem_transmute(self, validator: CodeValidator) -> None:
+        code = "let x = mem::transmute(y);"
+        result = validator.validate(code, language="rust")
+        assert any(v.id == "RS004" for v in result.violations)
+
+    def test_detects_format_shell_cmd(self, validator: CodeValidator) -> None:
+        code = 'Command::new(format!("cmd {}", user_input))'
+        result = validator.validate(code, language="rust")
+        assert any(v.id == "RS005" for v in result.violations)
+
+    def test_detects_panic(self, validator: CodeValidator) -> None:
+        code = 'panic!("unexpected state");'
+        result = validator.validate(code, language="rust")
+        assert any(v.id == "RS006" for v in result.violations)
+
+    def test_detects_sql_format(self, validator: CodeValidator) -> None:
+        code = 'format!("SELECT * FROM users WHERE id = {}", id)'
+        result = validator.validate(code, language="rust")
+        assert any(v.id == "RS008" for v in result.violations)
+
+    def test_documented_unsafe_no_violation(self, validator: CodeValidator) -> None:
+        """RS003 BaseRule should NOT fire when SAFETY comment is present."""
+        code = "// SAFETY: ptr is valid per bounds check above\nunsafe { *ptr }"
+        result = validator.validate(code, language="rust")
+        assert not any(v.id == "RS003" for v in result.violations)
+
+    def test_undocumented_unsafe_violation(self, validator: CodeValidator) -> None:
+        """RS003 BaseRule should fire when SAFETY comment is missing."""
+        code = "let val = unsafe { *raw_ptr };"
+        result = validator.validate(code, language="rust")
+        assert any(v.id == "RS003" for v in result.violations)
+
+
+class TestJavaNewRules:
+    """Tests for Java rules JV008-JV013."""
+
+    def test_detects_sql_string_format(self, validator: CodeValidator) -> None:
+        code = 'String sql = String.format("SELECT * FROM users WHERE id = %s", userId);'
+        result = validator.validate(code, language="java")
+        assert any(v.id == "JV008" for v in result.violations)
+
+    def test_detects_path_traversal(self, validator: CodeValidator) -> None:
+        code = 'File f = new File(request.getParameter("path"));'
+        result = validator.validate(code, language="java")
+        assert any(v.id == "JV009" for v in result.violations)
+
+    def test_detects_thread_local(self, validator: CodeValidator) -> None:
+        code = "private static final ThreadLocal<User> currentUser = new ThreadLocal<User>();"
+        result = validator.validate(code, language="java")
+        assert any(v.id == "JV012" for v in result.violations)
+
+    def test_clean_java_no_false_positives(self, validator: CodeValidator) -> None:
+        code = 'String msg = String.format("Hello %s", name);'
+        result = validator.validate(code, language="java")
+        assert not any(v.id == "JV008" for v in result.violations)
+
+
+class TestCSharpNewRules:
+    """Tests for C# rules CS001-CS013."""
+
+    def test_detects_sql_interpolation(self, validator: CodeValidator) -> None:
+        code = 'var query = $"SELECT * FROM users WHERE id = {userId}";'
+        result = validator.validate(code, language="csharp")
+        assert any(v.id == "CS001" for v in result.violations)
+
+    def test_detects_async_void(self, validator: CodeValidator) -> None:
+        code = "async void HandleClick(object sender, EventArgs e) { }"
+        result = validator.validate(code, language="csharp")
+        assert any(v.id == "CS004" for v in result.violations)
+
+    def test_detects_thread_sleep(self, validator: CodeValidator) -> None:
+        code = "Thread.Sleep(1000);"
+        result = validator.validate(code, language="csharp")
+        assert any(v.id == "CS005" for v in result.violations)
+
+    def test_detects_binary_formatter(self, validator: CodeValidator) -> None:
+        code = "var formatter = new BinaryFormatter();"
+        result = validator.validate(code, language="csharp")
+        assert any(v.id == "CS007" for v in result.violations)
+
+    def test_detects_empty_catch(self, validator: CodeValidator) -> None:
+        code = "try { Foo(); } catch (Exception ex) {}"
+        result = validator.validate(code, language="csharp")
+        assert any(v.id == "CS006" for v in result.violations)
+
+    def test_clean_csharp_no_false_positives(self, validator: CodeValidator) -> None:
+        code = 'var path = Path.Combine(baseDir, "config.json");'
+        result = validator.validate(code, language="csharp")
+        assert not any(v.id == "CS003" for v in result.violations)

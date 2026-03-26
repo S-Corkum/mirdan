@@ -254,7 +254,7 @@ class ToolAdvisor:
                         "overall design coherence before commenting"
                     ),
                     priority="medium",
-                    reason="Structured review catches systemic issues, not just line-level problems",
+                    reason="Structured review catches systemic issues, not just line-level ones",
                 )
             ]
 

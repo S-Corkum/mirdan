@@ -39,76 +39,233 @@ _CATEGORY_CONTEXT: dict[str, str] = {
 
 # Rule-specific explanation templates (rule_id prefix → template)
 _RULE_EXPLANATIONS: dict[str, str] = {
-    # Security rules
+    # Security rules (SEC001-SEC014)
     "SEC001": (
-        "Hardcoded secrets are a critical risk — they persist"
-        " in version control history even after removal."
+        "Hardcoded API keys persist in version control history"
+        " even after removal and can be extracted by attackers."
     ),
-    "SEC002": ("SQL injection allows attackers to manipulate database queries via user input."),
+    "SEC002": (
+        "Hardcoded passwords in source code are exposed to anyone"
+        " with repository access and persist in git history."
+    ),
     "SEC003": (
-        "Command injection allows arbitrary system command execution through unsanitized input."
+        "AWS access key patterns in source code risk unauthorized"
+        " access to cloud infrastructure."
     ),
-    "SEC004": ("Path traversal allows attackers to access files outside intended directories."),
+    "SEC004": (
+        "SQL string concatenation enables injection attacks"
+        " by allowing user input to alter query logic."
+    ),
     "SEC005": (
-        "Insecure deserialization can execute arbitrary code when processing untrusted data."
+        "SQL f-string interpolation enables injection attacks;"
+        " use parameterized queries instead."
     ),
-    "SEC006": ("Missing input validation allows unexpected data to flow through the system."),
-    "SEC007": ("Weak cryptographic algorithms provide insufficient protection for sensitive data."),
-    "SEC008": ("Missing authentication checks allow unauthorized access to protected resources."),
+    "SEC006": (
+        "SQL template literal interpolation enables injection;"
+        " use parameterized queries instead."
+    ),
+    "SEC007": (
+        "Disabling SSL/TLS verification allows man-in-the-middle"
+        " attacks to intercept or modify traffic."
+    ),
+    "SEC008": (
+        "String formatting in subprocess commands enables shell"
+        " injection via user-controlled input."
+    ),
     "SEC009": (
-        "Information exposure through error messages can reveal system internals to attackers."
+        "F-string interpolation in subprocess commands enables"
+        " shell injection via user-controlled input."
     ),
-    "SEC010": ("Cross-site scripting (XSS) allows injection of malicious scripts into web pages."),
+    "SEC010": (
+        "Disabling JWT signature verification allows forged tokens"
+        " to bypass authentication."
+    ),
     "SEC011": (
-        "Missing CSRF protection allows attackers to forge"
-        " requests on behalf of authenticated users."
+        "Cypher query f-string interpolation enables graph database"
+        " injection via user input."
     ),
     "SEC012": (
-        "Insecure random number generation can be predicted, weakening security mechanisms."
+        "Cypher query string concatenation enables graph database"
+        " injection via user input."
     ),
-    "SEC013": ("Missing rate limiting allows brute-force attacks and resource exhaustion."),
+    "SEC013": (
+        "Gremlin query f-string interpolation enables graph"
+        " traversal injection via user input."
+    ),
     "SEC014": (
         "Using dependencies with known vulnerabilities exposes"
         " the application to attacks that have public exploits."
     ),
-    # AI quality rules
+    # AI quality rules (AI001-AI008)
     "AI001": (
         "Placeholder or TODO code left by AI indicates"
         " incomplete implementation that needs human attention."
     ),
-    "AI002": ("Unnecessary verbosity in AI-generated code adds noise without improving clarity."),
-    "AI003": ("Catch-all exception handlers mask real errors and make debugging difficult."),
-    "AI004": ("AI-generated boilerplate often lacks project-specific patterns and conventions."),
+    "AI002": (
+        "Hallucinated imports reference modules that don't exist"
+        " in the project dependencies or standard library."
+    ),
+    "AI003": (
+        "Over-engineering creates unnecessary abstraction layers"
+        " for operations that could be simple and direct."
+    ),
+    "AI004": (
+        "Duplicate code blocks indicate copy-paste generation"
+        " without refactoring into shared functions."
+    ),
     "AI005": (
-        "Inconsistent naming patterns suggest mechanical"
-        " generation without understanding naming conventions."
+        "Inconsistent error handling patterns within a module"
+        " make behavior unpredictable and harder to debug."
     ),
-    "AI006": ("Dead code from AI generation clutters the codebase with unreachable logic."),
-    "AI007": ("Missing error handling in AI code creates fragile paths that fail silently."),
+    "AI006": (
+        "Heavy library imports for trivial operations waste"
+        " resources when lighter stdlib alternatives exist."
+    ),
+    "AI007": (
+        "Security theater patterns look protective but provide"
+        " no actual security benefit and create false confidence."
+    ),
     "AI008": (
-        "Over-abstraction from AI tends to create unnecessary complexity for simple operations."
+        "Injection via f-string interpolation in SQL, eval,"
+        " or shell commands enables arbitrary code execution."
     ),
-    # Python rules
+    # Python rules (PY001-PY005)
     "PY001": (
-        "Bare except clauses catch all exceptions including SystemExit and KeyboardInterrupt."
+        "eval() can execute arbitrary code from untrusted input,"
+        " enabling code injection attacks."
     ),
     "PY002": (
-        "Mutable default arguments are shared across calls, causing unexpected state mutations."
+        "exec() can execute arbitrary code strings, with risks"
+        " similar to eval() for dynamic input."
     ),
-    "PY003": ("Wildcard imports pollute the namespace and make it unclear where names originate."),
+    "PY003": (
+        "Bare except catches all exceptions including SystemExit"
+        " and KeyboardInterrupt, masking critical signals."
+    ),
     "PY004": (
-        "Global variable mutations create hidden state that makes code harder to reason about."
+        "Mutable default arguments are shared across all calls,"
+        " causing unexpected state mutations."
     ),
     "PY005": (
-        "Missing type hints reduce IDE support, documentation"
-        " quality, and static analysis effectiveness."
+        "Deprecated typing imports (List, Dict, Optional) should"
+        " use native Python 3.9+ syntax (list, dict, X | None)."
     ),
-    # TypeScript rules
-    "TS001": ("'any' type bypasses TypeScript's type checking, negating its primary benefit."),
+    # TypeScript rules (TS001-TS005)
+    "TS001": (
+        "eval() can execute arbitrary code, enabling code"
+        " injection attacks via untrusted input."
+    ),
     "TS002": (
-        "Non-null assertions (!) silence the compiler but can cause runtime null reference errors."
+        "The Function() constructor creates functions from strings,"
+        " with risks similar to eval()."
     ),
-    "TS003": ("Missing return types make function contracts implicit and harder to verify."),
+    "TS003": (
+        "@ts-ignore without explanation suppresses type checking,"
+        " hiding potential type errors."
+    ),
+    # TypeScript new rules (TS006-TS013)
+    "TS006": ("dangerouslySetInnerHTML bypasses React's built-in XSS protection."),
+    "TS007": (
+        "child_process.exec() passes commands through the shell,"
+        " enabling injection attacks."
+    ),
+    "TS008": (
+        "Non-null assertions (!) tell the compiler to ignore null safety,"
+        " risking runtime crashes."
+    ),
+    "TS009": (
+        "Unvalidated redirects allow attackers to redirect users"
+        " to phishing or malware sites."
+    ),
+    "TS010": ("Dynamic RegExp with untrusted input can cause catastrophic backtracking (ReDoS)."),
+    "TS011": ("Empty catch blocks silently swallow errors, making failures invisible."),
+    "TS012": (
+        "Path operations with user input can escape intended directories"
+        " and access sensitive files."
+    ),
+    "TS013": ("Server-side requests to user-controlled URLs can access internal services (SSRF)."),
+    # JavaScript new rules (JS006-JS013)
+    "JS006": ("dangerouslySetInnerHTML bypasses React's built-in XSS protection."),
+    "JS007": (
+        "Path operations with user input can escape intended directories"
+        " and access sensitive files."
+    ),
+    "JS008": (
+        "Unvalidated redirects allow attackers to redirect users"
+        " to phishing or malware sites."
+    ),
+    "JS009": ("Dynamic RegExp with untrusted input can cause catastrophic backtracking (ReDoS)."),
+    "JS010": ("Empty catch blocks silently swallow errors, making failures invisible."),
+    "JS011": ("Server-side requests to user-controlled URLs can access internal services (SSRF)."),
+    "JS012": (
+        "Dynamic require() with user input can load arbitrary modules,"
+        " executing attacker code."
+    ),
+    "JS013": (
+        "Prototype pollution modifies Object.prototype,"
+        " affecting all objects in the runtime."
+    ),
+    # Go new rules (GO004-GO013)
+    "GO004": (
+        "HTTP servers without timeouts are vulnerable to slowloris"
+        " and connection exhaustion."
+    ),
+    "GO005": ("text/template does not escape HTML, allowing XSS when rendering web content."),
+    "GO006": ("Path operations with request data can traverse outside intended directories."),
+    "GO007": ("Logging unsanitized user input allows log forging and log injection attacks."),
+    "GO008": ("Anonymous goroutines without context may leak resources on cancellation."),
+    "GO009": ("SQL backtick string concatenation is vulnerable to injection attacks."),
+    "GO010": ("errors.New(fmt.Sprintf()) is redundant; fmt.Errorf() combines both operations."),
+    "GO011": (
+        "init() functions run implicitly, making startup order"
+        " harder to test and reason about."
+    ),
+    "GO012": ("Unvalidated redirect URLs from request data enable open redirect attacks."),
+    "GO013": ("HTTP requests to user-controlled URLs can access internal services (SSRF)."),
+    # Rust new rules (RS003-RS010)
+    "RS003": ("Unsafe blocks bypass Rust's safety guarantees; documenting invariants is critical."),
+    "RS004": ("mem::transmute can cause undefined behavior; prefer safe type conversion traits."),
+    "RS005": ("Command execution with format! strings enables shell injection via user input."),
+    "RS006": ("panic! in library code forces callers to use catch_unwind or abort."),
+    "RS007": ("todo! macro panics at runtime if reached; implement before production."),
+    "RS008": ("SQL in format! macros is vulnerable to injection; use parameterized queries."),
+    "RS009": ("Unbounded channels can grow without limit, eventually exhausting memory."),
+    "RS010": ("unimplemented! macro panics at runtime if reached."),
+    # Java new rules (JV008-JV013)
+    "JV008": ("SQL queries built with String.format are vulnerable to injection attacks."),
+    "JV009": ("File paths from user input can traverse directories to access sensitive files."),
+    "JV010": ("Logging unsanitized request data allows log forging and injection attacks."),
+    "JV011": ("URLs from user input can access internal services (SSRF)."),
+    "JV012": ("ThreadLocal with virtual threads causes pinning and unexpected memory retention."),
+    "JV013": ("synchronized blocks can pin virtual threads to platform threads."),
+    # C# new rules (CS001-CS013)
+    "CS001": ("SQL string interpolation enables injection attacks; use parameterized queries."),
+    "CS002": ("Process.Start with unsanitized input enables command injection."),
+    "CS003": ("Path.Combine with untrusted input can traverse outside intended directories."),
+    "CS004": ("async void swallows exceptions and cannot be awaited, causing silent failures."),
+    "CS005": ("Thread.Sleep blocks the calling thread; use Task.Delay in async code."),
+    "CS006": ("Empty catch blocks silently swallow exceptions, hiding errors."),
+    "CS007": ("BinaryFormatter can execute arbitrary code during deserialization."),
+    "CS008": ("XmlDocument without secure settings is vulnerable to XML External Entity attacks."),
+    "CS009": ("Regex without timeout can cause catastrophic backtracking (ReDoS)."),
+    "CS011": ("Logging unsanitized request data allows log forging and injection attacks."),
+    "CS012": ("LDAP query concatenation enables injection attacks."),
+    "CS013": ("Hardcoded connection strings expose credentials in source control."),
+    # Performance rules (PERF001-PERF005)
+    "PERF001": (
+        "N+1 queries execute one query per item instead of one batch query,"
+        " causing linear scaling."
+    ),
+    "PERF002": ("Unbounded collection growth can exhaust memory under load."),
+    "PERF003": (
+        "Synchronous blocking in async code wastes thread pool threads"
+        " and can cause deadlocks."
+    ),
+    "PERF004": ("Queries without pagination load entire tables into memory."),
+    "PERF005": (
+        "Repeated computation inside loops wastes CPU"
+        " when the result could be computed once."
+    ),
 }
 
 # Severity context

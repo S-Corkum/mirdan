@@ -33,6 +33,12 @@ from mirdan.core.rules.deep_analysis_rules import (
     DEEP001SwallowedExceptionRule,
     DEEP004LostExceptionContextRule,
 )
+from mirdan.core.rules.perf001_n_plus_one import PERF001NPlusOneRule
+from mirdan.core.rules.perf002_unbounded_collection import PERF002UnboundedCollectionRule
+from mirdan.core.rules.perf003_sync_in_async import PERF003SyncInAsyncRule
+from mirdan.core.rules.perf004_missing_pagination import PERF004MissingPaginationRule
+from mirdan.core.rules.perf005_repeated_computation import PERF005RepeatedComputationRule
+from mirdan.core.rules.rs003_undocumented_unsafe import RS003UndocumentedUnsafeRule
 from mirdan.core.rules.sec014_vulnerable_deps import SEC014VulnerableDepsRule
 from mirdan.core.rules.test_body_rules import (
     TEST001EmptyTestRule,
@@ -112,6 +118,16 @@ class AIQualityChecker:
         # DEEP analysis rules
         self._registry.register(DEEP001SwallowedExceptionRule())
         self._registry.register(DEEP004LostExceptionContextRule())
+
+        # RS003 BaseRule (undocumented unsafe blocks)
+        self._registry.register(RS003UndocumentedUnsafeRule())
+
+        # PERF rules
+        self._registry.register(PERF001NPlusOneRule())
+        self._registry.register(PERF002UnboundedCollectionRule())
+        self._registry.register(PERF003SyncInAsyncRule())
+        self._registry.register(PERF004MissingPaginationRule())
+        self._registry.register(PERF005RepeatedComputationRule())
 
     def check(
         self,

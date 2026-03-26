@@ -5,4 +5,4 @@ Automatically transforms developer prompts into high-quality,
 structured requests that maximize AI coding assistant capabilities.
 """
 
-__version__ = "1.10.4"
+__version__ = "1.11.0"

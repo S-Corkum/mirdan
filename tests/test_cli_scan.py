@@ -30,7 +30,7 @@ def _make_scan_result(**kwargs: object) -> ScanResult:
         "conventions": [],
     }
     defaults.update(kwargs)
-    return ScanResult(**defaults)
+    return ScanResult(**defaults)  # type: ignore[arg-type]
 
 
 class TestParseArgs:

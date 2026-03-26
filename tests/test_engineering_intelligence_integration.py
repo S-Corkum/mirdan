@@ -1,5 +1,9 @@
 """Integration tests for 1.10.0 Engineering Intelligence features."""
 
+from __future__ import annotations
+
+from pathlib import Path
+
 import pytest
 
 from mirdan.config import MirdanConfig
@@ -7,7 +11,9 @@ from mirdan.providers import ComponentProvider
 
 
 @pytest.fixture
-def provider(tmp_path, monkeypatch):
+def provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> ComponentProvider:
     """Create a ComponentProvider with default config in a temp directory."""
     monkeypatch.chdir(tmp_path)
     config = MirdanConfig()
@@ -18,7 +24,9 @@ class TestEnhancePromptIntegration:
     """End-to-end tests for enhance_prompt with new features."""
 
     @pytest.mark.asyncio
-    async def test_decision_guidance_present(self, provider):
+    async def test_decision_guidance_present(
+        self, provider: ComponentProvider
+    ) -> None:
         """Prompt mentioning caching should return decision_guidance at STANDARD ceremony."""
         uc = provider.create_enhance_prompt_usecase(set())
         result = await uc.execute(
@@ -28,7 +36,9 @@ class TestEnhancePromptIntegration:
         assert "decision_guidance" in result
 
     @pytest.mark.asyncio
-    async def test_cognitive_guardrails_present(self, provider):
+    async def test_cognitive_guardrails_present(
+        self, provider: ComponentProvider
+    ) -> None:
         """Prompt mentioning payment should return cognitive_guardrails at STANDARD ceremony."""
         uc = provider.create_enhance_prompt_usecase(set())
         result = await uc.execute(
@@ -38,7 +48,9 @@ class TestEnhancePromptIntegration:
         assert "cognitive_guardrails" in result
 
     @pytest.mark.asyncio
-    async def test_no_features_for_simple_prompt(self, provider):
+    async def test_no_features_for_simple_prompt(
+        self, provider: ComponentProvider
+    ) -> None:
         """Simple prompt should not trigger decision or guardrail features."""
         uc = provider.create_enhance_prompt_usecase(set())
         result = await uc.execute("fix typo in README")
@@ -50,7 +62,9 @@ class TestValidateCodeIntegration:
     """End-to-end tests for validate_code with new features."""
 
     @pytest.mark.asyncio
-    async def test_confidence_present(self, provider):
+    async def test_confidence_present(
+        self, provider: ComponentProvider
+    ) -> None:
         """Validation result should include confidence field."""
         uc = provider.create_validate_code_usecase(set())
         result = await uc.execute(
@@ -61,7 +75,9 @@ class TestValidateCodeIntegration:
         assert result["confidence"]["level"] in ("high", "medium", "low")
 
     @pytest.mark.asyncio
-    async def test_confidence_with_test_file(self, provider):
+    async def test_confidence_with_test_file(
+        self, provider: ComponentProvider
+    ) -> None:
         """Confidence should be higher with associated test file."""
         uc = provider.create_validate_code_usecase(set())
         result = await uc.execute(
@@ -76,7 +92,9 @@ class TestAllFeaturesDisabled:
     """Tests with all new features disabled via config."""
 
     @pytest.mark.asyncio
-    async def test_enhance_prompt_graceful_noop(self, tmp_path, monkeypatch):
+    async def test_enhance_prompt_graceful_noop(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """All features disabled should not break enhance_prompt."""
         monkeypatch.chdir(tmp_path)
         config = MirdanConfig()
@@ -92,7 +110,9 @@ class TestAllFeaturesDisabled:
         assert "architecture_context" not in result
 
     @pytest.mark.asyncio
-    async def test_validate_code_without_architecture(self, tmp_path, monkeypatch):
+    async def test_validate_code_without_architecture(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Validation should still work without architecture model."""
         monkeypatch.chdir(tmp_path)
         config = MirdanConfig()

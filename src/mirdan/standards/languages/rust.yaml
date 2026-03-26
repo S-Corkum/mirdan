@@ -30,6 +30,11 @@ forbidden:
   - "Ignoring #[must_use] return values"
   - "Using .clone() to satisfy borrow checker without analysis"
   - "Unchecked arithmetic in release builds for user-controlled values"
+  - "Command::new with format! string (command injection)"
+  - "todo! macro in production code"
+  - "unimplemented! macro in production code"
+  - "SQL queries in format! macro (use parameterized queries)"
+  - "Unbounded mpsc::channel (use bounded channels)"
 
 patterns:
   error_handling: "Use thiserror for library errors with #[from] for conversions; anyhow for applications; propagate with ?"

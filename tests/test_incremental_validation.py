@@ -138,9 +138,9 @@ class TestRuleTier:
         assert RuleTier.QUICK < RuleTier.ESSENTIAL < RuleTier.FULL
 
     def test_values(self) -> None:
-        assert RuleTier.QUICK == 0
-        assert RuleTier.ESSENTIAL == 1
-        assert RuleTier.FULL == 2
+        assert RuleTier.QUICK.value == 0
+        assert RuleTier.ESSENTIAL.value == 1
+        assert RuleTier.FULL.value == 2
 
 
 class TestRuleTierDefaulting:

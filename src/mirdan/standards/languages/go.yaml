@@ -31,6 +31,12 @@ forbidden:
   - "SQL string concatenation (use parameterized queries)"
   - Ignoring context cancellation in long-running operations
   - Using unsafe package without clear justification and documentation
+  - "http.ListenAndServe() without explicit server timeouts"
+  - "filepath.Join with unsanitized request input (path traversal)"
+  - "Logging unsanitized request data (log injection)"
+  - "errors.New(fmt.Sprintf()) instead of fmt.Errorf()"
+  - "http.Redirect with unsanitized request input"
+  - "HTTP requests to user-controlled URLs (SSRF)"
 
 patterns:
   error_handling: "Return errors and wrap with fmt.Errorf using %w; use errors.Is/As for type checking; add context to errors"

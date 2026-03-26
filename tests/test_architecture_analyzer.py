@@ -1,6 +1,9 @@
 """Tests for ArchitectureAnalyzer and import extractor."""
 
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -14,7 +17,7 @@ from mirdan.core.import_extractor import (
 from mirdan.models import EntityType, ExtractedEntity, Intent, TaskType
 
 
-def _write_arch_yaml(tmp_path: Path, layers: list[dict]) -> Path:
+def _write_arch_yaml(tmp_path: Path, layers: list[dict[str, Any]]) -> Path:
     """Helper to write architecture.yaml for testing."""
     mirdan_dir = tmp_path / ".mirdan"
     mirdan_dir.mkdir(parents=True, exist_ok=True)
