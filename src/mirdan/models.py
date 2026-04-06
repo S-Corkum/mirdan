@@ -721,6 +721,44 @@ class ResearchResult:
 
 
 @dataclass
+class FileFixReport:
+    """Report of LLM-generated fixes applied to a single file."""
+
+    file: str
+    applied: list[dict[str, Any]] = field(default_factory=list)  # search/replace pairs applied
+    skipped: list[str] = field(default_factory=list)  # violation IDs we couldn't fix
+    reverted: bool = False  # True if verification found regressions
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "file": self.file,
+            "applied": self.applied,
+            "skipped": self.skipped,
+            "reverted": self.reverted,
+        }
+
+
+@dataclass
+class FixRunReport:
+    """Report of a complete check-and-fix run."""
+
+    files: list[FileFixReport] = field(default_factory=list)
+    ruff_auto_fixed: list[str] = field(default_factory=list)
+    all_pass: bool = False
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "files": [f.to_dict() for f in self.files],
+            "ruff_auto_fixed": self.ruff_auto_fixed,
+            "all_pass": self.all_pass,
+            "summary": self.summary,
+        }
+
+
+@dataclass
 class FileClaim:
     """A file ownership claim by an agent session."""
 
