@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mirdan.models import SmartValidationResult, ValidationResult, Violation
+    from mirdan.models import ValidationResult, Violation
 
 
 @dataclass
@@ -555,47 +555,3 @@ class AutoFixer:
                     is_template=False,
                 )
         return None
-
-    def apply_smart_fixes(
-        self,
-        violations: list[Violation],
-        smart_result: SmartValidationResult,
-    ) -> list[FixResult]:
-        """Apply fix suggestions from SmartValidator LLM analysis.
-
-        Consumes fix_code from per_violation entries and caps confidence at 0.85
-        since LLM-generated fixes require human verification.
-
-        Args:
-            violations: Original violations list.
-            smart_result: LLM analysis result with per_violation fix_code.
-
-        Returns:
-            List of FixResult from LLM suggestions.
-        """
-        fixes: list[FixResult] = []
-        violation_map = {v.id: v for v in violations}
-
-        for item in smart_result.per_violation:
-            fix_code = item.get("fix_code")
-            if not fix_code:
-                continue
-
-            vid = item.get("violation_id", "")
-            violation = violation_map.get(vid)
-            confidence = min(item.get("fix_confidence", 0.5), 0.85)
-
-            fix = FixResult(
-                fix_code=fix_code,
-                fix_description=f"LLM-suggested fix for {vid}",
-                confidence=confidence,
-                is_template=False,
-            )
-            fixes.append(fix)
-
-            # Also set the fix on the violation for output
-            if violation and fix.should_suggest:
-                violation.fix_code = fix_code
-                violation.fix_description = fix.fix_description
-
-        return fixes

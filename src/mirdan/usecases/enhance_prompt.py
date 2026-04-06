@@ -106,6 +106,7 @@ class EnhancePromptUseCase:
         guardrail_analyzer: GuardrailAnalyzer | None = None,
         architecture_analyzer: ArchitectureAnalyzer | None = None,
         llm_manager: Any = None,
+        training_collector: Any = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -126,6 +127,7 @@ class EnhancePromptUseCase:
         self._guardrail_analyzer = guardrail_analyzer
         self._architecture_analyzer = architecture_analyzer
         self._llm_manager = llm_manager
+        self._training_collector = training_collector
 
     async def execute(
         self,
@@ -235,6 +237,13 @@ class EnhancePromptUseCase:
         triage_result = None
         if self._llm_manager is not None:
             triage_result = await self._run_triage(prompt, intent, session_id)
+            if triage_result is not None and self._training_collector is not None:
+                self._training_collector.record_triage_sample(
+                    prompt=prompt,
+                    intent_summary=intent.task_type.value,
+                    classification=triage_result.classification.value,
+                    confidence=triage_result.confidence,
+                )
             if triage_result is not None:
                 from mirdan.models import TaskClassification
 
@@ -393,6 +402,12 @@ class EnhancePromptUseCase:
                 )
                 if optimized:
                     context.documentation_hints = [optimized.text]
+                    if self._training_collector is not None:
+                        self._training_collector.record_optimization_sample(
+                            original_prompt=prompt,
+                            optimized_prompt=optimized.text,
+                            target_model=model_tier if model_tier != "auto" else "sonnet",
+                        )
             except Exception:
                 logger.warning("Prompt optimization failed, using original context")
 

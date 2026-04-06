@@ -59,6 +59,7 @@ class ValidateCodeUseCase:
         architecture_analyzer: ArchitectureAnalyzer | None = None,
         llm_manager: Any = None,
         smart_validator: Any = None,
+        training_collector: Any = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -78,6 +79,7 @@ class ValidateCodeUseCase:
         self._architecture_analyzer = architecture_analyzer
         self._llm_manager = llm_manager
         self._smart_validator = smart_validator
+        self._training_collector = training_collector
 
     async def execute(
         self,
@@ -235,6 +237,14 @@ class ValidateCodeUseCase:
         # Attach smart analysis results
         if smart_analysis is not None:
             output["smart_analysis"] = smart_analysis.to_dict()
+
+        # Record training sample for future fine-tuning
+        if self._training_collector is not None:
+            self._training_collector.record_validation_sample(
+                code=code,
+                violations=[v.to_dict() for v in result.violations],
+                llm_analysis=smart_analysis.to_dict() if smart_analysis is not None else None,
+            )
 
         # Cross-session quality drift detection
         baseline = self._quality_persistence.get_baseline_score()

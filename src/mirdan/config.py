@@ -466,6 +466,8 @@ class LLMConfig(BaseModel):
     # Safety
     max_false_positive_ratio: float = Field(default=0.4)
     validate_llm_fixes: bool = Field(default=True)
+    # Training data collection
+    collect_training_data: bool = Field(default=False, description="Collect training samples for fine-tuning")
     # Nested config
     checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
 

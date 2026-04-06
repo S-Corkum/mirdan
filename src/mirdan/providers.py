@@ -158,6 +158,15 @@ class ComponentProvider:
         self.workspace_resolver = workspace_resolver
         self.llm_manager = LLMManager.create_if_enabled(config.llm)
 
+        # Training data collector (fire-and-forget, only when explicitly enabled)
+        from mirdan.llm.training_collector import TrainingCollector
+
+        self.training_collector: TrainingCollector | None = (
+            TrainingCollector(config=config.llm)
+            if config.llm.enabled and config.llm.collect_training_data
+            else None
+        )
+
         # SmartValidator with fix_validator callback to break circular dep (DIP)
         from mirdan.core.smart_validator import SmartValidator
 
@@ -197,6 +206,7 @@ class ComponentProvider:
             guardrail_analyzer=self.guardrail_analyzer,
             architecture_analyzer=self.architecture_analyzer,
             llm_manager=self.llm_manager,
+            training_collector=self.training_collector,
         )
 
     def create_validate_code_usecase(
@@ -221,6 +231,7 @@ class ComponentProvider:
             architecture_analyzer=self.architecture_analyzer,
             llm_manager=self.llm_manager,
             smart_validator=self.smart_validator,
+            training_collector=self.training_collector,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:
