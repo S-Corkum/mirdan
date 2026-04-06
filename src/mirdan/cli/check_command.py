@@ -241,7 +241,7 @@ def _try_sidecar(files: list[str]) -> dict[str, Any] | None:
 def _write_to_session_bridge(result: dict[str, Any]) -> None:
     """Write check result to session bridge."""
     try:
-        from mirdan.llm.session_bridge import get_session_id, write_check_result
+        from mirdan.coordination.session_bridge import get_session_id, write_check_result
 
         session_id = get_session_id()
         write_check_result(session_id, result)

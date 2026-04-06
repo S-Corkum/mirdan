@@ -165,11 +165,12 @@ class TestModelSelector:
 
         assert result is None
 
-    def test_brain_requires_arm64(self) -> None:
+    def test_brain_works_on_x86_with_enough_memory(self) -> None:
         selector = ModelSelector(installed_models=self._make_installed())
         result = selector.select(ModelRole.BRAIN, available_memory_mb=30000, architecture="x86_64")
 
-        assert result is None
+        assert result is not None
+        assert result.name == "gemma4-31b-q4"
 
     def test_brain_works_on_arm64(self) -> None:
         selector = ModelSelector(installed_models=self._make_installed())

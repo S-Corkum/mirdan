@@ -191,12 +191,20 @@ class ValidateCodeUseCase:
             except Exception:
                 logger.warning("Smart validation failed", exc_info=True)
 
-        # Enrich violations with contextual explanations
+        # Enrich violations with contextual explanations (template-based)
         if result.violations:
             try:
                 self._violation_explainer.enrich_violations(result.violations)
             except Exception:
                 logger.warning("Failed to enrich violations", exc_info=True)
+
+        # LLM-enriched explanations — supplements template explanations with
+        # code-aware context (references actual variables, line relationships)
+        if self._llm_manager and result.violations:
+            try:
+                await self._enrich_explanations_llm(result.violations, code, result.language_detected)
+            except Exception:
+                logger.warning("LLM explanation enrichment failed", exc_info=True)
 
         # Persist snapshot for quality trends
         try:
@@ -593,3 +601,60 @@ class ValidateCodeUseCase:
         )
 
         return comparison.to_dict()
+
+    async def _enrich_explanations_llm(
+        self,
+        violations: list[Any],
+        code: str,
+        language: str,
+    ) -> None:
+        """Supplement template-based explanations with LLM-generated context.
+
+        The FAST model with thinking generates code-aware explanations that
+        reference actual variables, line relationships, and data flow. This
+        supplements (doesn't replace) the existing template-based explanations.
+
+        Mutates violation objects in-place by appending to their explanation.
+
+        Args:
+            violations: List of Violation objects (already template-enriched).
+            code: Source code being validated.
+            language: Detected programming language.
+        """
+        import json
+
+        from mirdan.llm.prompts.explain import (
+            EXPLAIN_SAMPLING,
+            EXPLAIN_SCHEMA,
+            build_explain_prompt,
+        )
+        from mirdan.models import ModelRole
+
+        # Build a concise violation summary for the LLM
+        violation_dicts = [
+            {"id": v.id, "rule": v.rule, "message": v.message, "line": v.line}
+            for v in violations[:10]  # Cap to avoid overwhelming the model
+        ]
+        prompt = build_explain_prompt(code, json.dumps(violation_dicts, indent=2))
+
+        result = await self._llm_manager.generate_structured(
+            ModelRole.FAST, prompt, EXPLAIN_SCHEMA, **EXPLAIN_SAMPLING
+        )
+        if not result:
+            return
+
+        # Map explanations back to violations
+        explanation_map: dict[str, str] = {}
+        for item in result.get("explanations", []):
+            vid = item.get("violation_id", "")
+            explanation = item.get("explanation", "")
+            if vid and explanation:
+                explanation_map[vid] = explanation
+
+        for v in violations:
+            llm_explanation = explanation_map.get(v.id)
+            if llm_explanation:
+                if v.explanation:
+                    v.explanation = f"{v.explanation} {llm_explanation}"
+                else:
+                    v.explanation = llm_explanation

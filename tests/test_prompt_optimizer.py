@@ -38,13 +38,43 @@ class TestPromptOptimizerOptimize:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_brain_unavailable(self) -> None:
+    async def test_fast_model_does_full_optimization(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm.is_role_available = MagicMock(return_value=False)  # Sync method
+        mock_llm.is_role_available = MagicMock(return_value=False)  # No BRAIN
+        # FAST tier: pruning via generate_structured
+        mock_llm.generate_structured.return_value = {
+            "kept": [{"item": "context", "score": 0.8}],
+            "pruned": [],
+        }
+        # FAST tier: LLM-powered prompt generation (not just assembly)
+        mock_llm.generate.return_value = LLMResponse(
+            content="Optimized by FAST model with thinking",
+            model="gemma4-e4b", role=ModelRole.FAST,
+            elapsed_ms=200.0, tokens_used=50,
+        )
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
         result = await optimizer.optimize("task", ["context"], "", "", "sonnet")
-        assert result is None
+
+        assert result is not None
+        assert result.text == "Optimized by FAST model with thinking"
+        assert "fast" in result.optimization_notes[1].lower()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_assembly_when_llm_fails(self) -> None:
+        mock_llm = AsyncMock()
+        mock_llm.is_role_available = MagicMock(return_value=False)  # No BRAIN
+        mock_llm.generate_structured.return_value = {
+            "kept": [{"item": "context", "score": 0.8}],
+            "pruned": [],
+        }
+        mock_llm.generate.return_value = None  # LLM generation fails
+
+        optimizer = PromptOptimizer(llm_manager=mock_llm)
+        result = await optimizer.optimize("task", ["context"], "", "", "sonnet")
+
+        assert result is not None  # Falls back to deterministic assembly
+        assert "Task: task" in result.text
 
     @pytest.mark.asyncio
     async def test_returns_optimized_prompt(self) -> None:
@@ -134,19 +164,21 @@ class TestPromptOptimizerOptimize:
         )
 
         assert result is not None
-        assert "aggressive" in result.optimization_notes[2].lower()
+        assert any("aggressive" in note.lower() for note in result.optimization_notes)
 
     @pytest.mark.asyncio
-    async def test_graceful_on_generate_failure(self) -> None:
+    async def test_graceful_fallback_on_generate_failure(self) -> None:
         mock_llm = AsyncMock()
         mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
-        mock_llm.generate.return_value = None  # LLM fails
+        mock_llm.generate.return_value = None  # LLM generation fails
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
         result = await optimizer.optimize("task", [], "", "", "sonnet")
 
-        assert result is None
+        # Falls back to deterministic assembly instead of returning None
+        assert result is not None
+        assert "Task: task" in result.text
 
 
 # ---------------------------------------------------------------------------

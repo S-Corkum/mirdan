@@ -87,7 +87,7 @@ def _try_sidecar(data: dict[str, Any]) -> dict[str, Any] | None:
 def _write_to_session_bridge(result: dict[str, Any]) -> None:
     """Write triage result to session bridge for MCP dedup."""
     try:
-        from mirdan.llm.session_bridge import get_session_id, write_triage
+        from mirdan.coordination.session_bridge import get_session_id, write_triage
 
         session_id = get_session_id()
         write_triage(session_id, result)

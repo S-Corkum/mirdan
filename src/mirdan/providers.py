@@ -9,6 +9,7 @@ from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
+from mirdan.core.analyzer_suite import AnalyzerSuite
 from mirdan.llm.manager import LLMManager
 from mirdan.core.agent_coordinator import AgentCoordinator
 from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
@@ -117,6 +118,12 @@ class ComponentProvider:
         self.guardrail_analyzer = GuardrailAnalyzer(config.guardrails)
         self.architecture_analyzer = ArchitectureAnalyzer(config.architecture)
         self.architecture_analyzer.load_model(project_dir)
+        self.analyzer_suite = AnalyzerSuite(
+            tidy_first=self.tidy_analyzer,
+            decision=self.decision_analyzer,
+            guardrail=self.guardrail_analyzer,
+            architecture=self.architecture_analyzer,
+        )
 
         # Store all components as instance attributes
         self.intent_analyzer = IntentAnalyzer(config.project, manifest_parser=manifest_parser)
@@ -201,10 +208,7 @@ class ComponentProvider:
             background_tasks=background_tasks,
             ceremony_advisor=self.ceremony_advisor,
             agent_coordinator=self.agent_coordinator,
-            tidy_analyzer=self.tidy_analyzer,
-            decision_analyzer=self.decision_analyzer,
-            guardrail_analyzer=self.guardrail_analyzer,
-            architecture_analyzer=self.architecture_analyzer,
+            analyzer_suite=self.analyzer_suite,
             llm_manager=self.llm_manager,
             training_collector=self.training_collector,
         )
@@ -228,7 +232,7 @@ class ComponentProvider:
             background_tasks=background_tasks,
             agent_coordinator=self.agent_coordinator,
             confidence_calibrator=self.confidence_calibrator,
-            architecture_analyzer=self.architecture_analyzer,
+            architecture_analyzer=self.analyzer_suite.architecture,
             llm_manager=self.llm_manager,
             smart_validator=self.smart_validator,
             training_collector=self.training_collector,

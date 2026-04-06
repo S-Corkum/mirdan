@@ -101,10 +101,7 @@ class EnhancePromptUseCase:
         background_tasks: set[asyncio.Task[Any]],
         ceremony_advisor: CeremonyAdvisor | None = None,
         agent_coordinator: AgentCoordinator | None = None,
-        tidy_analyzer: TidyFirstAnalyzer | None = None,
-        decision_analyzer: DecisionAnalyzer | None = None,
-        guardrail_analyzer: GuardrailAnalyzer | None = None,
-        architecture_analyzer: ArchitectureAnalyzer | None = None,
+        analyzer_suite: Any = None,
         llm_manager: Any = None,
         training_collector: Any = None,
     ) -> None:
@@ -122,10 +119,7 @@ class EnhancePromptUseCase:
         self._background_tasks = background_tasks
         self._ceremony_advisor = ceremony_advisor
         self._agent_coordinator = agent_coordinator
-        self._tidy_analyzer = tidy_analyzer
-        self._decision_analyzer = decision_analyzer
-        self._guardrail_analyzer = guardrail_analyzer
-        self._architecture_analyzer = architecture_analyzer
+        self._analyzers = analyzer_suite
         self._llm_manager = llm_manager
         self._training_collector = training_collector
 
@@ -314,29 +308,22 @@ class EnhancePromptUseCase:
             policy = None
             effective_context_level = context_level
 
-        # Tidy First analysis — only at STANDARD+ ceremony for GENERATION/REFACTOR
+        # Ceremony-gated analyzers — only at STANDARD+ ceremony
         tidy_analysis = None
-        if (
-            self._tidy_analyzer is not None
-            and level >= CeremonyLevel.STANDARD
-            and intent.task_type in (TaskType.GENERATION, TaskType.REFACTOR)
-        ):
-            tidy_analysis = self._tidy_analyzer.analyze(intent)
-
-        # Decision intelligence — only at STANDARD+ ceremony
         decision_guidance = None
-        if self._decision_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            decision_guidance = self._decision_analyzer.analyze(intent)
-
-        # Cognitive guardrails — only at STANDARD+ ceremony
         guardrail_analysis = None
-        if self._guardrail_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            guardrail_analysis = self._guardrail_analyzer.analyze(intent)
-
-        # Architecture context — only at STANDARD+ when model loaded
         arch_context = None
-        if self._architecture_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            arch_context = self._architecture_analyzer.get_context_warnings(intent)
+        if self._analyzers and level >= CeremonyLevel.STANDARD:
+            if self._analyzers.tidy_first and intent.task_type in (
+                TaskType.GENERATION, TaskType.REFACTOR
+            ):
+                tidy_analysis = self._analyzers.tidy_first.analyze(intent)
+            if self._analyzers.decision:
+                decision_guidance = self._analyzers.decision.analyze(intent)
+            if self._analyzers.guardrail:
+                guardrail_analysis = self._analyzers.guardrail.analyze(intent)
+            if self._analyzers.architecture:
+                arch_context = self._analyzers.architecture.get_context_warnings(intent)
 
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
@@ -491,7 +478,7 @@ class EnhancePromptUseCase:
             TriageResult or None.
         """
         from mirdan.core.triage import TriageEngine
-        from mirdan.llm.session_bridge import get_session_id, read_triage
+        from mirdan.coordination.session_bridge import get_session_id, read_triage
         from mirdan.models import TaskClassification, TriageResult
 
         # Check session bridge cache (hook may have already triaged)

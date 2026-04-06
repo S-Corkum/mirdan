@@ -12,15 +12,18 @@ from __future__ import annotations
 import secrets
 from typing import Any
 
-# Sampling parameters for triage — passed to LLMManager.generate_structured()
+# Sampling parameters for triage — thinking ON for better confidence calibration.
+# The E4B with thinking produces better borderline classifications (0.55-0.70
+# confidence range) which means fewer unnecessary escalations to PAID_REQUIRED.
 TRIAGE_SAMPLING: dict[str, Any] = {
     "temperature": 0,
     "top_k": 1,
-    "thinking": False,
+    "thinking": True,
 }
 
 TRIAGE_SYSTEM_PROMPT = """\
-You are a task classifier for AI-assisted coding. Classify the developer's task into exactly one category. Respond with ONLY a JSON object, no other text.
+<|think|>
+You are a task classifier for AI-assisted coding. Classify the developer's task into exactly one category. Think through whether this task is simple enough for local tooling or requires deep AI reasoning. Respond with ONLY a JSON object, no other text.
 
 Categories:
 - local_only: Trivial tasks a linter or formatter can handle (unused imports, formatting, simple renames)

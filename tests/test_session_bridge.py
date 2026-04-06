@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mirdan.llm import session_bridge
+from mirdan.coordination import session_bridge
 
 
 class TestGetSessionId:

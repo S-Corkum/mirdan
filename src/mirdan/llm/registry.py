@@ -159,14 +159,13 @@ class ModelSelector:
         Args:
             role: FAST or BRAIN.
             available_memory_mb: Currently available RAM in MB.
-            architecture: CPU architecture (e.g. "arm64"). BRAIN requires arm64.
+            architecture: CPU architecture (e.g. "arm64"). BRAIN runs on any arch but is faster with Metal on arm64.
 
         Returns:
             Best-fitting ModelInfo, or None if nothing fits.
         """
         if role == ModelRole.BRAIN and architecture != "arm64":
-            logger.info("BRAIN role requires arm64; architecture is %s", architecture)
-            return None
+            logger.info("BRAIN on %s: slower without Metal, but supported", architecture)
 
         candidates = [m for m in self._installed if m.role == role]
         # Sort by quality descending — pick the best that fits
