@@ -5,9 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mirdan.core.check_runner import CheckRunner
+    from mirdan.core.triage import TriageEngine
+    from mirdan.llm.sidecar import Sidecar
 
 import anyio
 
@@ -40,11 +44,11 @@ class LLMManager:
         self._selector = ModelSelector()
         self._health: HealthMonitor | None = None
         self._hardware: HardwareInfo | None = None
-        self._sidecar: Any = None  # Sidecar instance
+        self._sidecar: Sidecar | None = None
         self._warmup_task: asyncio.Task[None] | None = None
-        # Engines wired later by providers.py (Phase 3 / Phase 4)
-        self.triage_engine: Any = None
-        self.check_runner: Any = None
+        # Engines wired during startup (Phase 3 / Phase 4)
+        self.triage_engine: TriageEngine | None = None
+        self.check_runner: CheckRunner | None = None
 
     @classmethod
     def create_if_enabled(cls, config: LLMConfig) -> LLMManager | None:
@@ -158,7 +162,7 @@ class LLMManager:
                                 keep_alive_seconds=self._parse_keep_alive(),
                             )
             except Exception as exc:
-                logger.debug("llama-cpp-python not usable: %s", exc)
+                logger.warning("llama-cpp-python not usable: %s", exc)
 
             if backend_choice == "llamacpp":
                 logger.warning("llamacpp backend requested but not available")
@@ -175,7 +179,7 @@ class LLMManager:
                     keep_alive=self._config.model_keep_alive,
                 )
             except Exception as exc:
-                logger.debug("Ollama backend not usable: %s", exc)
+                logger.warning("Ollama backend not usable: %s", exc)
 
         return None
 
@@ -349,6 +353,26 @@ class LLMManager:
             return isinstance(self._backend, OllamaBackend)
         except ImportError:
             return False
+
+    def is_role_available(self, role: ModelRole) -> bool:
+        """Check if a model for the given role can be selected with current resources.
+
+        Uses actual available RAM and detected architecture. This is the public
+        API for engines to check model availability — engines must not access
+        _selector directly.
+
+        Args:
+            role: FAST or BRAIN model role.
+
+        Returns:
+            True if a model for this role fits in current available memory.
+        """
+        if not self._hardware:
+            return False
+        available_ram = HardwareDetector.get_available_memory_mb()
+        return self._selector.select(
+            role, available_ram, architecture=self._hardware.architecture
+        ) is not None
 
     async def health(self) -> LLMHealth:
         """Get current LLM subsystem health.

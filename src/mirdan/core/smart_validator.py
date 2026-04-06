@@ -5,9 +5,12 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import LLMConfig
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
 from mirdan.llm.prompts.validation import (
     COMBINED_ANALYSIS_SCHEMA,
     VALIDATION_SAMPLING,
@@ -27,7 +30,7 @@ class SmartValidator:
 
     def __init__(
         self,
-        llm_manager: Any = None,
+        llm_manager: LLMManager | None = None,
         config: LLMConfig | None = None,
         fix_validator: Callable[[str, str], list[Any]] | None = None,
     ) -> None:

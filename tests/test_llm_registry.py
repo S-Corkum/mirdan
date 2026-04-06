@@ -127,46 +127,6 @@ class TestModelRegistryDiscover:
 
 
 # ---------------------------------------------------------------------------
-# ModelRegistry.detect_capabilities()
-# ---------------------------------------------------------------------------
-
-
-class TestModelRegistryCapabilities:
-    """Tests for detect_capabilities()."""
-
-    @pytest.mark.asyncio
-    async def test_detects_gemma_capabilities(self) -> None:
-        backend = MagicMock()
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
-            "model_info": {"general.architecture": "gemma2"},
-            "template": "{{ if .Tools }}tool_call{{ end }}",
-        }
-        mock_resp.raise_for_status = MagicMock()
-        backend._client.post = AsyncMock(return_value=mock_resp)
-
-        registry = ModelRegistry()
-        caps = await registry.detect_capabilities(backend, "gemma4:e2b")
-
-        assert caps["supports_structured_output"] is True
-        assert caps["supports_thinking"] is True
-        assert caps["supports_tools"] is True
-
-    @pytest.mark.asyncio
-    async def test_returns_defaults_on_failure(self) -> None:
-        backend = AsyncMock()
-        backend._client.post.side_effect = Exception("connection refused")
-
-        registry = ModelRegistry()
-        caps = await registry.detect_capabilities(backend, "test")
-
-        assert caps["supports_tools"] is False
-        assert caps["supports_structured_output"] is False
-        assert caps["supports_thinking"] is False
-
-
-# ---------------------------------------------------------------------------
 # ModelSelector.select()
 # ---------------------------------------------------------------------------
 

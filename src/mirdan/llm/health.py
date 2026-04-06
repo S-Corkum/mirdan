@@ -219,7 +219,7 @@ class HealthMonitor:
 
             # Send minimal prompt to trigger model loading
             response = await backend.generate("ok", "warmup")
-            if response.content or response.tokens_used >= 0:
+            if response.content or response.tokens_used > 0:
                 self.transition(HealthState.AVAILABLE)
             else:
                 self.transition(HealthState.DEGRADED, error="Warmup returned empty")

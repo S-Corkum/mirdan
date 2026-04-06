@@ -40,8 +40,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_returns_none_when_brain_unavailable(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = None  # No BRAIN model
+        mock_llm.is_role_available = MagicMock(return_value=False)  # Sync method
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
         result = await optimizer.optimize("task", ["context"], "", "", "sonnet")
@@ -50,8 +49,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_returns_optimized_prompt(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock(name="gemma4-31b")
+        mock_llm.is_role_available = MagicMock(return_value=True)
 
         # Pruning returns kept items
         mock_llm.generate_structured.return_value = {
@@ -84,8 +82,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_opus_targeting(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
         mock_llm.generate.return_value = LLMResponse(
             content="Concise Opus prompt", model="m", role=ModelRole.BRAIN,
@@ -102,8 +99,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_haiku_targeting(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
         mock_llm.generate.return_value = LLMResponse(
             content="Step-by-step Haiku prompt", model="m", role=ModelRole.BRAIN,
@@ -119,8 +115,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_cursor_ide_aggressive_pruning(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {
             "kept": [{"item": "essential", "score": 0.9, "reason": "needed"}],
             "pruned": [
@@ -144,8 +139,7 @@ class TestPromptOptimizerOptimize:
     @pytest.mark.asyncio
     async def test_graceful_on_generate_failure(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
         mock_llm.generate.return_value = None  # LLM fails
 

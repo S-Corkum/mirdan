@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import LLMConfig
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
 from mirdan.llm.prompts.research import (
     MAX_ITERATIONS,
     MAX_TOKEN_BUDGET,
@@ -18,7 +21,6 @@ from mirdan.llm.prompts.research import (
 from mirdan.models import (
     Intent,
     MCPToolCall,
-    MCPToolResult,
     ModelRole,
     ResearchResult,
     ToolRecommendation,
@@ -60,7 +62,7 @@ class ResearchAgent:
 
     def __init__(
         self,
-        llm_manager: Any = None,
+        llm_manager: LLMManager | None = None,
         registry: Any = None,
         config: LLMConfig | None = None,
     ) -> None:
@@ -139,14 +141,10 @@ class ResearchAgent:
         )
 
     async def _is_brain_available(self) -> bool:
-        """Check if BRAIN model is selectable."""
-        try:
-            result = self._llm._selector.select(
-                ModelRole.BRAIN, 30000, architecture="arm64"
-            )
-            return result is not None
-        except Exception:
+        """Check if BRAIN model is selectable via LLMManager's public API."""
+        if not self._llm:
             return False
+        return self._llm.is_role_available(ModelRole.BRAIN)
 
     async def _select_tool(
         self,
@@ -164,6 +162,8 @@ class ResearchAgent:
         Returns:
             Tool call dict with mcp/name/arguments, or None if done.
         """
+        if not self._llm:
+            return None
         prompt = build_tool_selection_prompt(
             task_description, tool_descriptions, previous_results
         )
@@ -186,7 +186,7 @@ class ResearchAgent:
             selected: dict[str, Any] = tool
             return selected
         except Exception:
-            logger.debug("Tool selection failed", exc_info=True)
+            logger.warning("Tool selection failed", exc_info=True)
             return None
 
     async def _execute_tool(self, tool_call: dict[str, Any]) -> dict[str, Any] | None:
@@ -247,6 +247,8 @@ class ResearchAgent:
         Returns:
             Synthesis text, or None on failure.
         """
+        if not self._llm:
+            return None
         prompt = build_synthesis_prompt(task_description, results)
 
         try:
@@ -257,6 +259,6 @@ class ResearchAgent:
                 text: str = response.content.strip()
                 return text
         except Exception:
-            logger.debug("Synthesis failed", exc_info=True)
+            logger.warning("Synthesis failed", exc_info=True)
 
         return None

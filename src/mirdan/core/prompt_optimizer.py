@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import LLMConfig
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
 from mirdan.llm.prompts.optimization import (
     CONTEXT_PRUNING_SCHEMA,
     OPTIMIZATION_SAMPLING,
@@ -28,7 +30,7 @@ class PromptOptimizer:
     when BRAIN model is unavailable (most 16GB users).
     """
 
-    def __init__(self, llm_manager: Any = None, config: LLMConfig | None = None) -> None:
+    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 
@@ -93,19 +95,10 @@ class PromptOptimizer:
         )
 
     async def _is_brain_available(self) -> bool:
-        """Check if BRAIN model is selectable."""
-        try:
-            from mirdan.llm.health import HardwareDetector
-            from mirdan.llm.registry import ModelSelector
-
-            available_ram = HardwareDetector.get_available_memory_mb()
-            # BRAIN needs arm64 + lots of RAM — selector handles this
-            result = self._llm._selector.select(
-                ModelRole.BRAIN, available_ram, architecture="arm64"
-            )
-            return result is not None
-        except Exception:
+        """Check if BRAIN model is selectable via LLMManager's public API."""
+        if not self._llm:
             return False
+        return self._llm.is_role_available(ModelRole.BRAIN)
 
     async def _prune_context(
         self,
@@ -128,6 +121,9 @@ class PromptOptimizer:
         if not context_items:
             return "", 0
 
+        if not self._llm:
+            return "\n".join(context_items), 0
+
         prompt = build_pruning_prompt(
             task_description, context_items, target_model, is_cursor
         )
@@ -142,7 +138,7 @@ class PromptOptimizer:
                 kept_text = "\n".join(item.get("item", "") for item in kept)
                 return kept_text, len(pruned)
         except Exception:
-            logger.debug("Context pruning failed, using original context")
+            logger.warning("Context pruning failed, using original context")
 
         # Fallback: return all context unpruned
         return "\n".join(context_items), 0
@@ -167,6 +163,9 @@ class PromptOptimizer:
         Returns:
             Optimized prompt text, or None on failure.
         """
+        if not self._llm:
+            return None
+
         prompt = build_optimization_prompt(
             task_description=task_description,
             pruned_context=pruned_context,
@@ -183,6 +182,6 @@ class PromptOptimizer:
                 text: str = response.content.strip()
                 return text
         except Exception:
-            logger.debug("Prompt optimization failed")
+            logger.warning("Prompt optimization failed")
 
         return None

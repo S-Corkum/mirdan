@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import LLMConfig
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
 from mirdan.llm.prompts.triage import (
     TRIAGE_SAMPLING,
     TRIAGE_SCHEMA,
@@ -32,7 +35,7 @@ class TriageEngine:
     then calls the local FAST model for everything else.
     """
 
-    def __init__(self, llm_manager: Any = None, config: LLMConfig | None = None) -> None:
+    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 

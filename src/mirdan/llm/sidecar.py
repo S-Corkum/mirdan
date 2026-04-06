@@ -6,7 +6,10 @@ import asyncio
 import logging
 import socket
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
 
 import uvicorn
 from starlette.applications import Starlette
@@ -28,7 +31,7 @@ class Sidecar:
     CheckRunner (Phase 4) are wired via LLMManager attributes.
     """
 
-    def __init__(self, manager: Any) -> None:
+    def __init__(self, manager: LLMManager) -> None:
         self._manager = manager
         self._server: uvicorn.Server | None = None
         self._serve_task: asyncio.Task[None] | None = None

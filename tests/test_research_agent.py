@@ -41,8 +41,7 @@ class TestResearchAgentLoop:
     @pytest.mark.asyncio
     async def test_selects_tools_and_synthesizes(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
 
         # First call: select context7, second: select enyal, third: null (done)
         mock_llm.generate_structured.side_effect = [
@@ -71,8 +70,7 @@ class TestResearchAgentLoop:
     @pytest.mark.asyncio
     async def test_max_iteration_limit(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
 
         # Always selects a tool (never null) — should stop at MAX_ITERATIONS
         mock_llm.generate_structured.return_value = {
@@ -97,8 +95,7 @@ class TestResearchAgentLoop:
     @pytest.mark.asyncio
     async def test_tool_execution_failure_continues(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
 
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "context7", "name": "query-docs", "arguments": {}}},
@@ -155,8 +152,7 @@ class TestResearchAgentGraceful:
     @pytest.mark.asyncio
     async def test_returns_none_when_brain_unavailable(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = None  # No BRAIN
+        mock_llm.is_role_available = MagicMock(return_value=False)  # No BRAIN
 
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=AsyncMock(), config=config)
@@ -166,8 +162,7 @@ class TestResearchAgentGraceful:
     @pytest.mark.asyncio
     async def test_returns_none_when_no_results(self) -> None:
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"tool": None}  # Immediately done
 
         config = LLMConfig(research_agent=True)
@@ -212,8 +207,7 @@ class TestResearchAgentAllowlist:
     async def test_blocks_enyal_remember(self) -> None:
         """enyal_remember (write) must be blocked."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "enyal", "name": "enyal_remember", "arguments": {"content": "malicious"}}},
             {"tool": None},
@@ -234,8 +228,7 @@ class TestResearchAgentAllowlist:
     async def test_blocks_enyal_forget(self) -> None:
         """enyal_forget (write) must be blocked."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "enyal", "name": "enyal_forget", "arguments": {"entry_id": "x"}}},
             {"tool": None},
@@ -252,8 +245,7 @@ class TestResearchAgentAllowlist:
     async def test_blocks_unknown_mcp(self) -> None:
         """Unknown MCP names must be blocked entirely."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "malicious_server", "name": "steal_data", "arguments": {}}},
             {"tool": None},
@@ -270,8 +262,7 @@ class TestResearchAgentAllowlist:
     async def test_allows_enyal_recall(self) -> None:
         """enyal_recall (read) must be allowed."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "enyal", "name": "enyal_recall", "arguments": {"query": "test"}}},
             {"tool": None},
@@ -295,8 +286,7 @@ class TestResearchAgentAllowlist:
     async def test_allows_context7_read(self) -> None:
         """context7/get-library-docs (read) must be allowed."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "context7", "name": "get-library-docs", "arguments": {}}},
             {"tool": None},
@@ -320,8 +310,7 @@ class TestResearchAgentAllowlist:
     async def test_blocks_github_write(self) -> None:
         """github/create_pull_request (write) must be blocked."""
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
             {"tool": {"mcp": "github", "name": "create_pull_request", "arguments": {}}},
             {"tool": None},
@@ -346,8 +335,7 @@ class TestResearchAgentAllowlist:
         ]
 
         mock_llm = AsyncMock()
-        mock_llm._selector = MagicMock()
-        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"tool": None}
 
         config = LLMConfig(research_agent=True)

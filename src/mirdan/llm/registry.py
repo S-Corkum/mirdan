@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -125,53 +124,6 @@ class ModelRegistry:
             len(gguf_files),
         )
         return installed
-
-    async def detect_capabilities(
-        self, backend: Any, model_name: str
-    ) -> dict[str, bool]:
-        """Query a backend for model capabilities.
-
-        Uses Ollama's /api/show endpoint to detect model family and features.
-        Returns conservative defaults (all False) if detection fails.
-
-        Args:
-            backend: An OllamaBackend instance (needs _client attribute).
-            model_name: Ollama model tag to query.
-
-        Returns:
-            Dict with supports_tools, supports_structured_output, supports_thinking.
-        """
-        defaults: dict[str, bool] = {
-            "supports_tools": False,
-            "supports_structured_output": False,
-            "supports_thinking": False,
-        }
-        try:
-            resp = await backend._client.post(
-                "/api/show", json={"name": model_name}
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            model_info = data.get("model_info", {})
-            family = str(
-                model_info.get("general.architecture", "")
-            ).lower()
-
-            # Gemma 4 supports structured output and thinking
-            if "gemma" in family:
-                defaults["supports_structured_output"] = True
-                defaults["supports_thinking"] = True
-            # Tool support depends on model training
-            template = data.get("template", "")
-            if "tool_call" in template or "tools" in template.lower():
-                defaults["supports_tools"] = True
-
-        except Exception:
-            logger.debug("Could not detect capabilities for %s", model_name)
-
-        return defaults
-
 
 class ModelSelector:
     """Selects the best available model for a given role and memory budget.

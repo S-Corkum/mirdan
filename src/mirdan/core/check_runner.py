@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
 import shlex
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mirdan.config import LLMConfig
-from mirdan.llm.prompts.checks import CHECK_ANALYSIS_PROMPT, CHECK_SAMPLING, CHECK_SCHEMA
+
+if TYPE_CHECKING:
+    from mirdan.llm.manager import LLMManager
+from mirdan.llm.prompts.checks import CHECK_SAMPLING, CHECK_SCHEMA, build_check_analysis_prompt
 from mirdan.models import CheckResult, ModelRole, SubprocessResult
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,7 @@ class CheckRunner:
     when the LLM is unavailable.
     """
 
-    def __init__(self, llm_manager: Any = None, config: LLMConfig | None = None) -> None:
+    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 
@@ -165,20 +167,12 @@ class CheckRunner:
         Returns:
             Parsed analysis dict, or None if LLM unavailable.
         """
-        combined = (
-            f"LINT:\n{lint.stdout}\n{lint.stderr}\n\n"
-            f"TYPECHECK:\n{typecheck.stdout}\n{typecheck.stderr}\n\n"
-            f"TEST:\n{test.stdout}\n{test.stderr}"
-        )
-        # Cap input to avoid overwhelming the small model's context
-        if len(combined) > 3000:
-            combined = combined[:3000] + "\n... (truncated)"
-
-        # Wrap in nonce'd delimiters to prevent injection via tool output
-        nonce = secrets.token_hex(8)
-        prompt = (
-            f"{CHECK_ANALYSIS_PROMPT}"
-            f"\n<TOOL_OUTPUT_{nonce}>\n{combined}\n</TOOL_OUTPUT_{nonce}>"
+        if not self._llm:
+            return None
+        prompt = build_check_analysis_prompt(
+            lint.stdout, lint.stderr,
+            typecheck.stdout, typecheck.stderr,
+            test.stdout, test.stderr,
         )
         result: dict[str, Any] | None = await self._llm.generate_structured(
             ModelRole.FAST, prompt, CHECK_SCHEMA, **CHECK_SAMPLING

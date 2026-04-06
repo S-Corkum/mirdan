@@ -29,7 +29,7 @@ class TrainingCollector:
         self._dir = storage_dir or Path(".mirdan/training")
         self._dir.mkdir(parents=True, exist_ok=True)
 
-    async def record_triage_sample(
+    def record_triage_sample(
         self,
         prompt: str,
         intent_summary: str,
@@ -52,7 +52,7 @@ class TrainingCollector:
             "confidence": confidence,
         })
 
-    async def record_validation_sample(
+    def record_validation_sample(
         self,
         code: str,
         violations: list[dict[str, Any]],
@@ -75,7 +75,7 @@ class TrainingCollector:
             "user_accepted": user_accepted,
         })
 
-    async def record_optimization_sample(
+    def record_optimization_sample(
         self,
         original_prompt: str,
         optimized_prompt: str,
@@ -113,11 +113,11 @@ class TrainingCollector:
                 counts[name] = 0
         return counts
 
-    def export(self, format: str = "jsonl") -> str:
+    def export(self, output_format: str = "jsonl") -> str:
         """Export all training data.
 
         Args:
-            format: Export format (only "jsonl" supported currently).
+            output_format: Export format (only "jsonl" supported currently).
 
         Returns:
             Path to exported file or concatenated JSONL content.

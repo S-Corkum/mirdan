@@ -8,6 +8,7 @@ Optimized for Gemma 4 FAST model:
 
 from __future__ import annotations
 
+import secrets
 from typing import Any
 
 # Sampling parameters for check analysis
@@ -52,3 +53,44 @@ CHECK_SCHEMA: dict[str, Any] = {
         "summary": {"type": "string"},
     },
 }
+
+
+def build_check_analysis_prompt(
+    lint_stdout: str,
+    lint_stderr: str,
+    typecheck_stdout: str,
+    typecheck_stderr: str,
+    test_stdout: str,
+    test_stderr: str,
+    max_length: int = 3000,
+) -> str:
+    """Build check analysis prompt with nonce-based injection mitigation.
+
+    Concatenates tool output, truncates if too long, and wraps in nonce'd
+    delimiters. Owns all prompt assembly for the check analysis task.
+
+    Args:
+        lint_stdout: Lint command stdout.
+        lint_stderr: Lint command stderr.
+        typecheck_stdout: Typecheck command stdout.
+        typecheck_stderr: Typecheck command stderr.
+        test_stdout: Test command stdout.
+        test_stderr: Test command stderr.
+        max_length: Max chars for combined output before truncation.
+
+    Returns:
+        Complete prompt string with nonce'd delimiters.
+    """
+    combined = (
+        f"LINT:\n{lint_stdout}\n{lint_stderr}\n\n"
+        f"TYPECHECK:\n{typecheck_stdout}\n{typecheck_stderr}\n\n"
+        f"TEST:\n{test_stdout}\n{test_stderr}"
+    )
+    if len(combined) > max_length:
+        combined = combined[:max_length] + "\n... (truncated)"
+
+    nonce = secrets.token_hex(8)
+    return (
+        f"{CHECK_ANALYSIS_PROMPT}"
+        f"\n<TOOL_OUTPUT_{nonce}>\n{combined}\n</TOOL_OUTPUT_{nonce}>"
+    )

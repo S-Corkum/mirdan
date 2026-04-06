@@ -56,7 +56,7 @@ def _export(args: list[str]) -> None:
             fmt = args[i + 1]
 
     collector = TrainingCollector()
-    data = collector.export(format=fmt)
+    data = collector.export(output_format=fmt)
 
     if data:
         print(data)
