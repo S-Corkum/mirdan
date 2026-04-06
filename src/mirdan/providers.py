@@ -9,6 +9,7 @@ from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
+from mirdan.llm.manager import LLMManager
 from mirdan.core.agent_coordinator import AgentCoordinator
 from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
 from mirdan.core.auto_fixer import AutoFixer
@@ -155,6 +156,7 @@ class ComponentProvider:
         self.active_orchestrator = ToolExecutor(context_aggregator.registry)
         self.config = config
         self.workspace_resolver = workspace_resolver
+        self.llm_manager = LLMManager.create_if_enabled(config.llm)
 
     # -- Use-case factories ---------------------------------------------------
 
@@ -180,6 +182,7 @@ class ComponentProvider:
             decision_analyzer=self.decision_analyzer,
             guardrail_analyzer=self.guardrail_analyzer,
             architecture_analyzer=self.architecture_analyzer,
+            llm_manager=self.llm_manager,
         )
 
     def create_validate_code_usecase(
@@ -202,6 +205,7 @@ class ComponentProvider:
             agent_coordinator=self.agent_coordinator,
             confidence_calibrator=self.confidence_calibrator,
             architecture_analyzer=self.architecture_analyzer,
+            llm_manager=self.llm_manager,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:
@@ -227,5 +231,7 @@ class ComponentProvider:
         )
 
     async def close(self) -> None:
-        """Cleanup MCP client connections."""
+        """Cleanup MCP client connections and LLM subsystem."""
         await self.context_aggregator.close()
+        if self.llm_manager:
+            await self.llm_manager.shutdown()

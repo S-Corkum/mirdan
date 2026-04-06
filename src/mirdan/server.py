@@ -43,7 +43,10 @@ def _get_provider() -> ComponentProvider:
 @asynccontextmanager
 async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
     """Manage server lifecycle: startup initialization and shutdown cleanup."""
-    _get_provider()
+    provider = _get_provider()
+
+    if provider.llm_manager:
+        await provider.llm_manager.startup()
 
     budget_str = os.environ.get("MIRDAN_TOOL_BUDGET")
     if budget_str is not None and budget_str != "":

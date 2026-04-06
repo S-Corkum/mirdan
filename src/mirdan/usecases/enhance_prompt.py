@@ -105,6 +105,7 @@ class EnhancePromptUseCase:
         decision_analyzer: DecisionAnalyzer | None = None,
         guardrail_analyzer: GuardrailAnalyzer | None = None,
         architecture_analyzer: ArchitectureAnalyzer | None = None,
+        llm_manager: Any = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -124,6 +125,7 @@ class EnhancePromptUseCase:
         self._decision_analyzer = decision_analyzer
         self._guardrail_analyzer = guardrail_analyzer
         self._architecture_analyzer = architecture_analyzer
+        self._llm_manager = llm_manager
 
     async def execute(
         self,

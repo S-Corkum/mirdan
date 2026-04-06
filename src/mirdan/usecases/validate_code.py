@@ -57,6 +57,7 @@ class ValidateCodeUseCase:
         agent_coordinator: AgentCoordinator | None = None,
         confidence_calibrator: ConfidenceCalibrator | None = None,
         architecture_analyzer: ArchitectureAnalyzer | None = None,
+        llm_manager: Any = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -74,6 +75,7 @@ class ValidateCodeUseCase:
         self._agent_coordinator = agent_coordinator
         self._confidence_calibrator = confidence_calibrator
         self._architecture_analyzer = architecture_analyzer
+        self._llm_manager = llm_manager
 
     async def execute(
         self,
