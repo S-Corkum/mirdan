@@ -26,6 +26,29 @@ from mirdan.models import (
 
 logger = logging.getLogger(__name__)
 
+# Read-only tools safe for autonomous research agent use.
+# The research agent gathers context — it must NEVER modify state.
+# Keyed by MCP name → frozenset of allowed tool names.
+RESEARCH_SAFE_TOOLS: dict[str, frozenset[str]] = {
+    "context7": frozenset({
+        "resolve-library-id", "query-docs", "get-library-docs",
+    }),
+    "enyal": frozenset({
+        "enyal_recall", "enyal_recall_by_scope", "enyal_get",
+        "enyal_traverse", "enyal_impact", "enyal_edges",
+        "enyal_history", "enyal_stats", "enyal_health",
+        "enyal_review", "enyal_analytics",
+    }),
+    "sequential-thinking": frozenset({"sequentialthinking"}),
+    "github": frozenset({
+        "get_me", "list_issues", "search_issues", "issue_read",
+        "list_pull_requests", "search_pull_requests", "pull_request_read",
+        "search_code", "get_file_contents",
+        "list_branches", "list_commits", "get_commit",
+        "list_releases", "get_latest_release", "get_release_by_tag",
+    }),
+}
+
 
 class ResearchAgent:
     """Autonomously gathers context by calling MCPs in an agentic loop.
@@ -69,10 +92,11 @@ class ResearchAgent:
         if not await self._is_brain_available():
             return None
 
-        # Build tool descriptions from recommendations
+        # Build tool descriptions — only include MCPs with safe read-only tools
         tool_descriptions = [
             {"mcp": r.mcp, "name": r.action, "description": r.reason}
             for r in tool_recommendations
+            if r.mcp in RESEARCH_SAFE_TOOLS
         ]
 
         results: list[dict[str, Any]] = []
@@ -166,7 +190,7 @@ class ResearchAgent:
             return None
 
     async def _execute_tool(self, tool_call: dict[str, Any]) -> dict[str, Any] | None:
-        """Execute a single MCP tool call.
+        """Execute a single MCP tool call after allowlist validation.
 
         Args:
             tool_call: Dict with mcp, name, arguments.
@@ -177,6 +201,14 @@ class ResearchAgent:
         mcp_name = tool_call.get("mcp", "")
         tool_name = tool_call.get("name", "")
         arguments = tool_call.get("arguments", {})
+
+        # SECURITY: Enforce read-only allowlist — the LLM must not modify state
+        safe_tools = RESEARCH_SAFE_TOOLS.get(mcp_name)
+        if safe_tools is None or tool_name not in safe_tools:
+            logger.warning(
+                "Research agent blocked disallowed tool: %s/%s", mcp_name, tool_name
+            )
+            return None
 
         call = MCPToolCall(mcp_name=mcp_name, tool_name=tool_name, arguments=arguments)
 

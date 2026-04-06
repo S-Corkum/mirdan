@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 import shlex
 from pathlib import Path
 from typing import Any
@@ -173,7 +174,12 @@ class CheckRunner:
         if len(combined) > 3000:
             combined = combined[:3000] + "\n... (truncated)"
 
-        prompt = CHECK_ANALYSIS_PROMPT + combined
+        # Wrap in nonce'd delimiters to prevent injection via tool output
+        nonce = secrets.token_hex(8)
+        prompt = (
+            f"{CHECK_ANALYSIS_PROMPT}"
+            f"\n<TOOL_OUTPUT_{nonce}>\n{combined}\n</TOOL_OUTPUT_{nonce}>"
+        )
         result: dict[str, Any] | None = await self._llm.generate_structured(
             ModelRole.FAST, prompt, CHECK_SCHEMA, **CHECK_SAMPLING
         )

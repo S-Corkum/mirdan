@@ -287,6 +287,9 @@ class LLMManager:
                     return None
                 try:
                     parsed: dict[str, Any] = json.loads(response.content)
+                    if not self._validate_schema(parsed, schema):
+                        logger.warning("Text fallback response failed schema validation")
+                        return None
                     return parsed
                 except json.JSONDecodeError:
                     logger.warning("Failed to parse JSON from text response")
@@ -294,6 +297,49 @@ class LLMManager:
         except asyncio.TimeoutError:
             logger.warning("LLM generate_structured timed out")
             return None
+
+    @staticmethod
+    def _validate_schema(data: dict[str, Any], schema: dict[str, Any]) -> bool:
+        """Lightweight schema validation for text fallback responses.
+
+        Checks that required keys exist and top-level types match.
+        Does NOT do full JSON Schema validation — uses simple isinstance checks.
+
+        Args:
+            data: Parsed JSON from LLM response.
+            schema: JSON schema with optional 'required' and 'properties'.
+
+        Returns:
+            True if data passes structural validation.
+        """
+        _TYPE_MAP: dict[str, type | tuple[type, ...]] = {
+            "string": str,
+            "number": (int, float),
+            "integer": int,
+            "array": list,
+            "object": dict,
+            "boolean": bool,
+        }
+
+        for key in schema.get("required", []):
+            if key not in data:
+                logger.warning("Schema validation: missing required key '%s'", key)
+                return False
+
+        for key, prop in schema.get("properties", {}).items():
+            if key not in data:
+                continue
+            expected_type = prop.get("type")
+            if isinstance(expected_type, str):
+                python_type = _TYPE_MAP.get(expected_type)
+                if python_type and not isinstance(data[key], python_type):
+                    logger.warning(
+                        "Schema validation: '%s' expected %s, got %s",
+                        key, expected_type, type(data[key]).__name__,
+                    )
+                    return False
+
+        return True
 
     def _is_ollama_backend(self) -> bool:
         """Check if the current backend is OllamaBackend."""

@@ -76,7 +76,7 @@ class TestResearchAgentLoop:
 
         # Always selects a tool (never null) — should stop at MAX_ITERATIONS
         mock_llm.generate_structured.return_value = {
-            "tool": {"mcp": "context7", "name": "get-docs", "arguments": {}}
+            "tool": {"mcp": "context7", "name": "query-docs", "arguments": {}}
         }
         mock_llm.generate.return_value = LLMResponse(
             content="synthesis", model="m", role=ModelRole.BRAIN, elapsed_ms=0.0, tokens_used=0
@@ -101,8 +101,8 @@ class TestResearchAgentLoop:
         mock_llm._selector.select.return_value = MagicMock()
 
         mock_llm.generate_structured.side_effect = [
-            {"tool": {"mcp": "context7", "name": "fail-tool", "arguments": {}}},
-            {"tool": {"mcp": "enyal", "name": "ok-tool", "arguments": {}}},
+            {"tool": {"mcp": "context7", "name": "query-docs", "arguments": {}}},
+            {"tool": {"mcp": "enyal", "name": "enyal_recall", "arguments": {}}},
             {"tool": None},
         ]
         mock_llm.generate.return_value = LLMResponse(
@@ -198,3 +198,164 @@ class TestResearchPrompts:
 
         prompt = build_synthesis_prompt("task", [{"data": "found something"}])
         assert "found something" in prompt
+
+
+# ---------------------------------------------------------------------------
+# Security: Read-only allowlist
+# ---------------------------------------------------------------------------
+
+
+class TestResearchAgentAllowlist:
+    """Tests for the read-only tool allowlist."""
+
+    @pytest.mark.asyncio
+    async def test_blocks_enyal_remember(self) -> None:
+        """enyal_remember (write) must be blocked."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "enyal", "name": "enyal_remember", "arguments": {"content": "malicious"}}},
+            {"tool": None},
+        ]
+        mock_llm.generate.return_value = LLMResponse(
+            content="synthesis", model="m", role=ModelRole.BRAIN, elapsed_ms=0, tokens_used=0
+        )
+
+        mock_registry = AsyncMock()
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        # Should not have called the registry at all — tool was blocked
+        mock_registry.call_tools_parallel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_blocks_enyal_forget(self) -> None:
+        """enyal_forget (write) must be blocked."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "enyal", "name": "enyal_forget", "arguments": {"entry_id": "x"}}},
+            {"tool": None},
+        ]
+
+        mock_registry = AsyncMock()
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        mock_registry.call_tools_parallel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_blocks_unknown_mcp(self) -> None:
+        """Unknown MCP names must be blocked entirely."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "malicious_server", "name": "steal_data", "arguments": {}}},
+            {"tool": None},
+        ]
+
+        mock_registry = AsyncMock()
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        mock_registry.call_tools_parallel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_allows_enyal_recall(self) -> None:
+        """enyal_recall (read) must be allowed."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "enyal", "name": "enyal_recall", "arguments": {"query": "test"}}},
+            {"tool": None},
+        ]
+        mock_llm.generate.return_value = LLMResponse(
+            content="synthesis", model="m", role=ModelRole.BRAIN, elapsed_ms=0, tokens_used=0
+        )
+
+        mock_registry = AsyncMock()
+        mock_registry.call_tools_parallel.return_value = [
+            MCPToolResult(mcp_name="enyal", tool_name="enyal_recall", success=True, data="found")
+        ]
+
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        mock_registry.call_tools_parallel.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_allows_context7_read(self) -> None:
+        """context7/get-library-docs (read) must be allowed."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "context7", "name": "get-library-docs", "arguments": {}}},
+            {"tool": None},
+        ]
+        mock_llm.generate.return_value = LLMResponse(
+            content="synthesis", model="m", role=ModelRole.BRAIN, elapsed_ms=0, tokens_used=0
+        )
+
+        mock_registry = AsyncMock()
+        mock_registry.call_tools_parallel.return_value = [
+            MCPToolResult(mcp_name="context7", tool_name="get-library-docs", success=True, data="docs")
+        ]
+
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        mock_registry.call_tools_parallel.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_blocks_github_write(self) -> None:
+        """github/create_pull_request (write) must be blocked."""
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.side_effect = [
+            {"tool": {"mcp": "github", "name": "create_pull_request", "arguments": {}}},
+            {"tool": None},
+        ]
+
+        mock_registry = AsyncMock()
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
+        result = await agent.research(_make_intent(), _make_tool_recs())
+
+        mock_registry.call_tools_parallel.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_prompt_excludes_non_allowlisted_mcps(self) -> None:
+        """Tool descriptions should not include MCPs not in RESEARCH_SAFE_TOOLS."""
+        from mirdan.core.research_agent import RESEARCH_SAFE_TOOLS
+
+        recs = [
+            ToolRecommendation(mcp="context7", action="get-library-docs", reason="docs"),
+            ToolRecommendation(mcp="unknown_mcp", action="dangerous_tool", reason="bad"),
+            ToolRecommendation(mcp="enyal", action="enyal_recall", reason="memory"),
+        ]
+
+        mock_llm = AsyncMock()
+        mock_llm._selector = MagicMock()
+        mock_llm._selector.select.return_value = MagicMock()
+        mock_llm.generate_structured.return_value = {"tool": None}
+
+        config = LLMConfig(research_agent=True)
+        agent = ResearchAgent(llm_manager=mock_llm, registry=AsyncMock(), config=config)
+        await agent.research(_make_intent(), recs)
+
+        # Check the prompt that was sent to generate_structured
+        call_args = mock_llm.generate_structured.call_args
+        prompt = call_args[0][1]  # Second positional arg is the prompt
+        assert "unknown_mcp" not in prompt
+        assert "dangerous_tool" not in prompt

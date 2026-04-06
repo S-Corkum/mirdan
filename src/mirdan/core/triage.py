@@ -115,7 +115,10 @@ class TriageEngine:
             logger.warning("Unknown classification: %s", result.get("classification"))
             return None
 
-        confidence = float(result.get("confidence", 0.0))
+        try:
+            confidence = float(result.get("confidence", 0.0))
+        except (ValueError, TypeError):
+            confidence = 0.0  # Triggers low-confidence escalation to PAID_REQUIRED
         reasoning = str(result.get("reasoning", ""))
 
         # Low confidence → escalate to PAID_REQUIRED
