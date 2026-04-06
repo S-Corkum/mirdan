@@ -90,6 +90,42 @@ class TestLLMConfig:
         assert config.triage is False
 
 
+class TestLLMConfigOllamaUrlValidation:
+    """Security tests: ollama_url must point to localhost only."""
+
+    def test_accepts_localhost(self) -> None:
+        config = LLMConfig(ollama_url="http://localhost:11434")
+        assert config.ollama_url == "http://localhost:11434"
+
+    def test_accepts_127_0_0_1(self) -> None:
+        config = LLMConfig(ollama_url="http://127.0.0.1:11434")
+        assert config.ollama_url == "http://127.0.0.1:11434"
+
+    def test_accepts_ipv6_loopback(self) -> None:
+        config = LLMConfig(ollama_url="http://[::1]:11434")
+        assert config.ollama_url == "http://[::1]:11434"
+
+    def test_accepts_custom_port(self) -> None:
+        config = LLMConfig(ollama_url="http://localhost:9999")
+        assert config.ollama_url == "http://localhost:9999"
+
+    def test_rejects_remote_host(self) -> None:
+        with pytest.raises(ValidationError, match="localhost"):
+            LLMConfig(ollama_url="http://evil.com:11434")
+
+    def test_rejects_internal_ip(self) -> None:
+        with pytest.raises(ValidationError, match="localhost"):
+            LLMConfig(ollama_url="http://192.168.1.100:11434")
+
+    def test_rejects_cloud_metadata(self) -> None:
+        with pytest.raises(ValidationError, match="localhost"):
+            LLMConfig(ollama_url="http://169.254.169.254/latest/meta-data")
+
+    def test_rejects_ftp_scheme(self) -> None:
+        with pytest.raises(ValidationError, match="http"):
+            LLMConfig(ollama_url="ftp://localhost:11434")
+
+
 class TestMirdanConfigLLMIntegration:
     """Tests for LLMConfig integration with MirdanConfig."""
 

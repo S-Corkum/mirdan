@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -21,12 +22,22 @@ class OllamaBackend:
     on connection failure — callers never see exceptions from this class.
     """
 
+    _ALLOWED_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+
     def __init__(
         self,
         base_url: str = "http://localhost:11434",
         timeout: float = 30.0,
         keep_alive: str = "5m",
     ) -> None:
+        # Defense in depth: reject non-localhost URLs even if config validation is bypassed
+        parsed = urlparse(base_url)
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in self._ALLOWED_HOSTS:
+            raise ValueError(
+                f"OllamaBackend only connects to localhost (got: {hostname!r}). "
+                "Remote Ollama endpoints are not supported."
+            )
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._keep_alive = keep_alive

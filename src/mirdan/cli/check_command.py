@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -71,39 +72,48 @@ def run_check(args: list[str]) -> None:
 
 
 def _run_subprocess(command: str, files: list[str]) -> dict[str, Any]:
-    """Run a shell command with optional file arguments.
+    """Run a command with optional file arguments.
+
+    Uses shlex.split to safely tokenize the command string and passes
+    arguments as a list to subprocess.run WITHOUT shell=True, preventing
+    shell injection via malicious config values or filenames.
 
     Args:
-        command: Shell command string.
-        files: File paths to append.
+        command: Command string (will be split with shlex).
+        files: File paths to append as separate arguments.
 
     Returns:
         Dict with command, returncode, stdout, stderr.
     """
-    full_cmd = command
-    if files:
-        full_cmd = f"{command} {' '.join(files)}"
+    args = shlex.split(command) + (files if files else [])
+    display_cmd = " ".join(args)
 
     try:
         result = subprocess.run(
-            full_cmd,
-            shell=True,
+            args,
             capture_output=True,
             text=True,
             timeout=60,
         )
         return {
-            "command": full_cmd,
+            "command": display_cmd,
             "returncode": result.returncode,
             "stdout": result.stdout[:5000],  # Cap output size
             "stderr": result.stderr[:2000],
         }
     except subprocess.TimeoutExpired:
         return {
-            "command": full_cmd,
+            "command": display_cmd,
             "returncode": -1,
             "stdout": "",
             "stderr": "timeout after 60s",
+        }
+    except FileNotFoundError:
+        return {
+            "command": display_cmd,
+            "returncode": -1,
+            "stdout": "",
+            "stderr": f"command not found: {args[0] if args else command}",
         }
 
 

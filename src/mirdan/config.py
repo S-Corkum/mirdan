@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class QualityConfig(BaseModel):
@@ -466,6 +468,30 @@ class LLMConfig(BaseModel):
     validate_llm_fixes: bool = Field(default=True)
     # Nested config
     checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
+
+    @field_validator("ollama_url")
+    @classmethod
+    def validate_ollama_url_is_localhost(cls, v: str) -> str:
+        """Enforce that ollama_url points to localhost only.
+
+        The local intelligence layer must never connect to remote machines.
+        This prevents SSRF and source code exfiltration via malicious
+        project config files.
+        """
+        _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
+        parsed = urlparse(v)
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in _ALLOWED_HOSTS:
+            raise ValueError(
+                f"ollama_url must point to localhost (got host: {hostname!r}). "
+                f"Allowed hosts: {', '.join(sorted(_ALLOWED_HOSTS))}. "
+                "mirdan's local intelligence layer only connects to local services."
+            )
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"ollama_url must use http or https (got: {parsed.scheme!r})."
+            )
+        return v
 
 
 class MirdanConfig(BaseModel):

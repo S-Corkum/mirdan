@@ -342,14 +342,26 @@ class TestOllamaInit:
 
     def test_custom_values(self) -> None:
         backend = OllamaBackend(
-            base_url="http://192.168.1.100:11434/",
+            base_url="http://127.0.0.1:9999/",
             timeout=10.0,
             keep_alive="10m",
         )
-        assert backend._base_url == "http://192.168.1.100:11434"
+        assert backend._base_url == "http://127.0.0.1:9999"
         assert backend._timeout == 10.0
         assert backend._keep_alive == "10m"
 
     def test_strips_trailing_slash(self) -> None:
         backend = OllamaBackend(base_url="http://localhost:11434/")
         assert backend._base_url == "http://localhost:11434"
+
+    def test_rejects_remote_url(self) -> None:
+        with pytest.raises(ValueError, match="localhost"):
+            OllamaBackend(base_url="http://evil.com:11434")
+
+    def test_rejects_internal_ip(self) -> None:
+        with pytest.raises(ValueError, match="localhost"):
+            OllamaBackend(base_url="http://192.168.1.100:11434")
+
+    def test_accepts_ipv6_loopback(self) -> None:
+        backend = OllamaBackend(base_url="http://[::1]:11434")
+        assert backend._base_url == "http://[::1]:11434"
