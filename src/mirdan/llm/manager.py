@@ -115,7 +115,13 @@ class LLMManager:
 
             self.triage_engine = TriageEngine(llm_manager=self, config=self._config)
 
-        # 6. Start HTTP sidecar
+        # 6. Create check runner (used by sidecar and Stop hook)
+        if self._config.check_runner:
+            from mirdan.core.check_runner import CheckRunner
+
+            self.check_runner = CheckRunner(llm_manager=self, config=self._config)
+
+        # 7. Start HTTP sidecar
         from mirdan.llm.sidecar import Sidecar
 
         self._sidecar = Sidecar(self)
