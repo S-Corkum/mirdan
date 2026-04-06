@@ -345,7 +345,34 @@ class EnhancePromptUseCase:
         if effective_context_level == "none":
             context = ContextBundle()
         else:
-            context = await self._context_aggregator.gather_all(intent, effective_context_level)
+            # Research agent: at THOROUGH ceremony, try BRAIN-powered research first
+            research_used = False
+            if (
+                self._llm_manager is not None
+                and effective_context_level == "comprehensive"
+            ):
+                try:
+                    from mirdan.core.research_agent import ResearchAgent
+
+                    agent = ResearchAgent(
+                        llm_manager=self._llm_manager,
+                        registry=self._context_aggregator.registry,
+                        config=getattr(self._llm_manager, "_config", None),
+                    )
+                    research = await agent.research(intent, tool_recommendations)
+                    if research and research.synthesis:
+                        context = ContextBundle(
+                            documentation_hints=[research.synthesis],
+                            existing_patterns=[
+                                s.get("summary", "") for s in research.sources
+                            ],
+                        )
+                        research_used = True
+                except Exception:
+                    logger.debug("Research agent failed, falling back to ContextAggregator")
+
+            if not research_used:
+                context = await self._context_aggregator.gather_all(intent, effective_context_level)
 
         # Prompt optimization (BRAIN model, FULL profile only)
         if self._llm_manager is not None and hasattr(self._llm_manager, '_config'):
