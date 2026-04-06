@@ -109,7 +109,13 @@ class LLMManager:
         if self._health._warmup_task:
             self._health._warmup_task.add_done_callback(self._on_warmup_done)
 
-        # 5. Start HTTP sidecar
+        # 5. Create triage engine (used by sidecar and enhance_prompt)
+        if self._config.triage:
+            from mirdan.core.triage import TriageEngine
+
+            self.triage_engine = TriageEngine(llm_manager=self, config=self._config)
+
+        # 6. Start HTTP sidecar
         from mirdan.llm.sidecar import Sidecar
 
         self._sidecar = Sidecar(self)

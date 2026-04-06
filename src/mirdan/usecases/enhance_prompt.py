@@ -231,6 +231,40 @@ class EnhancePromptUseCase:
                 )
                 coordination_warnings = [w.to_dict() for w in warnings]
 
+        # Triage gate: classify task before ceremony to save paid tokens
+        triage_result = None
+        if self._llm_manager is not None:
+            triage_result = await self._run_triage(prompt, intent, session_id)
+            if triage_result is not None:
+                from mirdan.models import TaskClassification
+
+                # LOCAL_ONLY with high confidence: short-circuit
+                if (
+                    triage_result.classification == TaskClassification.LOCAL_ONLY
+                    and triage_result.confidence >= 0.8
+                ):
+                    return self._output_formatter.format_enhanced_prompt(
+                        {
+                            "task_type": intent.task_type.value,
+                            "language": intent.primary_language,
+                            "triage": triage_result.to_dict(),
+                            "ceremony_level": "micro",
+                            "recommendation": "Handle locally — no paid model needed",
+                            "timing_ms": {"total": round((perf_counter() - _t0) * 1000, 1)},
+                        },
+                        max_tokens=max_tokens,
+                        model_tier=_parse_model_tier(model_tier),
+                    )
+
+                # Override ceremony level based on triage
+                from mirdan.core.triage import TriageEngine
+
+                ceremony_override = TriageEngine.get_ceremony_override(
+                    triage_result.classification
+                )
+                if ceremony_override and ceremony_level == "auto":
+                    ceremony_level = ceremony_override
+
         # Determine ceremony level (after session is available for escalation checks)
         if self._ceremony_advisor is not None:
             if ceremony_level != "auto":
@@ -378,3 +412,37 @@ class EnhancePromptUseCase:
         )
 
         return result_dict
+
+    async def _run_triage(
+        self, prompt: str, intent: Any, session_id: str
+    ) -> Any:
+        """Run triage classification, checking session bridge cache first.
+
+        Args:
+            prompt: Developer's task description.
+            intent: Analyzed intent.
+            session_id: Current session ID for cache lookup.
+
+        Returns:
+            TriageResult or None.
+        """
+        from mirdan.core.triage import TriageEngine
+        from mirdan.llm.session_bridge import get_session_id, read_triage
+        from mirdan.models import TaskClassification, TriageResult
+
+        # Check session bridge cache (hook may have already triaged)
+        effective_session = session_id or get_session_id()
+        cached = read_triage(effective_session)
+        if cached and "classification" in cached:
+            try:
+                return TriageResult(
+                    classification=TaskClassification(cached["classification"]),
+                    confidence=cached.get("confidence", 0.0),
+                    reasoning=cached.get("reasoning", "cached"),
+                )
+            except ValueError:
+                pass
+
+        # Run triage via engine
+        engine = TriageEngine(llm_manager=self._llm_manager)
+        return await engine.classify(prompt, intent)
