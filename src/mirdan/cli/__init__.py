@@ -53,6 +53,8 @@ def main() -> None:
         _export(args[1:])
     elif args[0] == "llm":
         _llm(args[1:])
+    elif args[0] == "fine-tune":
+        _finetune(args[1:])
     elif args[0] == "triage":
         _triage(args[1:])
     elif args[0] == "check":
@@ -153,13 +155,37 @@ def _export(args: list[str]) -> None:
 
 def _llm(args: list[str]) -> None:
     """Local LLM management."""
-    if args and args[0] == "setup":
+    if not args:
+        print("Usage: mirdan llm <setup|status|warmup|metrics>")
+        sys.exit(1)
+
+    if args[0] == "setup":
         from mirdan.cli.llm_setup_command import run_llm_setup
 
         run_llm_setup(args[1:])
+    elif args[0] == "status":
+        from mirdan.cli.llm_command import run_llm_status
+
+        run_llm_status(args[1:])
+    elif args[0] == "warmup":
+        from mirdan.cli.llm_command import run_llm_warmup
+
+        run_llm_warmup(args[1:])
+    elif args[0] == "metrics":
+        from mirdan.cli.llm_command import run_llm_metrics
+
+        run_llm_metrics(args[1:])
     else:
-        print("Usage: mirdan llm setup [--check]")
+        print(f"Unknown llm subcommand: {args[0]}")
+        print("Usage: mirdan llm <setup|status|warmup|metrics>")
         sys.exit(1)
+
+
+def _finetune(args: list[str]) -> None:
+    """Fine-tuning data management."""
+    from mirdan.cli.finetune_command import run_finetune
+
+    run_finetune(args)
 
 
 def _triage(args: list[str]) -> None:
@@ -198,7 +224,8 @@ def _print_help() -> None:
     print("  gate       Quality gate — validate all changed files")
     print("  profile    Manage quality profiles (list, suggest, apply)")
     print("  export     Export results (sarif, badge, json)")
-    print("  llm        Local LLM management (setup, status)")
+    print("  llm        Local LLM management (setup, status, warmup, metrics)")
+    print("  fine-tune  Fine-tuning data management (status, export)")
     print("  triage     Classify a task via local LLM")
     print("  check      Run lint + typecheck + test checks")
     print()
