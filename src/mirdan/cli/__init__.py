@@ -51,6 +51,8 @@ def main() -> None:
         _profile(args[1:])
     elif args[0] == "export":
         _export(args[1:])
+    elif args[0] == "llm":
+        _llm(args[1:])
     elif args[0] == "triage":
         _triage(args[1:])
     elif args[0] == "check":
@@ -149,6 +151,17 @@ def _export(args: list[str]) -> None:
     run_export(args)
 
 
+def _llm(args: list[str]) -> None:
+    """Local LLM management."""
+    if args and args[0] == "setup":
+        from mirdan.cli.llm_setup_command import run_llm_setup
+
+        run_llm_setup(args[1:])
+    else:
+        print("Usage: mirdan llm setup [--check]")
+        sys.exit(1)
+
+
 def _triage(args: list[str]) -> None:
     """Classify a coding task via local LLM."""
     from mirdan.cli.triage_command import run_triage
@@ -185,6 +198,7 @@ def _print_help() -> None:
     print("  gate       Quality gate — validate all changed files")
     print("  profile    Manage quality profiles (list, suggest, apply)")
     print("  export     Export results (sarif, badge, json)")
+    print("  llm        Local LLM management (setup, status)")
     print("  triage     Classify a task via local LLM")
     print("  check      Run lint + typecheck + test checks")
     print()
