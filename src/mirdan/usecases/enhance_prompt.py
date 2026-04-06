@@ -347,6 +347,28 @@ class EnhancePromptUseCase:
         else:
             context = await self._context_aggregator.gather_all(intent, effective_context_level)
 
+        # Prompt optimization (BRAIN model, FULL profile only)
+        if self._llm_manager is not None and hasattr(self._llm_manager, '_config'):
+            try:
+                from mirdan.core.prompt_optimizer import PromptOptimizer
+
+                optimizer = PromptOptimizer(
+                    llm_manager=self._llm_manager,
+                    config=self._llm_manager._config,
+                )
+                optimized = await optimizer.optimize(
+                    task_description=prompt,
+                    context_items=context.existing_patterns + context.documentation_hints,
+                    tool_recommendations="\n".join(r.to_dict().get("action", "") for r in tool_recommendations),
+                    quality_requirements="\n".join(persistent_reqs),
+                    target_model=model_tier if model_tier != "auto" else "sonnet",
+                    detected_ide=detect_environment().ide.value,
+                )
+                if optimized:
+                    context.documentation_hints = [optimized.text]
+            except Exception:
+                logger.debug("Prompt optimization failed, using original context")
+
         # Compose enhanced prompt with session feedback wired through
         enhanced = self._prompt_composer.compose(
             intent,
