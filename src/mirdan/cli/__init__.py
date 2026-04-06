@@ -14,6 +14,8 @@ Routes:
 - ``mirdan gate`` → quality gate for changed files
 - ``mirdan profile`` → manage quality profiles
 - ``mirdan export`` → export results (SARIF, badge, JSON)
+- ``mirdan triage`` → classify a task via local LLM
+- ``mirdan check`` → run lint + typecheck + test checks
 """
 
 from __future__ import annotations
@@ -49,6 +51,10 @@ def main() -> None:
         _profile(args[1:])
     elif args[0] == "export":
         _export(args[1:])
+    elif args[0] == "triage":
+        _triage(args[1:])
+    elif args[0] == "check":
+        _check(args[1:])
     elif args[0] in ("--help", "-h"):
         _print_help()
     elif args[0] in ("--version", "-V"):
@@ -143,6 +149,20 @@ def _export(args: list[str]) -> None:
     run_export(args)
 
 
+def _triage(args: list[str]) -> None:
+    """Classify a coding task via local LLM."""
+    from mirdan.cli.triage_command import run_triage
+
+    run_triage(args)
+
+
+def _check(args: list[str]) -> None:
+    """Run lint, typecheck, and test checks."""
+    from mirdan.cli.check_command import run_check
+
+    run_check(args)
+
+
 def _print_help() -> None:
     """Print CLI usage help."""
     from mirdan import __version__
@@ -165,6 +185,8 @@ def _print_help() -> None:
     print("  gate       Quality gate — validate all changed files")
     print("  profile    Manage quality profiles (list, suggest, apply)")
     print("  export     Export results (sarif, badge, json)")
+    print("  triage     Classify a task via local LLM")
+    print("  check      Run lint + typecheck + test checks")
     print()
     print("Options:")
     print("  -h, --help     Show this help")
