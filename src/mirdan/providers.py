@@ -158,6 +158,20 @@ class ComponentProvider:
         self.workspace_resolver = workspace_resolver
         self.llm_manager = LLMManager.create_if_enabled(config.llm)
 
+        # SmartValidator with fix_validator callback to break circular dep (DIP)
+        from mirdan.core.smart_validator import SmartValidator
+
+        fix_validator = (
+            (lambda code, lang: self.code_validator.validate(code, lang).violations)
+            if config.llm.validate_llm_fixes
+            else None
+        )
+        self.smart_validator = SmartValidator(
+            llm_manager=self.llm_manager,
+            config=config.llm,
+            fix_validator=fix_validator,
+        )
+
     # -- Use-case factories ---------------------------------------------------
 
     def create_enhance_prompt_usecase(
@@ -206,6 +220,7 @@ class ComponentProvider:
             confidence_calibrator=self.confidence_calibrator,
             architecture_analyzer=self.architecture_analyzer,
             llm_manager=self.llm_manager,
+            smart_validator=self.smart_validator,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:

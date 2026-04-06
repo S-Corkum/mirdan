@@ -58,6 +58,7 @@ class ValidateCodeUseCase:
         confidence_calibrator: ConfidenceCalibrator | None = None,
         architecture_analyzer: ArchitectureAnalyzer | None = None,
         llm_manager: Any = None,
+        smart_validator: Any = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -76,6 +77,7 @@ class ValidateCodeUseCase:
         self._confidence_calibrator = confidence_calibrator
         self._architecture_analyzer = architecture_analyzer
         self._llm_manager = llm_manager
+        self._smart_validator = smart_validator
 
     async def execute(
         self,
@@ -177,6 +179,16 @@ class ValidateCodeUseCase:
                 result.score = self._code_validator._calculate_score(result.violations)
                 result.passed = not any(v.severity == "error" for v in result.violations)
 
+        # Smart validation: LLM-enriched FP filtering + root causes + fixes
+        smart_analysis = None
+        if self._smart_validator and result.violations:
+            try:
+                smart_analysis = await self._smart_validator.analyze(
+                    result.violations, code, result.language_detected
+                )
+            except Exception:
+                logger.debug("Smart validation failed", exc_info=True)
+
         # Enrich violations with contextual explanations
         if result.violations:
             try:
@@ -219,6 +231,10 @@ class ValidateCodeUseCase:
                 delta["persistent"] = persistent
 
         output = result.to_dict(severity_threshold=severity_threshold)
+
+        # Attach smart analysis results
+        if smart_analysis is not None:
+            output["smart_analysis"] = smart_analysis.to_dict()
 
         # Cross-session quality drift detection
         baseline = self._quality_persistence.get_baseline_score()
