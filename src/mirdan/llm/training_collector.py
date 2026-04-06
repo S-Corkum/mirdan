@@ -141,4 +141,4 @@ class TrainingCollector:
             with filepath.open("a") as f:
                 f.write(json.dumps(entry) + "\n")
         except OSError:
-            logger.debug("Failed to write training sample to %s", filename)
+            logger.warning("Failed to write training sample to %s", filename)

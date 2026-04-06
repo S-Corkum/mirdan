@@ -369,7 +369,7 @@ class EnhancePromptUseCase:
                         )
                         research_used = True
                 except Exception:
-                    logger.debug("Research agent failed, falling back to ContextAggregator")
+                    logger.warning("Research agent failed, falling back to ContextAggregator")
 
             if not research_used:
                 context = await self._context_aggregator.gather_all(intent, effective_context_level)
@@ -394,7 +394,7 @@ class EnhancePromptUseCase:
                 if optimized:
                     context.documentation_hints = [optimized.text]
             except Exception:
-                logger.debug("Prompt optimization failed, using original context")
+                logger.warning("Prompt optimization failed, using original context")
 
         # Compose enhanced prompt with session feedback wired through
         enhanced = self._prompt_composer.compose(

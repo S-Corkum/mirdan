@@ -229,7 +229,7 @@ class ResearchAgent:
                     "Tool %s/%s failed: %s", mcp_name, tool_name, results[0].error
                 )
         except Exception:
-            logger.debug("Tool execution failed: %s/%s", mcp_name, tool_name, exc_info=True)
+            logger.warning("Tool execution failed: %s/%s", mcp_name, tool_name, exc_info=True)
 
         return None
 

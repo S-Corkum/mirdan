@@ -224,6 +224,7 @@ class HealthMonitor:
             else:
                 self.transition(HealthState.DEGRADED, error="Warmup returned empty")
         except Exception as exc:
+            logger.warning("Warmup failed: %s", exc)
             self.transition(HealthState.DEGRADED, error=str(exc))
 
     def to_health(self) -> LLMHealth:

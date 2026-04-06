@@ -78,8 +78,10 @@ class QualityStandards:
                 for entry in data["conventions"]
                 if isinstance(entry, dict) and "content" in entry
             ]
+        except FileNotFoundError:
+            return []
         except Exception:
-            logger.debug("Failed to load conventions from %s", conventions_path, exc_info=True)
+            logger.warning("Failed to load conventions from %s", conventions_path, exc_info=True)
             return []
 
     def _get_stringency_count(self, category: str) -> int:

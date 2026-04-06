@@ -187,20 +187,20 @@ class ValidateCodeUseCase:
                     result.violations, code, result.language_detected
                 )
             except Exception:
-                logger.debug("Smart validation failed", exc_info=True)
+                logger.warning("Smart validation failed", exc_info=True)
 
         # Enrich violations with contextual explanations
         if result.violations:
             try:
                 self._violation_explainer.enrich_violations(result.violations)
             except Exception:
-                logger.debug("Failed to enrich violations", exc_info=True)
+                logger.warning("Failed to enrich violations", exc_info=True)
 
         # Persist snapshot for quality trends
         try:
             self._quality_persistence.save_snapshot(result)
         except Exception:
-            logger.debug("Failed to save quality snapshot", exc_info=True)
+            logger.warning("Failed to save quality snapshot", exc_info=True)
 
         # Track validation in session
         session = None
@@ -496,7 +496,7 @@ class ValidateCodeUseCase:
         try:
             self._quality_persistence.save_snapshot(result)
         except Exception:
-            logger.debug("Failed to save quality snapshot", exc_info=True)
+            logger.warning("Failed to save quality snapshot", exc_info=True)
 
         output = result.to_dict(severity_threshold="warning")
         output["files_changed"] = parsed.files_changed

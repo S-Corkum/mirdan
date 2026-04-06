@@ -58,7 +58,7 @@ class ScanConventionsUseCase:
             with conventions_path.open("w") as f:
                 yaml.dump(conventions_data, f, default_flow_style=False, allow_unicode=True)
         except Exception:
-            logger.debug("Failed to persist conventions", exc_info=True)
+            logger.warning("Failed to persist conventions", exc_info=True)
 
         output = result.to_dict()
 

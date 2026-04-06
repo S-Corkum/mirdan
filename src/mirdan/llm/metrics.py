@@ -193,7 +193,7 @@ class TokenMetrics:
             with filepath.open("a") as f:
                 f.write(json.dumps(entry) + "\n")
         except OSError:
-            logger.debug("Failed to write metric to %s", filename)
+            logger.warning("Failed to write metric to %s", filename)
 
     def _read(self, filename: str, cutoff: float = 0) -> list[dict[str, Any]]:
         """Read JSONL entries newer than cutoff."""

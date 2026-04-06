@@ -114,7 +114,7 @@ class Sidecar:
                 if result:
                     return JSONResponse(result.to_dict())
             except Exception as exc:
-                logger.warning("Triage endpoint error: %s", exc)
+                logger.error("Triage endpoint error: %s", exc)
 
         return JSONResponse({
             "classification": "paid_required",
@@ -129,7 +129,7 @@ class Sidecar:
                 result = await self._manager.check_runner.run_all()
                 return JSONResponse(result.to_dict())
             except Exception as exc:
-                logger.warning("Check endpoint error: %s", exc)
+                logger.error("Check endpoint error: %s", exc)
 
         return JSONResponse({
             "all_pass": True,
