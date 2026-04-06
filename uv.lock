@@ -1025,6 +1025,9 @@ dev = [
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
+llm = [
+    { name = "httpx" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -1039,6 +1042,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=2.14.5,<3.0.0" },
+    { name = "httpx", marker = "extra == 'llm'", specifier = ">=0.27" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "pydantic", specifier = ">=2.0" },
@@ -1051,7 +1055,7 @@ requires-dist = [
     { name = "tree-sitter-typescript", marker = "extra == 'ast'", specifier = ">=0.23" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
 ]
-provides-extras = ["ast", "dev"]
+provides-extras = ["ast", "dev", "llm"]
 
 [package.metadata.requires-dev]
 dev = [
