@@ -20,10 +20,10 @@ from mirdan.models import ContextBundle
 from mirdan.providers import ComponentProvider
 from mirdan.usecases.helpers import _MAX_CODE_LENGTH, _MAX_PROMPT_LENGTH
 
-# Extract raw async functions from FastMCP FunctionTool wrappers
-_enhance_prompt = server_mod.enhance_prompt.fn
-_get_quality_standards = server_mod.get_quality_standards.fn
-_validate_code_quality = server_mod.validate_code_quality.fn
+# In fastmcp 3.x, @mcp.tool() returns the function itself (not a wrapper)
+_enhance_prompt = server_mod.enhance_prompt
+_get_quality_standards = server_mod.get_quality_standards
+_validate_code_quality = server_mod.validate_code_quality
 
 
 @pytest.fixture(autouse=True)
@@ -407,9 +407,11 @@ class TestKnowledgeStorageHint:
 class TestToolRegistration:
     """Tests for MCP tool registration."""
 
-    def test_exactly_seven_tools_registered(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exactly_seven_tools_registered(self) -> None:
         """All 7 MCP tools should be registered."""
-        tool_names = set(server_mod.mcp._tool_manager._tools.keys())
+        tools = await server_mod.mcp.list_tools()
+        tool_names = {t.name for t in tools}
         assert len(tool_names) == 7
         expected = {
             "enhance_prompt",
@@ -422,9 +424,11 @@ class TestToolRegistration:
         }
         assert tool_names == expected
 
-    def test_no_deprecated_tools_registered(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_deprecated_tools_registered(self) -> None:
         """Deprecated tool names should not be registered."""
-        tool_names = set(server_mod.mcp._tool_manager._tools.keys())
+        tools = await server_mod.mcp.list_tools()
+        tool_names = {t.name for t in tools}
         deprecated = {
             "analyze_intent",
             "suggest_tools",

@@ -56,9 +56,10 @@ async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
             budget = -1
         if budget >= 0:
             keep = set(_TOOL_PRIORITY[:budget])
-            to_remove = [name for name in list(app._tool_manager._tools) if name not in keep]
+            tools = await app.list_tools()
+            to_remove = [t.name for t in tools if t.name not in keep]
             for name in to_remove:
-                del app._tool_manager._tools[name]
+                app.local_provider.remove_tool(name)
 
     yield
     if _provider is not None:

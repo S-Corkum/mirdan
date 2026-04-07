@@ -730,7 +730,7 @@ class TestValidateCodeQualitySemanticChecks:
         from mirdan.server import validate_code_quality
 
         server_mod._get_provider()
-        fn = validate_code_quality.fn
+        fn = validate_code_quality
 
         import asyncio
 

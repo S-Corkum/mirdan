@@ -10,7 +10,7 @@ import pytest
 import mirdan.server as server_mod
 from mirdan.models import ContextBundle
 
-_enhance_prompt = server_mod.enhance_prompt.fn
+_enhance_prompt = server_mod.enhance_prompt
 
 
 @pytest.fixture(autouse=True)

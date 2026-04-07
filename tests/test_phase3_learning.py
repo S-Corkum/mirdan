@@ -146,10 +146,12 @@ class TestScanConventionsTool:
 
         assert "scan_conventions" in server_mod._TOOL_PRIORITY
 
-    def test_scan_conventions_registered(self) -> None:
+    @pytest.mark.asyncio
+    async def test_scan_conventions_registered(self) -> None:
         import mirdan.server as server_mod
 
-        registered = set(server_mod.mcp._tool_manager._tools.keys())
+        tools = await server_mod.mcp.list_tools()
+        registered = {t.name for t in tools}
         assert "scan_conventions" in registered
 
 

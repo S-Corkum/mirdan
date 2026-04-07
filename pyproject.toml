@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
-    "fastmcp>=2.14.5,<3.0.0",  # TODO: upgrade to >=3.0.0 to drop diskcache (CVE-2025-69872)
+    "fastmcp>=3.0.0,<4.0.0",
     "pyyaml>=6.0",
     "pydantic>=2.0",
     "jinja2>=3.1.0",
@@ -32,16 +32,16 @@ ast = [
     "tree-sitter-javascript>=0.23",
 ]
 llm = [
-    "httpx>=0.27",
+    "httpx>=0.28,<0.29",
 ]
 llamacpp = [
     "llama-cpp-python>=0.3.0",
 ]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.8",
-    "mypy>=1.13",
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+    "ruff>=0.14",
+    "mypy>=1.19",
     "types-PyYAML>=6.0",
 ]
 
@@ -114,10 +114,10 @@ fail_under = 85
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
     "pytest-cov>=7.0.0",
-    "ruff>=0.8",
-    "mypy>=1.13",
+    "ruff>=0.14",
+    "mypy>=1.19",
     "types-PyYAML>=6.0",
 ]
