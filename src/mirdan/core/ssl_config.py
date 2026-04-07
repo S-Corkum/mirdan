@@ -17,6 +17,7 @@ Resolution order:
 Environment Variables:
     MIRDAN_SSL_CERT_FILE: Path to corporate CA certificate bundle.
     MIRDAN_HF_ENDPOINT: Custom HuggingFace Hub URL (e.g., Artifactory proxy).
+    MIRDAN_HF_TOKEN: Auth token for HuggingFace Hub or Artifactory proxy.
     MIRDAN_OFFLINE_MODE: Skip all network downloads (default: "false").
 """
 
@@ -153,4 +154,19 @@ def get_hf_endpoint() -> str | None:
         os.environ.get("MIRDAN_HF_ENDPOINT")
         or os.environ.get("ENYAL_HF_ENDPOINT")
         or os.environ.get("HF_ENDPOINT")
+    )
+
+
+def get_hf_token() -> str | None:
+    """Get the HuggingFace / Artifactory auth token.
+
+    Resolution order:
+        1. MIRDAN_HF_TOKEN — mirdan-specific token
+        2. ENYAL_HF_TOKEN — enyal-specific token (shared machine)
+        3. HF_TOKEN — standard HuggingFace token
+    """
+    return (
+        os.environ.get("MIRDAN_HF_TOKEN")
+        or os.environ.get("ENYAL_HF_TOKEN")
+        or os.environ.get("HF_TOKEN")
     )
