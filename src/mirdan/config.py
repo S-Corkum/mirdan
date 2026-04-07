@@ -2,10 +2,9 @@
 
 from pathlib import Path
 from typing import Any
-
-import yaml
 from urllib.parse import urlparse
 
+import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -480,13 +479,13 @@ class LLMConfig(BaseModel):
         This prevents SSRF and source code exfiltration via malicious
         project config files.
         """
-        _ALLOWED_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]"}
+        allowed_hosts = {"localhost", "127.0.0.1", "::1", "[::1]"}
         parsed = urlparse(v)
         hostname = (parsed.hostname or "").lower()
-        if hostname not in _ALLOWED_HOSTS:
+        if hostname not in allowed_hosts:
             raise ValueError(
                 f"ollama_url must point to localhost (got host: {hostname!r}). "
-                f"Allowed hosts: {', '.join(sorted(_ALLOWED_HOSTS))}. "
+                f"Allowed hosts: {', '.join(sorted(allowed_hosts))}. "
                 "mirdan's local intelligence layer only connects to local services."
             )
         if parsed.scheme not in ("http", "https"):

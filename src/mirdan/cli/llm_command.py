@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sys
 
 from mirdan.config import MirdanConfig
 
@@ -65,15 +64,15 @@ def run_llm_metrics(args: list[str]) -> None:
     Usage:
         mirdan llm metrics [--json] [--days N]
     """
+    import contextlib
+
     from mirdan.llm.metrics import TokenMetrics
 
     days = 30
     for i, arg in enumerate(args):
         if arg == "--days" and i + 1 < len(args):
-            try:
+            with contextlib.suppress(ValueError):
                 days = int(args[i + 1])
-            except ValueError:
-                pass
 
     metrics = TokenMetrics()
     summary = metrics.get_summary(days=days)

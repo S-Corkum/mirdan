@@ -3,4 +3,4 @@
 from mirdan.llm.manager import LLMManager
 from mirdan.llm.protocol import InMemoryBackend, LocalLLMProtocol
 
-__all__ = ["LocalLLMProtocol", "InMemoryBackend", "LLMManager"]
+__all__ = ["InMemoryBackend", "LLMManager", "LocalLLMProtocol"]

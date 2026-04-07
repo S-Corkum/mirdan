@@ -88,6 +88,26 @@ ignore = [
 "src/mirdan/core/gatherers/**" = ["S110"]  # Allow silent exception handling in optional gatherers
 "src/mirdan/core/client_registry.py" = ["ASYNC109"]  # timeout parameter is intentional API design
 "src/mirdan/core/active_orchestrator.py" = ["ASYNC109"]  # timeout parameter is passthrough API design
+"src/mirdan/llm/prompts/**" = ["E501"]  # Prompt templates and few-shot examples have long lines by design
+"src/mirdan/cli/check_command.py" = ["S603", "S110"]  # subprocess.run safe; session bridge write is fire-and-forget
+"src/mirdan/llm/context_provider.py" = ["E501", "PERF401"]  # Framework hints; append loop for parsing
+"src/mirdan/cli/llm_setup_command.py" = ["E501", "S603", "S607", "SIM105"]  # CLI print; subprocess; try/except for YAML
+"src/mirdan/cli/triage_command.py" = ["S110"]  # Session bridge write is fire-and-forget
+"src/mirdan/llm/health.py" = ["S607"]  # vm_stat and system_profiler are safe system tools
+"src/mirdan/llm/llamacpp.py" = ["RUF005"]  # List concat is clearer than unpacking for message construction
+"src/mirdan/llm/manager.py" = ["SIM105"]  # Port file cleanup is clearer with explicit try/except
+"src/mirdan/llm/sidecar.py" = ["SIM105"]  # Task cancel + port cleanup are clearer with explicit try/except
+"src/mirdan/llm/ollama.py" = ["F841"]  # start timestamp used for elapsed_ms calculation pattern
+"src/mirdan/core/smart_validator.py" = ["S101"]  # assert on fix_validator is a programming invariant check
+"src/mirdan/core/research_agent.py" = ["SIM103", "E501"]  # Return-condition less readable; gh CLI log messages
+"src/mirdan/llm/registry.py" = ["E501"]  # Long docstring line in ModelSelector
+"src/mirdan/core/triage.py" = ["E501"]  # Long constructor signature
+"src/mirdan/core/check_runner.py" = ["E501", "ASYNC109"]  # Long constructor; timeout param is API design
+"src/mirdan/config.py" = ["E501"]  # Long Field descriptions in config classes
+"src/mirdan/usecases/validate_code.py" = ["E501", "SIM105", "S110"]  # Long lines in method calls; fire-and-forget context
+"src/mirdan/usecases/enhance_prompt.py" = ["E501"]  # Long lines in method calls
+"src/mirdan/llm/training_collector.py" = ["PERF401"]  # Append loop is clearer for fire-and-forget pattern
+"src/mirdan/core/prompt_optimizer.py" = ["E501"]  # Long constructor signature
 
 [tool.mypy]
 python_version = "3.11"

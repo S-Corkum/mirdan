@@ -7,7 +7,6 @@ import logging
 import os
 import platform
 import subprocess
-import time
 from typing import Any
 
 from mirdan.models import HardwareInfo, HardwareProfile, HealthState, LLMHealth

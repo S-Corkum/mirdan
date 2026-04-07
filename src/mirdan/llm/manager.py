@@ -231,7 +231,7 @@ class LLMManager:
                 self._backend.generate(prompt, model.name, **kwargs),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("LLM generate timed out after %.1fs", self._health.effective_timeout)
             return None
 
@@ -298,7 +298,7 @@ class LLMManager:
                 except json.JSONDecodeError:
                     logger.warning("Failed to parse JSON from text response")
                     return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("LLM generate_structured timed out")
             return None
 
@@ -316,7 +316,7 @@ class LLMManager:
         Returns:
             True if data passes structural validation.
         """
-        _TYPE_MAP: dict[str, type | tuple[type, ...]] = {
+        type_map: dict[str, type | tuple[type, ...]] = {
             "string": str,
             "number": (int, float),
             "integer": int,
@@ -335,7 +335,7 @@ class LLMManager:
                 continue
             expected_type = prop.get("type")
             if isinstance(expected_type, str):
-                python_type = _TYPE_MAP.get(expected_type)
+                python_type = type_map.get(expected_type)
                 if python_type and not isinstance(data[key], python_type):
                     logger.warning(
                         "Schema validation: '%s' expected %s, got %s",

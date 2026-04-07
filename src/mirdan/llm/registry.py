@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from mirdan.models import HardwareProfile, ModelInfo, ModelRole
+from mirdan.models import ModelInfo, ModelRole
 
 logger = logging.getLogger(__name__)
 

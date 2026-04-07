@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import sys
 
-from mirdan.config import MirdanConfig
-
 
 def run_finetune(args: list[str]) -> None:
     """Manage fine-tuning training data.

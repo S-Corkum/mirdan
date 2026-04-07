@@ -349,7 +349,7 @@ class ResearchAgent:
                 "summary": summary,
                 "tokens": len(summary) // 4,
             }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.debug("gh %s timed out", tool_name)
         except FileNotFoundError:
             logger.debug("gh binary not found")
@@ -369,7 +369,7 @@ class ResearchAgent:
             )
             await asyncio.wait_for(proc.communicate(), timeout=5)
             return proc.returncode == 0
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
+        except (TimeoutError, FileNotFoundError, OSError):
             return False
 
     @staticmethod

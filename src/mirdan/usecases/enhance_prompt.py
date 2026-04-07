@@ -21,11 +21,8 @@ if TYPE_CHECKING:
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
     from mirdan.core.agent_coordinator import AgentCoordinator
-    from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
     from mirdan.core.ceremony import CeremonyAdvisor
     from mirdan.core.context_aggregator import ContextAggregator
-    from mirdan.core.decision_analyzer import DecisionAnalyzer
-    from mirdan.core.guardrail_analyzer import GuardrailAnalyzer
     from mirdan.core.intent_analyzer import IntentAnalyzer
     from mirdan.core.knowledge_producer import KnowledgeProducer
     from mirdan.core.orchestrator import ToolAdvisor
@@ -34,7 +31,6 @@ if TYPE_CHECKING:
     from mirdan.core.prompt_composer import PromptComposer
     from mirdan.core.session_manager import SessionManager
     from mirdan.core.session_tracker import SessionTracker
-    from mirdan.core.tidy_first import TidyFirstAnalyzer
     from mirdan.models import SessionContext
 
 logger = logging.getLogger(__name__)
@@ -477,8 +473,8 @@ class EnhancePromptUseCase:
         Returns:
             TriageResult or None.
         """
-        from mirdan.core.triage import TriageEngine
         from mirdan.coordination.session_bridge import get_session_id, read_triage
+        from mirdan.core.triage import TriageEngine
         from mirdan.models import TaskClassification, TriageResult
 
         # Check session bridge cache (hook may have already triaged)

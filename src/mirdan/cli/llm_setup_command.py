@@ -83,7 +83,7 @@ def run_llm_setup(args: list[str]) -> None:
             print(f"To download: ollama pull {tag}")
     elif recommendation["backend"] == "llamacpp":
         print(f"Download GGUF from HuggingFace: {recommendation.get('gguf_file', '')}")
-        print(f"Place in: ~/.mirdan/models/")
+        print("Place in: ~/.mirdan/models/")
 
     print()
 

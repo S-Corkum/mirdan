@@ -135,7 +135,7 @@ class CheckRunner:
                 stdout=stdout_bytes.decode(errors="replace"),
                 stderr=stderr_bytes.decode(errors="replace"),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             return SubprocessResult(
                 command=full_command,

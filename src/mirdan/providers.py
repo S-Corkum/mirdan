@@ -9,9 +9,8 @@ from typing import Any
 
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
-from mirdan.core.analyzer_suite import AnalyzerSuite
-from mirdan.llm.manager import LLMManager
 from mirdan.core.agent_coordinator import AgentCoordinator
+from mirdan.core.analyzer_suite import AnalyzerSuite
 from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
 from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.ceremony import CeremonyAdvisor
@@ -38,6 +37,7 @@ from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
 from mirdan.core.tidy_first import TidyFirstAnalyzer
 from mirdan.core.vuln_scanner import VulnScanner
+from mirdan.llm.manager import LLMManager
 from mirdan.usecases.enhance_prompt import EnhancePromptUseCase
 from mirdan.usecases.quality_standards import GetQualityStandardsUseCase
 from mirdan.usecases.quality_trends import GetQualityTrendsUseCase

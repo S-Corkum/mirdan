@@ -10,7 +10,7 @@ assembly only if the LLM call itself fails.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from mirdan.config import LLMConfig
 from mirdan.llm.prompts.optimization import (

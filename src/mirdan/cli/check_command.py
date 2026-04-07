@@ -29,7 +29,6 @@ def run_check(args: list[str]) -> None:
         _print_check_help()
         sys.exit(0)
 
-    smart = "--smart" in args
     fix_mode = "--fix" in args
     files = [a for a in args if not a.startswith("-")]
 
@@ -134,24 +133,23 @@ async def _run_llm_fix_loop(
         if not Path(file_path).exists():
             continue
 
-        # Collect violation descriptions for this file
-        violations: list[dict[str, Any]] = []
-
         # Extract violations mentioning this file from lint/typecheck output
         file_name = Path(file_path).name
-        for line in (lint_result.get("stdout", "") + "\n" + lint_result.get("stderr", "")).splitlines():
-            if file_name in line or file_path in line:
-                violations.append({"id": "LINT", "message": line.strip(), "tool": "lint"})
+        lint_output = lint_result.get("stdout", "") + "\n" + lint_result.get("stderr", "")
+        tc_output = typecheck_result.get("stdout", "") + "\n" + typecheck_result.get("stderr", "")
 
-        for line in (typecheck_result.get("stdout", "") + "\n" + typecheck_result.get("stderr", "")).splitlines():
-            if file_name in line or file_path in line:
-                violations.append({"id": "TYPE", "message": line.strip(), "tool": "typecheck"})
+        violations: list[dict[str, Any]] = [
+            {"id": "LINT", "message": line.strip(), "tool": "lint"}
+            for line in lint_output.splitlines()
+            if file_name in line or file_path in line
+        ] + [
+            {"id": "TYPE", "message": line.strip(), "tool": "typecheck"}
+            for line in tc_output.splitlines()
+            if file_name in line or file_path in line
+        ]
 
         if not violations:
             continue
-
-        # Save original for potential revert
-        original = Path(file_path).read_text()
 
         report = await fixer.fix_file(file_path, violations)
         if report.applied:
