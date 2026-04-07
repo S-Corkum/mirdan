@@ -7,9 +7,8 @@ AI Code Quality Orchestrator — **saves 30-45% of your paid AI coding tokens** 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```bash
-pip install mirdan                      # Core
-pip install mirdan[llamacpp]            # + optimal local LLM backend for 16GB
-mirdan llm setup                        # Interactive setup wizard
+uv tool install mirdan                  # Install mirdan
+mirdan llm setup                        # Auto-installs backend, downloads model, configures
 mirdan init --claude-code               # or --cursor
 # Done. Quality enforcement + local intelligence is now automatic.
 ```
@@ -31,16 +30,16 @@ Mirdan 2.0 offloads mundane work to a small local model (Gemma 4) running on you
 - **Smart Validation** — 64 quality rules + LLM false-positive filtering, root cause grouping, and fix suggestions.
 - **Auto-Fix** — `mirdan check --smart --fix` applies LLM-generated search/replace fixes with verification.
 
-| Hardware | Model | Token Savings |
-|----------|-------|---------------|
-| 16GB laptop | Gemma 4 E4B Q3 | 30-45% |
-| 32GB | Gemma 4 E4B Q4 | 40-55% |
-| 64GB+ Apple Silicon | + Prompt Optimization | 50-70% |
+| Hardware | What Runs | Token Savings |
+|----------|-----------|---------------|
+| 16GB laptop | Gemma 4 E4B Q3 — triage, checks, validation, auto-fix | 30-45% |
+| 32GB | Gemma 4 E4B Q3 — same features, more headroom | 35-50% |
+| 64GB+ Apple Silicon | + Gemma 4 31B for prompt optimization and research | 50-70% |
 
 ### Quick Setup
 
 ```bash
-mirdan llm setup              # Detects hardware, recommends model, downloads, configures
+mirdan llm setup              # Detects hardware, installs backend, downloads model, configures
 mirdan init --claude-code     # or --cursor
 mirdan llm status             # Verify it's working
 ```
@@ -96,23 +95,23 @@ The AI gets structured guidance instead of a bare prompt, producing better code 
 ### Install
 
 ```bash
-pip install mirdan                       # Core
-pip install mirdan[llamacpp]             # + local LLM backend (recommended for 16GB)
-pip install mirdan[ast]                  # + tree-sitter for TS/JS AST analysis
-pip install mirdan[llm]                  # + Ollama HTTP backend
+uv tool install mirdan                   # Install mirdan
+mirdan llm setup                         # Auto-installs LLM backend + downloads model
 
-# Or with uv:
-uv tool install mirdan
-uv tool install 'mirdan[llamacpp]'
+# Optional extras:
+uv tool install 'mirdan[ast]'            # + tree-sitter for TS/JS AST analysis
+uv tool install 'mirdan[enterprise]'     # + truststore for corporate SSL inspection
 
-# Upgrade to latest version
+# Upgrade:
 uv tool upgrade mirdan
+
+# Or with pip:
+pip install mirdan
 ```
 
 ### Set Up Your IDE
 
 ```bash
-mirdan llm setup             # Configure local LLM (detects hardware, downloads model)
 mirdan init --claude-code    # Claude Code: hooks, rules, skills, agents
 mirdan init --cursor         # Cursor: hooks, rules, AGENTS.md, BUGBOT.md
 mirdan init --all            # Both IDEs
@@ -319,6 +318,24 @@ Add to your MCP configuration:
 }
 ```
 
+**Corporate networks** (Netskope, Zscaler, Artifactory proxy): pass env vars for SSL and model downloads:
+
+```json
+{
+  "mcpServers": {
+    "mirdan": {
+      "command": "uvx",
+      "args": ["mirdan"],
+      "env": {
+        "MIRDAN_HF_ENDPOINT": "https://artifactory.corp.com/hf",
+        "MIRDAN_HF_TOKEN": "your-artifactory-token",
+        "MIRDAN_SSL_CERT_FILE": "/path/to/corporate-ca-bundle.crt"
+      }
+    }
+  }
+}
+```
+
 ### Enterprise Deployment
 
 For organization-wide enforcement via managed configuration:
@@ -443,7 +460,16 @@ hooks:
   auto_fix_suggestions: true
 ```
 
-See the full configuration reference in [docs/configuration.md](docs/configuration.md) or run `mirdan init` to generate a commented config file.
+LLM configuration goes in `.mirdan.yaml` (written by `mirdan llm setup`):
+
+```yaml
+llm:
+  enabled: true
+  backend: llamacpp                # llamacpp (default) or ollama
+  model_keep_alive: 5m             # Unload model after idle (saves RAM)
+```
+
+See the full [LLM configuration reference](https://github.com/S-Corkum/mirdan/blob/main/docs/llm-configuration.md) or run `mirdan llm setup` to auto-configure.
 
 ---
 
@@ -451,7 +477,7 @@ See the full configuration reference in [docs/configuration.md](docs/configurati
 
 ### AST-Based Validation
 
-Python rules PY001–PY004 are verified via the `ast` module, eliminating false positives from eval/exec in strings, bare except in comments, etc. Two additional AST rules ship in 1.4.0:
+Python rules PY001–PY004 are verified via the `ast` module, eliminating false positives from eval/exec in strings, bare except in comments, etc. Two additional AST rules:
 
 - **PY014** (dead-import) — detects unused imports, respecting `TYPE_CHECKING` blocks, `__all__`, and aliased imports
 - **PY015** (unreachable-code) — detects code after `return`/`raise`/`break`/`continue`, skipping `finally` blocks
@@ -650,8 +676,9 @@ Discover implicit codebase conventions and generate custom rules.
 | `mirdan standards` | View quality standards for a language |
 | `mirdan checklist` | View verification checklists for a task type |
 | `mirdan plugin` | Plugin export for standalone distribution |
-| `mirdan llm setup` | Configure local LLM — detects hardware, downloads model |
+| `mirdan llm setup` | Configure local LLM — installs backend, downloads model |
 | `mirdan llm status` | Show LLM health, loaded model, hardware profile (`--json`) |
+| `mirdan llm warmup` | Pre-load model into memory for faster first inference |
 | `mirdan llm metrics` | Token savings dashboard (`--days N`, `--json`) |
 | `mirdan triage` | Classify a task via local LLM (`--stdin`, used by hooks) |
 | `mirdan fine-tune` | Training data management (`status`, `export`) |
@@ -685,15 +712,17 @@ Discover implicit codebase conventions and generate custom rules.
 | Issue | Solution |
 |-------|----------|
 | `command not found: uvx` | Install uv: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `command not found: mirdan` | `uv tool install mirdan` |
 | Server starts but no tools appear | Restart your IDE after config changes |
 | Python version error | Ensure Python 3.11+ is installed |
 | Hook not firing | Check hook stringency level — MINIMAL only fires on 2 events |
 | Tool budget limiting tools | Set `MIRDAN_TOOL_BUDGET=5` or remove the env var |
-| "LLM backend unavailable" | Is Ollama running? `curl http://localhost:11434/api/tags`. Or install llama-cpp-python. |
+| "LLM backend unavailable" | Run `mirdan llm setup` — it auto-installs the backend and model |
 | "Model not found" | Run `mirdan llm setup` to download the recommended model |
 | Slow LLM inference (<5 tok/s) | Verify Metal: `CMAKE_ARGS="-DGGML_METAL=ON" pip install --force-reinstall llama-cpp-python` |
 | High memory usage | Set `model_keep_alive: 2m` in `.mirdan.yaml`. Model unloads after idle. |
 | Hooks not calling local LLM | Run `mirdan init --claude-code` (or `--cursor`) to regenerate hooks |
+| Corporate network download fails | Set `MIRDAN_HF_ENDPOINT` and `MIRDAN_HF_TOKEN` (see [troubleshooting guide](https://github.com/S-Corkum/mirdan/blob/main/docs/llm-troubleshooting.md)) |
 
 ---
 
@@ -703,7 +732,7 @@ Discover implicit codebase conventions and generate custom rules.
 git clone https://github.com/S-Corkum/mirdan.git
 cd mirdan
 uv sync --all-extras         # Includes tree-sitter for TS/JS AST
-uv run pytest                # 3034 tests
+uv run pytest                # 3050+ tests
 uv run mirdan                # Run server locally
 ```
 

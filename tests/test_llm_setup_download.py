@@ -208,6 +208,7 @@ class TestInstallLlamacpp:
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         with (
+            patch("shutil.which", return_value="/usr/bin/uv"),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
             patch("mirdan.cli.llm_setup_command._check_llamacpp", return_value=True),
         ):
@@ -217,11 +218,14 @@ class TestInstallLlamacpp:
         assert result is True
         call_kwargs = mock_run.call_args
         assert call_kwargs[1]["env"]["CMAKE_ARGS"] == "-DGGML_METAL=ON"
+        # Should use uv pip install
+        assert mock_run.call_args[0][0][0] == "uv"
         out = capsys.readouterr().out
         assert "Metal" in out
 
     def test_installs_without_metal_on_x86(self) -> None:
         with (
+            patch("shutil.which", return_value="/usr/bin/uv"),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
             patch("mirdan.cli.llm_setup_command._check_llamacpp", return_value=True),
         ):
@@ -232,10 +236,27 @@ class TestInstallLlamacpp:
         call_kwargs = mock_run.call_args
         assert "CMAKE_ARGS" not in call_kwargs[1]["env"]
 
-    def test_returns_false_on_pip_failure(
+    def test_falls_back_to_pip_when_uv_absent(self) -> None:
+        with (
+            patch("shutil.which", return_value=None),
+            patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
+            patch("mirdan.cli.llm_setup_command._check_llamacpp", return_value=True),
+        ):
+            mock_run.return_value = MagicMock(returncode=0)
+            result = _install_llamacpp(metal_capable=False)
+
+        assert result is True
+        cmd = mock_run.call_args[0][0]
+        assert cmd[-1] == "llama-cpp-python"
+        assert "-m" in cmd and "pip" in cmd
+
+    def test_returns_false_on_install_failure(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        with patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run:
+        with (
+            patch("shutil.which", return_value=None),
+            patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
+        ):
             mock_run.return_value = MagicMock(
                 returncode=1, stderr="error: compilation failed\n"
             )
@@ -248,9 +269,12 @@ class TestInstallLlamacpp:
     def test_returns_false_on_timeout(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        with patch(
-            "mirdan.cli.llm_setup_command.subprocess.run",
-            side_effect=subprocess.TimeoutExpired("pip", 600),
+        with (
+            patch("shutil.which", return_value=None),
+            patch(
+                "mirdan.cli.llm_setup_command.subprocess.run",
+                side_effect=subprocess.TimeoutExpired("pip", 600),
+            ),
         ):
             result = _install_llamacpp(metal_capable=False)
 
@@ -260,6 +284,7 @@ class TestInstallLlamacpp:
 
     def test_verifies_import_after_install(self) -> None:
         with (
+            patch("shutil.which", return_value=None),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
             patch(
                 "mirdan.cli.llm_setup_command._check_llamacpp", return_value=False
@@ -268,7 +293,7 @@ class TestInstallLlamacpp:
             mock_run.return_value = MagicMock(returncode=0)
             result = _install_llamacpp(metal_capable=False)
 
-        # pip succeeded but import check failed
+        # Install succeeded but import check failed
         assert result is False
 
 

@@ -150,6 +150,9 @@ def _install_llamacpp(metal_capable: bool) -> bool:
     On Apple Silicon Macs, compiles with Metal GPU support.
     On x86_64, compiles with default settings (AVX2 auto-detected).
 
+    Tries ``uv pip install`` first (works in uv tool environments where
+    pip is not bundled), then falls back to ``pip install``.
+
     Args:
         metal_capable: Whether this machine supports Metal GPU acceleration.
 
@@ -157,15 +160,23 @@ def _install_llamacpp(metal_capable: bool) -> bool:
         True if installation succeeded.
     """
     import os
+    import shutil
 
     env = os.environ.copy()
     if metal_capable:
         env["CMAKE_ARGS"] = "-DGGML_METAL=ON"
         print("  Building with Metal GPU support...")
 
+    # Build install command — prefer uv (works in uv tool envs where pip
+    # is absent), fall back to pip.
+    if shutil.which("uv"):
+        cmd = ["uv", "pip", "install", "--python", sys.executable, "llama-cpp-python"]
+    else:
+        cmd = [sys.executable, "-m", "pip", "install", "llama-cpp-python"]
+
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "llama-cpp-python"],
+            cmd,
             env=env,
             capture_output=True,
             text=True,
@@ -173,7 +184,7 @@ def _install_llamacpp(metal_capable: bool) -> bool:
         )
         if result.returncode == 0:
             return _check_llamacpp()
-        print(f"  pip install failed (exit {result.returncode})")
+        print(f"  Install failed (exit {result.returncode})")
         # Show last few lines of stderr for diagnosis
         stderr_lines = result.stderr.strip().splitlines()
         for line in stderr_lines[-5:]:
