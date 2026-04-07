@@ -37,6 +37,9 @@ llm = [
 llamacpp = [
     "llama-cpp-python>=0.3.0",
 ]
+enterprise = [
+    "truststore>=0.10",
+]
 dev = [
     "pytest>=9.0",
     "pytest-asyncio>=1.0",

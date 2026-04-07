@@ -70,7 +70,12 @@ class LLMManager:
         Sequence: cleanup stale port file → hardware detection → backend
         creation → model discovery → health warmup → sidecar start.
         """
-        # 0. Cleanup stale port file from previous session
+        # 0. Configure SSL for corporate environments (Netskope, Zscaler, etc.)
+        from mirdan.core.ssl_config import configure_ssl
+
+        configure_ssl()
+
+        # 1. Cleanup stale port file from previous session
         port_file = Path(".mirdan/sidecar.port")
         if port_file.exists():
             try:

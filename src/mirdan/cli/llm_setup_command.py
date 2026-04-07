@@ -64,7 +64,16 @@ def run_llm_setup(args: list[str]) -> None:
             print("Reinstall with: CMAKE_ARGS=\"-DGGML_METAL=ON\" pip install --force-reinstall llama-cpp-python")
             print()
 
-    # 5. Recommend model
+    # 5. Check corporate network / SSL
+    from mirdan.core.ssl_config import is_corporate_network
+
+    corporate = is_corporate_network()
+    if corporate:
+        print("  Network:      corporate environment detected")
+        _print_corporate_instructions(ollama_ok)
+        print()
+
+    # 6. Recommend model
     recommendation = _recommend_model(hw, ollama_ok, llamacpp_ok, enyal_present)
     print(f"Recommended: {recommendation['name']}")
     print(f"  Backend:  {recommendation['backend']}")
@@ -76,13 +85,20 @@ def run_llm_setup(args: list[str]) -> None:
         print("Setup check complete.")
         return
 
-    # 6-8. Download, test, and configure (interactive)
+    # 7-9. Download, test, and configure (interactive)
+    from mirdan.core.ssl_config import get_hf_endpoint
+
+    hf_endpoint = get_hf_endpoint()
     if recommendation["backend"] == "ollama" and ollama_ok:
         tag = recommendation.get("ollama_tag", "")
         if tag:
             print(f"To download: ollama pull {tag}")
     elif recommendation["backend"] == "llamacpp":
-        print(f"Download GGUF from HuggingFace: {recommendation.get('gguf_file', '')}")
+        gguf = recommendation.get("gguf_file", "")
+        if hf_endpoint:
+            print(f"Download GGUF via Artifactory: {hf_endpoint}")
+        else:
+            print(f"Download GGUF from HuggingFace: {gguf}")
         print("Place in: ~/.mirdan/models/")
 
     print()
@@ -234,6 +250,45 @@ def _write_config(recommendation: dict[str, Any]) -> None:
 
     with config_path.open("w") as f:
         yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
+
+
+def _print_corporate_instructions(ollama_ok: bool) -> None:
+    """Print corporate network setup instructions."""
+    import platform
+
+    print()
+    print("  === Corporate Network Setup ===")
+    print()
+    print("  For GGUF downloads (llama-cpp-python):")
+    print("    Set MIRDAN_HF_ENDPOINT to your Artifactory HuggingFace proxy URL")
+    print("    Or set MIRDAN_SSL_CERT_FILE to your corporate CA bundle")
+    print("    Or: pip install truststore  (auto-uses OS trust store)")
+    print()
+
+    if ollama_ok:
+        print("  For Ollama model pulls:")
+        if platform.system() == "Darwin":
+            print("    1. Install corp CA cert into system Keychain:")
+            print("       sudo security add-trusted-cert -d -r trustRoot \\")
+            print("         -k /Library/Keychains/System.keychain /path/to/corp-ca.crt")
+            print("    2. Configure proxy (if needed):")
+            print("       launchctl setenv HTTPS_PROXY http://proxy.corp.com:8080")
+            print("    3. Restart Ollama")
+        else:
+            print("    1. Install corp CA cert:")
+            print("       sudo cp /path/to/corp-ca.crt /usr/local/share/ca-certificates/")
+            print("       sudo update-ca-certificates")
+            print("    2. Configure proxy (if needed):")
+            print("       sudo systemctl edit ollama")
+            print('       [Service]')
+            print('       Environment="HTTPS_PROXY=http://proxy.corp.com:8080"')
+            print("    3. Restart: sudo systemctl restart ollama")
+        print()
+
+    print("  Environment variables (set in your shell profile):")
+    print("    MIRDAN_HF_ENDPOINT    — Artifactory proxy for HuggingFace")
+    print("    MIRDAN_SSL_CERT_FILE  — Corporate CA certificate bundle")
+    print("    MIRDAN_OFFLINE_MODE   — Skip downloads (use pre-downloaded models)")
 
 
 def _print_help() -> None:

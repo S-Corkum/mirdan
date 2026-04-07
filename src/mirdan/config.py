@@ -467,6 +467,8 @@ class LLMConfig(BaseModel):
     validate_llm_fixes: bool = Field(default=True)
     # Training data collection
     collect_training_data: bool = Field(default=False, description="Collect training samples for fine-tuning")
+    # Enterprise / corporate network
+    offline_mode: bool = Field(default=False, description="Skip network downloads, use pre-downloaded models only")
     # Nested config
     checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
 

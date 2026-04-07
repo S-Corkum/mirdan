@@ -71,6 +71,58 @@ Ollama tags don't expose quantization levels. `ollama pull gemma4:e4b` downloads
 
 **Solution:** Use llama-cpp-python with a Q3 GGUF file from HuggingFace. Run `mirdan llm setup` — it guides you to the right choice.
 
+## Corporate Network / Netskope / Zscaler
+
+If your enterprise uses SSL inspection (Netskope, Zscaler, BlueCoat), model
+downloads will fail with SSL certificate errors. `mirdan llm setup` detects
+this automatically and prints instructions.
+
+### Quickest fix
+
+```bash
+pip install truststore    # Uses OS trust store — handles Netskope automatically
+```
+
+### For GGUF downloads (llama-cpp-python backend)
+
+Point to your Artifactory HuggingFace proxy:
+```bash
+export MIRDAN_HF_ENDPOINT=https://artifactory.corp.com/huggingface
+```
+
+Or specify your corporate CA bundle:
+```bash
+export MIRDAN_SSL_CERT_FILE=/path/to/corporate-ca-bundle.crt
+```
+
+### For Ollama model pulls
+
+Ollama is a separate daemon — mirdan can't configure it. You must:
+
+1. Install your corporate CA cert into the **system trust store**:
+   - macOS: `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /path/to/corp-ca.crt`
+   - Linux: `sudo cp /path/to/corp-ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`
+
+2. Configure proxy (if needed):
+   - macOS: `launchctl setenv HTTPS_PROXY http://proxy.corp.com:8080`
+   - Linux: `sudo systemctl edit ollama` then add `Environment="HTTPS_PROXY=http://proxy.corp.com:8080"` under `[Service]`
+
+3. Restart Ollama
+
+### Air-gapped / offline environments
+
+```bash
+export MIRDAN_OFFLINE_MODE=true
+```
+
+Pre-download the GGUF file on a connected machine and place it in `~/.mirdan/models/`.
+
+### If enyal is also installed
+
+mirdan automatically reuses enyal's SSL configuration. If you've already
+configured `ENYAL_HF_ENDPOINT` and `ENYAL_SSL_CERT_FILE`, mirdan picks
+them up with no additional configuration.
+
 ## Debug logging
 
 ```bash
