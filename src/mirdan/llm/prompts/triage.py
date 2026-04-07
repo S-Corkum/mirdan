@@ -1,10 +1,10 @@
 """Triage classification prompts for local LLM.
 
 Optimized for Gemma 4 FAST model:
-- Thinking mode: DISABLED (classification, not reasoning)
+- Thinking mode: ENABLED (better confidence calibration on borderline cases)
 - Temperature: 0 (deterministic)
 - top_k: 1 (greedy decoding)
-- Structured output: prompt-based JSON (Ollama format bug workaround)
+- Structured output: Ollama format param (works with thinking enabled)
 """
 
 from __future__ import annotations
@@ -93,15 +93,12 @@ TRIAGE_SCHEMA: dict[str, Any] = {
 }
 
 
-def build_triage_prompt(user_prompt: str) -> str:
-    """Build the full triage prompt with system context, few-shot examples, and nonce delimiters.
-
-    Uses a random hex nonce to wrap the actual user input, preventing
-    prompt injection via crafted task descriptions. Few-shot examples
-    are static trusted data and do not need nonce wrapping.
+def build_triage_prompt(user_prompt: str, project_context: str = "") -> str:
+    """Build the full triage prompt with project context, few-shot examples, and nonce delimiters.
 
     Args:
         user_prompt: The developer's original task description.
+        project_context: Optional project conventions from enyal/context7.
 
     Returns:
         Complete prompt string for the local LLM.
@@ -111,6 +108,12 @@ def build_triage_prompt(user_prompt: str) -> str:
     user_close = f"</USER_TASK_{nonce}>"
 
     parts = [TRIAGE_SYSTEM_PROMPT, ""]
+
+    if project_context:
+        ctx_open = f"<PROJECT_CONTEXT_{nonce}>"
+        ctx_close = f"</PROJECT_CONTEXT_{nonce}>"
+        parts.append(f"{ctx_open}\n{project_context}\n{ctx_close}")
+        parts.append("")
 
     for example in TRIAGE_FEW_SHOT:
         parts.append(f"User: \"{example['user']}\"")

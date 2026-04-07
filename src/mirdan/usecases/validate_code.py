@@ -60,6 +60,7 @@ class ValidateCodeUseCase:
         llm_manager: Any = None,
         smart_validator: Any = None,
         training_collector: Any = None,
+        context_provider: Any = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -80,6 +81,7 @@ class ValidateCodeUseCase:
         self._llm_manager = llm_manager
         self._smart_validator = smart_validator
         self._training_collector = training_collector
+        self._context_provider = context_provider
 
     async def execute(
         self,
@@ -186,7 +188,11 @@ class ValidateCodeUseCase:
         if self._smart_validator and result.violations:
             try:
                 smart_analysis = await self._smart_validator.analyze(
-                    result.violations, code, result.language_detected
+                    result.violations,
+                    code,
+                    result.language_detected,
+                    session_id=session_id,
+                    file_path=file_path or "",
                 )
             except Exception:
                 logger.warning("Smart validation failed", exc_info=True)
@@ -635,7 +641,17 @@ class ValidateCodeUseCase:
             {"id": v.id, "rule": v.rule, "message": v.message, "line": v.line}
             for v in violations[:10]  # Cap to avoid overwhelming the model
         ]
-        prompt = build_explain_prompt(code, json.dumps(violation_dicts, indent=2))
+        # Get project context if available
+        project_context = ""
+        if self._context_provider:
+            try:
+                project_context = await self._context_provider.get_context(
+                    language=language,
+                )
+            except Exception:
+                pass
+
+        prompt = build_explain_prompt(code, json.dumps(violation_dicts, indent=2), project_context=project_context)
 
         result = await self._llm_manager.generate_structured(
             ModelRole.FAST, prompt, EXPLAIN_SCHEMA, **EXPLAIN_SAMPLING

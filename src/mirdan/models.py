@@ -140,6 +140,10 @@ class SessionContext:
     # Tool recommendations from enhance_prompt (for compliance tracking)
     tool_recommendations: list[dict[str, str]] = field(default_factory=list)
 
+    # Cached project context for local LLM prompts (populated on first use per session)
+    cached_project_context: str = ""
+    context_cache_populated: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         result: dict[str, Any] = {

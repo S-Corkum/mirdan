@@ -33,16 +33,21 @@ class SmartValidator:
         llm_manager: LLMManager | None = None,
         config: LLMConfig | None = None,
         fix_validator: Callable[[str, str], list[Any]] | None = None,
+        context_provider: Any = None,
     ) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
         self._fix_validator = fix_validator
+        self._context_provider = context_provider
 
     async def analyze(
         self,
         violations: list[Violation],
         code: str,
         language: str,
+        session_id: str = "",
+        frameworks: list[str] | None = None,
+        file_path: str = "",
     ) -> SmartValidationResult | None:
         """Analyze violations with the local LLM for FP filtering and root causes.
 
@@ -50,6 +55,9 @@ class SmartValidator:
             violations: Detected violations from the rule engine.
             code: Source code that was validated.
             language: Detected programming language.
+            session_id: Session ID for context caching.
+            frameworks: Detected frameworks for context enrichment.
+            file_path: File path for enyal scope weighting.
 
         Returns:
             SmartValidationResult with per-violation assessments and root causes,
@@ -57,6 +65,19 @@ class SmartValidator:
         """
         if not self._llm or not self._config.smart_validation or not violations:
             return None
+
+        # Get project context from enyal + context7 (session-cached)
+        project_context = ""
+        if self._context_provider:
+            try:
+                project_context = await self._context_provider.get_context(
+                    language=language,
+                    frameworks=frameworks,
+                    session_id=session_id,
+                    file_path=file_path,
+                )
+            except Exception:
+                logger.debug("Context provider failed, proceeding without project context")
 
         # Build prompt with injection mitigation
         violations_json = json.dumps(
@@ -66,6 +87,7 @@ class SmartValidator:
             code=code,
             violations_json=violations_json,
             supports_thinking=True,
+            project_context=project_context,
         )
 
         # Single LLM call

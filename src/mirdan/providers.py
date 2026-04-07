@@ -165,6 +165,14 @@ class ComponentProvider:
         self.workspace_resolver = workspace_resolver
         self.llm_manager = LLMManager.create_if_enabled(config.llm)
 
+        # Context provider for local LLM prompts (enyal + context7 + framework hints)
+        from mirdan.llm.context_provider import ContextProvider
+
+        self.context_provider = ContextProvider(
+            registry=context_aggregator.registry,
+            session_manager=self.session_manager,
+        )
+
         # Training data collector (fire-and-forget, only when explicitly enabled)
         from mirdan.llm.training_collector import TrainingCollector
 
@@ -184,6 +192,7 @@ class ComponentProvider:
         )
         self.smart_validator = SmartValidator(
             llm_manager=self.llm_manager,
+            context_provider=self.context_provider,
             config=config.llm,
             fix_validator=fix_validator,
         )
@@ -236,6 +245,7 @@ class ComponentProvider:
             llm_manager=self.llm_manager,
             smart_validator=self.smart_validator,
             training_collector=self.training_collector,
+            context_provider=self.context_provider,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:
