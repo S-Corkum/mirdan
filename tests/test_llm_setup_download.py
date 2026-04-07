@@ -54,8 +54,6 @@ class TestDownloadGguf:
     def test_uses_hf_endpoint_when_set(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        import httpx
-
         mock_response = MagicMock()
         mock_response.headers = {"content-length": "100"}
         mock_response.iter_bytes.return_value = [b"x" * 100]

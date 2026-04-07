@@ -98,7 +98,7 @@ def run_llm_setup(args: list[str]) -> None:
     if recommendation["backend"] == "ollama" and ollama_ok:
         tag = recommendation.get("ollama_tag", "")
         if tag:
-            print(f"Downloading model via Ollama...")
+            print("Downloading model via Ollama...")
             _download_ollama(tag)
     elif recommendation["backend"] == "llamacpp":
         gguf_file = recommendation.get("gguf_file", "")
