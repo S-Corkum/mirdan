@@ -135,10 +135,11 @@ class HardwareDetector:
 
 
 # Hardware-profile-adjusted inference timeouts.
+# STANDARD must be generous — Intel Macs without Metal can take 30-60s per call.
 _PROFILE_TIMEOUTS: dict[HardwareProfile, float] = {
-    HardwareProfile.STANDARD: 20.0,
-    HardwareProfile.ENHANCED: 10.0,
-    HardwareProfile.FULL: 5.0,
+    HardwareProfile.STANDARD: 90.0,
+    HardwareProfile.ENHANCED: 30.0,
+    HardwareProfile.FULL: 15.0,
 }
 
 
@@ -168,9 +169,9 @@ class HealthMonitor:
         """Inference timeout adjusted for hardware profile."""
         if self._hardware:
             return _PROFILE_TIMEOUTS.get(
-                self._hardware.detected_profile, 20.0
+                self._hardware.detected_profile, 90.0
             )
-        return 20.0
+        return 90.0
 
     def quick_check(self) -> HealthState:
         """Return cached state. <1ms, no I/O.
@@ -195,7 +196,9 @@ class HealthMonitor:
             if error:
                 logger.warning("Health error: %s", error)
 
-    async def warmup_background(self, backend: Any) -> None:
+    async def warmup_background(
+        self, backend: Any, model_name: str | None = None
+    ) -> None:
         """Start background model warmup as a non-blocking asyncio task.
 
         Sends a minimal prompt to the backend to trigger model loading.
@@ -203,11 +206,16 @@ class HealthMonitor:
 
         Args:
             backend: An object implementing LocalLLMProtocol.
+            model_name: Discovered model name to use for warmup.
         """
         self.transition(HealthState.WARMING_UP)
-        self._warmup_task = asyncio.create_task(self._do_warmup(backend))
+        self._warmup_task = asyncio.create_task(
+            self._do_warmup(backend, model_name)
+        )
 
-    async def _do_warmup(self, backend: Any) -> None:
+    async def _do_warmup(
+        self, backend: Any, model_name: str | None = None
+    ) -> None:
         """Execute warmup by sending a test prompt to the backend."""
         try:
             if not await backend.is_available():
@@ -216,8 +224,12 @@ class HealthMonitor:
                 )
                 return
 
+            if not model_name:
+                self.transition(HealthState.DEGRADED, error="No model for warmup")
+                return
+
             # Send minimal prompt to trigger model loading
-            response = await backend.generate("ok", "warmup")
+            response = await backend.generate("ok", model_name)
             if response.content or response.tokens_used > 0:
                 self.transition(HealthState.AVAILABLE)
             else:

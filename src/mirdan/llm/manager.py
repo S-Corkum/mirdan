@@ -113,8 +113,10 @@ class LLMManager:
             logger.warning("No known models found — LLM features limited")
 
         # 4. Health monitor + background warmup
+        # Use the first discovered model name for warmup (not a fake name)
+        warmup_model = installed[0].name if installed else None
         self._health = HealthMonitor(hardware=self._hardware)
-        await self._health.warmup_background(self._backend)
+        await self._health.warmup_background(self._backend, model_name=warmup_model)
         if self._health._warmup_task:
             self._health._warmup_task.add_done_callback(self._on_warmup_done)
 
@@ -180,7 +182,7 @@ class LLMManager:
                 logger.info("Using Ollama backend at %s", self._config.ollama_url)
                 return OllamaBackend(
                     base_url=self._config.ollama_url,
-                    timeout=30.0,
+                    timeout=120.0,  # Must accommodate cold model loading (30-60s on Intel)
                     keep_alive=self._config.model_keep_alive,
                 )
             except Exception as exc:
@@ -227,6 +229,14 @@ class LLMManager:
         model = self._selector.select(
             role, available_ram, architecture=self._hardware.architecture
         )
+        # Fallback: if selector rejects due to low available RAM but models are
+        # installed (e.g., Ollama already loaded the model into RAM, which makes
+        # available RAM appear low), use the best installed model for this role.
+        if not model:
+            candidates = [m for m in self._selector._installed if m.role == role]
+            if candidates:
+                model = max(candidates, key=lambda m: m.quality_score)
+                logger.debug("Selector rejected all models; using installed %s", model.name)
         if not model:
             return None
 
@@ -263,6 +273,10 @@ class LLMManager:
         model = self._selector.select(
             role, available_ram, architecture=self._hardware.architecture
         )
+        if not model:
+            candidates = [m for m in self._selector._installed if m.role == role]
+            if candidates:
+                model = max(candidates, key=lambda m: m.quality_score)
         if not model:
             return None
 

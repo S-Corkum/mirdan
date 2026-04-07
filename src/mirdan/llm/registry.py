@@ -107,9 +107,13 @@ class ModelRegistry:
                 found = True
 
             if found:
+                # Use the backend-specific identifier as name so it can be
+                # passed directly to backend.generate(prompt, model_name).
+                # Ollama needs the tag, llama-cpp needs the internal name.
+                backend_name = ollama_tag if (ollama_tag and ollama_tag in ollama_tags) else entry["name"]
                 installed.append(
                     ModelInfo(
-                        name=entry["name"],
+                        name=backend_name,
                         role=role,
                         active_memory_mb=entry["active_memory_mb"],
                         quality_score=entry["quality_score"],

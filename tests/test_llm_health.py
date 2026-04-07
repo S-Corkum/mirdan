@@ -77,7 +77,7 @@ class TestHealthMonitorWarmup:
         )
 
         monitor = HealthMonitor()
-        await monitor.warmup_background(backend)
+        await monitor.warmup_background(backend, model_name="test-model")
         # Wait for the task to finish
         assert monitor._warmup_task is not None
         await monitor._warmup_task
@@ -90,7 +90,7 @@ class TestHealthMonitorWarmup:
         backend.is_available.return_value = False
 
         monitor = HealthMonitor()
-        await monitor.warmup_background(backend)
+        await monitor.warmup_background(backend, model_name="test-model")
         assert monitor._warmup_task is not None
         await monitor._warmup_task
 
@@ -103,7 +103,7 @@ class TestHealthMonitorWarmup:
         backend.generate.side_effect = RuntimeError("inference failed")
 
         monitor = HealthMonitor()
-        await monitor.warmup_background(backend)
+        await monitor.warmup_background(backend, model_name="test-model")
         assert monitor._warmup_task is not None
         await monitor._warmup_task
 
@@ -119,7 +119,7 @@ class TestHealthMonitorWarmup:
 
         monitor = HealthMonitor()
         # Before warmup completes, state should be WARMING_UP
-        await monitor.warmup_background(backend)
+        await monitor.warmup_background(backend, model_name="test-model")
         # Note: the task may already have completed, but we verify the transition happened
         assert monitor._warmup_task is not None
 
@@ -129,19 +129,19 @@ class TestHealthMonitorTimeout:
 
     def test_standard_timeout(self) -> None:
         monitor = HealthMonitor(hardware=_make_hardware(HardwareProfile.STANDARD))
-        assert monitor.effective_timeout == 20.0
+        assert monitor.effective_timeout == 90.0
 
     def test_enhanced_timeout(self) -> None:
         monitor = HealthMonitor(hardware=_make_hardware(HardwareProfile.ENHANCED))
-        assert monitor.effective_timeout == 10.0
+        assert monitor.effective_timeout == 30.0
 
     def test_full_timeout(self) -> None:
         monitor = HealthMonitor(hardware=_make_hardware(HardwareProfile.FULL))
-        assert monitor.effective_timeout == 5.0
+        assert monitor.effective_timeout == 15.0
 
     def test_default_timeout_no_hardware(self) -> None:
         monitor = HealthMonitor()
-        assert monitor.effective_timeout == 20.0
+        assert monitor.effective_timeout == 90.0
 
 
 class TestHealthMonitorToHealth:
@@ -156,7 +156,7 @@ class TestHealthMonitorToHealth:
 
         assert health.state == HealthState.AVAILABLE
         assert health.hardware_profile == "enhanced"
-        assert health.effective_timeout == 10.0
+        assert health.effective_timeout == 30.0
         assert health.error is None
 
     def test_includes_error(self) -> None:
@@ -181,7 +181,7 @@ class TestHealthMonitorClose:
         )
 
         monitor = HealthMonitor()
-        await monitor.warmup_background(backend)
+        await monitor.warmup_background(backend, model_name="test-model")
         assert monitor._warmup_task is not None
         await monitor._warmup_task  # Let it complete first
 

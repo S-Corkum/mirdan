@@ -30,7 +30,7 @@ class TestModelRegistryDiscover:
         installed = await registry.discover(backend=backend, gguf_dir="/nonexistent")
 
         assert len(installed) == 1
-        assert installed[0].name == "gemma4-e2b-q4"
+        assert installed[0].name == "gemma4:e2b"  # Ollama tag used as backend identifier
         assert installed[0].quality_score == 0.60
         assert installed[0].active_memory_mb == 3500
 
@@ -62,7 +62,7 @@ class TestModelRegistryDiscover:
         installed = await registry.discover(backend=backend, gguf_dir=str(gguf_dir))
 
         names = {m.name for m in installed}
-        assert "gemma4-e2b-q4" in names
+        assert "gemma4:e2b" in names  # Ollama tag
         assert "gemma4-e4b-q3" in names
 
     @pytest.mark.asyncio
@@ -122,7 +122,7 @@ class TestModelRegistryDiscover:
         brain = [m for m in installed if m.role == ModelRole.BRAIN]
         fast = [m for m in installed if m.role == ModelRole.FAST]
         assert len(brain) == 1
-        assert brain[0].name == "gemma4-31b-q4"
+        assert brain[0].name == "gemma4:31b"  # Ollama tag
         assert len(fast) == 1
 
 

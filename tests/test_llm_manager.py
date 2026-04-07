@@ -175,10 +175,12 @@ class TestGenerate:
         assert result.content == "generated"
 
     @pytest.mark.asyncio
-    async def test_returns_none_when_no_model_fits(self) -> None:
+    async def test_returns_none_when_no_models_installed(self) -> None:
         manager, _ = self._setup_manager()
-        # Only 3000 MB available - 2048 buffer = 952, nothing fits
-        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=3000):
+        # Clear all installed models — truly nothing available
+        manager._selector.update_installed([])
+
+        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000):
             result = await manager.generate(ModelRole.FAST, "test")
 
         assert result is None
