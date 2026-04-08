@@ -452,7 +452,9 @@ class LLMConfig(BaseModel):
     enabled: bool = Field(default=False, description="Enable local LLM features")
     backend: str = Field(default="auto", pattern="^(auto|ollama|llamacpp)$")
     ollama_url: str = Field(default="http://localhost:11434")
-    gguf_dir: str = Field(default="~/.mirdan/models")  # Consumers MUST call Path(gguf_dir).expanduser()
+    gguf_dir: str = Field(
+        default="~/.mirdan/models"
+    )  # Consumers MUST call Path(gguf_dir).expanduser()
     model_keep_alive: str = Field(default="5m", description="Unload model after idle period")
     n_ctx: int = Field(default=4096, description="Context window for inference")
     n_threads: int | None = Field(default=None, description="CPU threads (None=auto)")
@@ -466,9 +468,13 @@ class LLMConfig(BaseModel):
     max_false_positive_ratio: float = Field(default=0.4)
     validate_llm_fixes: bool = Field(default=True)
     # Training data collection
-    collect_training_data: bool = Field(default=False, description="Collect training samples for fine-tuning")
+    collect_training_data: bool = Field(
+        default=False, description="Collect training samples for fine-tuning"
+    )
     # Enterprise / corporate network
-    offline_mode: bool = Field(default=False, description="Skip network downloads, use pre-downloaded models only")
+    offline_mode: bool = Field(
+        default=False, description="Skip network downloads, use pre-downloaded models only"
+    )
     # Nested config
     checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
 
@@ -491,9 +497,7 @@ class LLMConfig(BaseModel):
                 "mirdan's local intelligence layer only connects to local services."
             )
         if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"ollama_url must use http or https (got: {parsed.scheme!r})."
-            )
+            raise ValueError(f"ollama_url must use http or https (got: {parsed.scheme!r}).")
         return v
 
 

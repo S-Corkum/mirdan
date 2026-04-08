@@ -173,8 +173,7 @@ def build_pruning_prompt(
         )
 
     return (
-        CONTEXT_PRUNING_PROMPT
-        .replace("{{IDE_INSTRUCTION}}", ide_instruction)
+        CONTEXT_PRUNING_PROMPT.replace("{{IDE_INSTRUCTION}}", ide_instruction)
         .replace("{{TASK_OPEN_TAG}}", task_open)
         .replace("{{TASK_DESCRIPTION}}", task_description)
         .replace("{{TASK_CLOSE_TAG}}", task_close)
@@ -209,8 +208,7 @@ def build_optimization_prompt(
     profile = TARGET_MODEL_PROFILES.get(target_model, TARGET_MODEL_PROFILES["sonnet"])
 
     return (
-        PROMPT_OPTIMIZATION_PROMPT
-        .replace("{{TARGET_MODEL_NAME}}", profile["name"])
+        PROMPT_OPTIMIZATION_PROMPT.replace("{{TARGET_MODEL_NAME}}", profile["name"])
         .replace("{{MODEL_INSTRUCTION}}", profile["instruction"])
         .replace("{{TASK_OPEN_TAG}}", task_open)
         .replace("{{TASK_DESCRIPTION}}", task_description)

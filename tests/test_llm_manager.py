@@ -161,12 +161,17 @@ class TestGenerate:
     async def test_returns_response_when_available(self) -> None:
         manager, mock_backend = self._setup_manager()
         expected = LLMResponse(
-            content="generated", model="gemma4-e2b-q4", role=ModelRole.FAST,
-            elapsed_ms=50.0, tokens_used=10,
+            content="generated",
+            model="gemma4-e2b-q4",
+            role=ModelRole.FAST,
+            elapsed_ms=50.0,
+            tokens_used=10,
         )
         mock_backend.generate.return_value = expected
 
-        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000):
+        with patch(
+            "mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000
+        ):
             result = await manager.generate(ModelRole.FAST, "test prompt")
 
         assert result is not None
@@ -178,7 +183,9 @@ class TestGenerate:
         # Clear all installed models — truly nothing available
         manager._selector.update_installed([])
 
-        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000):
+        with patch(
+            "mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000
+        ):
             result = await manager.generate(ModelRole.FAST, "test")
 
         assert result is None
@@ -189,8 +196,11 @@ class TestGenerate:
 
         async def slow_generate(*args: Any, **kwargs: Any) -> LLMResponse:
             import asyncio
+
             await asyncio.sleep(100)
-            return LLMResponse(content="", model="m", role=ModelRole.FAST, elapsed_ms=0, tokens_used=0)
+            return LLMResponse(
+                content="", model="m", role=ModelRole.FAST, elapsed_ms=0, tokens_used=0
+            )
 
         mock_backend.generate.side_effect = slow_generate
 
@@ -200,7 +210,9 @@ class TestGenerate:
         mock_health.effective_timeout = 0.01
         manager._health = mock_health
 
-        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=50000):
+        with patch(
+            "mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=50000
+        ):
             result = await manager.generate(ModelRole.FAST, "test")
 
         assert result is None
@@ -247,7 +259,9 @@ class TestGenerateStructured:
         manager, mock_backend = self._setup_manager()
         mock_backend.generate_structured.return_value = {"key": "value"}
 
-        with patch("mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000):
+        with patch(
+            "mirdan.llm.manager.HardwareDetector.get_available_memory_mb", return_value=8000
+        ):
             # Non-Ollama backend, so format param is used directly
             result = await manager.generate_structured(
                 ModelRole.FAST, "prompt", schema={"type": "object"}
@@ -260,9 +274,7 @@ class TestGenerateStructured:
         config = LLMConfig(enabled=True)
         manager = LLMManager(config)
 
-        result = await manager.generate_structured(
-            ModelRole.FAST, "prompt", schema={}
-        )
+        result = await manager.generate_structured(ModelRole.FAST, "prompt", schema={})
         assert result is None
 
     @pytest.mark.asyncio

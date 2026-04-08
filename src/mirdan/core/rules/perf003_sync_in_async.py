@@ -97,9 +97,7 @@ class PERF003SyncInAsyncRule(BaseRule):
 
     @property
     def languages(self) -> frozenset[str]:
-        return frozenset(
-            {"python", "typescript", "javascript", "java", "csharp", "rust", "auto"}
-        )
+        return frozenset({"python", "typescript", "javascript", "java", "csharp", "rust", "auto"})
 
     @property
     def tier(self) -> RuleTier:

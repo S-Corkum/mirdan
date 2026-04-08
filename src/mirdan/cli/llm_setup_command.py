@@ -70,7 +70,9 @@ def run_llm_setup(args: list[str]) -> None:
         metal_ok = _check_llamacpp_metal()
         if hw.metal_capable and not metal_ok:
             print("WARNING: llama-cpp-python may not have Metal support.")
-            print("Reinstall with: CMAKE_ARGS=\"-DGGML_METAL=ON\" pip install --force-reinstall llama-cpp-python")
+            print(
+                'Reinstall with: CMAKE_ARGS="-DGGML_METAL=ON" pip install --force-reinstall llama-cpp-python'
+            )
             print()
 
     # 6. Check corporate network / SSL
@@ -309,9 +311,7 @@ def _write_config(recommendation: dict[str, Any]) -> None:
 
     existing.setdefault("llm", {})
     existing["llm"]["enabled"] = True
-    existing["llm"]["backend"] = (
-        "llamacpp" if recommendation["backend"] == "llamacpp" else "ollama"
-    )
+    existing["llm"]["backend"] = "llamacpp" if recommendation["backend"] == "llamacpp" else "ollama"
 
     with config_path.open("w") as f:
         yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
@@ -346,7 +346,7 @@ def _print_corporate_instructions(ollama_ok: bool) -> None:
             print("       sudo update-ca-certificates")
             print("    2. Configure proxy (if needed):")
             print("       sudo systemctl edit ollama")
-            print('       [Service]')
+            print("       [Service]")
             print('       Environment="HTTPS_PROXY=http://proxy.corp.com:8080"')
             print("    3. Restart: sudo systemctl restart ollama")
         print()
@@ -418,7 +418,9 @@ def _download_gguf(gguf_file: str, hf_repo: str) -> None:
         headers["Authorization"] = f"Bearer {token}"
 
     try:
-        with httpx.stream("GET", url, headers=headers, follow_redirects=True, timeout=600.0) as resp:
+        with httpx.stream(
+            "GET", url, headers=headers, follow_redirects=True, timeout=600.0
+        ) as resp:
             resp.raise_for_status()
 
             total = int(resp.headers.get("content-length", 0))
@@ -432,7 +434,9 @@ def _download_gguf(gguf_file: str, hf_repo: str) -> None:
                     if total > 0:
                         pct = (downloaded * 100) // total
                         if pct != last_pct and pct % 5 == 0:
-                            print(f"  {pct}% ({downloaded // (1024 * 1024)} / {total // (1024 * 1024)} MB)")
+                            print(
+                                f"  {pct}% ({downloaded // (1024 * 1024)} / {total // (1024 * 1024)} MB)"
+                            )
                             last_pct = pct
 
         size_mb = dest.stat().st_size // (1024 * 1024)

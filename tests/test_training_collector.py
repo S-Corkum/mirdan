@@ -13,9 +13,7 @@ class TestTrainingCollectorRecord:
 
     def test_record_triage_sample(self, tmp_path: Path) -> None:
         collector = TrainingCollector(storage_dir=tmp_path)
-        collector.record_triage_sample(
-            "fix unused import", "simple lint fix", "local_only", 0.95
-        )
+        collector.record_triage_sample("fix unused import", "simple lint fix", "local_only", 0.95)
 
         filepath = tmp_path / "triage_samples.jsonl"
         assert filepath.exists()
@@ -39,9 +37,7 @@ class TestTrainingCollectorRecord:
 
     def test_record_optimization_sample(self, tmp_path: Path) -> None:
         collector = TrainingCollector(storage_dir=tmp_path)
-        collector.record_optimization_sample(
-            "original prompt", "optimized prompt", "sonnet"
-        )
+        collector.record_optimization_sample("original prompt", "optimized prompt", "sonnet")
 
         filepath = tmp_path / "optimization_samples.jsonl"
         entry = json.loads(filepath.read_text().strip())

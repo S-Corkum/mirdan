@@ -102,9 +102,7 @@ class TestClaudeCodeHooksLLMDisabled:
             stringency=HookStringency.STANDARD, llm_enabled=False
         )
         stop_hooks = result["hooks"]["Stop"]
-        commands = [
-            h.get("command", "") for entry in stop_hooks for h in entry["hooks"]
-        ]
+        commands = [h.get("command", "") for entry in stop_hooks for h in entry["hooks"]]
         assert any("gate" in c for c in commands)
 
 
@@ -118,9 +116,7 @@ class TestCursorHooksLLMEnabled:
 
     def test_session_start_has_llm_prompt(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
-        generate_cursor_hooks(
-            cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=True
-        )
+        generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=True)
 
         import json
 
@@ -131,9 +127,7 @@ class TestCursorHooksLLMEnabled:
 
     def test_generates_mdc_rule(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
-        generate_cursor_hooks(
-            cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=True
-        )
+        generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=True)
 
         mdc_path = cursor_dir / "rules" / "mirdan-llm.mdc"
         assert mdc_path.exists()
@@ -143,9 +137,7 @@ class TestCursorHooksLLMEnabled:
 
     def test_no_mdc_rule_when_disabled(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
-        generate_cursor_hooks(
-            cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=False
-        )
+        generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=False)
 
         mdc_path = cursor_dir / "rules" / "mirdan-llm.mdc"
         assert not mdc_path.exists()
@@ -156,9 +148,7 @@ class TestCursorHooksLLMDisabled:
 
     def test_no_llm_session_prompt(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
-        generate_cursor_hooks(
-            cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=False
-        )
+        generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE, llm_enabled=False)
 
         import json
 

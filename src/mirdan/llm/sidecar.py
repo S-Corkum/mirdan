@@ -120,11 +120,13 @@ class Sidecar:
             except Exception as exc:
                 logger.error("Triage endpoint error: %s", exc)
 
-        return JSONResponse({
-            "classification": "paid_required",
-            "confidence": 0.0,
-            "reasoning": "triage not configured",
-        })
+        return JSONResponse(
+            {
+                "classification": "paid_required",
+                "confidence": 0.0,
+                "reasoning": "triage not configured",
+            }
+        )
 
     @staticmethod
     async def _read_prompt(request: Request) -> str:
@@ -158,7 +160,9 @@ class Sidecar:
             except Exception as exc:
                 logger.error("Check endpoint error: %s", exc)
 
-        return JSONResponse({
-            "all_pass": True,
-            "summary": "check runner not configured",
-        })
+        return JSONResponse(
+            {
+                "all_pass": True,
+                "summary": "check runner not configured",
+            }
+        )

@@ -44,13 +44,16 @@ class TrainingCollector:
             classification: Triage classification result.
             confidence: Model confidence.
         """
-        self._append("triage_samples.jsonl", {
-            "ts": time.time(),
-            "prompt": prompt,
-            "intent_summary": intent_summary,
-            "classification": classification,
-            "confidence": confidence,
-        })
+        self._append(
+            "triage_samples.jsonl",
+            {
+                "ts": time.time(),
+                "prompt": prompt,
+                "intent_summary": intent_summary,
+                "classification": classification,
+                "confidence": confidence,
+            },
+        )
 
     def record_validation_sample(
         self,
@@ -67,13 +70,16 @@ class TrainingCollector:
             llm_analysis: LLM's analysis result.
             user_accepted: Whether the user accepted the analysis.
         """
-        self._append("validation_samples.jsonl", {
-            "ts": time.time(),
-            "code": self._redact_if_needed(code),
-            "violations_count": len(violations),
-            "llm_analysis": llm_analysis,
-            "user_accepted": user_accepted,
-        })
+        self._append(
+            "validation_samples.jsonl",
+            {
+                "ts": time.time(),
+                "code": self._redact_if_needed(code),
+                "violations_count": len(violations),
+                "llm_analysis": llm_analysis,
+                "user_accepted": user_accepted,
+            },
+        )
 
     def record_optimization_sample(
         self,
@@ -90,13 +96,16 @@ class TrainingCollector:
             target_model: Target paid model.
             outcome: Validation outcome if available.
         """
-        self._append("optimization_samples.jsonl", {
-            "ts": time.time(),
-            "original": original_prompt,
-            "optimized": optimized_prompt,
-            "target_model": target_model,
-            "outcome": outcome,
-        })
+        self._append(
+            "optimization_samples.jsonl",
+            {
+                "ts": time.time(),
+                "original": original_prompt,
+                "optimized": optimized_prompt,
+                "target_model": target_model,
+                "outcome": outcome,
+            },
+        )
 
     def get_sample_counts(self) -> dict[str, int]:
         """Get counts of collected samples per type.

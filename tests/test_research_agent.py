@@ -44,13 +44,22 @@ class TestResearchAgentLoop:
 
         # First call: select context7, second: select enyal, third: null (done)
         mock_llm.generate_structured.side_effect = [
-            {"tool": {"mcp": "context7", "name": "get-library-docs", "arguments": {"topic": "auth"}}},
+            {
+                "tool": {
+                    "mcp": "context7",
+                    "name": "get-library-docs",
+                    "arguments": {"topic": "auth"},
+                }
+            },
             {"tool": {"mcp": "enyal", "name": "enyal_recall", "arguments": {"query": "auth"}}},
             {"tool": None},
         ]
         mock_llm.generate.return_value = LLMResponse(
             content="Authentication uses JWT with FastAPI dependency injection.",
-            model="brain", role=ModelRole.BRAIN, elapsed_ms=500.0, tokens_used=50,
+            model="brain",
+            role=ModelRole.BRAIN,
+            elapsed_ms=500.0,
+            tokens_used=50,
         )
 
         mock_registry = AsyncMock()
@@ -102,7 +111,11 @@ class TestResearchAgentLoop:
             {"tool": None},
         ]
         mock_llm.generate.return_value = LLMResponse(
-            content="partial synthesis", model="m", role=ModelRole.BRAIN, elapsed_ms=0.0, tokens_used=0
+            content="partial synthesis",
+            model="m",
+            role=ModelRole.BRAIN,
+            elapsed_ms=0.0,
+            tokens_used=0,
         )
 
         mock_registry = AsyncMock()
@@ -181,9 +194,7 @@ class TestResearchPrompts:
     def test_tool_selection_prompt_includes_task(self) -> None:
         from mirdan.llm.prompts.research import build_tool_selection_prompt
 
-        prompt = build_tool_selection_prompt(
-            "add auth", [{"mcp": "ctx7", "name": "docs"}], []
-        )
+        prompt = build_tool_selection_prompt("add auth", [{"mcp": "ctx7", "name": "docs"}], [])
         assert "add auth" in prompt
         assert "ctx7" in prompt
 
@@ -208,7 +219,13 @@ class TestResearchAgentAllowlist:
         mock_llm = AsyncMock()
         mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.side_effect = [
-            {"tool": {"mcp": "enyal", "name": "enyal_remember", "arguments": {"content": "malicious"}}},
+            {
+                "tool": {
+                    "mcp": "enyal",
+                    "name": "enyal_remember",
+                    "arguments": {"content": "malicious"},
+                }
+            },
             {"tool": None},
         ]
         mock_llm.generate.return_value = LLMResponse(
@@ -296,7 +313,9 @@ class TestResearchAgentAllowlist:
 
         mock_registry = AsyncMock()
         mock_registry.call_tools_parallel.return_value = [
-            MCPToolResult(mcp_name="context7", tool_name="get-library-docs", success=True, data="docs")
+            MCPToolResult(
+                mcp_name="context7", tool_name="get-library-docs", success=True, data="docs"
+            )
         ]
 
         config = LLMConfig(research_agent=True)

@@ -17,9 +17,7 @@ def _make_violation(
     severity: str = "error",
     message: str = "test violation",
 ) -> Violation:
-    return Violation(
-        id=vid, rule=rule, category="style", severity=severity, message=message
-    )
+    return Violation(id=vid, rule=rule, category="style", severity=severity, message=message)
 
 
 # ---------------------------------------------------------------------------
@@ -35,8 +33,16 @@ class TestSmartValidatorAnalyze:
         mock_llm = AsyncMock()
         mock_llm.generate_structured.return_value = {
             "per_violation": [
-                {"violation_id": "PY001", "assessment": "confirmed", "root_cause_group": "error-handling"},
-                {"violation_id": "PY002", "assessment": "false_positive", "false_positive_reason": "guard clause exists"},
+                {
+                    "violation_id": "PY001",
+                    "assessment": "confirmed",
+                    "root_cause_group": "error-handling",
+                },
+                {
+                    "violation_id": "PY002",
+                    "assessment": "false_positive",
+                    "false_positive_reason": "guard clause exists",
+                },
                 {"violation_id": "PY003", "assessment": "confirmed"},
             ],
             "root_causes": [
@@ -179,7 +185,12 @@ class TestSmartValidatorFixValidation:
         mock_llm = AsyncMock()
         mock_llm.generate_structured.return_value = {
             "per_violation": [
-                {"violation_id": "PY001", "assessment": "confirmed", "fix_code": "good fix", "fix_confidence": 0.8},
+                {
+                    "violation_id": "PY001",
+                    "assessment": "confirmed",
+                    "fix_code": "good fix",
+                    "fix_confidence": 0.8,
+                },
             ],
             "root_causes": [],
         }
@@ -203,7 +214,12 @@ class TestSmartValidatorFixValidation:
         mock_llm = AsyncMock()
         mock_llm.generate_structured.return_value = {
             "per_violation": [
-                {"violation_id": "PY001", "assessment": "confirmed", "fix_code": "bad fix", "fix_confidence": 0.9},
+                {
+                    "violation_id": "PY001",
+                    "assessment": "confirmed",
+                    "fix_code": "bad fix",
+                    "fix_confidence": 0.9,
+                },
             ],
             "root_causes": [],
         }
@@ -228,7 +244,12 @@ class TestSmartValidatorFixValidation:
         mock_llm = AsyncMock()
         mock_llm.generate_structured.return_value = {
             "per_violation": [
-                {"violation_id": "PY001", "assessment": "confirmed", "fix_code": "any fix", "fix_confidence": 0.8},
+                {
+                    "violation_id": "PY001",
+                    "assessment": "confirmed",
+                    "fix_code": "any fix",
+                    "fix_confidence": 0.8,
+                },
             ],
             "root_causes": [],
         }

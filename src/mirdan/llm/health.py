@@ -108,9 +108,7 @@ class HardwareDetector:
             if result.returncode == 0:
                 for line in result.stdout.splitlines():
                     stripped = line.strip()
-                    if stripped.startswith("Chipset Model:") or stripped.startswith(
-                        "Chip:"
-                    ):
+                    if stripped.startswith("Chipset Model:") or stripped.startswith("Chip:"):
                         return stripped.split(":", 1)[1].strip()
         except (OSError, subprocess.TimeoutExpired):
             pass
@@ -168,9 +166,7 @@ class HealthMonitor:
     def effective_timeout(self) -> float:
         """Inference timeout adjusted for hardware profile."""
         if self._hardware:
-            return _PROFILE_TIMEOUTS.get(
-                self._hardware.detected_profile, 90.0
-            )
+            return _PROFILE_TIMEOUTS.get(self._hardware.detected_profile, 90.0)
         return 90.0
 
     def quick_check(self) -> HealthState:
@@ -196,9 +192,7 @@ class HealthMonitor:
             if error:
                 logger.warning("Health error: %s", error)
 
-    async def warmup_background(
-        self, backend: Any, model_name: str | None = None
-    ) -> None:
+    async def warmup_background(self, backend: Any, model_name: str | None = None) -> None:
         """Start background model warmup as a non-blocking asyncio task.
 
         Sends a minimal prompt to the backend to trigger model loading.
@@ -209,19 +203,13 @@ class HealthMonitor:
             model_name: Discovered model name to use for warmup.
         """
         self.transition(HealthState.WARMING_UP)
-        self._warmup_task = asyncio.create_task(
-            self._do_warmup(backend, model_name)
-        )
+        self._warmup_task = asyncio.create_task(self._do_warmup(backend, model_name))
 
-    async def _do_warmup(
-        self, backend: Any, model_name: str | None = None
-    ) -> None:
+    async def _do_warmup(self, backend: Any, model_name: str | None = None) -> None:
         """Execute warmup by sending a test prompt to the backend."""
         try:
             if not await backend.is_available():
-                self.transition(
-                    HealthState.UNAVAILABLE, error="Backend not available"
-                )
+                self.transition(HealthState.UNAVAILABLE, error="Backend not available")
                 return
 
             if not model_name:

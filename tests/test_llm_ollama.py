@@ -162,9 +162,7 @@ class TestOllamaChat:
             body = json.loads(request.content)
             assert body["messages"] == [{"role": "user", "content": "hi"}]
             assert body["stream"] is False
-            return _make_response(
-                json_data={"message": {"content": "hello!"}, "eval_count": 5}
-            )
+            return _make_response(json_data={"message": {"content": "hello!"}, "eval_count": 5})
 
         backend = OllamaBackend()
         backend._client = _mock_transport(handler)
@@ -193,9 +191,7 @@ class TestOllamaChatWithTools:
         async def handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
             assert body["tools"] == [{"name": "search"}]
-            return _make_response(
-                json_data={"message": {"content": "used tool"}, "eval_count": 3}
-            )
+            return _make_response(json_data={"message": {"content": "used tool"}, "eval_count": 3})
 
         backend = OllamaBackend()
         backend._client = _mock_transport(handler)

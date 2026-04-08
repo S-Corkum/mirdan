@@ -49,20 +49,17 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         " with repository access and persist in git history."
     ),
     "SEC003": (
-        "AWS access key patterns in source code risk unauthorized"
-        " access to cloud infrastructure."
+        "AWS access key patterns in source code risk unauthorized access to cloud infrastructure."
     ),
     "SEC004": (
         "SQL string concatenation enables injection attacks"
         " by allowing user input to alter query logic."
     ),
     "SEC005": (
-        "SQL f-string interpolation enables injection attacks;"
-        " use parameterized queries instead."
+        "SQL f-string interpolation enables injection attacks; use parameterized queries instead."
     ),
     "SEC006": (
-        "SQL template literal interpolation enables injection;"
-        " use parameterized queries instead."
+        "SQL template literal interpolation enables injection; use parameterized queries instead."
     ),
     "SEC007": (
         "Disabling SSL/TLS verification allows man-in-the-middle"
@@ -77,20 +74,16 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         " shell injection via user-controlled input."
     ),
     "SEC010": (
-        "Disabling JWT signature verification allows forged tokens"
-        " to bypass authentication."
+        "Disabling JWT signature verification allows forged tokens to bypass authentication."
     ),
     "SEC011": (
-        "Cypher query f-string interpolation enables graph database"
-        " injection via user input."
+        "Cypher query f-string interpolation enables graph database injection via user input."
     ),
     "SEC012": (
-        "Cypher query string concatenation enables graph database"
-        " injection via user input."
+        "Cypher query string concatenation enables graph database injection via user input."
     ),
     "SEC013": (
-        "Gremlin query f-string interpolation enables graph"
-        " traversal injection via user input."
+        "Gremlin query f-string interpolation enables graph traversal injection via user input."
     ),
     "SEC014": (
         "Using dependencies with known vulnerabilities exposes"
@@ -131,20 +124,17 @@ _RULE_EXPLANATIONS: dict[str, str] = {
     ),
     # Python rules (PY001-PY005)
     "PY001": (
-        "eval() can execute arbitrary code from untrusted input,"
-        " enabling code injection attacks."
+        "eval() can execute arbitrary code from untrusted input, enabling code injection attacks."
     ),
     "PY002": (
-        "exec() can execute arbitrary code strings, with risks"
-        " similar to eval() for dynamic input."
+        "exec() can execute arbitrary code strings, with risks similar to eval() for dynamic input."
     ),
     "PY003": (
         "Bare except catches all exceptions including SystemExit"
         " and KeyboardInterrupt, masking critical signals."
     ),
     "PY004": (
-        "Mutable default arguments are shared across all calls,"
-        " causing unexpected state mutations."
+        "Mutable default arguments are shared across all calls, causing unexpected state mutations."
     ),
     "PY005": (
         "Deprecated typing imports (List, Dict, Optional) should"
@@ -152,30 +142,24 @@ _RULE_EXPLANATIONS: dict[str, str] = {
     ),
     # TypeScript rules (TS001-TS005)
     "TS001": (
-        "eval() can execute arbitrary code, enabling code"
-        " injection attacks via untrusted input."
+        "eval() can execute arbitrary code, enabling code injection attacks via untrusted input."
     ),
     "TS002": (
-        "The Function() constructor creates functions from strings,"
-        " with risks similar to eval()."
+        "The Function() constructor creates functions from strings, with risks similar to eval()."
     ),
     "TS003": (
-        "@ts-ignore without explanation suppresses type checking,"
-        " hiding potential type errors."
+        "@ts-ignore without explanation suppresses type checking, hiding potential type errors."
     ),
     # TypeScript new rules (TS006-TS013)
     "TS006": ("dangerouslySetInnerHTML bypasses React's built-in XSS protection."),
     "TS007": (
-        "child_process.exec() passes commands through the shell,"
-        " enabling injection attacks."
+        "child_process.exec() passes commands through the shell, enabling injection attacks."
     ),
     "TS008": (
-        "Non-null assertions (!) tell the compiler to ignore null safety,"
-        " risking runtime crashes."
+        "Non-null assertions (!) tell the compiler to ignore null safety, risking runtime crashes."
     ),
     "TS009": (
-        "Unvalidated redirects allow attackers to redirect users"
-        " to phishing or malware sites."
+        "Unvalidated redirects allow attackers to redirect users to phishing or malware sites."
     ),
     "TS010": ("Dynamic RegExp with untrusted input can cause catastrophic backtracking (ReDoS)."),
     "TS011": ("Empty catch blocks silently swallow errors, making failures invisible."),
@@ -191,24 +175,20 @@ _RULE_EXPLANATIONS: dict[str, str] = {
         " and access sensitive files."
     ),
     "JS008": (
-        "Unvalidated redirects allow attackers to redirect users"
-        " to phishing or malware sites."
+        "Unvalidated redirects allow attackers to redirect users to phishing or malware sites."
     ),
     "JS009": ("Dynamic RegExp with untrusted input can cause catastrophic backtracking (ReDoS)."),
     "JS010": ("Empty catch blocks silently swallow errors, making failures invisible."),
     "JS011": ("Server-side requests to user-controlled URLs can access internal services (SSRF)."),
     "JS012": (
-        "Dynamic require() with user input can load arbitrary modules,"
-        " executing attacker code."
+        "Dynamic require() with user input can load arbitrary modules, executing attacker code."
     ),
     "JS013": (
-        "Prototype pollution modifies Object.prototype,"
-        " affecting all objects in the runtime."
+        "Prototype pollution modifies Object.prototype, affecting all objects in the runtime."
     ),
     # Go new rules (GO004-GO013)
     "GO004": (
-        "HTTP servers without timeouts are vulnerable to slowloris"
-        " and connection exhaustion."
+        "HTTP servers without timeouts are vulnerable to slowloris and connection exhaustion."
     ),
     "GO005": ("text/template does not escape HTML, allowing XSS when rendering web content."),
     "GO006": ("Path operations with request data can traverse outside intended directories."),
@@ -217,8 +197,7 @@ _RULE_EXPLANATIONS: dict[str, str] = {
     "GO009": ("SQL backtick string concatenation is vulnerable to injection attacks."),
     "GO010": ("errors.New(fmt.Sprintf()) is redundant; fmt.Errorf() combines both operations."),
     "GO011": (
-        "init() functions run implicitly, making startup order"
-        " harder to test and reason about."
+        "init() functions run implicitly, making startup order harder to test and reason about."
     ),
     "GO012": ("Unvalidated redirect URLs from request data enable open redirect attacks."),
     "GO013": ("HTTP requests to user-controlled URLs can access internal services (SSRF)."),
@@ -253,18 +232,15 @@ _RULE_EXPLANATIONS: dict[str, str] = {
     "CS013": ("Hardcoded connection strings expose credentials in source control."),
     # Performance rules (PERF001-PERF005)
     "PERF001": (
-        "N+1 queries execute one query per item instead of one batch query,"
-        " causing linear scaling."
+        "N+1 queries execute one query per item instead of one batch query, causing linear scaling."
     ),
     "PERF002": ("Unbounded collection growth can exhaust memory under load."),
     "PERF003": (
-        "Synchronous blocking in async code wastes thread pool threads"
-        " and can cause deadlocks."
+        "Synchronous blocking in async code wastes thread pool threads and can cause deadlocks."
     ),
     "PERF004": ("Queries without pagination load entire tables into memory."),
     "PERF005": (
-        "Repeated computation inside loops wastes CPU"
-        " when the result could be computed once."
+        "Repeated computation inside loops wastes CPU when the result could be computed once."
     ),
 }
 

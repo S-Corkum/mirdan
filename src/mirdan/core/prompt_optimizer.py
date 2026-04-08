@@ -42,7 +42,9 @@ class PromptOptimizer:
     Returns None when no local model is available at all.
     """
 
-    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
+    def __init__(
+        self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None
+    ) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 
@@ -148,9 +150,7 @@ class PromptOptimizer:
         if not self._llm:
             return "\n".join(context_items), 0
 
-        prompt = build_pruning_prompt(
-            task_description, context_items, target_model, is_cursor
-        )
+        prompt = build_pruning_prompt(task_description, context_items, target_model, is_cursor)
 
         try:
             result = await self._llm.generate_structured(
@@ -205,9 +205,7 @@ class PromptOptimizer:
         )
 
         try:
-            response = await self._llm.generate(
-                role, prompt, **OPTIMIZATION_SAMPLING
-            )
+            response = await self._llm.generate(role, prompt, **OPTIMIZATION_SAMPLING)
             if response and response.content:
                 text: str = response.content.strip()
                 return text

@@ -35,7 +35,9 @@ class TriageEngine:
     then calls the local FAST model for everything else.
     """
 
-    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
+    def __init__(
+        self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None
+    ) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 
@@ -111,9 +113,7 @@ class TriageEngine:
             Validated TriageResult, or None if unparseable.
         """
         try:
-            classification = TaskClassification(
-                result.get("classification", "paid_required")
-            )
+            classification = TaskClassification(result.get("classification", "paid_required"))
         except ValueError:
             logger.warning("Unknown classification: %s", result.get("classification"))
             return None

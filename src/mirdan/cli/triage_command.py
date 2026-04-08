@@ -25,7 +25,7 @@ def run_triage(args: list[str]) -> None:
 
     if "--stdin" not in args:
         print("Error: --stdin flag is required", file=sys.stderr)
-        print("Usage: echo '{\"prompt\":\"...\"}' | mirdan triage --stdin")
+        print('Usage: echo \'{"prompt":"..."}\' | mirdan triage --stdin')
         sys.exit(1)
 
     # Read prompt from stdin
@@ -99,7 +99,7 @@ def _print_triage_help() -> None:
     print("mirdan triage — classify a coding task")
     print()
     print("Usage:")
-    print("  echo '{\"prompt\":\"...\"}' | mirdan triage --stdin")
+    print('  echo \'{"prompt":"..."}\' | mirdan triage --stdin')
     print()
     print("Options:")
     print("  --stdin    Read prompt from stdin (required)")

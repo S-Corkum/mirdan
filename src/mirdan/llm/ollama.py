@@ -123,9 +123,7 @@ class OllamaBackend:
             logger.warning("Ollama generate_structured failed: %s", exc)
             return {}
 
-    async def chat(
-        self, messages: list[dict[str, Any]], model: str, **kwargs: Any
-    ) -> LLMResponse:
+    async def chat(self, messages: list[dict[str, Any]], model: str, **kwargs: Any) -> LLMResponse:
         """Multi-turn chat via /api/chat.
 
         Args:

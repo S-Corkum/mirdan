@@ -692,7 +692,7 @@ class HookTemplateGenerator:
 
 # Inline shell script for triage hook — tries sidecar first, falls back to CLI.
 _TRIAGE_HOOK_SCRIPT = (
-    'bash -c \''
+    "bash -c '"
     'PORT_FILE=".mirdan/sidecar.port";'
     ' if [ -f "$PORT_FILE" ]; then'
     ' curl -s --max-time 10 "http://localhost:$(cat $PORT_FILE)/triage" --data-binary @-;'

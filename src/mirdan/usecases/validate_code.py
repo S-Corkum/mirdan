@@ -208,7 +208,9 @@ class ValidateCodeUseCase:
         # code-aware context (references actual variables, line relationships)
         if self._llm_manager and result.violations:
             try:
-                await self._enrich_explanations_llm(result.violations, code, result.language_detected)
+                await self._enrich_explanations_llm(
+                    result.violations, code, result.language_detected
+                )
             except Exception:
                 logger.warning("LLM explanation enrichment failed", exc_info=True)
 
@@ -651,7 +653,9 @@ class ValidateCodeUseCase:
             except Exception:
                 pass
 
-        prompt = build_explain_prompt(code, json.dumps(violation_dicts, indent=2), project_context=project_context)
+        prompt = build_explain_prompt(
+            code, json.dumps(violation_dicts, indent=2), project_context=project_context
+        )
 
         result = await self._llm_manager.generate_structured(
             ModelRole.FAST, prompt, EXPLAIN_SCHEMA, **EXPLAIN_SAMPLING

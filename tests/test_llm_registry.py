@@ -22,7 +22,9 @@ class TestModelRegistryDiscover:
     async def test_discovers_ollama_model(self) -> None:
         backend = AsyncMock()
         backend.list_models.return_value = [
-            ModelInfo(name="gemma4:e2b", role=ModelRole.FAST, active_memory_mb=3500, quality_score=0.0)
+            ModelInfo(
+                name="gemma4:e2b", role=ModelRole.FAST, active_memory_mb=3500, quality_score=0.0
+            )
         ]
 
         registry = ModelRegistry()
@@ -88,7 +90,9 @@ class TestModelRegistryDiscover:
     async def test_ignores_unknown_ollama_tags(self) -> None:
         backend = AsyncMock()
         backend.list_models.return_value = [
-            ModelInfo(name="llama3:8b", role=ModelRole.FAST, active_memory_mb=5000, quality_score=0.0)
+            ModelInfo(
+                name="llama3:8b", role=ModelRole.FAST, active_memory_mb=5000, quality_score=0.0
+            )
         ]
 
         registry = ModelRegistry()
@@ -111,8 +115,12 @@ class TestModelRegistryDiscover:
     async def test_sets_correct_role(self) -> None:
         backend = AsyncMock()
         backend.list_models.return_value = [
-            ModelInfo(name="gemma4:31b", role=ModelRole.FAST, active_memory_mb=0, quality_score=0.0),
-            ModelInfo(name="gemma4:e2b", role=ModelRole.FAST, active_memory_mb=0, quality_score=0.0),
+            ModelInfo(
+                name="gemma4:31b", role=ModelRole.FAST, active_memory_mb=0, quality_score=0.0
+            ),
+            ModelInfo(
+                name="gemma4:e2b", role=ModelRole.FAST, active_memory_mb=0, quality_score=0.0
+            ),
         ]
 
         registry = ModelRegistry()
@@ -135,10 +143,21 @@ class TestModelSelector:
 
     def _make_installed(self) -> list[ModelInfo]:
         return [
-            ModelInfo(name="gemma4-e4b-q3", role=ModelRole.FAST, active_memory_mb=4500, quality_score=0.67),
-            ModelInfo(name="gemma4-e2b-q4", role=ModelRole.FAST, active_memory_mb=3500, quality_score=0.60),
-            ModelInfo(name="gemma4-e2b-q3", role=ModelRole.FAST, active_memory_mb=3200, quality_score=0.58),
-            ModelInfo(name="gemma4-31b-q4", role=ModelRole.BRAIN, active_memory_mb=17000, quality_score=0.85),
+            ModelInfo(
+                name="gemma4-e4b-q3", role=ModelRole.FAST, active_memory_mb=4500, quality_score=0.67
+            ),
+            ModelInfo(
+                name="gemma4-e2b-q4", role=ModelRole.FAST, active_memory_mb=3500, quality_score=0.60
+            ),
+            ModelInfo(
+                name="gemma4-e2b-q3", role=ModelRole.FAST, active_memory_mb=3200, quality_score=0.58
+            ),
+            ModelInfo(
+                name="gemma4-31b-q4",
+                role=ModelRole.BRAIN,
+                active_memory_mb=17000,
+                quality_score=0.85,
+            ),
         ]
 
     def test_selects_highest_quality_that_fits(self) -> None:

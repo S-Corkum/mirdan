@@ -173,9 +173,7 @@ class TestLlamaCppGenerateStructured:
     async def test_returns_parsed_json(self) -> None:
         backend, mock_llm = _make_backend_with_mock_llm()
         structured = {"classification": "local_only", "confidence": 0.9}
-        mock_llm.create_chat_completion.return_value = _mock_chat_result(
-            json.dumps(structured)
-        )
+        mock_llm.create_chat_completion.return_value = _mock_chat_result(json.dumps(structured))
 
         result = await backend.generate_structured("prompt", "m", schema={"type": "object"})
 

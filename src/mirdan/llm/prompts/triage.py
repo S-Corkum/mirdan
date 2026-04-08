@@ -116,7 +116,7 @@ def build_triage_prompt(user_prompt: str, project_context: str = "") -> str:
         parts.append("")
 
     for example in TRIAGE_FEW_SHOT:
-        parts.append(f"User: \"{example['user']}\"")
+        parts.append(f'User: "{example["user"]}"')
         parts.append(example["response"])
         parts.append("")
 

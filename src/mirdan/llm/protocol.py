@@ -49,9 +49,7 @@ class LocalLLMProtocol(Protocol):
         """
         ...
 
-    async def chat(
-        self, messages: list[dict[str, Any]], model: str, **kwargs: Any
-    ) -> LLMResponse:
+    async def chat(self, messages: list[dict[str, Any]], model: str, **kwargs: Any) -> LLMResponse:
         """Multi-turn chat completion.
 
         Args:
@@ -137,9 +135,7 @@ class InMemoryBackend:
             return self.structured_responses.pop(0)
         return {}
 
-    async def chat(
-        self, messages: list[dict[str, Any]], model: str, **kwargs: Any
-    ) -> LLMResponse:
+    async def chat(self, messages: list[dict[str, Any]], model: str, **kwargs: Any) -> LLMResponse:
         """Delegate to generate using the last message content."""
         return await self.generate(messages[-1].get("content", ""), model, **kwargs)
 

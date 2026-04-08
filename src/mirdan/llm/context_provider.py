@@ -188,9 +188,7 @@ class ContextProvider:
             arguments["input"]["file_path"] = file_path
 
         try:
-            call = MCPToolCall(
-                mcp_name="enyal", tool_name="enyal_recall", arguments=arguments
-            )
+            call = MCPToolCall(mcp_name="enyal", tool_name="enyal_recall", arguments=arguments)
             results = await self._registry.call_tools_parallel([call])
             if results and results[0].success and results[0].data:
                 return self._parse_enyal_results(results[0].data)

@@ -48,8 +48,10 @@ class TestPromptOptimizerOptimize:
         # FAST tier: LLM-powered prompt generation (not just assembly)
         mock_llm.generate.return_value = LLMResponse(
             content="Optimized by FAST model with thinking",
-            model="gemma4-e4b", role=ModelRole.FAST,
-            elapsed_ms=200.0, tokens_used=50,
+            model="gemma4-e4b",
+            role=ModelRole.FAST,
+            elapsed_ms=200.0,
+            tokens_used=50,
         )
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
@@ -114,8 +116,11 @@ class TestPromptOptimizerOptimize:
         mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
         mock_llm.generate.return_value = LLMResponse(
-            content="Concise Opus prompt", model="m", role=ModelRole.BRAIN,
-            elapsed_ms=0.0, tokens_used=0,
+            content="Concise Opus prompt",
+            model="m",
+            role=ModelRole.BRAIN,
+            elapsed_ms=0.0,
+            tokens_used=0,
         )
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
@@ -131,8 +136,11 @@ class TestPromptOptimizerOptimize:
         mock_llm.is_role_available = MagicMock(return_value=True)
         mock_llm.generate_structured.return_value = {"kept": [], "pruned": []}
         mock_llm.generate.return_value = LLMResponse(
-            content="Step-by-step Haiku prompt", model="m", role=ModelRole.BRAIN,
-            elapsed_ms=0.0, tokens_used=0,
+            content="Step-by-step Haiku prompt",
+            model="m",
+            role=ModelRole.BRAIN,
+            elapsed_ms=0.0,
+            tokens_used=0,
         )
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)
@@ -153,8 +161,11 @@ class TestPromptOptimizerOptimize:
             ],
         }
         mock_llm.generate.return_value = LLMResponse(
-            content="Cursor-optimized", model="m", role=ModelRole.BRAIN,
-            elapsed_ms=0.0, tokens_used=0,
+            content="Cursor-optimized",
+            model="m",
+            role=ModelRole.BRAIN,
+            elapsed_ms=0.0,
+            tokens_used=0,
         )
 
         optimizer = PromptOptimizer(llm_manager=mock_llm)

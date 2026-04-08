@@ -26,7 +26,9 @@ class CheckRunner:
     when the LLM is unavailable.
     """
 
-    def __init__(self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None) -> None:
+    def __init__(
+        self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None
+    ) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
 
@@ -53,18 +55,14 @@ class CheckRunner:
         # 2. Auto-fix lint if configured and lint failed
         auto_fixed: list[str] = []
         if checks.auto_fix_lint and lint_result.returncode != 0:
-            fix_result = await self._run_cmd(
-                checks.lint_command + " --fix", file_paths, cwd
-            )
+            fix_result = await self._run_cmd(checks.lint_command + " --fix", file_paths, cwd)
             if fix_result.returncode == 0:
                 auto_fixed.append("lint auto-fixed")
             # Re-run lint to get current state
             lint_result = await self._run_cmd(checks.lint_command, file_paths, cwd)
 
         # 3. Typecheck
-        typecheck_result = await self._run_cmd(
-            checks.typecheck_command, file_paths, cwd
-        )
+        typecheck_result = await self._run_cmd(checks.typecheck_command, file_paths, cwd)
 
         # 4. Test (with configurable timeout)
         test_result = await self._run_cmd(
@@ -83,10 +81,7 @@ class CheckRunner:
         if not summary:
             summary = self._basic_summary(lint_result, typecheck_result, test_result)
 
-        all_pass = all(
-            r.returncode == 0
-            for r in [lint_result, typecheck_result, test_result]
-        )
+        all_pass = all(r.returncode == 0 for r in [lint_result, typecheck_result, test_result])
 
         return CheckResult(
             lint=lint_result,
@@ -126,9 +121,7 @@ class CheckRunner:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             return SubprocessResult(
                 command=full_command,
                 returncode=proc.returncode or 0,
@@ -170,9 +163,12 @@ class CheckRunner:
         if not self._llm:
             return None
         prompt = build_check_analysis_prompt(
-            lint.stdout, lint.stderr,
-            typecheck.stdout, typecheck.stderr,
-            test.stdout, test.stderr,
+            lint.stdout,
+            lint.stderr,
+            typecheck.stdout,
+            typecheck.stderr,
+            test.stdout,
+            test.stderr,
         )
         result: dict[str, Any] | None = await self._llm.generate_structured(
             ModelRole.FAST, prompt, CHECK_SCHEMA, **CHECK_SAMPLING

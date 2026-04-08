@@ -72,9 +72,7 @@ class TestLLMConfig:
             LLMConfig(backend="invalid")
 
     def test_custom_check_runner(self) -> None:
-        config = LLMConfig(
-            checks=CheckRunnerConfig(lint_command="flake8", test_timeout=120)
-        )
+        config = LLMConfig(checks=CheckRunnerConfig(lint_command="flake8", test_timeout=120))
         assert config.checks.lint_command == "flake8"
         assert config.checks.test_timeout == 120
 
@@ -144,9 +142,7 @@ class TestMirdanConfigLLMIntegration:
         assert config.llm.backend == "ollama"
 
     def test_llm_config_serialization_roundtrip(self) -> None:
-        config = MirdanConfig(
-            llm=LLMConfig(enabled=True, backend="llamacpp", n_ctx=2048)
-        )
+        config = MirdanConfig(llm=LLMConfig(enabled=True, backend="llamacpp", n_ctx=2048))
         data = config.model_dump()
         restored = MirdanConfig(**data)
         assert restored.llm.enabled is True

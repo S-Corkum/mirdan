@@ -127,9 +127,7 @@ class TestSidecarTriage:
         data = resp.json()
         assert data["classification"] == "local_only"
         # Verify the engine received the raw text as the prompt
-        mock_engine.classify.assert_awaited_once_with(
-            "fix the unused import in auth.py"
-        )
+        mock_engine.classify.assert_awaited_once_with("fix the unused import in auth.py")
 
     def test_returns_stub_on_empty_body(self) -> None:
         mock_engine = AsyncMock()

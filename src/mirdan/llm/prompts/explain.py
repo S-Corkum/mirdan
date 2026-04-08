@@ -85,8 +85,7 @@ def build_explain_prompt(code: str, violations_json: str, project_context: str =
         ctx_block = ""
 
     return (
-        EXPLAIN_PROMPT
-        .replace("{{PROJECT_CONTEXT}}", ctx_block)
+        EXPLAIN_PROMPT.replace("{{PROJECT_CONTEXT}}", ctx_block)
         .replace("{{CODE_OPEN_TAG}}", code_open)
         .replace("{{CODE_CLOSE_TAG}}", code_close)
         .replace("{{CODE}}", code)

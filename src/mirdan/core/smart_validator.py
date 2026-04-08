@@ -80,9 +80,7 @@ class SmartValidator:
                 logger.debug("Context provider failed, proceeding without project context")
 
         # Build prompt with injection mitigation
-        violations_json = json.dumps(
-            [v.to_dict() for v in violations], indent=2
-        )
+        violations_json = json.dumps([v.to_dict() for v in violations], indent=2)
         prompt = build_validation_prompt(
             code=code,
             violations_json=violations_json,
@@ -125,11 +123,7 @@ class SmartValidator:
         if not per_violation:
             return False
 
-        fp_count = sum(
-            1
-            for v in per_violation
-            if v.get("assessment") == "false_positive"
-        )
+        fp_count = sum(1 for v in per_violation if v.get("assessment") == "false_positive")
         fp_ratio = fp_count / len(per_violation)
 
         if fp_ratio > self._config.max_false_positive_ratio:
@@ -145,9 +139,7 @@ class SmartValidator:
 
         return False
 
-    def _validate_fixes(
-        self, per_violation: list[dict[str, Any]], language: str
-    ) -> None:
+    def _validate_fixes(self, per_violation: list[dict[str, Any]], language: str) -> None:
         """Re-validate LLM-generated fixes through the rule engine.
 
         Drops fixes that introduce new violations. Mutates per_violation in place.

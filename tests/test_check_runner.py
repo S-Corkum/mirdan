@@ -245,7 +245,9 @@ class TestCheckRunnerSubprocess:
             proc.returncode = 0
             return proc
 
-        with patch("mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec):
+        with patch(
+            "mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec
+        ):
             result = await runner._run_cmd("echo hello", None, "/tmp")
 
         assert result.stdout == "output"
@@ -267,7 +269,9 @@ class TestCheckRunnerSubprocess:
             proc.kill = MagicMock()
             return proc
 
-        with patch("mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec):
+        with patch(
+            "mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec
+        ):
             result = await runner._run_cmd("slow", None, "/tmp", timeout=0)
 
         assert result.returncode == -1
@@ -298,7 +302,9 @@ class TestCheckRunnerSubprocess:
             proc.returncode = 0
             return proc
 
-        with patch("mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec):
+        with patch(
+            "mirdan.core.check_runner.asyncio.create_subprocess_exec", side_effect=mock_exec
+        ):
             await runner._run_cmd("ruff check", ["a.py", "b.py"], "/tmp")
 
         assert "a.py" in captured_args

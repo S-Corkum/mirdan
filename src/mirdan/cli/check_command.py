@@ -70,9 +70,7 @@ def run_check(args: list[str]) -> None:
     # Fix mode: apply LLM-generated fixes for remaining issues
     fix_report: dict[str, Any] | None = None
     if fix_mode and not all_pass and config.llm.enabled:
-        fix_report = asyncio.run(
-            _run_llm_fix_loop(files, lint_result, typecheck_result, config)
-        )
+        fix_report = asyncio.run(_run_llm_fix_loop(files, lint_result, typecheck_result, config))
         if fix_report:
             # Re-run checks to verify
             lint_result = _run_subprocess(checks_config.lint_command, files)

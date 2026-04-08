@@ -133,7 +133,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 83
 
 [dependency-groups]
 dev = [

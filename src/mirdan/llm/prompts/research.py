@@ -134,13 +134,10 @@ def build_tool_selection_prompt(
     results_close = f"</RESULTS_{nonce}>"
 
     tools_text = json.dumps(tool_descriptions, indent=2)
-    results_text = (
-        json.dumps(previous_results, indent=2) if previous_results else "None yet."
-    )
+    results_text = json.dumps(previous_results, indent=2) if previous_results else "None yet."
 
     return (
-        RESEARCH_SYSTEM_PROMPT
-        .replace("{{TOOL_DESCRIPTIONS}}", tools_text)
+        RESEARCH_SYSTEM_PROMPT.replace("{{TOOL_DESCRIPTIONS}}", tools_text)
         .replace("{{TASK_OPEN_TAG}}", task_open)
         .replace("{{TASK_DESCRIPTION}}", task_description)
         .replace("{{TASK_CLOSE_TAG}}", task_close)
@@ -172,8 +169,7 @@ def build_synthesis_prompt(
     results_close = f"</RESULTS_{nonce}>"
 
     return (
-        SYNTHESIS_PROMPT
-        .replace("{{TASK_OPEN_TAG}}", task_open)
+        SYNTHESIS_PROMPT.replace("{{TASK_OPEN_TAG}}", task_open)
         .replace("{{TASK_DESCRIPTION}}", task_description)
         .replace("{{TASK_CLOSE_TAG}}", task_close)
         .replace("{{RESULTS_OPEN_TAG}}", results_open)

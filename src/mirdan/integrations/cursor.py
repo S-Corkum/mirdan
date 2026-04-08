@@ -145,7 +145,7 @@ def generate_cursor_hooks(
         hooks.setdefault("beforeShellExecution", []).append(
             {
                 "type": "command",
-                "command": "echo '{\"permission\":\"allow\"}'",
+                "command": 'echo \'{"permission":"allow"}\'',
                 "timeout": 5000,
             }
         )

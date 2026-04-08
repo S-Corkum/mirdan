@@ -258,9 +258,7 @@ class EnhancePromptUseCase:
                 # Override ceremony level based on triage
                 from mirdan.core.triage import TriageEngine
 
-                ceremony_override = TriageEngine.get_ceremony_override(
-                    triage_result.classification
-                )
+                ceremony_override = TriageEngine.get_ceremony_override(triage_result.classification)
                 if ceremony_override and ceremony_level == "auto":
                     ceremony_level = ceremony_override
 
@@ -311,7 +309,8 @@ class EnhancePromptUseCase:
         arch_context = None
         if self._analyzers and level >= CeremonyLevel.STANDARD:
             if self._analyzers.tidy_first and intent.task_type in (
-                TaskType.GENERATION, TaskType.REFACTOR
+                TaskType.GENERATION,
+                TaskType.REFACTOR,
             ):
                 tidy_analysis = self._analyzers.tidy_first.analyze(intent)
             if self._analyzers.decision:
@@ -339,10 +338,7 @@ class EnhancePromptUseCase:
         else:
             # Research agent: at THOROUGH ceremony, try BRAIN-powered research first
             research_used = False
-            if (
-                self._llm_manager is not None
-                and effective_context_level == "comprehensive"
-            ):
+            if self._llm_manager is not None and effective_context_level == "comprehensive":
                 try:
                     from mirdan.core.research_agent import ResearchAgent
 
@@ -355,9 +351,7 @@ class EnhancePromptUseCase:
                     if research and research.synthesis:
                         context = ContextBundle(
                             documentation_hints=[research.synthesis],
-                            existing_patterns=[
-                                s.get("summary", "") for s in research.sources
-                            ],
+                            existing_patterns=[s.get("summary", "") for s in research.sources],
                         )
                         research_used = True
                 except Exception:
@@ -367,7 +361,7 @@ class EnhancePromptUseCase:
                 context = await self._context_aggregator.gather_all(intent, effective_context_level)
 
         # Prompt optimization (BRAIN model, FULL profile only)
-        if self._llm_manager is not None and hasattr(self._llm_manager, '_config'):
+        if self._llm_manager is not None and hasattr(self._llm_manager, "_config"):
             try:
                 from mirdan.core.prompt_optimizer import PromptOptimizer
 
@@ -378,7 +372,9 @@ class EnhancePromptUseCase:
                 optimized = await optimizer.optimize(
                     task_description=prompt,
                     context_items=context.existing_patterns + context.documentation_hints,
-                    tool_recommendations="\n".join(r.to_dict().get("action", "") for r in tool_recommendations),
+                    tool_recommendations="\n".join(
+                        r.to_dict().get("action", "") for r in tool_recommendations
+                    ),
                     quality_requirements="\n".join(persistent_reqs),
                     target_model=model_tier if model_tier != "auto" else "sonnet",
                     detected_ide=detect_environment().ide.value,
@@ -460,9 +456,7 @@ class EnhancePromptUseCase:
 
         return result_dict
 
-    async def _run_triage(
-        self, prompt: str, intent: Any, session_id: str
-    ) -> Any:
+    async def _run_triage(self, prompt: str, intent: Any, session_id: str) -> Any:
         """Run triage classification, checking session bridge cache first.
 
         Args:

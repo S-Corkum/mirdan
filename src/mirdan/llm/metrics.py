@@ -42,15 +42,18 @@ class TokenMetrics:
             elapsed_ms: Wall-clock time in ms.
             hardware_profile: Hardware profile tier.
         """
-        self._append("llm_calls.jsonl", {
-            "ts": time.time(),
-            "role": role,
-            "tokens_in": tokens_in,
-            "tokens_out": tokens_out,
-            "feature": feature,
-            "elapsed_ms": round(elapsed_ms, 1),
-            "hardware_profile": hardware_profile,
-        })
+        self._append(
+            "llm_calls.jsonl",
+            {
+                "ts": time.time(),
+                "role": role,
+                "tokens_in": tokens_in,
+                "tokens_out": tokens_out,
+                "feature": feature,
+                "elapsed_ms": round(elapsed_ms, 1),
+                "hardware_profile": hardware_profile,
+            },
+        )
 
     def record_token_savings(
         self,
@@ -65,13 +68,16 @@ class TokenMetrics:
             estimated_paid_tokens: Tokens the paid model would have used.
             actual_local_tokens: Tokens the local model used instead.
         """
-        self._append("savings.jsonl", {
-            "ts": time.time(),
-            "feature": feature,
-            "estimated_paid": estimated_paid_tokens,
-            "actual_local": actual_local_tokens,
-            "saved": estimated_paid_tokens - actual_local_tokens,
-        })
+        self._append(
+            "savings.jsonl",
+            {
+                "ts": time.time(),
+                "feature": feature,
+                "estimated_paid": estimated_paid_tokens,
+                "actual_local": actual_local_tokens,
+                "saved": estimated_paid_tokens - actual_local_tokens,
+            },
+        )
 
     def record_triage(
         self,
@@ -110,13 +116,16 @@ class TokenMetrics:
             first_try_passed: Whether validation passed on first attempt.
             validation_score: Quality score from validation.
         """
-        self._append("optimization.jsonl", {
-            "ts": time.time(),
-            "session_id": session_id,
-            "target_model": target_model,
-            "first_try_passed": first_try_passed,
-            "validation_score": round(validation_score, 3),
-        })
+        self._append(
+            "optimization.jsonl",
+            {
+                "ts": time.time(),
+                "session_id": session_id,
+                "target_model": target_model,
+                "first_try_passed": first_try_passed,
+                "validation_score": round(validation_score, 3),
+            },
+        )
 
     def record_sanity_cap_triggered(
         self,
@@ -131,12 +140,15 @@ class TokenMetrics:
             original_fp_count: Number of false positives before cap.
             cap_applied: Whether the cap was actually applied.
         """
-        self._append("sanity_caps.jsonl", {
-            "ts": time.time(),
-            "feature": feature,
-            "original_fp_count": original_fp_count,
-            "cap_applied": cap_applied,
-        })
+        self._append(
+            "sanity_caps.jsonl",
+            {
+                "ts": time.time(),
+                "feature": feature,
+                "original_fp_count": original_fp_count,
+                "cap_applied": cap_applied,
+            },
+        )
 
     def get_summary(self, days: int = 30) -> dict[str, Any]:
         """Get a summary of metrics over the given period.

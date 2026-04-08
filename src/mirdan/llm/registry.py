@@ -112,7 +112,9 @@ class ModelRegistry:
                 # Use the backend-specific identifier as name so it can be
                 # passed directly to backend.generate(prompt, model_name).
                 # Ollama needs the tag, llama-cpp needs the internal name.
-                backend_name = ollama_tag if (ollama_tag and ollama_tag in ollama_tags) else entry["name"]
+                backend_name = (
+                    ollama_tag if (ollama_tag and ollama_tag in ollama_tags) else entry["name"]
+                )
                 installed.append(
                     ModelInfo(
                         name=backend_name,
@@ -130,6 +132,7 @@ class ModelRegistry:
             len(gguf_files),
         )
         return installed
+
 
 class ModelSelector:
     """Selects the best available model for a given role and memory budget.

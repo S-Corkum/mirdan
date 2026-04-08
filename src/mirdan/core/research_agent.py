@@ -36,23 +36,48 @@ logger = logging.getLogger(__name__)
 # The research agent gathers context — it must NEVER modify state.
 # Keyed by MCP name → frozenset of allowed tool names.
 RESEARCH_SAFE_TOOLS: dict[str, frozenset[str]] = {
-    "context7": frozenset({
-        "resolve-library-id", "query-docs", "get-library-docs",
-    }),
-    "enyal": frozenset({
-        "enyal_recall", "enyal_recall_by_scope", "enyal_get",
-        "enyal_traverse", "enyal_impact", "enyal_edges",
-        "enyal_history", "enyal_stats", "enyal_health",
-        "enyal_review", "enyal_analytics",
-    }),
+    "context7": frozenset(
+        {
+            "resolve-library-id",
+            "query-docs",
+            "get-library-docs",
+        }
+    ),
+    "enyal": frozenset(
+        {
+            "enyal_recall",
+            "enyal_recall_by_scope",
+            "enyal_get",
+            "enyal_traverse",
+            "enyal_impact",
+            "enyal_edges",
+            "enyal_history",
+            "enyal_stats",
+            "enyal_health",
+            "enyal_review",
+            "enyal_analytics",
+        }
+    ),
     "sequential-thinking": frozenset({"sequentialthinking"}),
-    "github": frozenset({
-        "get_me", "list_issues", "search_issues", "issue_read",
-        "list_pull_requests", "search_pull_requests", "pull_request_read",
-        "search_code", "get_file_contents",
-        "list_branches", "list_commits", "get_commit",
-        "list_releases", "get_latest_release", "get_release_by_tag",
-    }),
+    "github": frozenset(
+        {
+            "get_me",
+            "list_issues",
+            "search_issues",
+            "issue_read",
+            "list_pull_requests",
+            "search_pull_requests",
+            "pull_request_read",
+            "search_code",
+            "get_file_contents",
+            "list_branches",
+            "list_commits",
+            "get_commit",
+            "list_releases",
+            "get_latest_release",
+            "get_release_by_tag",
+        }
+    ),
 }
 
 
@@ -63,34 +88,70 @@ _OWNER_REPO_RE = re.compile(r"^[a-zA-Z0-9._-]{1,100}$")
 # Each builder takes an arguments dict and returns a command list for create_subprocess_exec.
 _GH_TOOL_COMMANDS: dict[str, Any] = {
     "list_commits": lambda a: [
-        "gh", "api", f"repos/{a['owner']}/{a['repo']}/commits",
-        "--jq", ".[0:10] | .[].sha",
+        "gh",
+        "api",
+        f"repos/{a['owner']}/{a['repo']}/commits",
+        "--jq",
+        ".[0:10] | .[].sha",
     ],
     "list_pull_requests": lambda a: [
-        "gh", "pr", "list", "-R", f"{a['owner']}/{a['repo']}",
-        "--json", "number,title,state", "-L", "10",
+        "gh",
+        "pr",
+        "list",
+        "-R",
+        f"{a['owner']}/{a['repo']}",
+        "--json",
+        "number,title,state",
+        "-L",
+        "10",
     ],
     "pull_request_read": lambda a: [
-        "gh", "pr", "view", str(int(a["number"])), "-R", f"{a['owner']}/{a['repo']}",
-        "--json", "title,body,state,files,additions,deletions",
+        "gh",
+        "pr",
+        "view",
+        str(int(a["number"])),
+        "-R",
+        f"{a['owner']}/{a['repo']}",
+        "--json",
+        "title,body,state,files,additions,deletions",
     ],
     "list_issues": lambda a: [
-        "gh", "issue", "list", "-R", f"{a['owner']}/{a['repo']}",
-        "--json", "number,title,state", "-L", "10",
+        "gh",
+        "issue",
+        "list",
+        "-R",
+        f"{a['owner']}/{a['repo']}",
+        "--json",
+        "number,title,state",
+        "-L",
+        "10",
     ],
     "search_code": lambda a: [
-        "gh", "search", "code", a.get("query", ""),
-        "--json", "path,repository", "-L", "10",
+        "gh",
+        "search",
+        "code",
+        a.get("query", ""),
+        "--json",
+        "path,repository",
+        "-L",
+        "10",
     ],
     "list_branches": lambda a: [
-        "gh", "api", f"repos/{a['owner']}/{a['repo']}/branches",
-        "--jq", ".[].name",
+        "gh",
+        "api",
+        f"repos/{a['owner']}/{a['repo']}/branches",
+        "--jq",
+        ".[].name",
     ],
     "get_file_contents": lambda a: [
-        "gh", "api", f"repos/{a['owner']}/{a['repo']}/contents/{a.get('path', '')}",
+        "gh",
+        "api",
+        f"repos/{a['owner']}/{a['repo']}/contents/{a.get('path', '')}",
     ],
     "get_commit": lambda a: [
-        "gh", "api", f"repos/{a['owner']}/{a['repo']}/commits/{a.get('ref', 'HEAD')}",
+        "gh",
+        "api",
+        f"repos/{a['owner']}/{a['repo']}/commits/{a.get('ref', 'HEAD')}",
     ],
 }
 
@@ -159,9 +220,7 @@ class ResearchAgent:
                 break
 
             # Select next tool
-            tool_call = await self._select_tool(
-                intent.original_prompt, tool_descriptions, results
-            )
+            tool_call = await self._select_tool(intent.original_prompt, tool_descriptions, results)
             if tool_call is None:
                 logger.info("Research agent completed after %d iterations", iteration)
                 break
@@ -181,7 +240,11 @@ class ResearchAgent:
         return ResearchResult(
             synthesis=synthesis or "",
             sources=[
-                {"mcp": r.get("mcp", ""), "tool": r.get("tool", ""), "summary": r.get("summary", "")}
+                {
+                    "mcp": r.get("mcp", ""),
+                    "tool": r.get("tool", ""),
+                    "summary": r.get("summary", ""),
+                }
                 for r in results
             ],
             tool_calls_made=len(results),
@@ -212,9 +275,7 @@ class ResearchAgent:
         """
         if not self._llm:
             return None
-        prompt = build_tool_selection_prompt(
-            task_description, tool_descriptions, previous_results
-        )
+        prompt = build_tool_selection_prompt(task_description, tool_descriptions, previous_results)
 
         try:
             result = await self._llm.generate_structured(
@@ -253,9 +314,7 @@ class ResearchAgent:
         # SECURITY: Enforce read-only allowlist — the LLM must not modify state
         safe_tools = RESEARCH_SAFE_TOOLS.get(mcp_name)
         if safe_tools is None or tool_name not in safe_tools:
-            logger.warning(
-                "Research agent blocked disallowed tool: %s/%s", mcp_name, tool_name
-            )
+            logger.warning("Research agent blocked disallowed tool: %s/%s", mcp_name, tool_name)
             return None
 
         # Prefer gh CLI over GitHub MCP when available
@@ -280,9 +339,7 @@ class ResearchAgent:
                     "tokens": len(summary) // 4,  # Rough token estimate
                 }
             elif results:
-                logger.debug(
-                    "Tool %s/%s failed: %s", mcp_name, tool_name, results[0].error
-                )
+                logger.debug("Tool %s/%s failed: %s", mcp_name, tool_name, results[0].error)
         except Exception:
             logger.warning("Tool execution failed: %s/%s", mcp_name, tool_name, exc_info=True)
 
@@ -326,12 +383,15 @@ class ResearchAgent:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=15
-            )
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=15)
 
             if proc.returncode != 0:
-                logger.debug("gh %s failed (exit %d): %s", tool_name, proc.returncode, stderr_bytes.decode()[:200])
+                logger.debug(
+                    "gh %s failed (exit %d): %s",
+                    tool_name,
+                    proc.returncode,
+                    stderr_bytes.decode()[:200],
+                )
                 return None
 
             output = stdout_bytes.decode(errors="replace").strip()
@@ -363,7 +423,9 @@ class ResearchAgent:
         """Check if gh CLI is authenticated. Cached for the session."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "gh", "auth", "status",
+                "gh",
+                "auth",
+                "status",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -409,9 +471,7 @@ class ResearchAgent:
         prompt = build_synthesis_prompt(task_description, results)
 
         try:
-            response = await self._llm.generate(
-                ModelRole.BRAIN, prompt, **SYNTHESIS_SAMPLING
-            )
+            response = await self._llm.generate(ModelRole.BRAIN, prompt, **SYNTHESIS_SAMPLING)
             if response and response.content:
                 text: str = response.content.strip()
                 return text

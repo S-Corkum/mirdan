@@ -207,9 +207,7 @@ class LLMManager:
         if not task.cancelled() and task.exception():
             logger.error("Model warmup failed: %s", task.exception())
 
-    async def generate(
-        self, role: ModelRole, prompt: str, **kwargs: Any
-    ) -> LLMResponse | None:
+    async def generate(self, role: ModelRole, prompt: str, **kwargs: Any) -> LLMResponse | None:
         """Generate a text completion using the local LLM.
 
         Args:
@@ -226,9 +224,7 @@ class LLMManager:
             return None
 
         available_ram = HardwareDetector.get_available_memory_mb()
-        model = self._selector.select(
-            role, available_ram, architecture=self._hardware.architecture
-        )
+        model = self._selector.select(role, available_ram, architecture=self._hardware.architecture)
         # Fallback: if selector rejects due to low available RAM but models are
         # installed (e.g., Ollama already loaded the model into RAM, which makes
         # available RAM appear low), use the best installed model for this role.
@@ -270,9 +266,7 @@ class LLMManager:
             return None
 
         available_ram = HardwareDetector.get_available_memory_mb()
-        model = self._selector.select(
-            role, available_ram, architecture=self._hardware.architecture
-        )
+        model = self._selector.select(role, available_ram, architecture=self._hardware.architecture)
         if not model:
             candidates = [m for m in self._selector._installed if m.role == role]
             if candidates:
@@ -284,20 +278,14 @@ class LLMManager:
         # Use prompt-based JSON fallback for Gemma 4 + Ollama + thinking disabled.
         use_format_param = True
         thinking = kwargs.get("thinking", False)
-        if (
-            model.model_family.startswith("gemma")
-            and not thinking
-            and self._is_ollama_backend()
-        ):
+        if model.model_family.startswith("gemma") and not thinking and self._is_ollama_backend():
             use_format_param = False
 
         try:
             timeout = self._health.effective_timeout
             if use_format_param:
                 return await asyncio.wait_for(
-                    self._backend.generate_structured(
-                        prompt, model.name, schema, **kwargs
-                    ),
+                    self._backend.generate_structured(prompt, model.name, schema, **kwargs),
                     timeout=timeout,
                 )
             else:
@@ -358,7 +346,9 @@ class LLMManager:
                 if python_type and not isinstance(data[key], python_type):
                     logger.warning(
                         "Schema validation: '%s' expected %s, got %s",
-                        key, expected_type, type(data[key]).__name__,
+                        key,
+                        expected_type,
+                        type(data[key]).__name__,
                     )
                     return False
 
@@ -389,9 +379,10 @@ class LLMManager:
         if not self._hardware:
             return False
         available_ram = HardwareDetector.get_available_memory_mb()
-        return self._selector.select(
-            role, available_ram, architecture=self._hardware.architecture
-        ) is not None
+        return (
+            self._selector.select(role, available_ram, architecture=self._hardware.architecture)
+            is not None
+        )
 
     async def health(self) -> LLMHealth:
         """Get current LLM subsystem health.

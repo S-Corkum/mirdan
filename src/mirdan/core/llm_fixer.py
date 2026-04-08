@@ -101,13 +101,15 @@ class LLMFixer:
 
             # Apply the fix (first occurrence only)
             fixed_code = fixed_code.replace(search, replace, 1)
-            applied.append({
-                "violation_id": fix.get("violation_id", ""),
-                "search": search[:100],  # Truncate for display
-                "replace": replace[:100],
-                "confidence": confidence,
-                "description": fix.get("description", ""),
-            })
+            applied.append(
+                {
+                    "violation_id": fix.get("violation_id", ""),
+                    "search": search[:100],  # Truncate for display
+                    "replace": replace[:100],
+                    "confidence": confidence,
+                    "description": fix.get("description", ""),
+                }
+            )
             fixed_violation_ids.add(fix.get("violation_id", ""))
 
         # Track violations we never tried to fix

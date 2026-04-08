@@ -47,8 +47,7 @@ class LlamaCppBackend:
     ) -> None:
         if not LLAMACPP_AVAILABLE:
             raise RuntimeError(
-                "llama-cpp-python is not installed. "
-                "Install with: pip install llama-cpp-python"
+                "llama-cpp-python is not installed. Install with: pip install llama-cpp-python"
             )
         self._model_path = model_path
         self._n_ctx = n_ctx
@@ -105,9 +104,7 @@ class LlamaCppBackend:
         try:
             llm = await self._ensure_loaded()
             max_tokens = kwargs.get("max_tokens", 512)
-            result = await anyio.to_thread.run_sync(
-                lambda: llm(prompt, max_tokens=max_tokens)
-            )
+            result = await anyio.to_thread.run_sync(lambda: llm(prompt, max_tokens=max_tokens))
             content = result["choices"][0]["text"] if result.get("choices") else ""
             elapsed = (time.monotonic() - start) * 1000
             tokens = result.get("usage", {}).get("completion_tokens", 0)
@@ -151,17 +148,11 @@ class LlamaCppBackend:
                     max_tokens=max_tokens,
                 )
             )
-            content = (
-                result["choices"][0]["message"]["content"]
-                if result.get("choices")
-                else "{}"
-            )
+            content = result["choices"][0]["message"]["content"] if result.get("choices") else "{}"
             parsed: dict[str, Any] = json.loads(content)
             return parsed
         except json.JSONDecodeError:
-            logger.warning(
-                "LlamaCpp structured output was not valid JSON, trying text fallback"
-            )
+            logger.warning("LlamaCpp structured output was not valid JSON, trying text fallback")
             response = await self.generate(
                 prompt + "\nRespond with valid JSON only.", model, **kwargs
             )
@@ -174,9 +165,7 @@ class LlamaCppBackend:
             logger.warning("LlamaCpp generate_structured failed: %s", exc)
             return {}
 
-    async def chat(
-        self, messages: list[dict[str, Any]], model: str, **kwargs: Any
-    ) -> LLMResponse:
+    async def chat(self, messages: list[dict[str, Any]], model: str, **kwargs: Any) -> LLMResponse:
         """Multi-turn chat via llama.cpp create_chat_completion.
 
         Args:
@@ -194,11 +183,7 @@ class LlamaCppBackend:
             result = await anyio.to_thread.run_sync(
                 lambda: llm.create_chat_completion(messages=messages, max_tokens=max_tokens)
             )
-            content = (
-                result["choices"][0]["message"]["content"]
-                if result.get("choices")
-                else ""
-            )
+            content = result["choices"][0]["message"]["content"] if result.get("choices") else ""
             elapsed = (time.monotonic() - start) * 1000
             tokens = result.get("usage", {}).get("completion_tokens", 0)
             return LLMResponse(
@@ -239,7 +224,7 @@ class LlamaCppBackend:
         tool_desc = json.dumps(tools, indent=2)
         system_msg = (
             f"Available tools:\n{tool_desc}\n\n"
-            'To call a tool, respond with JSON: '
+            "To call a tool, respond with JSON: "
             '{"tool_call": {"name": "...", "arguments": {...}}}'
         )
         augmented = [{"role": "system", "content": system_msg}] + messages

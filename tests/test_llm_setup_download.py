@@ -124,9 +124,7 @@ class TestDownloadGguf:
         call_kwargs = mock_stream.call_args
         assert "Authorization" not in call_kwargs[1]["headers"]
 
-    def test_uses_default_hf_url(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_uses_default_hf_url(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         mock_response = MagicMock()
         mock_response.headers = {"content-length": "100"}
         mock_response.iter_bytes.return_value = [b"x" * 100]
@@ -153,9 +151,7 @@ class TestDownloadGguf:
 
         mock_resp = MagicMock()
         mock_resp.status_code = 404
-        exc = httpx.HTTPStatusError(
-            "Not Found", request=MagicMock(), response=mock_resp
-        )
+        exc = httpx.HTTPStatusError("Not Found", request=MagicMock(), response=mock_resp)
 
         mock_ctx = MagicMock()
         mock_ctx.__enter__ = MagicMock(side_effect=exc)
@@ -202,9 +198,7 @@ class TestDownloadGguf:
 class TestInstallLlamacpp:
     """Tests for _install_llamacpp()."""
 
-    def test_installs_with_metal_on_apple_silicon(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_installs_with_metal_on_apple_silicon(self, capsys: pytest.CaptureFixture[str]) -> None:
         with (
             patch("shutil.which", return_value="/usr/bin/uv"),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
@@ -248,25 +242,19 @@ class TestInstallLlamacpp:
         assert cmd[-1] == "llama-cpp-python"
         assert "-m" in cmd and "pip" in cmd
 
-    def test_returns_false_on_install_failure(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_returns_false_on_install_failure(self, capsys: pytest.CaptureFixture[str]) -> None:
         with (
             patch("shutil.which", return_value=None),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
         ):
-            mock_run.return_value = MagicMock(
-                returncode=1, stderr="error: compilation failed\n"
-            )
+            mock_run.return_value = MagicMock(returncode=1, stderr="error: compilation failed\n")
             result = _install_llamacpp(metal_capable=False)
 
         assert result is False
         out = capsys.readouterr().out
         assert "failed" in out
 
-    def test_returns_false_on_timeout(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_returns_false_on_timeout(self, capsys: pytest.CaptureFixture[str]) -> None:
         with (
             patch("shutil.which", return_value=None),
             patch(
@@ -284,9 +272,7 @@ class TestInstallLlamacpp:
         with (
             patch("shutil.which", return_value=None),
             patch("mirdan.cli.llm_setup_command.subprocess.run") as mock_run,
-            patch(
-                "mirdan.cli.llm_setup_command._check_llamacpp", return_value=False
-            ),
+            patch("mirdan.cli.llm_setup_command._check_llamacpp", return_value=False),
         ):
             mock_run.return_value = MagicMock(returncode=0)
             result = _install_llamacpp(metal_capable=False)
@@ -323,9 +309,7 @@ class TestDownloadOllama:
         out = capsys.readouterr().out
         assert "failed" in out
 
-    def test_handles_missing_ollama(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_handles_missing_ollama(self, capsys: pytest.CaptureFixture[str]) -> None:
         with patch("mirdan.cli.llm_setup_command.subprocess") as mock_sub:
             mock_sub.run.side_effect = FileNotFoundError()
             mock_sub.TimeoutExpired = subprocess.TimeoutExpired
