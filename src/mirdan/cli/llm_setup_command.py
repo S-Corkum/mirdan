@@ -125,25 +125,44 @@ def run_llm_setup(args: list[str]) -> None:
 def _check_enyal() -> bool:
     """Check if Enyal is configured in any MCP config location.
 
-    Checks Claude Code (.mcp.json), Cursor (.cursor/mcp.json),
-    and global Cursor (~/.cursor/mcp.json) config files.
+    Searches:
+    1. CWD and parent directories (walks up like git) for .mcp.json
+       and .cursor/mcp.json — handles monorepos and nested projects.
+    2. Global config: ~/.cursor/mcp.json, ~/.claude/.mcp.json.
     """
-    config_paths = [
-        Path(".mcp.json"),  # Claude Code (project)
-        Path(".cursor/mcp.json"),  # Cursor (project)
-        Path.home() / ".cursor" / "mcp.json",  # Cursor (global)
-        Path.home() / ".claude" / ".mcp.json",  # Claude Code (global)
-    ]
-    for config_path in config_paths:
-        if config_path.exists():
-            try:
-                data = json.loads(config_path.read_text())
-                servers = data.get("mcpServers", {})
-                if "enyal" in servers:
-                    return True
-            except (json.JSONDecodeError, OSError):
-                pass
+    # Walk up from CWD to find project/workspace-level configs
+    current = Path.cwd().resolve()
+    for _ in range(10):  # cap depth to avoid infinite walk
+        for name in [".mcp.json", ".cursor/mcp.json"]:
+            candidate = current / name
+            if _has_enyal_server(candidate):
+                return True
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+
+    # Global configs
+    for global_path in [
+        Path.home() / ".cursor" / "mcp.json",
+        Path.home() / ".claude" / ".mcp.json",
+    ]:
+        if _has_enyal_server(global_path):
+            return True
+
     return False
+
+
+def _has_enyal_server(config_path: Path) -> bool:
+    """Check if a single MCP config file contains an enyal server entry."""
+    if not config_path.exists():
+        return False
+    try:
+        data = json.loads(config_path.read_text())
+        servers = data.get("mcpServers", {})
+        return "enyal" in servers
+    except (json.JSONDecodeError, OSError):
+        return False
 
 
 def _check_ollama() -> bool:
