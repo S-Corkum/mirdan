@@ -40,8 +40,11 @@ def run_llm_setup(args: list[str]) -> None:
     print()
 
     # 2. Check for Enyal
-    enyal_present = _check_enyal()
+    verbose = "--verbose" in args or "-v" in args
+    enyal_present = _check_enyal(verbose=verbose)
     print(f"  Enyal:        {'found (~1GB reserved)' if enyal_present else 'not detected'}")
+    if not enyal_present and not verbose:
+        print("                (run with --verbose to debug enyal detection)")
 
     # 3. Check backends
     llamacpp_ok = _check_llamacpp()
@@ -122,7 +125,7 @@ def run_llm_setup(args: list[str]) -> None:
     print("  mirdan init --cursor        Configure for Cursor IDE/CLI")
 
 
-def _check_enyal() -> bool:
+def _check_enyal(verbose: bool = False) -> bool:
     """Check if Enyal is configured in any MCP config location.
 
     Searches:
@@ -130,12 +133,16 @@ def _check_enyal() -> bool:
        and .cursor/mcp.json — handles monorepos and nested projects.
     2. Global config: ~/.cursor/mcp.json, ~/.claude/.mcp.json.
     """
+    if verbose:
+        print(f"  [debug] CWD: {Path.cwd().resolve()}")
+
     # Walk up from CWD to find project/workspace-level configs
     current = Path.cwd().resolve()
     for _ in range(10):  # cap depth to avoid infinite walk
         for name in [".mcp.json", ".cursor/mcp.json"]:
             candidate = current / name
-            if _has_enyal_server(candidate):
+            found = _has_enyal_server(candidate, verbose=verbose)
+            if found:
                 return True
         parent = current.parent
         if parent == current:
@@ -147,21 +154,35 @@ def _check_enyal() -> bool:
         Path.home() / ".cursor" / "mcp.json",
         Path.home() / ".claude" / ".mcp.json",
     ]:
-        if _has_enyal_server(global_path):
+        found = _has_enyal_server(global_path, verbose=verbose)
+        if found:
             return True
 
     return False
 
 
-def _has_enyal_server(config_path: Path) -> bool:
+def _has_enyal_server(config_path: Path, verbose: bool = False) -> bool:
     """Check if a single MCP config file contains an enyal server entry."""
     if not config_path.exists():
+        if verbose:
+            print(f"  [debug] {config_path}: not found")
         return False
     try:
         data = json.loads(config_path.read_text())
-        servers = data.get("mcpServers", {})
-        return "enyal" in servers
-    except (json.JSONDecodeError, OSError):
+        # Check both mcpServers (standard) and servers (alternate)
+        servers: dict[str, object] = {}
+        for key in ["mcpServers", "servers"]:
+            if isinstance(data.get(key), dict):
+                servers.update(data[key])
+        server_names = list(servers.keys())
+        # Case-insensitive match for enyal
+        has_enyal = any("enyal" in name.lower() for name in server_names)
+        if verbose:
+            print(f"  [debug] {config_path}: found, servers={server_names}, enyal={has_enyal}")
+        return has_enyal
+    except (json.JSONDecodeError, OSError) as exc:
+        if verbose:
+            print(f"  [debug] {config_path}: error reading — {exc}")
         return False
 
 
