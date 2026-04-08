@@ -87,7 +87,7 @@ def _configure_standalone() -> None:
     # It monkey-patches Python's ssl module to use the OS trust store,
     # which includes any CA certs installed by Netskope/Zscaler.
     try:
-        import truststore  # type: ignore[import-not-found]
+        import truststore  # type: ignore[import-not-found,unused-ignore]
 
         truststore.inject_into_ssl()
         logger.info("Using OS native trust store via truststore")

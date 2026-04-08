@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from mirdan.core.triage import TriageEngine
 from mirdan.llm.prompts.triage import TRIAGE_SCHEMA, build_triage_prompt
-from mirdan.models import Intent, TaskClassification, TaskType, TriageResult
+from mirdan.models import Intent, TaskClassification, TaskType
 
 
 def _make_intent(

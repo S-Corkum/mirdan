@@ -8,8 +8,6 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from mirdan.coordination import session_bridge
 
 

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 
 from mirdan.config import LLMConfig
 from mirdan.core.smart_validator import SmartValidator
-from mirdan.models import SmartValidationResult, Violation
+from mirdan.models import Violation
 
 
 def _make_violation(
@@ -186,7 +185,8 @@ class TestSmartValidatorFixValidation:
         }
 
         # fix_validator returns empty list (no new violations)
-        fix_validator = lambda code, lang: []
+        def fix_validator(code, lang):
+            return []
 
         validator = SmartValidator(
             llm_manager=mock_llm,
@@ -209,7 +209,8 @@ class TestSmartValidatorFixValidation:
         }
 
         # fix_validator returns violations (fix introduces new problems)
-        fix_validator = lambda code, lang: [_make_violation("NEW001")]
+        def fix_validator(code, lang):
+            return [_make_violation("NEW001")]
 
         validator = SmartValidator(
             llm_manager=mock_llm,

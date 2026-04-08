@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
-
 from mirdan.llm.health import HardwareDetector
 from mirdan.models import HardwareProfile
 

@@ -142,7 +142,7 @@ class Sidecar:
         try:
             data = json.loads(body)
             if isinstance(data, dict):
-                return data.get("prompt", "")
+                return str(data.get("prompt", ""))
         except (json.JSONDecodeError, ValueError):
             pass
 

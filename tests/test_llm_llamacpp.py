@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mirdan.models import HealthState, ModelRole
-
 
 # ---------------------------------------------------------------------------
 # Helpers — mock the Llama class so tests run without llama-cpp-python

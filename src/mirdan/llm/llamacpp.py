@@ -17,12 +17,12 @@ from mirdan.models import HealthState, LLMHealth, LLMResponse, ModelInfo, ModelR
 logger = logging.getLogger(__name__)
 
 try:
-    from llama_cpp import Llama  # type: ignore[import-not-found]
+    from llama_cpp import Llama  # type: ignore[import-not-found,unused-ignore]
 
     LLAMACPP_AVAILABLE = True
 except ImportError:
     LLAMACPP_AVAILABLE = False
-    Llama = None
+    Llama = None  # type: ignore[assignment,misc]
 
 
 def is_available() -> bool:

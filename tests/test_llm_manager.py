@@ -16,12 +16,10 @@ from mirdan.models import (
     HardwareInfo,
     HardwareProfile,
     HealthState,
-    LLMHealth,
     LLMResponse,
     ModelInfo,
     ModelRole,
 )
-
 
 # ---------------------------------------------------------------------------
 # create_if_enabled

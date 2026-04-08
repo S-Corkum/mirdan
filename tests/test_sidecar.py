@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from starlette.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.routing import Route
+from starlette.testclient import TestClient
 
 from mirdan.llm.sidecar import Sidecar
 from mirdan.models import HealthState, LLMHealth

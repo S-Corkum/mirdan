@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -219,7 +218,7 @@ class TestResearchAgentAllowlist:
         mock_registry = AsyncMock()
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         # Should not have called the registry at all — tool was blocked
         mock_registry.call_tools_parallel.assert_not_awaited()
@@ -237,7 +236,7 @@ class TestResearchAgentAllowlist:
         mock_registry = AsyncMock()
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         mock_registry.call_tools_parallel.assert_not_awaited()
 
@@ -254,7 +253,7 @@ class TestResearchAgentAllowlist:
         mock_registry = AsyncMock()
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         mock_registry.call_tools_parallel.assert_not_awaited()
 
@@ -278,7 +277,7 @@ class TestResearchAgentAllowlist:
 
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         mock_registry.call_tools_parallel.assert_awaited_once()
 
@@ -302,7 +301,7 @@ class TestResearchAgentAllowlist:
 
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         mock_registry.call_tools_parallel.assert_awaited_once()
 
@@ -319,14 +318,13 @@ class TestResearchAgentAllowlist:
         mock_registry = AsyncMock()
         config = LLMConfig(research_agent=True)
         agent = ResearchAgent(llm_manager=mock_llm, registry=mock_registry, config=config)
-        result = await agent.research(_make_intent(), _make_tool_recs())
+        await agent.research(_make_intent(), _make_tool_recs())
 
         mock_registry.call_tools_parallel.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_prompt_excludes_non_allowlisted_mcps(self) -> None:
         """Tool descriptions should not include MCPs not in RESEARCH_SAFE_TOOLS."""
-        from mirdan.core.research_agent import RESEARCH_SAFE_TOOLS
 
         recs = [
             ToolRecommendation(mcp="context7", action="get-library-docs", reason="docs"),

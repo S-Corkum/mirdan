@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from mirdan.llm.registry import KNOWN_MODELS, ModelRegistry, ModelSelector
+from mirdan.llm.registry import ModelRegistry, ModelSelector
 from mirdan.models import ModelInfo, ModelRole
-
 
 # ---------------------------------------------------------------------------
 # ModelRegistry.discover()

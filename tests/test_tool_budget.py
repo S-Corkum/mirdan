@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from collections.abc import AsyncIterator
 from unittest.mock import patch
@@ -10,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 import mirdan.server as server_mod
-from mirdan.config import MirdanConfig, PlatformProfile
+from mirdan.config import PlatformProfile
 
 
 async def _get_tool_names() -> set[str]:

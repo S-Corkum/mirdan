@@ -10,7 +10,7 @@ import pytest
 
 from mirdan.config import CheckRunnerConfig, LLMConfig
 from mirdan.core.check_runner import CheckRunner
-from mirdan.models import CheckResult, SubprocessResult
+from mirdan.models import SubprocessResult
 
 
 def _make_subprocess_result(

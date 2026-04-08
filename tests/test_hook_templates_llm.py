@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from mirdan.integrations.cursor import (
     CursorHookStringency,
     generate_cursor_hooks,
@@ -15,7 +13,6 @@ from mirdan.integrations.hook_templates import (
     HookStringency,
     HookTemplateGenerator,
 )
-
 
 # ---------------------------------------------------------------------------
 # Claude Code hooks with LLM
