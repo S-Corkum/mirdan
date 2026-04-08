@@ -123,15 +123,26 @@ def run_llm_setup(args: list[str]) -> None:
 
 
 def _check_enyal() -> bool:
-    """Check if Enyal is likely running or configured."""
-    # Check for enyal config or process
-    if Path(".mcp.json").exists():
-        try:
-            data = json.loads(Path(".mcp.json").read_text())
-            servers = data.get("mcpServers", {})
-            return "enyal" in servers
-        except (json.JSONDecodeError, OSError):
-            pass
+    """Check if Enyal is configured in any MCP config location.
+
+    Checks Claude Code (.mcp.json), Cursor (.cursor/mcp.json),
+    and global Cursor (~/.cursor/mcp.json) config files.
+    """
+    config_paths = [
+        Path(".mcp.json"),  # Claude Code (project)
+        Path(".cursor/mcp.json"),  # Cursor (project)
+        Path.home() / ".cursor" / "mcp.json",  # Cursor (global)
+        Path.home() / ".claude" / ".mcp.json",  # Claude Code (global)
+    ]
+    for config_path in config_paths:
+        if config_path.exists():
+            try:
+                data = json.loads(config_path.read_text())
+                servers = data.get("mcpServers", {})
+                if "enyal" in servers:
+                    return True
+            except (json.JSONDecodeError, OSError):
+                pass
     return False
 
 
