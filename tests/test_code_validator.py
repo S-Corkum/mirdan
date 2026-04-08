@@ -1666,7 +1666,7 @@ class TestTypeScriptNewRules:
     """Tests for TypeScript rules TS006-TS013."""
 
     def test_detects_dangerously_set_html(self, validator: CodeValidator) -> None:
-        code = '<div dangerouslySetInnerHTML={{__html: userInput}} />'
+        code = "<div dangerouslySetInnerHTML={{__html: userInput}} />"
         result = validator.validate(code, language="typescript")
         assert any(v.id == "TS006" for v in result.violations)
 
@@ -1711,7 +1711,7 @@ class TestJavaScriptNewRules:
     """Tests for JavaScript rules JS006-JS013."""
 
     def test_detects_dangerously_set_html(self, validator: CodeValidator) -> None:
-        code = '<div dangerouslySetInnerHTML={{__html: data}} />'
+        code = "<div dangerouslySetInnerHTML={{__html: data}} />"
         result = validator.validate(code, language="javascript")
         assert any(v.id == "JS006" for v in result.violations)
 
@@ -1751,7 +1751,7 @@ class TestGoNewRules:
         assert any(v.id == "GO005" for v in result.violations)
 
     def test_detects_sql_backtick_concat(self, validator: CodeValidator) -> None:
-        code = 'db.Query(`SELECT * FROM users WHERE id = ` + id)'
+        code = "db.Query(`SELECT * FROM users WHERE id = ` + id)"
         result = validator.validate(code, language="go")
         assert any(v.id == "GO009" for v in result.violations)
 

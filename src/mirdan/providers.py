@@ -10,6 +10,7 @@ from typing import Any
 from mirdan.config import MirdanConfig
 from mirdan.core.active_orchestrator import ToolExecutor
 from mirdan.core.agent_coordinator import AgentCoordinator
+from mirdan.core.analyzer_suite import AnalyzerSuite
 from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
 from mirdan.core.auto_fixer import AutoFixer
 from mirdan.core.ceremony import CeremonyAdvisor
@@ -36,6 +37,7 @@ from mirdan.core.session_manager import SessionManager
 from mirdan.core.session_tracker import SessionTracker
 from mirdan.core.tidy_first import TidyFirstAnalyzer
 from mirdan.core.vuln_scanner import VulnScanner
+from mirdan.llm.manager import LLMManager
 from mirdan.usecases.enhance_prompt import EnhancePromptUseCase
 from mirdan.usecases.quality_standards import GetQualityStandardsUseCase
 from mirdan.usecases.quality_trends import GetQualityTrendsUseCase
@@ -116,6 +118,12 @@ class ComponentProvider:
         self.guardrail_analyzer = GuardrailAnalyzer(config.guardrails)
         self.architecture_analyzer = ArchitectureAnalyzer(config.architecture)
         self.architecture_analyzer.load_model(project_dir)
+        self.analyzer_suite = AnalyzerSuite(
+            tidy_first=self.tidy_analyzer,
+            decision=self.decision_analyzer,
+            guardrail=self.guardrail_analyzer,
+            architecture=self.architecture_analyzer,
+        )
 
         # Store all components as instance attributes
         self.intent_analyzer = IntentAnalyzer(config.project, manifest_parser=manifest_parser)
@@ -155,6 +163,39 @@ class ComponentProvider:
         self.active_orchestrator = ToolExecutor(context_aggregator.registry)
         self.config = config
         self.workspace_resolver = workspace_resolver
+        self.llm_manager = LLMManager.create_if_enabled(config.llm)
+
+        # Context provider for local LLM prompts (enyal + context7 + framework hints)
+        from mirdan.llm.context_provider import ContextProvider
+
+        self.context_provider = ContextProvider(
+            registry=context_aggregator.registry,
+            session_manager=self.session_manager,
+        )
+
+        # Training data collector (fire-and-forget, only when explicitly enabled)
+        from mirdan.llm.training_collector import TrainingCollector
+
+        self.training_collector: TrainingCollector | None = (
+            TrainingCollector(config=config.llm)
+            if config.llm.enabled and config.llm.collect_training_data
+            else None
+        )
+
+        # SmartValidator with fix_validator callback to break circular dep (DIP)
+        from mirdan.core.smart_validator import SmartValidator
+
+        fix_validator = (
+            (lambda code, lang: self.code_validator.validate(code, lang).violations)
+            if config.llm.validate_llm_fixes
+            else None
+        )
+        self.smart_validator = SmartValidator(
+            llm_manager=self.llm_manager,
+            context_provider=self.context_provider,
+            config=config.llm,
+            fix_validator=fix_validator,
+        )
 
     # -- Use-case factories ---------------------------------------------------
 
@@ -176,10 +217,9 @@ class ComponentProvider:
             background_tasks=background_tasks,
             ceremony_advisor=self.ceremony_advisor,
             agent_coordinator=self.agent_coordinator,
-            tidy_analyzer=self.tidy_analyzer,
-            decision_analyzer=self.decision_analyzer,
-            guardrail_analyzer=self.guardrail_analyzer,
-            architecture_analyzer=self.architecture_analyzer,
+            analyzer_suite=self.analyzer_suite,
+            llm_manager=self.llm_manager,
+            training_collector=self.training_collector,
         )
 
     def create_validate_code_usecase(
@@ -201,7 +241,11 @@ class ComponentProvider:
             background_tasks=background_tasks,
             agent_coordinator=self.agent_coordinator,
             confidence_calibrator=self.confidence_calibrator,
-            architecture_analyzer=self.architecture_analyzer,
+            architecture_analyzer=self.analyzer_suite.architecture,
+            llm_manager=self.llm_manager,
+            smart_validator=self.smart_validator,
+            training_collector=self.training_collector,
+            context_provider=self.context_provider,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:
@@ -227,5 +271,7 @@ class ComponentProvider:
         )
 
     async def close(self) -> None:
-        """Cleanup MCP client connections."""
+        """Cleanup MCP client connections and LLM subsystem."""
         await self.context_aggregator.close()
+        if self.llm_manager:
+            await self.llm_manager.shutdown()

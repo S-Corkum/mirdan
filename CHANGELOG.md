@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-04-06
+
+### Added
+- Local Intelligence Layer: offloads mundane work to a local LLM (Gemma 4)
+- Two inference backends: Ollama (simple) and llama-cpp-python (memory-optimal)
+- Dynamic model selection based on available RAM — adapts to 16GB laptops
+- HTTP sidecar for hook integration (<5ms latency)
+- TriageEngine: classifies tasks, LOCAL_ONLY tasks cost zero paid tokens
+- CheckRunner: runs ruff + mypy + pytest locally, LLM parses failures
+- SmartValidator: false-positive filtering, root cause grouping, fix suggestions
+- PromptOptimizer: per-model prompt crafting (64GB+ only)
+- ResearchAgent: agentic context gathering via MCPs (64GB+ only, experimental)
+- Session bridge: hook-to-MCP coordination via .mirdan/sessions/
+- Token metrics and training data collection for fine-tuning
+- CLI: mirdan llm setup|status|warmup|metrics, mirdan triage, mirdan check, mirdan fine-tune
+- Hook templates updated for Claude Code, Cursor IDE, and Cursor CLI
+- Full documentation: quickstart, configuration, CLI reference, IDE guides, troubleshooting, architecture
+
+### Changed
+- validate_code_quality enriched with smart_analysis when LLM available
+- enhance_prompt enriched with triage and prompt optimization when LLM available
+- server.py starts HTTP sidecar in lifespan when LLM enabled
+
+### Unchanged
+- validate_quick remains rule-based only
+- Zero new MCP tools — all features enrich existing tool output
+- Zero behavior change when LLM disabled (backward compatible)
+
 ## [1.10.1] - 2026-03-17
 
 ### Fixed

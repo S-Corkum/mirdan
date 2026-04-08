@@ -83,8 +83,7 @@ class PERF002UnboundedCollectionRule(BaseRule):
                             ),
                             line=loop_line + acc_line_offset + 1,
                             suggestion=(
-                                "Add a maximum size check: "
-                                "if len(collection) >= MAX_SIZE: break"
+                                "Add a maximum size check: if len(collection) >= MAX_SIZE: break"
                             ),
                         )
                     )

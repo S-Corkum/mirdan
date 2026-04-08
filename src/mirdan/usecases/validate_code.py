@@ -57,6 +57,10 @@ class ValidateCodeUseCase:
         agent_coordinator: AgentCoordinator | None = None,
         confidence_calibrator: ConfidenceCalibrator | None = None,
         architecture_analyzer: ArchitectureAnalyzer | None = None,
+        llm_manager: Any = None,
+        smart_validator: Any = None,
+        training_collector: Any = None,
+        context_provider: Any = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -74,6 +78,10 @@ class ValidateCodeUseCase:
         self._agent_coordinator = agent_coordinator
         self._confidence_calibrator = confidence_calibrator
         self._architecture_analyzer = architecture_analyzer
+        self._llm_manager = llm_manager
+        self._smart_validator = smart_validator
+        self._training_collector = training_collector
+        self._context_provider = context_provider
 
     async def execute(
         self,
@@ -175,18 +183,42 @@ class ValidateCodeUseCase:
                 result.score = self._code_validator._calculate_score(result.violations)
                 result.passed = not any(v.severity == "error" for v in result.violations)
 
-        # Enrich violations with contextual explanations
+        # Smart validation: LLM-enriched FP filtering + root causes + fixes
+        smart_analysis = None
+        if self._smart_validator and result.violations:
+            try:
+                smart_analysis = await self._smart_validator.analyze(
+                    result.violations,
+                    code,
+                    result.language_detected,
+                    session_id=session_id,
+                    file_path=file_path or "",
+                )
+            except Exception:
+                logger.warning("Smart validation failed", exc_info=True)
+
+        # Enrich violations with contextual explanations (template-based)
         if result.violations:
             try:
                 self._violation_explainer.enrich_violations(result.violations)
             except Exception:
-                logger.debug("Failed to enrich violations", exc_info=True)
+                logger.warning("Failed to enrich violations", exc_info=True)
+
+        # LLM-enriched explanations — supplements template explanations with
+        # code-aware context (references actual variables, line relationships)
+        if self._llm_manager and result.violations:
+            try:
+                await self._enrich_explanations_llm(
+                    result.violations, code, result.language_detected
+                )
+            except Exception:
+                logger.warning("LLM explanation enrichment failed", exc_info=True)
 
         # Persist snapshot for quality trends
         try:
             self._quality_persistence.save_snapshot(result)
         except Exception:
-            logger.debug("Failed to save quality snapshot", exc_info=True)
+            logger.warning("Failed to save quality snapshot", exc_info=True)
 
         # Track validation in session
         session = None
@@ -217,6 +249,18 @@ class ValidateCodeUseCase:
                 delta["persistent"] = persistent
 
         output = result.to_dict(severity_threshold=severity_threshold)
+
+        # Attach smart analysis results
+        if smart_analysis is not None:
+            output["smart_analysis"] = smart_analysis.to_dict()
+
+        # Record training sample for future fine-tuning
+        if self._training_collector is not None:
+            self._training_collector.record_validation_sample(
+                code=code,
+                violations=[v.to_dict() for v in result.violations],
+                llm_analysis=smart_analysis.to_dict() if smart_analysis is not None else None,
+            )
 
         # Cross-session quality drift detection
         baseline = self._quality_persistence.get_baseline_score()
@@ -478,7 +522,7 @@ class ValidateCodeUseCase:
         try:
             self._quality_persistence.save_snapshot(result)
         except Exception:
-            logger.debug("Failed to save quality snapshot", exc_info=True)
+            logger.warning("Failed to save quality snapshot", exc_info=True)
 
         output = result.to_dict(severity_threshold="warning")
         output["files_changed"] = parsed.files_changed
@@ -565,3 +609,72 @@ class ValidateCodeUseCase:
         )
 
         return comparison.to_dict()
+
+    async def _enrich_explanations_llm(
+        self,
+        violations: list[Any],
+        code: str,
+        language: str,
+    ) -> None:
+        """Supplement template-based explanations with LLM-generated context.
+
+        The FAST model with thinking generates code-aware explanations that
+        reference actual variables, line relationships, and data flow. This
+        supplements (doesn't replace) the existing template-based explanations.
+
+        Mutates violation objects in-place by appending to their explanation.
+
+        Args:
+            violations: List of Violation objects (already template-enriched).
+            code: Source code being validated.
+            language: Detected programming language.
+        """
+        import json
+
+        from mirdan.llm.prompts.explain import (
+            EXPLAIN_SAMPLING,
+            EXPLAIN_SCHEMA,
+            build_explain_prompt,
+        )
+        from mirdan.models import ModelRole
+
+        # Build a concise violation summary for the LLM
+        violation_dicts = [
+            {"id": v.id, "rule": v.rule, "message": v.message, "line": v.line}
+            for v in violations[:10]  # Cap to avoid overwhelming the model
+        ]
+        # Get project context if available
+        project_context = ""
+        if self._context_provider:
+            try:
+                project_context = await self._context_provider.get_context(
+                    language=language,
+                )
+            except Exception:
+                pass
+
+        prompt = build_explain_prompt(
+            code, json.dumps(violation_dicts, indent=2), project_context=project_context
+        )
+
+        result = await self._llm_manager.generate_structured(
+            ModelRole.FAST, prompt, EXPLAIN_SCHEMA, **EXPLAIN_SAMPLING
+        )
+        if not result:
+            return
+
+        # Map explanations back to violations
+        explanation_map: dict[str, str] = {}
+        for item in result.get("explanations", []):
+            vid = item.get("violation_id", "")
+            explanation = item.get("explanation", "")
+            if vid and explanation:
+                explanation_map[vid] = explanation
+
+        for v in violations:
+            llm_explanation = explanation_map.get(v.id)
+            if llm_explanation:
+                if v.explanation:
+                    v.explanation = f"{v.explanation} {llm_explanation}"
+                else:
+                    v.explanation = llm_explanation

@@ -21,11 +21,8 @@ if TYPE_CHECKING:
     from mirdan.config import MirdanConfig
     from mirdan.core.active_orchestrator import ToolExecutor
     from mirdan.core.agent_coordinator import AgentCoordinator
-    from mirdan.core.architecture_analyzer import ArchitectureAnalyzer
     from mirdan.core.ceremony import CeremonyAdvisor
     from mirdan.core.context_aggregator import ContextAggregator
-    from mirdan.core.decision_analyzer import DecisionAnalyzer
-    from mirdan.core.guardrail_analyzer import GuardrailAnalyzer
     from mirdan.core.intent_analyzer import IntentAnalyzer
     from mirdan.core.knowledge_producer import KnowledgeProducer
     from mirdan.core.orchestrator import ToolAdvisor
@@ -34,7 +31,6 @@ if TYPE_CHECKING:
     from mirdan.core.prompt_composer import PromptComposer
     from mirdan.core.session_manager import SessionManager
     from mirdan.core.session_tracker import SessionTracker
-    from mirdan.core.tidy_first import TidyFirstAnalyzer
     from mirdan.models import SessionContext
 
 logger = logging.getLogger(__name__)
@@ -101,10 +97,9 @@ class EnhancePromptUseCase:
         background_tasks: set[asyncio.Task[Any]],
         ceremony_advisor: CeremonyAdvisor | None = None,
         agent_coordinator: AgentCoordinator | None = None,
-        tidy_analyzer: TidyFirstAnalyzer | None = None,
-        decision_analyzer: DecisionAnalyzer | None = None,
-        guardrail_analyzer: GuardrailAnalyzer | None = None,
-        architecture_analyzer: ArchitectureAnalyzer | None = None,
+        analyzer_suite: Any = None,
+        llm_manager: Any = None,
+        training_collector: Any = None,
     ) -> None:
         self._intent_analyzer = intent_analyzer
         self._session_manager = session_manager
@@ -120,10 +115,9 @@ class EnhancePromptUseCase:
         self._background_tasks = background_tasks
         self._ceremony_advisor = ceremony_advisor
         self._agent_coordinator = agent_coordinator
-        self._tidy_analyzer = tidy_analyzer
-        self._decision_analyzer = decision_analyzer
-        self._guardrail_analyzer = guardrail_analyzer
-        self._architecture_analyzer = architecture_analyzer
+        self._analyzers = analyzer_suite
+        self._llm_manager = llm_manager
+        self._training_collector = training_collector
 
     async def execute(
         self,
@@ -229,6 +223,45 @@ class EnhancePromptUseCase:
                 )
                 coordination_warnings = [w.to_dict() for w in warnings]
 
+        # Triage gate: classify task before ceremony to save paid tokens
+        triage_result = None
+        if self._llm_manager is not None:
+            triage_result = await self._run_triage(prompt, intent, session_id)
+            if triage_result is not None and self._training_collector is not None:
+                self._training_collector.record_triage_sample(
+                    prompt=prompt,
+                    intent_summary=intent.task_type.value,
+                    classification=triage_result.classification.value,
+                    confidence=triage_result.confidence,
+                )
+            if triage_result is not None:
+                from mirdan.models import TaskClassification
+
+                # LOCAL_ONLY with high confidence: short-circuit
+                if (
+                    triage_result.classification == TaskClassification.LOCAL_ONLY
+                    and triage_result.confidence >= 0.8
+                ):
+                    return self._output_formatter.format_enhanced_prompt(
+                        {
+                            "task_type": intent.task_type.value,
+                            "language": intent.primary_language,
+                            "triage": triage_result.to_dict(),
+                            "ceremony_level": "micro",
+                            "recommendation": "Handle locally — no paid model needed",
+                            "timing_ms": {"total": round((perf_counter() - _t0) * 1000, 1)},
+                        },
+                        max_tokens=max_tokens,
+                        model_tier=_parse_model_tier(model_tier),
+                    )
+
+                # Override ceremony level based on triage
+                from mirdan.core.triage import TriageEngine
+
+                ceremony_override = TriageEngine.get_ceremony_override(triage_result.classification)
+                if ceremony_override and ceremony_level == "auto":
+                    ceremony_level = ceremony_override
+
         # Determine ceremony level (after session is available for escalation checks)
         if self._ceremony_advisor is not None:
             if ceremony_level != "auto":
@@ -269,29 +302,23 @@ class EnhancePromptUseCase:
             policy = None
             effective_context_level = context_level
 
-        # Tidy First analysis — only at STANDARD+ ceremony for GENERATION/REFACTOR
+        # Ceremony-gated analyzers — only at STANDARD+ ceremony
         tidy_analysis = None
-        if (
-            self._tidy_analyzer is not None
-            and level >= CeremonyLevel.STANDARD
-            and intent.task_type in (TaskType.GENERATION, TaskType.REFACTOR)
-        ):
-            tidy_analysis = self._tidy_analyzer.analyze(intent)
-
-        # Decision intelligence — only at STANDARD+ ceremony
         decision_guidance = None
-        if self._decision_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            decision_guidance = self._decision_analyzer.analyze(intent)
-
-        # Cognitive guardrails — only at STANDARD+ ceremony
         guardrail_analysis = None
-        if self._guardrail_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            guardrail_analysis = self._guardrail_analyzer.analyze(intent)
-
-        # Architecture context — only at STANDARD+ when model loaded
         arch_context = None
-        if self._architecture_analyzer is not None and level >= CeremonyLevel.STANDARD:
-            arch_context = self._architecture_analyzer.get_context_warnings(intent)
+        if self._analyzers and level >= CeremonyLevel.STANDARD:
+            if self._analyzers.tidy_first and intent.task_type in (
+                TaskType.GENERATION,
+                TaskType.REFACTOR,
+            ):
+                tidy_analysis = self._analyzers.tidy_first.analyze(intent)
+            if self._analyzers.decision:
+                decision_guidance = self._analyzers.decision.analyze(intent)
+            if self._analyzers.guardrail:
+                guardrail_analysis = self._analyzers.guardrail.analyze(intent)
+            if self._analyzers.architecture:
+                arch_context = self._analyzers.architecture.get_context_warnings(intent)
 
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
@@ -309,7 +336,59 @@ class EnhancePromptUseCase:
         if effective_context_level == "none":
             context = ContextBundle()
         else:
-            context = await self._context_aggregator.gather_all(intent, effective_context_level)
+            # Research agent: at THOROUGH ceremony, try BRAIN-powered research first
+            research_used = False
+            if self._llm_manager is not None and effective_context_level == "comprehensive":
+                try:
+                    from mirdan.core.research_agent import ResearchAgent
+
+                    agent = ResearchAgent(
+                        llm_manager=self._llm_manager,
+                        registry=self._context_aggregator.registry,
+                        config=getattr(self._llm_manager, "_config", None),
+                    )
+                    research = await agent.research(intent, tool_recommendations)
+                    if research and research.synthesis:
+                        context = ContextBundle(
+                            documentation_hints=[research.synthesis],
+                            existing_patterns=[s.get("summary", "") for s in research.sources],
+                        )
+                        research_used = True
+                except Exception:
+                    logger.warning("Research agent failed, falling back to ContextAggregator")
+
+            if not research_used:
+                context = await self._context_aggregator.gather_all(intent, effective_context_level)
+
+        # Prompt optimization (BRAIN model, FULL profile only)
+        if self._llm_manager is not None and hasattr(self._llm_manager, "_config"):
+            try:
+                from mirdan.core.prompt_optimizer import PromptOptimizer
+
+                optimizer = PromptOptimizer(
+                    llm_manager=self._llm_manager,
+                    config=self._llm_manager._config,
+                )
+                optimized = await optimizer.optimize(
+                    task_description=prompt,
+                    context_items=context.existing_patterns + context.documentation_hints,
+                    tool_recommendations="\n".join(
+                        r.to_dict().get("action", "") for r in tool_recommendations
+                    ),
+                    quality_requirements="\n".join(persistent_reqs),
+                    target_model=model_tier if model_tier != "auto" else "sonnet",
+                    detected_ide=detect_environment().ide.value,
+                )
+                if optimized:
+                    context.documentation_hints = [optimized.text]
+                    if self._training_collector is not None:
+                        self._training_collector.record_optimization_sample(
+                            original_prompt=prompt,
+                            optimized_prompt=optimized.text,
+                            target_model=model_tier if model_tier != "auto" else "sonnet",
+                        )
+            except Exception:
+                logger.warning("Prompt optimization failed, using original context")
 
         # Compose enhanced prompt with session feedback wired through
         enhanced = self._prompt_composer.compose(
@@ -376,3 +455,35 @@ class EnhancePromptUseCase:
         )
 
         return result_dict
+
+    async def _run_triage(self, prompt: str, intent: Any, session_id: str) -> Any:
+        """Run triage classification, checking session bridge cache first.
+
+        Args:
+            prompt: Developer's task description.
+            intent: Analyzed intent.
+            session_id: Current session ID for cache lookup.
+
+        Returns:
+            TriageResult or None.
+        """
+        from mirdan.coordination.session_bridge import get_session_id, read_triage
+        from mirdan.core.triage import TriageEngine
+        from mirdan.models import TaskClassification, TriageResult
+
+        # Check session bridge cache (hook may have already triaged)
+        effective_session = session_id or get_session_id()
+        cached = read_triage(effective_session)
+        if cached and "classification" in cached:
+            try:
+                return TriageResult(
+                    classification=TaskClassification(cached["classification"]),
+                    confidence=cached.get("confidence", 0.0),
+                    reasoning=cached.get("reasoning", "cached"),
+                )
+            except ValueError:
+                pass
+
+        # Run triage via engine
+        engine = TriageEngine(llm_manager=self._llm_manager)
+        return await engine.classify(prompt, intent)

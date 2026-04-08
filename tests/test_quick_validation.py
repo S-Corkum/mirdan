@@ -19,7 +19,7 @@ from mirdan.core.quality_standards import QualityStandards
 from mirdan.usecases.helpers import _MAX_CODE_LENGTH
 
 # Extract raw async function from FastMCP FunctionTool wrapper
-_validate_quick = server_mod.validate_quick.fn
+_validate_quick = server_mod.validate_quick
 
 
 @pytest.fixture(autouse=True)

@@ -139,6 +139,7 @@ class HookTemplateGenerator:
     def generate_claude_code_hooks(
         self,
         stringency: HookStringency = HookStringency.COMPREHENSIVE,
+        llm_enabled: bool = False,
     ) -> dict[str, Any]:
         """Generate hooks.json for Claude Code.
 
@@ -146,8 +147,13 @@ class HookTemplateGenerator:
         on the event. The stringency level controls how many hooks
         are generated.
 
+        When llm_enabled is True, UserPromptSubmit and Stop hooks use
+        command-type hooks that call the sidecar/CLI for local LLM
+        triage and check runner, injecting results into Claude's context.
+
         Args:
             stringency: Hook stringency level (minimal, standard, comprehensive).
+            llm_enabled: Whether local LLM features are enabled.
 
         Returns:
             hooks.json-compatible dict.
@@ -157,6 +163,14 @@ class HookTemplateGenerator:
         self._current_stringency = stringency
 
         for event in events:
+            # LLM-enabled overrides for specific events
+            if llm_enabled and event == "UserPromptSubmit":
+                hooks[event] = self._user_prompt_submit_llm()
+                continue
+            if llm_enabled and event == "Stop":
+                hooks[event] = self._stop_llm()
+                continue
+
             generator = self._event_generators().get(event)
             if generator:
                 hook_def = generator()
@@ -613,3 +627,76 @@ class HookTemplateGenerator:
                 ],
             }
         ]
+
+    # ------------------------------------------------------------------
+    # LLM-enhanced hook generators (Claude Code only)
+    # ------------------------------------------------------------------
+
+    def _user_prompt_submit_llm(self) -> list[dict[str, Any]]:
+        """UserPromptSubmit with local LLM triage via sidecar.
+
+        The command hook outputs triage results which Claude Code injects
+        into the model's context before processing. This allows the paid
+        model to skip unnecessary work for LOCAL_ONLY tasks.
+        """
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": _TRIAGE_HOOK_SCRIPT,
+                        "timeout": 15000,
+                    },
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "The triage output above classifies this task."
+                            " If classification is 'local_only', handle it"
+                            " with minimal token usage — no deep exploration."
+                            " If 'local_assist' or 'paid_minimal', call"
+                            " mcp__mirdan__enhance_prompt for focused guidance."
+                            " If 'paid_required', proceed normally."
+                        ),
+                    },
+                ],
+            }
+        ]
+
+    def _stop_llm(self) -> list[dict[str, Any]]:
+        """Stop with local LLM check runner via sidecar.
+
+        Runs lint + typecheck + test locally, LLM parses output.
+        Results are injected so Claude only fixes complex issues.
+        """
+        return [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": f"{self._mirdan_cmd} check --smart",
+                        "timeout": 60000,
+                    },
+                    {
+                        "type": "prompt",
+                        "prompt": (
+                            "Review the check results above. Items marked"
+                            " 'auto_fixed' are already resolved. Focus on"
+                            " 'needs_attention' items only. If all_pass is"
+                            " true, the task can be completed."
+                        ),
+                    },
+                ],
+            }
+        ]
+
+
+# Inline shell script for triage hook — tries sidecar first, falls back to CLI.
+_TRIAGE_HOOK_SCRIPT = (
+    "bash -c '"
+    'PORT_FILE=".mirdan/sidecar.port";'
+    ' if [ -f "$PORT_FILE" ]; then'
+    ' curl -s --max-time 10 "http://localhost:$(cat $PORT_FILE)/triage" --data-binary @-;'
+    " else"
+    " mirdan triage --stdin 2>/dev/null;"
+    " fi'"
+)

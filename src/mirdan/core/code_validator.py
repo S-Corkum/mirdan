@@ -542,7 +542,7 @@ class CodeValidator:
             (
                 "RS008",
                 "sql-format-injection",
-                r'format!\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)',
+                r"format!\s*\([^)]*(?:SELECT|INSERT|UPDATE|DELETE)",
                 "error",
                 "SQL query in format! macro - potential SQL injection (CWE-89)",
                 "Use parameterized queries with your database driver (sqlx::query, diesel, etc.)",

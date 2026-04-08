@@ -21,7 +21,7 @@ from mirdan.core.linter_runner import LinterRunner
 from mirdan.models import ValidationResult, Violation
 
 # Extract raw async function from FastMCP FunctionTool wrapper
-_validate_code_quality = server_mod.validate_code_quality.fn
+_validate_code_quality = server_mod.validate_code_quality
 
 
 @pytest.fixture(autouse=True)

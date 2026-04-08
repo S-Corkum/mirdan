@@ -60,9 +60,7 @@ class PERF004MissingPaginationRule(BaseRule):
 
     @property
     def languages(self) -> frozenset[str]:
-        return frozenset(
-            {"python", "typescript", "javascript", "go", "java", "csharp", "auto"}
-        )
+        return frozenset({"python", "typescript", "javascript", "go", "java", "csharp", "auto"})
 
     @property
     def tier(self) -> RuleTier:

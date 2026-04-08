@@ -11,8 +11,8 @@ import pytest
 import mirdan.server as server_mod
 
 # Extract raw async functions from FastMCP FunctionTool wrappers
-_enhance_prompt = server_mod.enhance_prompt.fn
-_validate_code_quality = server_mod.validate_code_quality.fn
+_enhance_prompt = server_mod.enhance_prompt
+_validate_code_quality = server_mod.validate_code_quality
 
 
 @pytest.fixture(autouse=True)

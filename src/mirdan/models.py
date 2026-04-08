@@ -140,6 +140,10 @@ class SessionContext:
     # Tool recommendations from enhance_prompt (for compliance tracking)
     tool_recommendations: list[dict[str, str]] = field(default_factory=list)
 
+    # Cached project context for local LLM prompts (populated on first use per session)
+    cached_project_context: str = ""
+    context_cache_populated: bool = False
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
         result: dict[str, Any] = {
@@ -467,6 +471,295 @@ class CompactState:
             open_violations=data.get("open_violations", 0),
             frameworks=data.get("frameworks", []),
         )
+
+
+# --- LLM Intelligence Layer models ---
+
+
+class ModelRole(Enum):
+    """Role a local LLM model fills."""
+
+    FAST = "fast"
+    BRAIN = "brain"
+
+
+class HardwareProfile(Enum):
+    """Hardware capability tier."""
+
+    STANDARD = "standard"  # 16GB — most developers
+    ENHANCED = "enhanced"  # 32GB
+    FULL = "full"  # 64GB+ Apple Silicon
+
+
+class HealthState(Enum):
+    """LLM subsystem health state."""
+
+    STARTING = "starting"
+    WARMING_UP = "warming_up"
+    AVAILABLE = "available"
+    DEGRADED = "degraded"
+    UNAVAILABLE = "unavailable"
+
+
+class TaskClassification(Enum):
+    """Triage classification for a coding task."""
+
+    LOCAL_ONLY = "local_only"
+    LOCAL_ASSIST = "local_assist"
+    PAID_MINIMAL = "paid_minimal"
+    PAID_REQUIRED = "paid_required"
+
+
+@dataclass
+class ModelInfo:
+    """Information about a locally available LLM."""
+
+    name: str
+    role: ModelRole
+    active_memory_mb: int
+    quality_score: float
+    model_family: str = "unknown"
+    supports_tools: bool = False
+    supports_structured_output: bool = False
+    supports_thinking: bool = False
+    loaded: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "name": self.name,
+            "role": self.role.value,
+            "active_memory_mb": self.active_memory_mb,
+            "quality_score": self.quality_score,
+            "model_family": self.model_family,
+            "loaded": self.loaded,
+        }
+
+
+@dataclass
+class LLMResponse:
+    """Response from a local LLM call."""
+
+    content: str
+    model: str
+    role: ModelRole
+    elapsed_ms: float
+    tokens_used: int
+    structured_data: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        result: dict[str, Any] = {
+            "model": self.model,
+            "role": self.role.value,
+            "elapsed_ms": round(self.elapsed_ms, 1),
+            "tokens_used": self.tokens_used,
+        }
+        if self.structured_data:
+            result["structured_data"] = self.structured_data
+        return result
+
+
+@dataclass
+class HardwareInfo:
+    """Detected hardware capabilities."""
+
+    architecture: str
+    total_ram_mb: int
+    available_ram_mb: int
+    gpu_type: str | None = None
+    metal_capable: bool = False
+    detected_profile: HardwareProfile = HardwareProfile.STANDARD
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "architecture": self.architecture,
+            "total_ram_mb": self.total_ram_mb,
+            "available_ram_mb": self.available_ram_mb,
+            "gpu_type": self.gpu_type,
+            "metal_capable": self.metal_capable,
+            "profile": self.detected_profile.value,
+        }
+
+
+@dataclass
+class LLMHealth:
+    """Health status of the LLM subsystem."""
+
+    state: HealthState
+    models_loaded: list[str] = field(default_factory=list)
+    hardware_profile: str = "unknown"
+    detected_ide: str = "unknown"
+    effective_timeout: float = 20.0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        result: dict[str, Any] = {
+            "state": self.state.value,
+            "models_loaded": self.models_loaded,
+            "hardware_profile": self.hardware_profile,
+            "detected_ide": self.detected_ide,
+            "effective_timeout": self.effective_timeout,
+        }
+        if self.error:
+            result["error"] = self.error
+        return result
+
+
+@dataclass
+class TriageResult:
+    """Result of task triage classification."""
+
+    classification: TaskClassification
+    confidence: float
+    reasoning: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "classification": self.classification.value,
+            "confidence": round(self.confidence, 3),
+            "reasoning": self.reasoning,
+        }
+
+
+@dataclass
+class SubprocessResult:
+    """Output from a subprocess execution."""
+
+    command: str
+    returncode: int
+    stdout: str
+    stderr: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "command": self.command,
+            "returncode": self.returncode,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+        }
+
+
+@dataclass
+class CheckResult:
+    """Results from lint + typecheck + test run."""
+
+    lint: SubprocessResult
+    typecheck: SubprocessResult
+    test: SubprocessResult
+    all_pass: bool
+    auto_fixed: list[str] = field(default_factory=list)
+    needs_attention: list[dict[str, Any]] = field(default_factory=list)
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "lint": self.lint.to_dict(),
+            "typecheck": self.typecheck.to_dict(),
+            "test": self.test.to_dict(),
+            "all_pass": self.all_pass,
+            "auto_fixed": self.auto_fixed,
+            "needs_attention": self.needs_attention,
+            "summary": self.summary,
+        }
+
+
+@dataclass
+class SmartValidationResult:
+    """LLM-enriched validation analysis."""
+
+    per_violation: list[dict[str, Any]]  # violation_id, assessment, FP reason, fix
+    root_causes: list[dict[str, Any]]  # cause, violation_ids, unified_fix
+    was_sanity_capped: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "per_violation": self.per_violation,
+            "root_causes": self.root_causes,
+            "was_sanity_capped": self.was_sanity_capped,
+        }
+
+
+@dataclass
+class OptimizedPrompt:
+    """Result from prompt optimization."""
+
+    text: str
+    context_pruned: int
+    target_model: str
+    optimization_notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "text": self.text,
+            "context_pruned": self.context_pruned,
+            "target_model": self.target_model,
+            "optimization_notes": self.optimization_notes,
+        }
+
+
+@dataclass
+class ResearchResult:
+    """Result from research agent."""
+
+    synthesis: str
+    sources: list[dict[str, Any]] = field(default_factory=list)
+    tool_calls_made: int = 0
+    tokens_used: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "synthesis": self.synthesis,
+            "sources": self.sources,
+            "tool_calls_made": self.tool_calls_made,
+            "tokens_used": self.tokens_used,
+        }
+
+
+@dataclass
+class FileFixReport:
+    """Report of LLM-generated fixes applied to a single file."""
+
+    file: str
+    applied: list[dict[str, Any]] = field(default_factory=list)  # search/replace pairs applied
+    skipped: list[str] = field(default_factory=list)  # violation IDs we couldn't fix
+    reverted: bool = False  # True if verification found regressions
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "file": self.file,
+            "applied": self.applied,
+            "skipped": self.skipped,
+            "reverted": self.reverted,
+        }
+
+
+@dataclass
+class FixRunReport:
+    """Report of a complete check-and-fix run."""
+
+    files: list[FileFixReport] = field(default_factory=list)
+    ruff_auto_fixed: list[str] = field(default_factory=list)
+    all_pass: bool = False
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API response."""
+        return {
+            "files": [f.to_dict() for f in self.files],
+            "ruff_auto_fixed": self.ruff_auto_fixed,
+            "all_pass": self.all_pass,
+            "summary": self.summary,
+        }
 
 
 @dataclass

@@ -88,4 +88,4 @@ async def _auto_store_knowledge(
     try:
         await orchestrator.store_knowledge(entries, threshold)
     except Exception:
-        logger.debug("Auto-memory storage failed", exc_info=True)
+        logger.warning("Auto-memory storage failed", exc_info=True)
