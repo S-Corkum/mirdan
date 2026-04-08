@@ -107,6 +107,61 @@ class TestSidecarTriage:
         data = resp.json()
         assert data["classification"] == "paid_required"
 
+    def test_accepts_raw_text_body(self) -> None:
+        """Hook scripts send raw text via curl --data-binary @-."""
+        mock_engine = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.to_dict.return_value = {
+            "classification": "local_only",
+            "confidence": 0.85,
+            "reasoning": "trivial fix",
+        }
+        mock_engine.classify.return_value = mock_result
+
+        sidecar = _make_sidecar(triage_engine=mock_engine)
+        app = _make_test_app(sidecar)
+        client = TestClient(app)
+
+        resp = client.post("/triage", content=b"fix the unused import in auth.py")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["classification"] == "local_only"
+        # Verify the engine received the raw text as the prompt
+        mock_engine.classify.assert_awaited_once_with(
+            "fix the unused import in auth.py"
+        )
+
+    def test_returns_stub_on_empty_body(self) -> None:
+        mock_engine = AsyncMock()
+
+        sidecar = _make_sidecar(triage_engine=mock_engine)
+        app = _make_test_app(sidecar)
+        client = TestClient(app)
+
+        resp = client.post("/triage", content=b"")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["classification"] == "paid_required"
+        # Engine should NOT be called with empty prompt
+        mock_engine.classify.assert_not_awaited()
+
+    def test_json_without_prompt_key_returns_stub(self) -> None:
+        mock_engine = AsyncMock()
+
+        sidecar = _make_sidecar(triage_engine=mock_engine)
+        app = _make_test_app(sidecar)
+        client = TestClient(app)
+
+        resp = client.post("/triage", json={"task": "fix bug"})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        # data.get("prompt", "") returns "" — no prompt to classify
+        assert data["classification"] == "paid_required"
+        mock_engine.classify.assert_not_awaited()
+
 
 class TestSidecarCheck:
     """Tests for POST /check."""

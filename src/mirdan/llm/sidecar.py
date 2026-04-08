@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import socket
 from pathlib import Path
@@ -104,15 +105,18 @@ class Sidecar:
         return JSONResponse(health.to_dict())
 
     async def _handle_triage(self, request: Request) -> JSONResponse:
-        """Classify a task via TriageEngine, or return stub if not wired."""
+        """Classify a task via TriageEngine, or return stub if not wired.
+
+        Accepts both JSON (``{"prompt": "..."}`` from programmatic callers)
+        and raw text (from hook scripts using ``curl --data-binary @-``).
+        """
         if self._manager.triage_engine:
             try:
-                data = await request.json()
-                result = await self._manager.triage_engine.classify(
-                    data.get("prompt", "")
-                )
-                if result:
-                    return JSONResponse(result.to_dict())
+                prompt = await self._read_prompt(request)
+                if prompt:
+                    result = await self._manager.triage_engine.classify(prompt)
+                    if result:
+                        return JSONResponse(result.to_dict())
             except Exception as exc:
                 logger.error("Triage endpoint error: %s", exc)
 
@@ -121,6 +125,29 @@ class Sidecar:
             "confidence": 0.0,
             "reasoning": "triage not configured",
         })
+
+    @staticmethod
+    async def _read_prompt(request: Request) -> str:
+        """Extract prompt text from a request body.
+
+        Hook scripts send raw text via ``curl --data-binary @-``.
+        Programmatic callers send JSON ``{"prompt": "..."}``.
+        Handles both transparently.
+        """
+        body = await request.body()
+        if not body:
+            return ""
+
+        # Try JSON first (programmatic callers)
+        try:
+            data = json.loads(body)
+            if isinstance(data, dict):
+                return data.get("prompt", "")
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Raw text from hook script
+        return body.decode("utf-8", errors="replace").strip()
 
     async def _handle_check(self, request: Request) -> JSONResponse:
         """Run checks via CheckRunner, or return stub if not wired."""
