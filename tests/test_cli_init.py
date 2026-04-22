@@ -549,20 +549,27 @@ class TestClaudeCodeInit:
     def test_init_claude_code_generates_hooks_with_comprehensive_events(
         self, tmp_path: Path
     ) -> None:
-        """--claude-code hooks.json should include comprehensive lifecycle events."""
+        """--claude-code should write comprehensive hooks into settings.json."""
         (tmp_path / "pyproject.toml").write_text('[project]\nname = "testapp"\n')
 
         with patch("builtins.input", return_value=""):
             run_init(["--claude-code", str(tmp_path)])
 
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        assert hooks_path.exists()
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        assert settings_path.exists()
+        data = json.loads(settings_path.read_text())
         hooks = data["hooks"]
-        # Should have comprehensive enforcement events
-        assert "UserPromptSubmit" in hooks
-        assert "PreCompact" in hooks
-        assert "SubagentStart" in hooks
+        # Only command-backed events are registered; prompt-only events
+        # (SessionStart, SubagentStart, PreCompact, Notification, etc.)
+        # are skipped because any prompt-type hook is LLM-evaluated as a
+        # blocking gate and locks continuation on unsatisfied conditions.
+        assert "PreCompact" not in hooks
+        assert "SubagentStart" not in hooks
+        assert "UserPromptSubmit" not in hooks
+        assert "PostToolUse" in hooks
+        assert "Stop" in hooks
+        # The legacy path should not be created
+        assert not (tmp_path / ".claude" / "hooks.json").exists()
 
     def test_fix_command_routed(self) -> None:
         """'mirdan fix' should route to the fix command."""

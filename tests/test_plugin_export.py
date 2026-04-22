@@ -241,7 +241,7 @@ class TestSetupClaudeCodeIntegration:
 
         # Verify all categories exist
         assert (tmp_path / ".mcp.json").exists()
-        assert (tmp_path / ".claude" / "hooks.json").exists()
+        assert (tmp_path / ".claude" / "settings.json").exists()
         assert (tmp_path / ".claude" / "rules").is_dir()
         assert (tmp_path / ".claude" / "skills" / "code" / "SKILL.md").exists()
         assert (tmp_path / ".claude" / "agents" / "quality-gate.md").exists()

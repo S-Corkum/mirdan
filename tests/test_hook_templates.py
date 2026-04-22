@@ -97,40 +97,60 @@ class TestDefaultGeneration:
 class TestFullGeneration:
     """Tests for full (all-event) hook generation."""
 
-    def test_has_all_core_events(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should have all 8 events."""
+    def test_has_command_backed_events(self, full_generator: HookTemplateGenerator) -> None:
+        """Full config registers only events with a command-type backing.
+        Prompt-only events are skipped because any prompt-type hook is
+        LLM-evaluated as a blocking gate and locks continuation when
+        the condition text isn't satisfied.
+        """
         hooks = full_generator.generate()["hooks"]
-        assert len(hooks) >= 8
+        assert "PostToolUse" in hooks
+        assert "Stop" in hooks
 
-    def test_has_session_start(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should include SessionStart."""
+    def test_session_start_not_registered(
+        self, full_generator: HookTemplateGenerator
+    ) -> None:
+        """SessionStart is prompt-only and would gate every session.
+
+        Prompt-type hooks are LLM-evaluated as blocking conditions in
+        the current harness; events without a command-type backing are
+        skipped entirely rather than emitted as prompt-only hooks.
+        """
         hooks = full_generator.generate()["hooks"]
-        assert "SessionStart" in hooks
+        assert "SessionStart" not in hooks
 
     def test_has_session_stop(self, full_generator: HookTemplateGenerator) -> None:
         """Full config should include SessionStop."""
         hooks = full_generator.generate()["hooks"]
         assert "SessionStop" in hooks
 
-    def test_has_subagent_start(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should include SubagentStart."""
+    def test_subagent_start_not_registered(
+        self, full_generator: HookTemplateGenerator
+    ) -> None:
+        """SubagentStart is prompt-only → skipped to avoid gate lockups."""
         hooks = full_generator.generate()["hooks"]
-        assert "SubagentStart" in hooks
+        assert "SubagentStart" not in hooks
 
-    def test_has_subagent_stop(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should include SubagentStop."""
+    def test_subagent_stop_not_registered(
+        self, full_generator: HookTemplateGenerator
+    ) -> None:
+        """SubagentStop is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
-        assert "SubagentStop" in hooks
+        assert "SubagentStop" not in hooks
 
-    def test_has_pre_compact(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should include PreCompact."""
+    def test_pre_compact_not_registered(
+        self, full_generator: HookTemplateGenerator
+    ) -> None:
+        """PreCompact is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
-        assert "PreCompact" in hooks
+        assert "PreCompact" not in hooks
 
-    def test_has_notification(self, full_generator: HookTemplateGenerator) -> None:
-        """Full config should include Notification."""
+    def test_notification_not_registered(
+        self, full_generator: HookTemplateGenerator
+    ) -> None:
+        """Notification is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
-        assert "Notification" in hooks
+        assert "Notification" not in hooks
 
 
 class TestPostToolUse:
@@ -142,12 +162,18 @@ class TestPostToolUse:
         post_tool = hooks["PostToolUse"]
         assert "Write|Edit|MultiEdit" in post_tool[0].get("matcher", "")
 
-    def test_has_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse should have a prompt type hook."""
+    def test_has_no_prompt_type(self, default_generator: HookTemplateGenerator) -> None:
+        """PostToolUse must not emit prompt-type hooks.
+
+        Every prompt-type hook is LLM-evaluated as a gating condition;
+        a PostToolUse prompt that asks "if the file is a dep manifest,
+        call scan_dependencies" blocks continuation whenever the file
+        isn't a dep manifest (which is almost every edit).
+        """
         hooks = default_generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
         hook_types = [h["type"] for h in post_tool[0]["hooks"]]
-        assert "prompt" in hook_types
+        assert "prompt" not in hook_types
 
     def test_has_command_type(self, default_generator: HookTemplateGenerator) -> None:
         """PostToolUse should have a command type hook."""
@@ -156,25 +182,33 @@ class TestPostToolUse:
         hook_types = [h["type"] for h in post_tool[0]["hooks"]]
         assert "command" in hook_types
 
-    def test_prompt_mentions_validate(self, default_generator: HookTemplateGenerator) -> None:
-        """PostToolUse prompt hook should mention validate_code_quality."""
+    def test_command_hook_runs_validate_script(
+        self, default_generator: HookTemplateGenerator
+    ) -> None:
+        """The PostToolUse command-type hook invokes validate-file.sh,
+        which in turn calls ``mirdan validate --quick``. Validation
+        guidance for the assistant lives in ``.claude/rules/*.md``,
+        not in an LLM-evaluated prompt-type hook.
+        """
         hooks = default_generator.generate()["hooks"]
         post_tool = hooks["PostToolUse"]
-        prompt_hooks = [h for h in post_tool[0]["hooks"] if h["type"] == "prompt"]
-        assert len(prompt_hooks) > 0
-        assert "validate_code_quality" in prompt_hooks[0]["prompt"]
+        command_hooks = [h for h in post_tool[0]["hooks"] if h["type"] == "command"]
+        assert len(command_hooks) == 1
+        assert "validate-file.sh" in command_hooks[0]["command"]
 
 
 class TestStop:
     """Tests for Stop hook generation."""
 
-    def test_has_command_and_prompt(self, default_generator: HookTemplateGenerator) -> None:
-        """Stop should have command+prompt combo for quality gate."""
+    def test_is_command_only(self, default_generator: HookTemplateGenerator) -> None:
+        """Stop must be command-only — prompt-type hooks on blocking
+        events are LLM-evaluated gates that lock turns regardless of
+        wording. The command's exit code is the real gate.
+        """
         hooks = default_generator.generate()["hooks"]
         stop = hooks["Stop"]
         hook_types = [h["type"] for h in stop[0]["hooks"]]
-        assert "command" in hook_types
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]
 
     def test_command_runs_gate(self, default_generator: HookTemplateGenerator) -> None:
         """Stop command should run mirdan gate."""

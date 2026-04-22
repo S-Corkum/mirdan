@@ -48,9 +48,13 @@ def run_check(args: list[str]) -> None:
     config = MirdanConfig.find_config()
     checks_config = config.llm.checks
 
+    test_files = _filter_test_files(files)
+    typecheck_files = _typecheck_target(checks_config.typecheck_command, files)
     lint_result = _run_subprocess(checks_config.lint_command, files)
-    typecheck_result = _run_subprocess(checks_config.typecheck_command, files)
-    test_result = _run_subprocess(checks_config.test_command, [])
+    typecheck_result = _run_subprocess(checks_config.typecheck_command, typecheck_files)
+    test_result = _run_subprocess(
+        checks_config.test_command, test_files, timeout=checks_config.test_timeout
+    )
 
     # Auto-fix lint if configured
     auto_fixed: list[str] = []
@@ -75,7 +79,9 @@ def run_check(args: list[str]) -> None:
             # Re-run checks to verify
             lint_result = _run_subprocess(checks_config.lint_command, files)
             typecheck_result = _run_subprocess(checks_config.typecheck_command, files)
-            test_result = _run_subprocess(checks_config.test_command, [])
+            test_result = _run_subprocess(
+                checks_config.test_command, [], timeout=checks_config.test_timeout
+            )
             all_pass = (
                 lint_result["returncode"] == 0
                 and typecheck_result["returncode"] == 0
@@ -162,7 +168,61 @@ async def _run_llm_fix_loop(
     }
 
 
-def _run_subprocess(command: str, files: list[str]) -> dict[str, Any]:
+def _filter_test_files(files: list[str]) -> list[str]:
+    """Return the subset of ``files`` that look like test files.
+
+    A path is treated as a test file when any path segment starts with
+    ``test_``, ends with ``_test`` before the extension, or is named
+    ``tests``. When no input files are given, returns an empty list
+    (caller runs the default test-command target).
+    """
+    if not files:
+        return []
+
+    def _is_test(path: str) -> bool:
+        parts = Path(path).parts
+        for part in parts:
+            if part == "tests" or part.startswith("test_"):
+                return True
+        stem = Path(path).stem
+        return stem.endswith("_test")
+
+    return [f for f in files if _is_test(f)]
+
+
+def _typecheck_target(command: str, files: list[str]) -> list[str]:
+    """Pick arguments for the typecheck subprocess.
+
+    Some typecheckers (``mypy``) error when invoked with no target and no
+    config-level target. If the user supplied files, use those; otherwise
+    fall back to the current directory so the command has *something* to
+    check. Commands that already include an explicit target in the string
+    (e.g. ``mypy src/``) are left untouched.
+    """
+    if files:
+        return files
+
+    tokens = shlex.split(command)
+    if not tokens:
+        return []
+
+    base = Path(tokens[0]).name
+    if base != "mypy":
+        return []
+
+    has_target = any(
+        tok in {"src", "src/", "."} or tok.startswith(("src/", "./", "/"))
+        for tok in tokens[1:]
+    )
+    if has_target:
+        return []
+
+    # `mypy` with no target fails; `.` is a safe default that mypy can scope
+    # via project pyproject/mypy.ini settings.
+    return ["."]
+
+
+def _run_subprocess(command: str, files: list[str], timeout: int = 60) -> dict[str, Any]:
     """Run a command with optional file arguments.
 
     Uses shlex.split to safely tokenize the command string and passes
@@ -172,6 +232,7 @@ def _run_subprocess(command: str, files: list[str]) -> dict[str, Any]:
     Args:
         command: Command string (will be split with shlex).
         files: File paths to append as separate arguments.
+        timeout: Timeout in seconds for the subprocess.
 
     Returns:
         Dict with command, returncode, stdout, stderr.
@@ -184,7 +245,7 @@ def _run_subprocess(command: str, files: list[str]) -> dict[str, Any]:
             args,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=timeout,
         )
         return {
             "command": display_cmd,
@@ -197,7 +258,7 @@ def _run_subprocess(command: str, files: list[str]) -> dict[str, Any]:
             "command": display_cmd,
             "returncode": -1,
             "stdout": "",
-            "stderr": "timeout after 60s",
+            "stderr": f"timeout after {timeout}s",
         }
     except FileNotFoundError:
         return {

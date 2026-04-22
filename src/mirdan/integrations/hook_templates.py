@@ -114,9 +114,15 @@ class HookTemplateGenerator:
         self,
         config: HookConfig | None = None,
         mirdan_command: str = "mirdan",
+        hook_script_path: str | None = None,
     ) -> None:
         self._config = config or HookConfig()
         self._mirdan_cmd = mirdan_command
+        # Absolute path to the companion validate-file.sh script. When None,
+        # falls back to the relative ``.claude/hooks/validate-file.sh`` —
+        # which only resolves correctly when the shell cwd is the project
+        # root. Init should always supply the absolute path.
+        self._hook_script_path = hook_script_path or ".claude/hooks/validate-file.sh"
         self._current_stringency: HookStringency | None = None
 
     def generate(self) -> dict[str, Any]:
@@ -249,116 +255,62 @@ class HookTemplateGenerator:
     # ------------------------------------------------------------------
 
     def _user_prompt_submit(self) -> list[dict[str, Any]]:
-        """UserPromptSubmit: Inject quality context before processing."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "mirdan quality context is active. For coding tasks:"
-                            " 1) Call mcp__mirdan__enhance_prompt first for quality"
-                            " requirements and session context."
-                            " 2) Call mcp__mirdan__get_quality_standards for the"
-                            " detected language."
-                            " 3) Follow the quality_requirements from enhance_prompt"
-                            " output as constraints during implementation."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """UserPromptSubmit: No-op placeholder.
+
+        UserPromptSubmit is a blocking event — any prompt-type hook here
+        is LLM-evaluated as a gate, and ends up blocking turns whenever
+        the evaluator reads the injected text as an unsatisfied
+        condition. Guidance belongs in rule files (``.claude/rules/``)
+        or in a command-type hook that injects structured context, not
+        here. Emit an empty list so the event is simply not registered.
+        """
+        return []
 
     def _post_tool_use(self) -> list[dict[str, Any]]:
         """PostToolUse: Validation after Write/Edit.
 
-        Uses both command-type (fast CLI validation) and prompt-type
-        (LLM-driven fix guidance) hooks for comprehensive coverage.
-        Includes dependency manifest change detection at STANDARD+.
+        **Command-type only.** Claude Code's hook harness runs every
+        prompt-type hook through an LLM evaluator that treats the prompt
+        as a gating condition — when the condition can't be cleanly
+        satisfied (e.g. the edited file isn't a dependency manifest,
+        validation produced no stdout, the condition references output
+        that didn't arrive), the evaluator reports "stopped continuation"
+        and the turn is blocked. This affects every event, not just
+        blocking ones. Guidance ("call X for deeper analysis", "scan
+        deps on manifest edits") belongs in ``.claude/rules/*.md`` rule
+        files, which are injected as context without gate semantics.
         """
-        hooks: list[dict[str, Any]] = [
+        return [
             {
                 "matcher": "Write|Edit|MultiEdit",
                 "hooks": [
                     {
                         "type": "command",
-                        "command": (
-                            f"{self._mirdan_cmd} validate --quick --scope essential"
-                            " --file $TOOL_INPUT_FILE_PATH --format micro"
-                        ),
+                        "command": self._hook_script_path,
                         "timeout": self._config.quick_validate_timeout,
-                    },
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Review validation output above. Fix errors"
-                            " immediately. If you intentionally skip a"
-                            " violation, note the rule ID — frequent"
-                            " overrides inform severity tuning."
-                            " If the code touches auth, input handling,"
-                            " SQL, or API endpoints, call"
-                            " mcp__mirdan__validate_code_quality with"
-                            " check_security=true for deeper analysis."
-                        ),
                     },
                 ],
             },
         ]
 
-        # Dependency manifest change detection (STANDARD+ stringency)
-        is_standard_plus = self._current_stringency in (
-            HookStringency.STANDARD,
-            HookStringency.COMPREHENSIVE,
-        )
-        if is_standard_plus:
-            hooks.append(
-                {
-                    "matcher": "Write|Edit",
-                    "hooks": [
-                        {
-                            "type": "prompt",
-                            "prompt": (
-                                "If the file just modified is a dependency manifest"
-                                " (package.json, pyproject.toml, Cargo.toml, go.mod,"
-                                " requirements.txt, pom.xml), call"
-                                " mcp__mirdan__scan_dependencies to check for"
-                                " vulnerabilities in the updated dependencies."
-                            ),
-                        }
-                    ],
-                }
-            )
-
-        return hooks
-
     def _post_tool_use_failure(self) -> list[dict[str, Any]]:
-        """PostToolUseFailure: Log failed tool calls and suggest alternatives."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "A tool call just failed. Before retrying:"
-                            " 1) Analyze the error — is it a permissions issue,"
-                            " invalid input, or a real bug?"
-                            " 2) If a Write/Edit failed, check if the file path"
-                            " is correct and the content is valid."
-                            " 3) Consider an alternative approach rather than"
-                            " retrying the exact same call."
-                            " 4) If validation tools failed, proceed with caution"
-                            " and validate manually before completing."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """PostToolUseFailure: Not registered — prompt-only event.
+
+        Guidance on handling failed tool calls is injected via
+        ``.claude/rules/*.md`` files rather than prompt-type hooks,
+        which are evaluated as blocking gates.
+        """
+        return []
 
     def _stop(self) -> list[dict[str, Any]]:
         """Stop: Quality gate before task completion.
 
-        Uses command-type (mirdan gate) for automated pass/fail
-        and prompt-type for LLM-driven remediation if gate fails.
+        Uses **command-type only**. The subprocess stdout is injected
+        as context for the assistant; any prompt-type hook here would
+        be evaluated as a blocking gate regardless of wording, which
+        locks users out when the gate fails for infra reasons or when
+        the assistant's prompt text is read as an unsatisfied condition.
+        Non-zero exit code from the command is the real gate.
         """
         return [
             {
@@ -368,36 +320,18 @@ class HookTemplateGenerator:
                         "command": f"{self._mirdan_cmd} gate --format text",
                         "timeout": 30000,
                     },
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Review the quality gate output above. If FAIL:"
-                            " fix all errors, then re-run validation. If PASS:"
-                            " the task can be completed. Do NOT complete the"
-                            " task if the quality gate failed."
-                        ),
-                    },
                 ],
             }
         ]
 
     def _session_start(self) -> list[dict[str, Any]]:
-        """SessionStart: Inject quality context at session beginning."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "mirdan quality context is active. For any coding task:"
-                            " 1) Call mcp__mirdan__enhance_prompt first for requirements."
-                            " 2) After writing code, call mcp__mirdan__validate_code_quality."
-                            " 3) Fix all errors before considering the task complete."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """SessionStart: Not registered — prompt-only event.
+
+        Session-level quality context lives in ``.claude/rules/*.md``
+        (alwaysApply) rather than in a prompt-type hook that the
+        evaluator treats as a blocking gate.
+        """
+        return []
 
     def _session_stop(self) -> list[dict[str, Any]]:
         """SessionStop: Persist quality report at session end."""
@@ -414,121 +348,43 @@ class HookTemplateGenerator:
         ]
 
     def _subagent_start(self) -> list[dict[str, Any]]:
-        """SubagentStart: Register agent and pass quality context."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "You are a subagent. mirdan quality standards are active."
-                            " Validate any code you write with"
-                            " mcp__mirdan__validate_code_quality before returning results."
-                            " Multi-agent coordination is active — claim files before"
-                            " validating to avoid duplicate work with other agents."
-                            " Use mcp__mirdan__get_quality_trends to check session state."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """SubagentStart: Not registered — prompt-only event.
+
+        Subagent guidance lives in ``.claude/rules/*.md`` files.
+        """
+        return []
 
     def _subagent_stop(self) -> list[dict[str, Any]]:
-        """SubagentStop: Release claims and validate subagent output."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Review the subagent's output for quality."
-                            " If code was written, ensure it was validated"
-                            " with mcp__mirdan__validate_code_quality."
-                            " Release any file claims held by this agent"
-                            " and aggregate results for the coordination summary."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """SubagentStop: Not registered — prompt-only event."""
+        return []
 
     def _pre_compact(self) -> list[dict[str, Any]]:
-        """PreCompact: Serialize quality state before context compaction.
+        """PreCompact: Not registered — prompt-only event.
 
-        Includes structured format for critical quality state so the LLM
-        can preserve session scores and unresolved violations across
-        compaction boundaries.
+        Compaction-resilience state preservation is guidance, not a
+        gate. Moved to rule files.
         """
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Context is being compacted. CRITICAL: Preserve"
-                            " mirdan quality state in your compacted context"
-                            " using this exact format:\n"
-                            "## mirdan Compacted State (Restore After Compaction)\n"
-                            "- Session: <session_id from enhance_prompt>\n"
-                            "- Task: <task_type>\n"
-                            "- Language: <detected language>\n"
-                            "- Security: sensitive|normal\n"
-                            "- Last score: <most recent validation score>\n"
-                            "- Open violations: <count of unresolved errors>\n"
-                            "- Frameworks: <comma-separated list>\n"
-                            "- Validated files: <list of files already validated>\n\n"
-                            "After compaction, restore state by calling"
-                            " mcp__mirdan__enhance_prompt with the preserved"
-                            " context to re-establish the quality session."
-                        ),
-                    }
-                ],
-            }
-        ]
+        return []
 
     def _notification(self) -> list[dict[str, Any]]:
-        """Notification: Quality alerts for significant events."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "mirdan quality alert: Check if any recent code changes"
-                            " introduced quality regressions. Run"
-                            " mcp__mirdan__validate_code_quality on modified files."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """Notification: Not registered — prompt-only event."""
+        return []
 
     def _permission_request(self) -> list[dict[str, Any]]:
-        """PermissionRequest: Security audit before granting permissions."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "A permission is being requested. Before granting:"
-                            " 1) Verify the action is necessary for the current task."
-                            " 2) Check if the action could modify security-sensitive"
-                            " files (auth, secrets, configs)."
-                            " 3) Prefer minimal permissions — grant only what's needed."
-                            " 4) If the action involves destructive operations"
-                            " (delete, overwrite), confirm intent."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """PermissionRequest: Not registered — prompt-only event.
+
+        A prompt-type hook here would be evaluated as a blocking
+        permission gate, which is exactly the wrong shape — the user
+        already sees the permission prompt and can answer it.
+        """
+        return []
 
     def _task_completed(self) -> list[dict[str, Any]]:
-        """TaskCompleted: Generate session quality report when task finishes.
+        """TaskCompleted: Command-only session quality report.
 
-        Uses command-type to run mirdan report --session and
-        prompt-type to surface unresolved issues.
+        The ``mirdan report --session`` output is injected as context.
+        No prompt-type hook is registered — it would be evaluated as a
+        gate and block turn completion on noisy output.
         """
         return [
             {
@@ -538,95 +394,25 @@ class HookTemplateGenerator:
                         "command": (f"{self._mirdan_cmd} report --session --format json"),
                         "timeout": 30000,
                     },
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Review the session quality report above."
-                            " If there are unresolved errors, fix them"
-                            " before considering the task complete."
-                        ),
-                    },
                 ],
             }
         ]
 
     def _teammate_idle(self) -> list[dict[str, Any]]:
-        """TeammateIdle: Assign background quality validation to idle agents."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "An agent teammate is idle. Use multi-agent"
-                            " quality coordination to assign work:"
-                            " 1) Check for unassigned files that need validation."
-                            " 2) Claim an unvalidated file and run"
-                            " mcp__mirdan__validate_code_quality on it."
-                            " 3) Release the file claim with validation results."
-                            " 4) Check for quality regressions via"
-                            " mcp__mirdan__get_quality_trends."
-                            " 5) Report any new violations found."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """TeammateIdle: Not registered — prompt-only event."""
+        return []
 
     def _config_change(self) -> list[dict[str, Any]]:
-        """ConfigChange: Re-validate after config changes."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Configuration was just changed. If .mirdan/config.yaml"
-                            " or quality-related settings were modified, call"
-                            " mcp__mirdan__enhance_prompt to refresh quality context"
-                            " with the new configuration."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """ConfigChange: Not registered — prompt-only event."""
+        return []
 
     def _worktree_create(self) -> list[dict[str, Any]]:
-        """WorktreeCreate: Initialize quality context for new worktree."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "A new git worktree was created. Initialize mirdan"
-                            " quality context for this worktree:"
-                            " 1) Call mcp__mirdan__enhance_prompt to establish"
-                            " quality requirements for the worktree's task."
-                            " 2) Note the worktree path for file validation."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """WorktreeCreate: Not registered — prompt-only event."""
+        return []
 
     def _worktree_remove(self) -> list[dict[str, Any]]:
-        """WorktreeRemove: Save quality summary for completed worktree."""
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "A git worktree is being removed. Before cleanup:"
-                            " 1) Verify all code in the worktree was validated."
-                            " 2) Note any unresolved quality issues for the"
-                            " main branch."
-                        ),
-                    }
-                ],
-            }
-        ]
+        """WorktreeRemove: Not registered — prompt-only event."""
+        return []
 
     # ------------------------------------------------------------------
     # LLM-enhanced hook generators (Claude Code only)
@@ -635,9 +421,14 @@ class HookTemplateGenerator:
     def _user_prompt_submit_llm(self) -> list[dict[str, Any]]:
         """UserPromptSubmit with local LLM triage via sidecar.
 
-        The command hook outputs triage results which Claude Code injects
-        into the model's context before processing. This allows the paid
-        model to skip unnecessary work for LOCAL_ONLY tasks.
+        **Command-type only.** The command's stdout (triage JSON) is
+        injected as context that the assistant reads naturally. No
+        prompt-type hook is registered, because on a blocking event
+        any prompt text is treated as a condition by the hook-evaluator
+        and ends up blocking turns when the condition can't be
+        evaluated against actually-injected context. The triage result
+        speaks for itself; guidance on how to use it belongs in rule
+        files, not in an inline gate.
         """
         return [
             {
@@ -647,17 +438,6 @@ class HookTemplateGenerator:
                         "command": _TRIAGE_HOOK_SCRIPT,
                         "timeout": 15000,
                     },
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "The triage output above classifies this task."
-                            " If classification is 'local_only', handle it"
-                            " with minimal token usage — no deep exploration."
-                            " If 'local_assist' or 'paid_minimal', call"
-                            " mcp__mirdan__enhance_prompt for focused guidance."
-                            " If 'paid_required', proceed normally."
-                        ),
-                    },
                 ],
             }
         ]
@@ -665,8 +445,15 @@ class HookTemplateGenerator:
     def _stop_llm(self) -> list[dict[str, Any]]:
         """Stop with local LLM check runner via sidecar.
 
-        Runs lint + typecheck + test locally, LLM parses output.
-        Results are injected so Claude only fixes complex issues.
+        **Command-type only.** Runs lint + typecheck + test locally and
+        emits JSON as stdout. The JSON is injected into the assistant's
+        context; real gating is the command's exit code, not any
+        prompt-hook wording. A prompt-type hook here is always an
+        LLM-evaluated gate that blocks whenever the evaluator decides
+        the condition isn't satisfied — which happens for infra
+        failures, empty output, and even correctly-worded "non-blocking
+        advisory" text. Keeping this path command-only prevents the
+        class of lockups we've seen.
         """
         return [
             {
@@ -674,16 +461,7 @@ class HookTemplateGenerator:
                     {
                         "type": "command",
                         "command": f"{self._mirdan_cmd} check --smart",
-                        "timeout": 60000,
-                    },
-                    {
-                        "type": "prompt",
-                        "prompt": (
-                            "Review the check results above. Items marked"
-                            " 'auto_fixed' are already resolved. Focus on"
-                            " 'needs_attention' items only. If all_pass is"
-                            " true, the task can be completed."
-                        ),
+                        "timeout": 300000,
                     },
                 ],
             }

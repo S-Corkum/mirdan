@@ -116,8 +116,10 @@ def run_llm_setup(args: list[str]) -> None:
     print()
 
     # 9. Write config
+    inner = Path(".mirdan") / "config.yaml"
+    written_path = inner if inner.exists() else Path(".mirdan.yaml")
     _write_config(recommendation)
-    print("Wrote .mirdan.yaml with llm.enabled: true")
+    print(f"Wrote {written_path} with llm.enabled: true")
     print()
 
     print("Next steps:")
@@ -349,10 +351,20 @@ def _recommend_model(
 
 
 def _write_config(recommendation: dict[str, Any]) -> None:
-    """Write .mirdan.yaml with LLM configuration."""
+    """Write LLM configuration to the active mirdan config file.
+
+    Writes to whichever config file mirdan actually reads: prefers
+    ``.mirdan/config.yaml`` when it exists (the v2.0 format written by
+    ``mirdan init``), otherwise falls back to ``.mirdan.yaml``. This ensures
+    ``llm.enabled: true`` takes effect rather than being silently shadowed.
+    """
     import yaml
 
-    config_path = Path(".mirdan.yaml")
+    inner = Path(".mirdan") / "config.yaml"
+    outer = Path(".mirdan.yaml")
+
+    config_path = inner if inner.exists() else outer
+
     existing: dict[str, Any] = {}
     if config_path.exists():
         try:
@@ -364,6 +376,7 @@ def _write_config(recommendation: dict[str, Any]) -> None:
     existing["llm"]["enabled"] = True
     existing["llm"]["backend"] = "llamacpp" if recommendation["backend"] == "llamacpp" else "ollama"
 
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     with config_path.open("w") as f:
         yaml.dump(existing, f, default_flow_style=False, sort_keys=False)
 

@@ -7,7 +7,7 @@ import json
 import logging
 import socket
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mirdan.llm.manager import LLMManager
@@ -19,6 +19,29 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 
 logger = logging.getLogger(__name__)
+
+
+# Human-readable label map. The technical ``classification`` values stem from
+# mirdan's token-optimizer framing (where "paid" = paid API spend) and confuse
+# Claude Code subscribers who pay a flat fee. The ``meaning`` field is a
+# UI-friendly alternative returned alongside the technical value.
+_HUMAN_LABELS: dict[str, str] = {
+    "local_only": "Handle locally — no cloud model needed.",
+    "local_assist": "Local model assists; cloud model still needed for completion.",
+    "paid_minimal": "Cloud model needed with minimal context.",
+    "paid_required": "Escalate to cloud model — task too complex for local model.",
+}
+
+
+def _augment_with_human_label(payload: dict[str, Any]) -> None:
+    """Attach a ``meaning`` field describing the classification in plain English.
+
+    Mutates ``payload`` in place. Safe to call on any response dict — unknown
+    classifications are left unchanged.
+    """
+    classification = str(payload.get("classification", "")).lower()
+    if classification in _HUMAN_LABELS:
+        payload.setdefault("meaning", _HUMAN_LABELS[classification])
 
 
 class Sidecar:
@@ -37,6 +60,17 @@ class Sidecar:
         self._server: uvicorn.Server | None = None
         self._serve_task: asyncio.Task[None] | None = None
         self._port: int | None = None
+        # Lazy-initialized metrics collector — shared with the rest of mirdan so
+        # ``mirdan llm metrics`` reflects hook-driven traffic, not just MCP calls.
+        self._metrics: Any = None
+
+    def _get_metrics(self) -> Any:
+        """Return a shared TokenMetrics instance, creating it on first use."""
+        if self._metrics is None:
+            from mirdan.llm.metrics import TokenMetrics
+
+            self._metrics = TokenMetrics()
+        return self._metrics
 
     @property
     def port(self) -> int | None:
@@ -109,6 +143,9 @@ class Sidecar:
 
         Accepts both JSON (``{"prompt": "..."}`` from programmatic callers)
         and raw text (from hook scripts using ``curl --data-binary @-``).
+
+        Records a metrics sample on successful classification so hook-driven
+        traffic shows up in ``mirdan llm metrics``.
         """
         if self._manager.triage_engine:
             try:
@@ -116,7 +153,10 @@ class Sidecar:
                 if prompt:
                     result = await self._manager.triage_engine.classify(prompt)
                     if result:
-                        return JSONResponse(result.to_dict())
+                        payload = dict(result.to_dict())
+                        _augment_with_human_label(payload)
+                        self._record_triage_metric(payload)
+                        return JSONResponse(payload)
             except Exception as exc:
                 logger.error("Triage endpoint error: %s", exc)
 
@@ -127,6 +167,16 @@ class Sidecar:
                 "reasoning": "triage not configured",
             }
         )
+
+    def _record_triage_metric(self, payload: dict[str, Any]) -> None:
+        """Record a triage sample into the shared metrics store."""
+        try:
+            self._get_metrics().record_triage(
+                classification=str(payload.get("classification", "")),
+                confidence=float(payload.get("confidence", 0.0)),
+            )
+        except Exception as exc:  # metrics must never break the endpoint
+            logger.debug("Metrics record failed: %s", exc)
 
     @staticmethod
     async def _read_prompt(request: Request) -> str:

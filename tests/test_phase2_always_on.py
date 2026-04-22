@@ -438,12 +438,16 @@ class TestStopGate:
         hook_types = [h["type"] for h in stop[0]["hooks"]]
         assert "command" in hook_types
 
-    def test_stop_has_prompt_type(self) -> None:
+    def test_stop_has_no_prompt_type(self) -> None:
+        """Prompt-type hooks on Stop are LLM-evaluated gates — they lock
+        turns when the evaluator can't satisfy the implied condition.
+        The command's exit code is the real gate.
+        """
         gen = HookTemplateGenerator()
         hooks = gen.generate()["hooks"]
         stop = hooks["Stop"]
         hook_types = [h["type"] for h in stop[0]["hooks"]]
-        assert "prompt" in hook_types
+        assert "prompt" not in hook_types
 
     def test_stop_command_runs_gate(self) -> None:
         gen = HookTemplateGenerator()
@@ -459,12 +463,13 @@ class TestStopGate:
         cmd_hooks = [h for h in stop[0]["hooks"] if h["type"] == "command"]
         assert cmd_hooks[0]["timeout"] == 30000
 
-    def test_stop_prompt_mentions_fail(self) -> None:
+    def test_stop_has_no_prompt_hooks_to_inspect(self) -> None:
+        """Stop is command-only; there are no prompt hooks to inspect."""
         gen = HookTemplateGenerator()
         hooks = gen.generate()["hooks"]
         stop = hooks["Stop"]
         prompt_hooks = [h for h in stop[0]["hooks"] if h["type"] == "prompt"]
-        assert "FAIL" in prompt_hooks[0]["prompt"]
+        assert prompt_hooks == []
 
 
 class TestTaskCompletedHook:
@@ -486,13 +491,17 @@ class TestTaskCompletedHook:
         cmd_hooks = [h for h in tc[0]["hooks"] if h["type"] == "command"]
         assert "report --session" in cmd_hooks[0]["command"]
 
-    def test_task_completed_has_prompt(self) -> None:
+    def test_task_completed_is_command_only(self) -> None:
+        """TaskCompleted emits only a command hook (``mirdan report
+        --session``). Any prompt-type hook on this event would be
+        evaluated as a blocking gate on turn completion.
+        """
         config = HookConfig(multi_agent_awareness=True)
         gen = HookTemplateGenerator(config=config)
         hooks = gen.generate()["hooks"]
         tc = hooks["TaskCompleted"]
         hook_types = [h["type"] for h in tc[0]["hooks"]]
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]
 
 
 # ---------------------------------------------------------------------------
@@ -503,13 +512,18 @@ class TestTaskCompletedHook:
 class TestPostToolUseMicro:
     """Tests for PostToolUse micro format upgrade."""
 
-    def test_post_tool_use_uses_micro_format(self) -> None:
+    def test_post_tool_use_delegates_to_helper_script(self) -> None:
+        # Claude Code does not substitute shell variables in hook commands,
+        # so PostToolUse must invoke the stdin-reading helper script. The
+        # ``--format micro`` argument lives inside that script (see
+        # ``_write_validate_file_script`` in integrations/claude_code.py).
         gen = HookTemplateGenerator()
         hooks = gen.generate()["hooks"]
         ptu = hooks["PostToolUse"]
         cmd_hooks = [h for h in ptu[0]["hooks"] if h["type"] == "command"]
         assert len(cmd_hooks) > 0
-        assert "--format micro" in cmd_hooks[0]["command"]
+        assert cmd_hooks[0]["command"] == ".claude/hooks/validate-file.sh"
+        assert "$TOOL_INPUT" not in cmd_hooks[0]["command"]
 
     def test_post_tool_use_has_timeout(self) -> None:
         gen = HookTemplateGenerator()

@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6] - 2026-04-22
+
+### Fixed
+- **All generated hooks are now command-type only.** Claude Code's hook
+  harness runs every prompt-type hook through an LLM evaluator that
+  treats the prompt text as a gating condition. Whenever the evaluator
+  can't satisfy the condition (edited file isn't a dependency manifest,
+  triage produced no output, the sidecar is down, the edited code
+  doesn't match the prompt's subject), it reports "stopped
+  continuation" and blocks the turn. Prompt-type hooks are removed
+  from every event the generator emits; guidance now lives in
+  `.claude/rules/*.md` files, which are injected as context without
+  gate semantics. Events that had no command-type backing
+  (`SessionStart`, `SubagentStart`/`Stop`, `PreCompact`,
+  `Notification`, `PermissionRequest`, `TeammateIdle`, `ConfigChange`,
+  `WorktreeCreate`/`Remove`, `PostToolUseFailure`) are skipped rather
+  than emitted as prompt-only hooks. Command-backed events
+  (`PostToolUse`, `Stop`, `SessionStop`, `TaskCompleted`, LLM
+  `UserPromptSubmit`/`Stop`) are trimmed to their command entries.
+- **`mirdan check --smart` no longer false-fails on infra quirks.**
+  `CheckRunnerConfig.test_timeout` default raised 30 → 300 seconds to
+  fit real-world suites. `_run_subprocess` takes a per-command timeout
+  plumbed from the config. Bare `mypy` typecheck commands now fall
+  back to `mypy .` when no files are supplied, matching mypy's
+  requirement for a target. Test files detected in `[files...]` are
+  passed through to pytest so targeted checks don't run the full
+  suite. `_filter_test_files` replaces the undefined helper shipped
+  in 2.0.5 that broke `check_command` at import time.
+- **Absolute `validate-file.sh` path** — the `PostToolUse` command
+  now uses the caller-supplied absolute path. Previously the relative
+  `.claude/hooks/validate-file.sh` broke whenever the shell cwd was a
+  monorepo submodule or any other subdirectory.
+
+### Added
+- `HookTemplateGenerator` accepts a `hook_script_path` parameter for
+  threading the absolute script path through at init time.
+- `_filter_test_files` and `_typecheck_target` helpers in
+  `check_command.py` with targeted unit tests.
+
+## [2.0.5] - 2026-04-22
+
+### Fixed
+- **Claude Code hooks now actually fire** — `mirdan init --claude-code`
+  previously wrote hook definitions to `.claude/hooks.json`, a path Claude
+  Code never loads. Hooks must live in `.claude/settings.json` under the
+  `"hooks"` key. The generator now merges its hook block into
+  `settings.json` (preserving existing `permissions`, `mcpServers`, and
+  other keys). When `--upgrade` is passed and a `hooks` key already exists,
+  the whole `settings.json` is backed up to `settings.json.bak` first. Any
+  legacy `.claude/hooks.json` from prior mirdan versions is renamed to
+  `hooks.json.deprecated` so operators can see the stale content but Claude
+  Code won't be misled by its presence.
+
+## [2.0.4] - 2026-04-21
+
+### Fixed
+- **Config shadowing** — `.mirdan/config.yaml` no longer silently shadows
+  `.mirdan.yaml`. When both files exist, they are deep-merged with
+  `.mirdan.yaml` overriding, and a warning is logged. Previously, users who
+  set `llm.enabled: true` in `.mirdan.yaml` (the file `mirdan llm setup`
+  writes) would find LLM disabled because an `.mirdan/config.yaml` written
+  by `mirdan init` won the search and contained no `llm:` key.
+- **`mirdan llm setup` writes to the active config file** — now writes to
+  `.mirdan/config.yaml` when it exists, falling back to `.mirdan.yaml`.
+  Previously, setup output was silently shadowed in projects with both files.
+- **`mirdan init --claude-code` honours `--upgrade`** — when invoked with
+  `--upgrade`, existing `.claude/hooks.json` is backed up to `.bak` and
+  regenerated with the current template. Previously, init bailed silently if
+  hooks.json existed, so LLM-aware hook upgrades never landed.
+- **Claude Code hook generation reads `llm.enabled`** — `_generate_hooks` now
+  inspects the project config and passes `llm_enabled=True` to the template
+  generator when LLM features are on. Previously, even fresh installs in
+  LLM-enabled projects produced non-LLM hooks.
+- **PostToolUse hook no longer relies on `$TOOL_INPUT_FILE_PATH`** — Claude
+  Code does not perform shell-variable substitution in hook commands. The
+  hook now invokes a generated `.claude/hooks/validate-file.sh` helper that
+  reads the file path from the stdin JSON payload, matching Claude Code's
+  actual hook contract.
+- **MCP init handshake no longer blocked by LLM cold-load** — `_lifespan`
+  now schedules `LLMManager.startup()` as a background task instead of
+  awaiting it. Previously, the 30–60s cold-load on Intel hosts blocked the
+  MCP `initialize` response past Claude Code's timeout, causing the MCP
+  server to be marked as failed-to-connect.
+- **`mirdan triage --stdin` falls back to in-process LLM** — when the
+  sidecar is unreachable, the CLI now spins up a short-lived `LLMManager`
+  and runs triage directly. Slow first invocation (cold-load) but no longer
+  returns a useless `paid_required, confidence: 0` stub when the LLM is
+  configured.
+- **Sidecar records metrics** — `/triage` responses now increment the
+  `TokenMetrics` triage counter, so `mirdan llm metrics` reflects
+  hook-driven traffic in addition to MCP-tool traffic.
+
+### Added
+- **Human-readable triage labels** — sidecar and CLI responses include a
+  `meaning` field alongside the technical `classification`. Reduces
+  confusion for Claude Code subscribers ("paid_required" → "Escalate to
+  cloud model — task too complex for local model.").
+
 ## [2.0.0] - 2026-04-06
 
 ### Added

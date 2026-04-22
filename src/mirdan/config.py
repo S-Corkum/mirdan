@@ -442,7 +442,13 @@ class CheckRunnerConfig(BaseModel):
     lint_command: str = Field(default="ruff check")
     typecheck_command: str = Field(default="mypy")
     test_command: str = Field(default="pytest -x --tb=short")
-    test_timeout: int = Field(default=30, description="Max seconds for test execution")
+    test_timeout: int = Field(
+        default=300,
+        description=(
+            "Max seconds for the test subprocess. Defaults to 300s because "
+            "real-world suites routinely exceed 60s."
+        ),
+    )
     auto_fix_lint: bool = Field(default=True, description="Run lint --fix for auto-fixable issues")
 
 
@@ -591,25 +597,53 @@ class MirdanConfig(BaseModel):
     ) -> tuple["MirdanConfig", Path | None]:
         """Find and load configuration, returning both config and its directory.
 
+        Walks up the directory tree. When a directory contains both
+        ``.mirdan/config.yaml`` (typically written by ``mirdan init``) and
+        ``.mirdan.yaml`` (typically hand-edited or written by ``mirdan llm
+        setup``), both files are loaded and deep-merged so user edits in the
+        outer file are no longer silently shadowed.
+
+        Merge order: ``.mirdan/config.yaml`` is the base; ``.mirdan.yaml``
+        overrides. A warning is logged when both files exist.
+
         Args:
             start_path: Directory to start searching from. Defaults to cwd.
 
         Returns:
             Tuple of (config, config_directory) where config_directory is
-            the directory containing .mirdan/config.yaml, or None if not found.
+            the directory that supplied the config, or None if none found.
         """
         if start_path is None:
             start_path = Path.cwd()
 
         current = start_path
         while current != current.parent:
-            config_file = current / ".mirdan" / "config.yaml"
-            if config_file.exists():
-                return cls.load(config_file), current
+            inner = current / ".mirdan" / "config.yaml"
+            outer = current / ".mirdan.yaml"
 
-            config_file = current / ".mirdan.yaml"
-            if config_file.exists():
-                return cls.load(config_file), current
+            inner_exists = inner.exists()
+            outer_exists = outer.exists()
+
+            if inner_exists and outer_exists:
+                import logging as _logging
+
+                _logging.getLogger(__name__).warning(
+                    "Both %s and %s exist. Merging with %s as override. "
+                    "Consolidate into one file to silence this warning.",
+                    inner,
+                    outer,
+                    outer.name,
+                )
+                base = _load_yaml_dict(inner)
+                overlay = _load_yaml_dict(outer)
+                merged = _deep_merge(base, overlay)
+                return cls(**merged), current
+
+            if inner_exists:
+                return cls.load(inner), current
+
+            if outer_exists:
+                return cls.load(outer), current
 
             current = current.parent
 
@@ -625,3 +659,27 @@ class MirdanConfig(BaseModel):
 def get_default_config() -> MirdanConfig:
     """Get the default configuration."""
     return MirdanConfig()
+
+
+def _load_yaml_dict(path: Path) -> dict[str, Any]:
+    """Load a YAML file into a dict. Returns empty dict if file is empty."""
+    with path.open() as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``overlay`` into ``base``; ``overlay`` wins on conflicts.
+
+    Dicts merge key-by-key. Lists and scalars from ``overlay`` replace ``base``.
+    Neither input is mutated.
+    """
+    result = dict(base)
+    for key, value in overlay.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result

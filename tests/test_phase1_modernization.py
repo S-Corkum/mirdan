@@ -225,12 +225,16 @@ class TestHookTypeDiversity:
         hook_types = [h["type"] for h in ptu[0]["hooks"]]
         assert "command" in hook_types
 
-    def test_post_tool_use_has_prompt(self) -> None:
+    def test_post_tool_use_has_no_prompt(self) -> None:
+        """PostToolUse must emit no prompt-type hooks — they are LLM-
+        evaluated as gating conditions and block continuation when the
+        condition text doesn't match the edited file.
+        """
         gen = HookTemplateGenerator(mirdan_command="mirdan")
         hooks = gen.generate()["hooks"]
         ptu = hooks["PostToolUse"]
         hook_types = [h["type"] for h in ptu[0]["hooks"]]
-        assert "prompt" in hook_types
+        assert "prompt" not in hook_types
 
     def test_command_hook_has_timeout(self) -> None:
         gen = HookTemplateGenerator(mirdan_command="mirdan")
@@ -491,19 +495,15 @@ class TestFragilePathsRemoved:
 class TestCompactionWiring:
     """Verify PreCompact hook includes structured state format."""
 
-    def test_pre_compact_has_structured_format(self) -> None:
+    def test_pre_compact_not_registered(self) -> None:
+        """PreCompact is prompt-only and would gate compaction. Skipped."""
         config = HookConfig(
             enabled_events=["PreToolUse", "PostToolUse", "Stop"],
             compaction_resilience=True,
         )
         gen = HookTemplateGenerator(config=config)
         hooks = gen.generate()["hooks"]
-        pre_compact = hooks["PreCompact"]
-        prompt = pre_compact[0]["hooks"][0]["prompt"]
-        assert "## mirdan Compacted State" in prompt
-        assert "Session:" in prompt
-        assert "Last score:" in prompt
-        assert "Open violations:" in prompt
+        assert "PreCompact" not in hooks
 
 
 # ---------------------------------------------------------------------------
@@ -557,17 +557,24 @@ class TestAllHooksGenerate:
     """Verify all hook events can generate without error."""
 
     def test_comprehensive_generates(self) -> None:
+        """Only command-backed events from COMPREHENSIVE are emitted:
+        PostToolUse, Stop, SessionStop (non-LLM), TaskCompleted.
+        Prompt-only events are skipped to prevent gate lockups.
+        """
         gen = HookTemplateGenerator(mirdan_command="mirdan")
         hooks = gen.generate_claude_code_hooks(stringency=HookStringency.COMPREHENSIVE)
         assert "hooks" in hooks
-        # All 14 COMPREHENSIVE events should produce hooks
-        assert len(hooks["hooks"]) >= 14
+        assert len(hooks["hooks"]) >= 2
+        assert "PostToolUse" in hooks["hooks"]
+        assert "Stop" in hooks["hooks"]
 
     def test_standard_generates(self) -> None:
+        """STANDARD without LLM triage yields only command-backed events."""
         gen = HookTemplateGenerator(mirdan_command="mirdan")
         hooks = gen.generate_claude_code_hooks(stringency=HookStringency.STANDARD)
         assert "hooks" in hooks
-        assert len(hooks["hooks"]) >= 4
+        assert "PostToolUse" in hooks["hooks"]
+        assert "Stop" in hooks["hooks"]
 
     def test_minimal_generates(self) -> None:
         gen = HookTemplateGenerator(mirdan_command="mirdan")

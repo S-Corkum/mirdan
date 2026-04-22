@@ -44,18 +44,76 @@ def run_triage(args: list[str]) -> None:
     # Try sidecar first (fast path — reuses warm model)
     result = _try_sidecar(data)
     if result is not None:
+        _augment_with_human_label(result)
         print(json.dumps(result))
         _write_to_session_bridge(result)
         return
 
-    # Fallback: return a default (triage engine wired in Phase 3)
+    # Fallback: spin up a short-lived LLMManager in-process. Slow first time
+    # (cold-load ~30-60s on Intel), but avoids the useless "no sidecar" stub.
+    result = _try_local_triage(prompt)
+    if result is not None:
+        _augment_with_human_label(result)
+        print(json.dumps(result))
+        _write_to_session_bridge(result)
+        return
+
+    # Last resort: rules-only stub (LLM not configured or failed to load)
     fallback = {
         "classification": "paid_required",
         "confidence": 0.0,
-        "reasoning": "no sidecar or triage engine available",
+        "reasoning": "no sidecar and local LLM unavailable — proceed normally",
     }
+    _augment_with_human_label(fallback)
     print(json.dumps(fallback))
     _write_to_session_bridge(fallback)
+
+
+def _augment_with_human_label(payload: dict[str, Any]) -> None:
+    """Attach a plain-English ``meaning`` field if the classification is known."""
+    try:
+        from mirdan.llm.sidecar import _augment_with_human_label as _impl
+
+        _impl(payload)
+    except Exception:  # labelling is best-effort — never fail the CLI for it
+        pass
+
+
+def _try_local_triage(prompt: str) -> dict[str, Any] | None:
+    """Run triage in-process via LLMManager when sidecar is unreachable.
+
+    Returns a response dict, or None if the local LLM subsystem is disabled
+    or unavailable. Cold-loads the model on first call — expect 30-60s
+    latency on a CPU-only Intel host.
+    """
+    import asyncio
+
+    async def _run() -> dict[str, Any] | None:
+        from mirdan.config import MirdanConfig
+        from mirdan.core.triage import TriageEngine
+        from mirdan.llm.manager import LLMManager
+
+        cfg = MirdanConfig.find_config()
+        mgr = LLMManager.create_if_enabled(cfg.llm)
+        if mgr is None:
+            return None
+        import contextlib
+
+        try:
+            await mgr.startup()
+            engine = TriageEngine(llm_manager=mgr, config=cfg.llm)
+            result = await engine.classify(prompt)
+            if result is None:
+                return None
+            return dict(result.to_dict())
+        finally:
+            with contextlib.suppress(Exception):
+                await mgr.shutdown()
+
+    try:
+        return asyncio.run(_run())
+    except Exception:  # fall through to the stub on any failure
+        return None
 
 
 def _try_sidecar(data: dict[str, Any]) -> dict[str, Any] | None:

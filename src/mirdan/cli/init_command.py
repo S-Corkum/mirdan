@@ -627,6 +627,7 @@ def _setup_claude_code(
     directory: Path,
     detected: DetectedProject,
     languages: list[str] | None = None,
+    upgrade: bool = False,
 ) -> None:
     """Generate Claude Code configuration files, skills, agents, and MCP config.
 
@@ -634,6 +635,9 @@ def _setup_claude_code(
         directory: Project root directory.
         detected: Auto-detected project metadata.
         languages: Optional list of languages for multi-language rule generation.
+        upgrade: If True, regenerate the ``hooks`` block in
+            ``.claude/settings.json`` (backing up the file first).
+            Default False preserves user customizations.
     """
     from mirdan.integrations.claude_code import (
         generate_agents,
@@ -648,7 +652,9 @@ def _setup_claude_code(
     print(f"  Created {mcp_path}")
 
     # Hooks + rules
-    generated = generate_claude_code_config(directory, detected, languages=languages)
+    generated = generate_claude_code_config(
+        directory, detected, languages=languages, upgrade=upgrade
+    )
     for path in generated:
         print(f"  Created {path}")
 
@@ -758,7 +764,7 @@ def _run_upgrade(directory: Path) -> None:
 
     # Regenerate integration files
     if platform == "claude-code" or "claude-code" in detected.detected_ides:
-        _setup_claude_code(directory, detected, languages=languages)
+        _setup_claude_code(directory, detected, languages=languages, upgrade=True)
 
     if platform == "cursor" or "cursor" in detected.detected_ides:
         _setup_cursor(directory, detected, languages=languages, force_regenerate=True)
@@ -838,21 +844,47 @@ def _install_cursor_hooks(directory: Path, hooks_pkg_dir: Path) -> bool:
 
 
 def _install_claude_code_hooks(directory: Path, hooks_pkg_dir: Path) -> bool:
-    """Install Claude Code hooks."""
+    """Install Claude Code hook definitions into ``.claude/settings.json``.
+
+    The bundled template at ``templates/claude_code/hooks.json`` contains a
+    ``"hooks"`` block. Claude Code only loads hooks from its settings files,
+    so the block is merged into ``.claude/settings.json`` under the
+    ``"hooks"`` key, preserving any other existing keys.
+    """
+    import json as _json
+
     src = hooks_pkg_dir / "claude-code" / "hooks.json"
     if not src.exists():
         return False
 
+    try:
+        template = _json.loads(src.read_text())
+    except _json.JSONDecodeError:
+        return False
+    template_hooks = template.get("hooks")
+    if not isinstance(template_hooks, dict):
+        return False
+
     dest_dir = directory / ".claude"
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / "hooks.json"
+    settings_path = dest_dir / "settings.json"
 
-    if dest.exists():
-        print(f"  {dest} already exists, skipping")
+    settings: dict[str, Any] = {}
+    if settings_path.exists():
+        try:
+            loaded = _json.loads(settings_path.read_text())
+            if isinstance(loaded, dict):
+                settings = loaded
+        except _json.JSONDecodeError:
+            settings = {}
+
+    if "hooks" in settings:
+        print(f"  {settings_path} already has hooks, skipping")
         return True
 
-    shutil.copy2(src, dest)
-    print(f"  Installed {dest}")
+    settings["hooks"] = template_hooks
+    settings_path.write_text(_json.dumps(settings, indent=2))
+    print(f"  Installed hooks into {settings_path}")
     return True
 
 

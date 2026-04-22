@@ -46,7 +46,9 @@ async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
     provider = _get_provider()
 
     if provider.llm_manager:
-        await provider.llm_manager.startup()
+        _startup_task = asyncio.create_task(provider.llm_manager.startup())
+        _background_tasks.add(_startup_task)
+        _startup_task.add_done_callback(_background_tasks.discard)
 
     budget_str = os.environ.get("MIRDAN_TOOL_BUDGET")
     if budget_str is not None and budget_str != "":

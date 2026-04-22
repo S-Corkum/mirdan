@@ -1,10 +1,13 @@
 """Tests for Claude Code integration module.
 
 Tests cover:
-- generate_claude_code_config() creates hooks.json with correct structure
-- hooks.json PostToolUse uses --quick flag
+- generate_claude_code_config() writes hooks into .claude/settings.json
+  under the "hooks" key (the only location Claude Code loads hooks from)
+- settings.json["hooks"]["PostToolUse"] uses the validate-file.sh helper
 - Rule files are generated in .claude/rules/
-- Hooks.json not overwritten if already exists
+- Existing settings.json "hooks" key not overwritten without --upgrade
+- Non-hook keys in settings.json (permissions, etc.) are preserved on merge
+- Legacy .claude/hooks.json is migrated to hooks.json.deprecated
 """
 
 from __future__ import annotations
@@ -43,81 +46,158 @@ def detected_typescript() -> DetectedProject:
 
 
 # ---------------------------------------------------------------------------
-# hooks.json generation
+# settings.json hook-block generation
 # ---------------------------------------------------------------------------
 
 
 class TestHooksGeneration:
-    """Tests for hooks.json generation."""
+    """Tests for hook injection into .claude/settings.json."""
 
-    def test_creates_hooks_json(self, tmp_path: Path, detected_python: DetectedProject) -> None:
-        """Should create .claude/hooks.json."""
+    def test_creates_settings_json(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """Should create .claude/settings.json with a hooks block."""
         generated = generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        assert hooks_path.exists()
-        assert hooks_path in generated
+        settings_path = tmp_path / ".claude" / "settings.json"
+        assert settings_path.exists()
+        assert settings_path in generated
+        data = json.loads(settings_path.read_text())
+        assert "hooks" in data
+
+    def test_does_not_create_legacy_hooks_json(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """Should NOT create .claude/hooks.json — Claude Code never reads it."""
+        generate_claude_code_config(tmp_path, detected_python)
+        legacy = tmp_path / ".claude" / "hooks.json"
+        assert not legacy.exists()
 
     def test_hooks_has_post_tool_use(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """hooks.json should have PostToolUse entry."""
+        """settings.json hooks should have PostToolUse entry."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         assert "PostToolUse" in data["hooks"]
 
     def test_hooks_has_stop(self, tmp_path: Path, detected_python: DetectedProject) -> None:
-        """hooks.json should have Stop entry for final quality check."""
+        """settings.json hooks should have Stop entry for final quality check."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         assert "Stop" in data["hooks"]
 
-    def test_post_tool_use_has_command_and_prompt(
+    def test_post_tool_use_is_command_only(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """PostToolUse should use command+prompt combo for validation."""
+        """PostToolUse must be command-only — any prompt-type hook
+        here is evaluated as a gating condition and blocks continuation
+        whenever the condition text doesn't match the just-edited file.
+        """
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         ptu_hooks = data["hooks"]["PostToolUse"][0]["hooks"]
         hook_types = [h["type"] for h in ptu_hooks]
-        assert "command" in hook_types
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]
 
-    def test_stop_has_command_and_prompt(
+    def test_stop_is_command_only(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """Stop hook should use command+prompt combo for quality gate."""
+        """Stop hook must be command-only.
+
+        Prompt-type hooks on blocking events (Stop, UserPromptSubmit)
+        are LLM-evaluated as gating conditions by the hook-evaluator
+        and lock users out whenever the condition can't be cleanly
+        satisfied. The command's exit code is the real gate.
+        """
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         stop_hooks = data["hooks"]["Stop"][0]["hooks"]
         hook_types = [h["type"] for h in stop_hooks]
-        assert "command" in hook_types
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]
 
-    def test_post_tool_use_matcher(self, tmp_path: Path, detected_python: DetectedProject) -> None:
+    def test_post_tool_use_matcher(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
         """PostToolUse should match Write|Edit|MultiEdit tools."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         matcher = data["hooks"]["PostToolUse"][0]["matcher"]
         assert matcher == "Write|Edit|MultiEdit"
 
-    def test_hooks_not_overwritten(self, tmp_path: Path, detected_python: DetectedProject) -> None:
-        """Existing hooks.json should not be overwritten."""
+    def test_preserves_existing_settings_keys(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """Merging hooks should preserve permissions and other keys."""
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
-        hooks_path = claude_dir / "hooks.json"
-        hooks_path.write_text('{"custom": true}')
+        settings_path = claude_dir / "settings.json"
+        settings_path.write_text(
+            json.dumps(
+                {
+                    "permissions": {"allow": ["WebSearch"]},
+                    "enabledMcpjsonServers": ["mirdan"],
+                }
+            )
+        )
+
+        generate_claude_code_config(tmp_path, detected_python)
+
+        data = json.loads(settings_path.read_text())
+        assert data["permissions"] == {"allow": ["WebSearch"]}
+        assert data["enabledMcpjsonServers"] == ["mirdan"]
+        assert "hooks" in data
+
+    def test_existing_hooks_key_not_overwritten_without_upgrade(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """An existing settings.json hooks key should be preserved."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        settings_path = claude_dir / "settings.json"
+        settings_path.write_text(json.dumps({"hooks": {"Stop": "custom"}}))
 
         generated = generate_claude_code_config(tmp_path, detected_python)
 
-        # hooks.json should not be in generated list
-        assert hooks_path not in generated
-        # Content should be preserved
-        assert json.loads(hooks_path.read_text()) == {"custom": True}
+        assert settings_path not in generated
+        assert json.loads(settings_path.read_text()) == {"hooks": {"Stop": "custom"}}
+
+    def test_upgrade_regenerates_hooks_and_backs_up(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """--upgrade should rewrite hooks and leave a .bak of prior settings."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        settings_path = claude_dir / "settings.json"
+        settings_path.write_text(json.dumps({"hooks": {"Stop": "custom"}}))
+
+        generate_claude_code_config(tmp_path, detected_python, upgrade=True)
+
+        backup = settings_path.with_suffix(".json.bak")
+        assert backup.exists()
+        assert json.loads(backup.read_text()) == {"hooks": {"Stop": "custom"}}
+        data = json.loads(settings_path.read_text())
+        assert "PostToolUse" in data["hooks"]
+
+    def test_legacy_hooks_json_is_renamed(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """A legacy .claude/hooks.json should be renamed to .deprecated."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        legacy = claude_dir / "hooks.json"
+        legacy.write_text('{"legacy": true}')
+
+        generate_claude_code_config(tmp_path, detected_python)
+
+        assert not legacy.exists()
+        deprecated = claude_dir / "hooks.json.deprecated"
+        assert deprecated.exists()
+        assert json.loads(deprecated.read_text()) == {"legacy": True}
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +297,7 @@ class TestFullConfigGeneration:
     ) -> None:
         """Should return all generated file paths."""
         generated = generate_claude_code_config(tmp_path, detected_python)
-        # hooks.json + quality + security + python = 4 files
+        # settings.json + quality + security + python = 4 files
         assert len(generated) >= 4
 
     def test_all_paths_exist(self, tmp_path: Path, detected_python: DetectedProject) -> None:
@@ -235,60 +315,78 @@ class TestFullConfigGeneration:
 class TestHookDelegation:
     """Tests for hook generation delegating to HookTemplateGenerator."""
 
-    def test_hooks_json_has_comprehensive_events(
+    def test_hooks_json_has_command_backed_events(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """Hooks should include 6 comprehensive lifecycle events."""
+        """Only events with a command-type backing are emitted.
+
+        Prompt-only events (SessionStart, SubagentStart/Stop, PreCompact,
+        Notification, TeammateIdle, PermissionRequest, ConfigChange,
+        WorktreeCreate/Remove, PostToolUseFailure) are skipped because
+        any prompt-type hook is LLM-evaluated as a blocking gate and
+        locks continuation when the condition isn't satisfied. That
+        leaves PostToolUse, Stop, SessionStop, and TaskCompleted.
+        """
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         hooks = data["hooks"]
-        assert len(hooks) >= 6
+        assert len(hooks) >= 2
+        assert "PostToolUse" in hooks
+        assert "Stop" in hooks
 
-    def test_hooks_has_user_prompt_submit(
+    def test_user_prompt_submit_absent_when_llm_disabled(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """Should include UserPromptSubmit hook."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        assert "UserPromptSubmit" in data["hooks"]
+        """UserPromptSubmit should not be registered without LLM triage.
 
-    def test_hooks_has_subagent_start(
+        A non-LLM UserPromptSubmit hook is pure advisory text; because
+        the hook-evaluator treats prompt-type hooks on blocking events
+        as gates, any wording locks the turn when the evaluator can't
+        confirm the condition. Without a command-type triage source,
+        the event is simply not registered.
+        """
+        generate_claude_code_config(tmp_path, detected_python)
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
+        assert "UserPromptSubmit" not in data["hooks"]
+
+    def test_subagent_start_not_registered(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """Should include SubagentStart hook."""
+        """SubagentStart is prompt-only → skipped to avoid gate lockups."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        assert "SubagentStart" in data["hooks"]
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
+        assert "SubagentStart" not in data["hooks"]
 
-    def test_hooks_has_pre_compact(self, tmp_path: Path, detected_python: DetectedProject) -> None:
-        """Should include PreCompact hook for compaction resilience."""
-        generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
-        assert "PreCompact" in data["hooks"]
-
-    def test_post_tool_use_has_prompt(
+    def test_pre_compact_not_registered(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """PostToolUse should use prompt-type hook for validation."""
+        """PreCompact is prompt-only → skipped."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
+        assert "PreCompact" not in data["hooks"]
+
+    def test_post_tool_use_has_no_prompt(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """PostToolUse must emit no prompt-type hooks."""
+        generate_claude_code_config(tmp_path, detected_python)
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         post = data["hooks"]["PostToolUse"]
         hook_types = [h["type"] for h in post[0]["hooks"]]
-        assert "prompt" in hook_types
+        assert "prompt" not in hook_types
 
-    def test_stop_has_command_and_prompt(
+    def test_stop_is_command_only_comprehensive(
         self, tmp_path: Path, detected_python: DetectedProject
     ) -> None:
-        """Stop hook should use command+prompt combo for quality gate."""
+        """Stop hook must be command-only even at COMPREHENSIVE stringency."""
         generate_claude_code_config(tmp_path, detected_python)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        data = json.loads(hooks_path.read_text())
+        settings_path = tmp_path / ".claude" / "settings.json"
+        data = json.loads(settings_path.read_text())
         stop = data["hooks"]["Stop"]
         hook_types = [h["type"] for h in stop[0]["hooks"]]
-        assert "command" in hook_types
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]

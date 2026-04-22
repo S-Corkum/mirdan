@@ -35,16 +35,15 @@ class TestClaudeCodeHooksLLMEnabled:
         hook_types = [h["type"] for entry in ups_hooks for h in entry["hooks"]]
         assert "command" in hook_types
 
-    def test_user_prompt_submit_has_triage_prompt(self) -> None:
+    def test_user_prompt_submit_is_command_only(self) -> None:
+        """No prompt-type hook on UserPromptSubmit — blocking-event guard."""
         gen = HookTemplateGenerator()
         result = gen.generate_claude_code_hooks(
             stringency=HookStringency.STANDARD, llm_enabled=True
         )
         ups_hooks = result["hooks"]["UserPromptSubmit"]
-        prompts = [
-            h["prompt"] for entry in ups_hooks for h in entry["hooks"] if h["type"] == "prompt"
-        ]
-        assert any("triage" in p.lower() for p in prompts)
+        hook_types = [h["type"] for entry in ups_hooks for h in entry["hooks"]]
+        assert hook_types == ["command"]
 
     def test_stop_has_check_command(self) -> None:
         gen = HookTemplateGenerator()
@@ -82,27 +81,44 @@ class TestClaudeCodeHooksLLMEnabled:
         assert "sidecar.port" in cmd_text
         assert "mirdan triage" in cmd_text
 
+    def test_post_tool_use_uses_absolute_hook_script_path(self) -> None:
+        """The PostToolUse command must use the caller-supplied absolute path.
+
+        When the shell cwd is a subdirectory (monorepo submodule), the old
+        relative ``.claude/hooks/validate-file.sh`` resolves to a missing
+        file and the hook errors. The absolute path threads through.
+        """
+        abs_path = "/workspace/root/.claude/hooks/validate-file.sh"
+        gen = HookTemplateGenerator(hook_script_path=abs_path)
+        result = gen.generate_claude_code_hooks(
+            stringency=HookStringency.STANDARD, llm_enabled=False
+        )
+        ptu = result["hooks"]["PostToolUse"][0]["hooks"]
+        commands = [h["command"] for h in ptu if h["type"] == "command"]
+        assert abs_path in commands
+
 
 class TestClaudeCodeHooksLLMDisabled:
     """Claude Code hooks when llm_enabled=False (backward compat)."""
 
-    def test_user_prompt_submit_is_prompt_only(self) -> None:
+    def test_user_prompt_submit_absent_when_llm_disabled(self) -> None:
+        """Without LLM triage there is no non-blocking way to use this event."""
         gen = HookTemplateGenerator()
         result = gen.generate_claude_code_hooks(
             stringency=HookStringency.STANDARD, llm_enabled=False
         )
-        ups_hooks = result["hooks"]["UserPromptSubmit"]
-        hook_types = [h["type"] for entry in ups_hooks for h in entry["hooks"]]
-        assert "command" not in hook_types
-        assert "prompt" in hook_types
+        assert "UserPromptSubmit" not in result["hooks"]
 
-    def test_stop_is_gate_command(self) -> None:
+    def test_stop_is_gate_command_and_command_only(self) -> None:
+        """Non-LLM Stop must also be command-only, using ``mirdan gate``."""
         gen = HookTemplateGenerator()
         result = gen.generate_claude_code_hooks(
             stringency=HookStringency.STANDARD, llm_enabled=False
         )
         stop_hooks = result["hooks"]["Stop"]
+        hook_types = [h["type"] for entry in stop_hooks for h in entry["hooks"]]
         commands = [h.get("command", "") for entry in stop_hooks for h in entry["hooks"]]
+        assert hook_types == ["command"]
         assert any("gate" in c for c in commands)
 
 

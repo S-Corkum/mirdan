@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mirdan validate --quick --file \"$TOOL_INPUT_FILE_PATH\" --format micro",
+            "command": ".claude/hooks/validate-file.sh",
             "timeout": 5000
           }
         ]

@@ -188,41 +188,52 @@ class TestAdvancedHooks:
         from mirdan.integrations.claude_code import generate_claude_code_config
 
         generate_claude_code_config(tmp_path, detected)
-        hooks_path = tmp_path / ".claude" / "hooks.json"
-        assert hooks_path.exists()
-        data = json.loads(hooks_path.read_text())
-        # hooks.json has a top-level "hooks" key
+        settings_path = tmp_path / ".claude" / "settings.json"
+        assert settings_path.exists()
+        data = json.loads(settings_path.read_text())
+        # settings.json has a top-level "hooks" key
         return data.get("hooks", data)  # type: ignore[no-any-return]
 
-    def test_hooks_json_has_comprehensive_events(
+    def test_hooks_json_has_command_backed_events(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
+        """Only events with a command-type backing are emitted; prompt-
+        only events are skipped to prevent evaluator gate lockups.
+        """
+        hooks = self._load_hooks(tmp_path, detected)
+        assert len(hooks) >= 2
+        assert "PostToolUse" in hooks
+        assert "Stop" in hooks
+
+    def test_user_prompt_submit_absent_when_llm_disabled(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
+        """Without an LLM triage source there's no non-blocking shape
+        for this event; generator must omit it to prevent gate lockups.
+        """
+        hooks = self._load_hooks(tmp_path, detected)
+        assert "UserPromptSubmit" not in hooks
+
+    def test_subagent_start_not_registered(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
-        # Should have 6 comprehensive lifecycle events
-        assert len(hooks) >= 6
+        assert "SubagentStart" not in hooks
 
-    def test_hooks_has_user_prompt_submit(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_pre_compact_not_registered(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
-        assert "UserPromptSubmit" in hooks
+        assert "PreCompact" not in hooks
 
-    def test_hooks_has_subagent_start(self, tmp_path: Path, detected: DetectedProject) -> None:
-        hooks = self._load_hooks(tmp_path, detected)
-        assert "SubagentStart" in hooks
-
-    def test_hooks_has_pre_compact(self, tmp_path: Path, detected: DetectedProject) -> None:
-        hooks = self._load_hooks(tmp_path, detected)
-        assert "PreCompact" in hooks
-
-    def test_post_tool_use_has_command_and_prompt(
+    def test_post_tool_use_is_command_only(
         self, tmp_path: Path, detected: DetectedProject
     ) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         post_tool = hooks.get("PostToolUse", [])
         assert len(post_tool) > 0
-        # Should have both command and prompt type hooks
         hook_types = [h["type"] for h in post_tool[0]["hooks"]]
-        assert "command" in hook_types
-        assert "prompt" in hook_types
+        assert hook_types == ["command"]
 
 
 # ---------------------------------------------------------------------------

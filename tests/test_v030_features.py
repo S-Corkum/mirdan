@@ -63,20 +63,41 @@ class TestGenerateClaudeCodeHooks:
     """Tests for generate_claude_code_hooks method."""
 
     def test_minimal_generates_two_hooks(self) -> None:
+        """MINIMAL: PostToolUse (command-backed) + Stop (command-only)."""
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.MINIMAL)
         assert len(result["hooks"]) == 2
+        assert "PostToolUse" in result["hooks"]
+        assert "Stop" in result["hooks"]
 
-    def test_standard_generates_four_hooks(self) -> None:
+    def test_standard_only_emits_command_backed_events(self) -> None:
+        """STANDARD lists 4 events; without LLM triage, UserPromptSubmit
+        is skipped, leaving the command-backed PostToolUse + Stop +
+        SubagentStart (skipped because prompt-only). So only 2 events
+        actually register in the non-LLM default.
+        """
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
-        assert len(result["hooks"]) == 4
+        assert "PostToolUse" in result["hooks"]
+        assert "Stop" in result["hooks"]
+        assert "UserPromptSubmit" not in result["hooks"]
+        assert "SubagentStart" not in result["hooks"]
 
     def test_comprehensive_is_default(self) -> None:
+        """Default comprehensive stringency skips all prompt-only events
+        to prevent the LLM-evaluator from gating turn completion on
+        unsatisfiable condition text.
+        """
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks()
-        assert "UserPromptSubmit" in result["hooks"]
-        assert "PreCompact" in result["hooks"]
+        # Skipped (all prompt-only):
+        assert "UserPromptSubmit" not in result["hooks"]
+        assert "PreCompact" not in result["hooks"]
+        assert "SubagentStart" not in result["hooks"]
+        assert "SessionStart" not in result["hooks"]
+        # Registered (command-backed):
+        assert "PostToolUse" in result["hooks"]
+        assert "Stop" in result["hooks"]
 
     def test_all_hooks_have_valid_type(self) -> None:
         generator = HookTemplateGenerator()
@@ -90,26 +111,34 @@ class TestGenerateClaudeCodeHooks:
 
 
 class TestUserPromptSubmit:
-    """Tests for UserPromptSubmit event generator."""
+    """Tests for UserPromptSubmit event generator.
 
-    def test_generated_in_standard(self) -> None:
+    UserPromptSubmit is only emitted when LLM triage is enabled; the
+    non-LLM path returns an empty list so the event is skipped. A
+    prompt-type hook on this blocking event is evaluated as a gate and
+    locks turns regardless of wording.
+    """
+
+    def test_absent_in_standard_when_llm_disabled(self) -> None:
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
+        assert "UserPromptSubmit" not in result["hooks"]
+
+    def test_present_in_standard_when_llm_enabled(self) -> None:
+        generator = HookTemplateGenerator()
+        result = generator.generate_claude_code_hooks(
+            HookStringency.STANDARD, llm_enabled=True
+        )
         assert "UserPromptSubmit" in result["hooks"]
 
-    def test_mentions_enhance_prompt(self) -> None:
+    def test_command_only_when_llm_enabled(self) -> None:
         generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
+        result = generator.generate_claude_code_hooks(
+            HookStringency.STANDARD, llm_enabled=True
+        )
         ups = result["hooks"]["UserPromptSubmit"]
-        prompt = ups[0]["hooks"][0]["prompt"]
-        assert "enhance_prompt" in prompt
-
-    def test_mentions_quality_standards(self) -> None:
-        generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
-        ups = result["hooks"]["UserPromptSubmit"]
-        prompt = ups[0]["hooks"][0]["prompt"]
-        assert "quality_standards" in prompt
+        hook_types = [h["type"] for h in ups[0]["hooks"]]
+        assert hook_types == ["command"]
 
 
 # ---------------------------------------------------------------------------
@@ -327,11 +356,17 @@ class TestPluginHooks:
         return result["hooks"]  # type: ignore[no-any-return]
 
     def test_has_core_events(self, hooks: dict[str, Any]) -> None:
-        assert "UserPromptSubmit" in hooks
+        """Only command-backed events remain; prompt-only events are
+        skipped to prevent evaluator gate lockups.
+        """
+        # Skipped (prompt-only or LLM-gated):
+        assert "UserPromptSubmit" not in hooks
+        assert "PreCompact" not in hooks
+        assert "SubagentStart" not in hooks
+        assert "SessionStart" not in hooks
+        # Registered (command-backed):
         assert "PostToolUse" in hooks
         assert "Stop" in hooks
-        assert "PreCompact" in hooks
-        assert "SubagentStart" in hooks
 
     def test_post_tool_use_matches_multiedit(self, hooks: dict[str, Any]) -> None:
         matcher = hooks["PostToolUse"][0]["matcher"]

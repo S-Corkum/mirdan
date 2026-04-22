@@ -14,7 +14,7 @@ class TestCheckRunnerConfig:
         assert config.lint_command == "ruff check"
         assert config.typecheck_command == "mypy"
         assert config.test_command == "pytest -x --tb=short"
-        assert config.test_timeout == 30
+        assert config.test_timeout == 300
         assert config.auto_fix_lint is True
 
     def test_custom_values(self) -> None:
