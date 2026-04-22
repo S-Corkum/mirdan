@@ -36,8 +36,12 @@ def test_unknown_language_returns_none() -> None:
 
 
 def test_lookup_is_case_insensitive() -> None:
-    assert defaults_for_language("PYTHON").lint_command == "ruff check"
-    assert defaults_for_language("TypeScript").lint_command == "eslint ."
+    python_cfg = defaults_for_language("PYTHON")
+    ts_cfg = defaults_for_language("TypeScript")
+    assert python_cfg is not None
+    assert ts_cfg is not None
+    assert python_cfg.lint_command == "ruff check"
+    assert ts_cfg.lint_command == "eslint ."
 
 
 def test_defaults_return_a_copy() -> None:
@@ -63,5 +67,9 @@ def test_for_language_factory_on_config_class() -> None:
 
 def test_noop_typecheck_for_languages_without_separate_step() -> None:
     """Go and JS bundle typechecking into build/test; use POSIX ``true``."""
-    assert defaults_for_language("go").typecheck_command == "true"
-    assert defaults_for_language("javascript").typecheck_command == "true"
+    go_cfg = defaults_for_language("go")
+    js_cfg = defaults_for_language("javascript")
+    assert go_cfg is not None
+    assert js_cfg is not None
+    assert go_cfg.typecheck_command == "true"
+    assert js_cfg.typecheck_command == "true"

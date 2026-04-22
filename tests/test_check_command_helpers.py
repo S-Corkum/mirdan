@@ -8,6 +8,7 @@ the configurable subprocess timeout surfaced in the result payload.
 from __future__ import annotations
 
 import subprocess
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -169,7 +170,7 @@ class TestCheckJsonShape:
         lint_classification: str,
         typecheck_classification: str,
         test_classification: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Drive run_check with mocked subprocess results and parse the JSON."""
         import json as _json
 
@@ -181,7 +182,7 @@ class TestCheckJsonShape:
             ProjectConfig,
         )
 
-        def _make_result(clf: str) -> dict:
+        def _make_result(clf: str) -> dict[str, Any]:
             rc = {"ok": 0, "code_quality": 1, "infrastructure": -1}[clf]
             return {
                 "command": "fake",
@@ -226,7 +227,8 @@ class TestCheckJsonShape:
         captured = capsys.readouterr()
         output = captured.out.strip()
         start = output.find("{")
-        return _json.loads(output[start:])
+        parsed: dict[str, Any] = _json.loads(output[start:])
+        return parsed
 
     def test_check_json_includes_new_keys(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Code-quality failure surfaces all new keys correctly."""

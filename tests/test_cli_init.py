@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -575,14 +576,15 @@ class TestClaudeCodeInit:
 class TestMultiLanguageChecks:
     """Tests for the multi-language ``llm.checks`` block written by init."""
 
-    def _run_init(self, tmp_path: Path, flag: str = "--claude-code") -> dict:
+    def _run_init(self, tmp_path: Path, flag: str = "--claude-code") -> dict[str, Any]:
         import yaml
 
         with patch("builtins.input", return_value=""):
             run_init([flag, str(tmp_path)])
         config_path = tmp_path / ".mirdan" / "config.yaml"
         assert config_path.exists()
-        return yaml.safe_load(config_path.read_text())
+        parsed: dict[str, Any] = yaml.safe_load(config_path.read_text())
+        return parsed
 
     def test_init_typescript_writes_eslint_in_checks(self, tmp_path: Path) -> None:
         """TS project should get eslint/tsc/npm test in llm.checks."""
