@@ -1,5 +1,7 @@
 """Tests for LLM configuration classes."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -156,3 +158,66 @@ class TestMirdanConfigLLMIntegration:
         assert config.quality.security == "strict"
         assert config.ceremony.enabled is True
         assert config.thresholds.severity_error_weight == 0.25
+
+
+class TestConfigErrorHandling:
+    """Regression tests for clean error surfacing on malformed configs.
+
+    Pre-fix, ``MirdanConfig.load`` and ``_load_yaml_dict`` propagated raw
+    ``yaml.YAMLError`` exceptions, which surfaced as a Python traceback
+    at the CLI.
+    """
+
+    def test_malformed_yaml_raises_config_error(self, tmp_path: "Path") -> None:
+        from mirdan.config import ConfigError, MirdanConfig
+
+        bad = tmp_path / "config.yaml"
+        bad.write_text("this is : : not valid: [}\n")
+        with pytest.raises(ConfigError) as exc_info:
+            MirdanConfig.load(bad)
+        assert "Invalid YAML" in str(exc_info.value)
+        assert str(bad) in str(exc_info.value)
+
+    def test_non_mapping_yaml_raises_config_error(self, tmp_path: "Path") -> None:
+        from mirdan.config import ConfigError, MirdanConfig
+
+        bad = tmp_path / "config.yaml"
+        bad.write_text("- just\n- a\n- list\n")
+        with pytest.raises(ConfigError) as exc_info:
+            MirdanConfig.load(bad)
+        assert "mapping" in str(exc_info.value)
+
+    def test_failed_pydantic_validation_raises_config_error(
+        self, tmp_path: "Path"
+    ) -> None:
+        from mirdan.config import ConfigError, MirdanConfig
+
+        bad = tmp_path / "config.yaml"
+        # llm.backend must match the regex "^(auto|ollama|llamacpp)$"
+        bad.write_text("llm:\n  backend: unsupported-backend\n")
+        with pytest.raises(ConfigError) as exc_info:
+            MirdanConfig.load(bad)
+        assert "failed validation" in str(exc_info.value).lower()
+
+    def test_missing_config_returns_defaults(self, tmp_path: "Path") -> None:
+        from mirdan.config import MirdanConfig
+
+        missing = tmp_path / "does-not-exist.yaml"
+        cfg = MirdanConfig.load(missing)
+        # Missing file is the expected no-op path — return defaults.
+        assert cfg.version == "1.0"
+
+    def test_malformed_yaml_in_merge_path(self, tmp_path: "Path") -> None:
+        """When both inner and outer configs exist, malformed YAML in
+        either must still surface as ConfigError via the merge helper.
+        """
+        from mirdan.config import ConfigError, MirdanConfig
+
+        inner_dir = tmp_path / ".mirdan"
+        inner_dir.mkdir()
+        (inner_dir / "config.yaml").write_text("this: is: broken\n")
+        (tmp_path / ".mirdan.yaml").write_text("quality:\n  security: strict\n")
+
+        with pytest.raises(ConfigError) as exc_info:
+            MirdanConfig.find_config_with_path(tmp_path)
+        assert "Invalid YAML" in str(exc_info.value)

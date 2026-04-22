@@ -8,6 +8,15 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
+class ConfigError(Exception):
+    """Raised when a mirdan config file is missing, malformed, or invalid.
+
+    CLI entry points should catch this and surface a readable error
+    instead of a Python traceback. The exception message includes the
+    offending path and underlying cause.
+    """
+
+
 class QualityConfig(BaseModel):
     """Quality enforcement configuration."""
 
@@ -584,14 +593,38 @@ class MirdanConfig(BaseModel):
 
     @classmethod
     def load(cls, config_path: Path) -> "MirdanConfig":
-        """Load configuration from a YAML file."""
+        """Load configuration from a YAML file.
+
+        Raises:
+            ConfigError: if the YAML is malformed or fails Pydantic
+                validation. Callers (CLI entry points) should catch this
+                and surface a clean error message rather than a bare
+                traceback. Returns the default config if the file is
+                missing.
+        """
         if not config_path.exists():
             return cls()
 
-        with config_path.open() as f:
-            data = yaml.safe_load(f) or {}
+        try:
+            with config_path.open() as f:
+                data = yaml.safe_load(f) or {}
+        except yaml.YAMLError as exc:
+            raise ConfigError(
+                f"Invalid YAML in {config_path}: {exc}"
+            ) from exc
 
-        return cls(**data)
+        if not isinstance(data, dict):
+            raise ConfigError(
+                f"Config at {config_path} must be a YAML mapping at the "
+                f"top level (got {type(data).__name__})"
+            )
+
+        try:
+            return cls(**data)
+        except Exception as exc:
+            raise ConfigError(
+                f"Config at {config_path} failed validation: {exc}"
+            ) from exc
 
     @classmethod
     def find_config(cls, start_path: Path | None = None) -> "MirdanConfig":
@@ -670,9 +703,17 @@ def get_default_config() -> MirdanConfig:
 
 
 def _load_yaml_dict(path: Path) -> dict[str, Any]:
-    """Load a YAML file into a dict. Returns empty dict if file is empty."""
-    with path.open() as f:
-        data = yaml.safe_load(f) or {}
+    """Load a YAML file into a dict. Returns empty dict if file is empty.
+
+    Raises ``ConfigError`` with the offending path if the YAML is
+    malformed; the merge path in ``find_config_with_path`` previously
+    propagated a raw ``yaml.YAMLError`` traceback to the CLI.
+    """
+    try:
+        with path.open() as f:
+            data = yaml.safe_load(f) or {}
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"Invalid YAML in {path}: {exc}") from exc
     if not isinstance(data, dict):
         return {}
     return data

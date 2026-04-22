@@ -136,12 +136,26 @@ async def _run_llm_fix_loop(
     Returns:
         Fix report dict, or None if no fixes were possible.
     """
+    import contextlib
+
     from mirdan.core.llm_fixer import LLMFixer
     from mirdan.llm.manager import LLMManager
 
     manager = LLMManager.create_if_enabled(config.llm)
     if not manager:
         return None
+
+    # Actually start the manager so it loads a backend and warms the model.
+    # Without this, ``generate_structured`` has no backend and silently
+    # returns None — the fix loop previously emitted no fixes ever.
+    await manager.startup()
+    if manager._backend is None:
+        with contextlib.suppress(Exception):
+            await manager.shutdown()
+        return None
+    if manager._health is not None and manager._health._warmup_task is not None:
+        with contextlib.suppress(Exception):
+            await manager._health._warmup_task
 
     fixer = LLMFixer(llm_manager=manager, config=config.llm)
 
@@ -174,6 +188,9 @@ async def _run_llm_fix_loop(
         report = await fixer.fix_file(file_path, violations)
         if report.applied:
             all_reports.append(report.to_dict())
+
+    with contextlib.suppress(Exception):
+        await manager.shutdown()
 
     if not all_reports:
         return None

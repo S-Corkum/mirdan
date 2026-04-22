@@ -22,50 +22,61 @@ from __future__ import annotations
 
 import sys
 
+from mirdan.config import ConfigError
+
 
 def main() -> None:
-    """Route CLI subcommands or default to serve."""
+    """Route CLI subcommands or default to serve.
+
+    Wraps dispatch in a ``ConfigError`` guard so malformed config files
+    or failed Pydantic validation surface as a clean single-line error
+    rather than a raw Python traceback.
+    """
     args = sys.argv[1:]
 
-    if not args or args[0] == "serve":
-        _serve()
-    elif args[0] == "init":
-        _init(args[1:])
-    elif args[0] == "validate":
-        _validate(args[1:])
-    elif args[0] == "standards":
-        _standards(args[1:])
-    elif args[0] == "checklist":
-        _checklist(args[1:])
-    elif args[0] == "scan":
-        _scan(args[1:])
-    elif args[0] == "plugin":
-        _plugin(args[1:])
-    elif args[0] == "report":
-        _report(args[1:])
-    elif args[0] == "fix":
-        _fix(args[1:])
-    elif args[0] == "gate":
-        _gate(args[1:])
-    elif args[0] == "profile":
-        _profile(args[1:])
-    elif args[0] == "export":
-        _export(args[1:])
-    elif args[0] == "llm":
-        _llm(args[1:])
-    elif args[0] == "fine-tune":
-        _finetune(args[1:])
-    elif args[0] == "triage":
-        _triage(args[1:])
-    elif args[0] == "check":
-        _check(args[1:])
-    elif args[0] in ("--help", "-h"):
-        _print_help()
-    elif args[0] in ("--version", "-V"):
-        _print_version()
-    else:
-        print(f"Unknown command: {args[0]}")
-        _print_help()
+    try:
+        if not args or args[0] == "serve":
+            _serve()
+        elif args[0] == "init":
+            _init(args[1:])
+        elif args[0] == "validate":
+            _validate(args[1:])
+        elif args[0] == "standards":
+            _standards(args[1:])
+        elif args[0] == "checklist":
+            _checklist(args[1:])
+        elif args[0] == "scan":
+            _scan(args[1:])
+        elif args[0] == "plugin":
+            _plugin(args[1:])
+        elif args[0] == "report":
+            _report(args[1:])
+        elif args[0] == "fix":
+            _fix(args[1:])
+        elif args[0] == "gate":
+            _gate(args[1:])
+        elif args[0] == "profile":
+            _profile(args[1:])
+        elif args[0] == "export":
+            _export(args[1:])
+        elif args[0] == "llm":
+            _llm(args[1:])
+        elif args[0] == "fine-tune":
+            _finetune(args[1:])
+        elif args[0] == "triage":
+            _triage(args[1:])
+        elif args[0] == "check":
+            _check(args[1:])
+        elif args[0] in ("--help", "-h"):
+            _print_help()
+        elif args[0] in ("--version", "-V"):
+            _print_version()
+        else:
+            print(f"Unknown command: {args[0]}")
+            _print_help()
+            sys.exit(1)
+    except ConfigError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 

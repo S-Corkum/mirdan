@@ -101,6 +101,17 @@ def _try_local_triage(prompt: str) -> dict[str, Any] | None:
 
         try:
             await mgr.startup()
+            # ``mgr.startup`` schedules warmup as a background task so the
+            # MCP ``initialize`` response isn't blocked. For this in-process
+            # CLI fallback we must actually wait for the model to load,
+            # otherwise ``classify`` fires against an unwarmed backend,
+            # returns None, and we fall through to the "local LLM
+            # unavailable" stub despite the LLM being configured correctly.
+            if mgr._health is not None and mgr._health._warmup_task is not None:
+                with contextlib.suppress(Exception):
+                    await mgr._health._warmup_task
+            if mgr._backend is None:
+                return None
             engine = TriageEngine(llm_manager=mgr, config=cfg.llm)
             result = await engine.classify(prompt)
             if result is None:

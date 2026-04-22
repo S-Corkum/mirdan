@@ -107,7 +107,14 @@ def _fix_file(
         return
 
     if not auto_apply:
-        response = input("Apply fixes? [y/N] ").strip().lower()
+        try:
+            response = input("Apply fixes? [y/N] ").strip().lower()
+        except EOFError:
+            # stdin isn't a tty (piped or redirected) — treat as "no".
+            # Users wanting non-interactive apply should pass ``--auto``.
+            print()
+            print("No changes applied (stdin closed — pass --auto to apply without prompt)")
+            return
         if response not in ("y", "yes"):
             print("No changes applied")
             return

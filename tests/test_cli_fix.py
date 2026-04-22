@@ -180,3 +180,63 @@ class TestFixStaged:
         mock_run.return_value = MagicMock(stdout=f"{test_file}\n", returncode=0)
         _fix_staged(dry_run=True)
         mock_fix.assert_called_once()
+
+
+class TestFixInputEOF:
+    """Regression test for interactive ``input()`` EOF handling.
+
+    Pre-fix, piping into ``mirdan fix some_file.py`` with no tty raised
+    ``EOFError`` as an uncaught exception and printed a Python traceback
+    instead of a clean "no changes applied" message.
+    """
+
+    def test_eof_on_stdin_is_handled_cleanly(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Mock the fixer so there's guaranteed-fixable content and the
+        ``input()`` prompt is reached. Without mocking, the fixer's own
+        heuristics vary by content and the EOF branch might be skipped.
+        """
+        source = tmp_path / "bad.py"
+        source.write_text("def f():\n    pass\n")
+
+        # Build a stub ValidationResult with one fixable violation so the
+        # ``input()`` prompt is reached.
+        class _Fix:
+            confidence = 0.95
+            fix_description = "Add type annotation"
+            fix_code = "def f() -> None:"
+
+        class _ValidationResult:
+            passed = False
+            violations = [MagicMock()]
+
+        class _AutoFixer:
+            def batch_fix(
+                self,
+                code: str,
+                violations: list[MagicMock],
+                dry_run: bool = False,
+            ) -> tuple[str, list[_Fix]]:
+                return (code, [_Fix()])
+
+        with (
+            patch(
+                "mirdan.cli.fix_command.CodeValidator"
+            ) as mock_validator_cls,
+            patch(
+                "mirdan.cli.fix_command.AutoFixer",
+                return_value=_AutoFixer(),
+            ),
+            patch("builtins.input", side_effect=EOFError()),
+        ):
+            mock_validator_cls.return_value.validate.return_value = (
+                _ValidationResult()
+            )
+            _fix_file(str(source), dry_run=False, auto_apply=False)
+
+        out = capsys.readouterr().out
+        assert "stdin closed" in out
+        assert "--auto" in out
+        # File must not have been mutated.
+        assert source.read_text() == "def f():\n    pass\n"
