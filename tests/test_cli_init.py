@@ -571,6 +571,79 @@ class TestClaudeCodeInit:
         # The legacy path should not be created
         assert not (tmp_path / ".claude" / "hooks.json").exists()
 
+
+class TestMultiLanguageChecks:
+    """Tests for the multi-language ``llm.checks`` block written by init."""
+
+    def _run_init(self, tmp_path: Path, flag: str = "--claude-code") -> dict:
+        import yaml
+
+        with patch("builtins.input", return_value=""):
+            run_init([flag, str(tmp_path)])
+        config_path = tmp_path / ".mirdan" / "config.yaml"
+        assert config_path.exists()
+        return yaml.safe_load(config_path.read_text())
+
+    def test_init_typescript_writes_eslint_in_checks(self, tmp_path: Path) -> None:
+        """TS project should get eslint/tsc/npm test in llm.checks."""
+        (tmp_path / "package.json").write_text('{"name":"app"}')
+        (tmp_path / "tsconfig.json").write_text("{}")
+
+        data = self._run_init(tmp_path)
+        checks = data["llm"]["checks"]
+        assert checks["lint_command"] == "eslint ."
+        assert checks["typecheck_command"] == "tsc --noEmit"
+        assert "npm test" in checks["test_command"]
+
+    def test_init_rust_writes_cargo_clippy(self, tmp_path: Path) -> None:
+        """Rust project should get cargo clippy/check/test in llm.checks."""
+        (tmp_path / "Cargo.toml").write_text('[package]\nname = "app"\n')
+
+        data = self._run_init(tmp_path)
+        checks = data["llm"]["checks"]
+        assert checks["lint_command"].startswith("cargo clippy")
+        assert checks["typecheck_command"].startswith("cargo check")
+        assert checks["test_command"].startswith("cargo test")
+
+    def test_init_java_gradle_overrides_maven(self, tmp_path: Path) -> None:
+        """Java project with build.gradle should get ./gradlew commands."""
+        (tmp_path / "build.gradle").write_text("// gradle build")
+
+        data = self._run_init(tmp_path)
+        checks = data["llm"]["checks"]
+        assert checks["lint_command"] == "./gradlew check"
+        assert checks["test_command"] == "./gradlew test"
+        assert checks["typecheck_command"] == "./gradlew compileJava"
+
+    def test_init_python_writes_python_defaults(self, tmp_path: Path) -> None:
+        """Python project should get the ruff/mypy/pytest defaults explicitly.
+
+        Regression guard: bumping Python defaults shouldn't silently change
+        what init writes out.
+        """
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "app"\n')
+
+        data = self._run_init(tmp_path)
+        checks = data["llm"]["checks"]
+        assert checks["lint_command"] == "ruff check"
+        assert checks["typecheck_command"] == "mypy"
+        assert checks["test_command"] == "pytest -x --tb=short"
+
+    def test_init_cursor_writes_language_checks(self, tmp_path: Path) -> None:
+        """Cursor init shares `_write_config` with Claude Code init, so the
+        same language-specific `llm.checks` block must land.
+        """
+        (tmp_path / "package.json").write_text('{"name":"app"}')
+        (tmp_path / "tsconfig.json").write_text("{}")
+
+        data = self._run_init(tmp_path, flag="--cursor")
+        checks = data["llm"]["checks"]
+        assert checks["lint_command"] == "eslint ."
+
+
+class TestFixRouting:
+    """Tests for ``mirdan fix`` command routing via the CLI dispatcher."""
+
     def test_fix_command_routed(self) -> None:
         """'mirdan fix' should route to the fix command."""
         with (

@@ -451,6 +451,14 @@ class CheckRunnerConfig(BaseModel):
     )
     auto_fix_lint: bool = Field(default=True, description="Run lint --fix for auto-fixable issues")
 
+    @classmethod
+    def for_language(cls, language: str) -> "CheckRunnerConfig":
+        """Return defaults for ``language`` if known, else class defaults."""
+        from mirdan.core.check_defaults import defaults_for_language
+
+        defaults = defaults_for_language(language)
+        return defaults.model_copy() if defaults is not None else cls()
+
 
 class LLMConfig(BaseModel):
     """Local LLM configuration for the intelligence layer."""

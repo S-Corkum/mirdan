@@ -8,7 +8,7 @@ import shlex
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from mirdan.config import LLMConfig
+from mirdan.config import CheckRunnerConfig, LLMConfig
 
 if TYPE_CHECKING:
     from mirdan.llm.manager import LLMManager
@@ -27,10 +27,15 @@ class CheckRunner:
     """
 
     def __init__(
-        self, llm_manager: LLMManager | None = None, config: LLMConfig | None = None
+        self,
+        llm_manager: LLMManager | None = None,
+        config: LLMConfig | None = None,
+        checks_override: CheckRunnerConfig | None = None,
     ) -> None:
         self._llm = llm_manager
         self._config = config or LLMConfig()
+        if checks_override is not None:
+            self._config = self._config.model_copy(update={"checks": checks_override})
 
     async def run_all(
         self,
@@ -81,7 +86,10 @@ class CheckRunner:
         if not summary:
             summary = self._basic_summary(lint_result, typecheck_result, test_result)
 
-        all_pass = all(r.returncode == 0 for r in [lint_result, typecheck_result, test_result])
+        results_list = [lint_result, typecheck_result, test_result]
+        all_pass = all(r.returncode == 0 for r in results_list)
+        code_quality_pass = all(r.classification != "code_quality" for r in results_list)
+        infra_ok = all(r.classification != "infrastructure" for r in results_list)
 
         return CheckResult(
             lint=lint_result,
@@ -90,6 +98,8 @@ class CheckRunner:
             all_pass=all_pass,
             auto_fixed=auto_fixed,
             needs_attention=needs_attention,
+            code_quality_pass=code_quality_pass,
+            infra_ok=infra_ok,
             summary=summary,
         )
 
@@ -122,11 +132,13 @@ class CheckRunner:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            rc = proc.returncode or 0
             return SubprocessResult(
                 command=full_command,
-                returncode=proc.returncode or 0,
+                returncode=rc,
                 stdout=stdout_bytes.decode(errors="replace"),
                 stderr=stderr_bytes.decode(errors="replace"),
+                classification="ok" if rc == 0 else "code_quality",
             )
         except TimeoutError:
             proc.kill()
@@ -135,6 +147,7 @@ class CheckRunner:
                 returncode=-1,
                 stdout="",
                 stderr=f"TIMEOUT after {timeout}s",
+                classification="infrastructure",
             )
         except FileNotFoundError:
             return SubprocessResult(
@@ -142,6 +155,7 @@ class CheckRunner:
                 returncode=-1,
                 stdout="",
                 stderr=f"Command not found: {args[0]}",
+                classification="infrastructure",
             )
 
     async def _analyze(

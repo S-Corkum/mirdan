@@ -491,6 +491,29 @@ def _write_config(config: MirdanConfig, path: Path, platform: str = "generic") -
         "quality": data["quality"],
     }
 
+    # Multi-language check commands — written when primary_language maps to a
+    # known default. Users can edit; runtime also falls back (see
+    # check_command._resolve_checks) for legacy configs.
+    from mirdan.core.check_defaults import DEFAULT_CHECKS_BY_LANGUAGE
+
+    lang = config.project.primary_language.lower()
+    if lang in DEFAULT_CHECKS_BY_LANGUAGE:
+        checks_dict = DEFAULT_CHECKS_BY_LANGUAGE[lang].model_dump()
+        # Gradle override for Java. ``path`` is either
+        # ``<project_dir>/.mirdan/config.yaml`` (written by ``mirdan init``) or
+        # ``<project_dir>/.mirdan.yaml`` (written by ``mirdan llm setup``).
+        # Derive the project dir accordingly so we can check for Gradle manifests
+        # at the project root.
+        project_dir = path.parent.parent if path.name == "config.yaml" else path.parent
+        if lang == "java" and (
+            (project_dir / "build.gradle").exists()
+            or (project_dir / "build.gradle.kts").exists()
+        ):
+            checks_dict["lint_command"] = "./gradlew check"
+            checks_dict["test_command"] = "./gradlew test"
+            checks_dict["typecheck_command"] = "./gradlew compileJava"
+        output["llm"] = {"checks": checks_dict}
+
     # Write platform profile from config
     plat_data = config.platform.model_dump()
     if plat_data["name"] != "generic":

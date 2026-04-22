@@ -128,9 +128,19 @@ class LLMManager:
 
         # 6. Create check runner (used by sidecar and Stop hook)
         if self._config.check_runner:
+            from mirdan.cli.check_command import _resolve_checks
+            from mirdan.config import MirdanConfig
             from mirdan.core.check_runner import CheckRunner
 
-            self.check_runner = CheckRunner(llm_manager=self, config=self._config)
+            # Apply the same runtime language fallback the CLI uses so sidecar
+            # and Stop-hook consumers get language-appropriate commands even
+            # when the persisted config lacks an explicit llm.checks block.
+            runner_cfg = _resolve_checks(MirdanConfig.find_config())
+            self.check_runner = CheckRunner(
+                llm_manager=self,
+                config=self._config,
+                checks_override=runner_cfg,
+            )
 
         # 7. Start HTTP sidecar
         from mirdan.llm.sidecar import Sidecar

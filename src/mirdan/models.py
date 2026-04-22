@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum, IntEnum
-from typing import Any
+from typing import Any, Literal
 
 
 class OutputFormat(Enum):
@@ -633,6 +633,7 @@ class SubprocessResult:
     returncode: int
     stdout: str
     stderr: str
+    classification: Literal["ok", "code_quality", "infrastructure"] = "ok"
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -641,6 +642,7 @@ class SubprocessResult:
             "returncode": self.returncode,
             "stdout": self.stdout,
             "stderr": self.stderr,
+            "classification": self.classification,
         }
 
 
@@ -655,6 +657,8 @@ class CheckResult:
     auto_fixed: list[str] = field(default_factory=list)
     needs_attention: list[dict[str, Any]] = field(default_factory=list)
     summary: str = ""
+    code_quality_pass: bool = True
+    infra_ok: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -666,6 +670,8 @@ class CheckResult:
             "auto_fixed": self.auto_fixed,
             "needs_attention": self.needs_attention,
             "summary": self.summary,
+            "code_quality_pass": self.code_quality_pass,
+            "infra_ok": self.infra_ok,
         }
 
 

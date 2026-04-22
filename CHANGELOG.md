@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.7] - 2026-04-22
+
+### Fixed
+- **Non-Python projects get working check commands out of the box.**
+  `mirdan init` in TypeScript, JavaScript, Rust, Go, or Java repos now
+  writes language-appropriate `llm.checks` entries to
+  `.mirdan/config.yaml` instead of falling through to Python's
+  `ruff check` / `mypy` / `pytest`. The Python fallthrough previously
+  produced "command not found" on every hook invocation and left
+  `all_pass: false` regardless of code quality — same bug shape as the
+  2.0.6 bare-`mypy` fallback, now generalised to all supported
+  languages.
+- **Legacy 2.0.x configs fix themselves.** Projects whose
+  `.mirdan/config.yaml` was written under 2.0.x (detecting
+  `primary_language: typescript` but not persisting an `llm.checks`
+  block) no longer need to re-init. `mirdan check` now applies a
+  runtime fallback that swaps in language-specific defaults when the
+  loaded `checks` matches the literal Python defaults unchanged.
+  Known edge: a user who explicitly set `ruff check`/`mypy`/`pytest`
+  in a non-Python project will be overridden; changing any one of the
+  three commands opts them back out of the fallback.
+- **Cursor projects benefit automatically.** Cursor init shares the
+  same `_write_config` path as Claude Code init, and Cursor's
+  `/mirdan-gate` slash command invokes the same `CheckRunner` class,
+  so both code paths get the new behaviour with no Cursor-specific
+  code changes.
+
+### Added
+- `DEFAULT_CHECKS_BY_LANGUAGE` lookup table in
+  `src/mirdan/core/check_defaults.py` with entries for python,
+  typescript, javascript, rust, go, java (Maven default; Gradle
+  override when `build.gradle[.kts]` is detected). Languages where
+  typechecking bundles into build/test (Go, JavaScript) use
+  `typecheck_command: "true"` — POSIX no-op, always exits 0.
+- `CheckRunnerConfig.for_language(lang)` factory.
+- Infrastructure-vs-code-quality classification on every subprocess
+  outcome. `SubprocessResult.classification` is one of `"ok"`,
+  `"code_quality"`, or `"infrastructure"`. Missing binaries and
+  timeouts are classified as `infrastructure`, not `code_quality`.
+- `code_quality_pass`, `infra_ok`, and `infra_failures` in the
+  `mirdan check --smart` JSON output so Stop-hook consumers can
+  distinguish a real code failure from a missing-binary / timeout
+  infra failure. `all_pass` is unchanged for backwards compatibility.
+- `CheckRunner` accepts a `checks_override: CheckRunnerConfig | None`
+  constructor parameter so callers (e.g. `LLMManager.startup`) can
+  supply the resolved runtime config.
+
 ## [2.0.6] - 2026-04-22
 
 ### Fixed
