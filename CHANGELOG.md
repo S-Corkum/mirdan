@@ -52,6 +52,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   constructor parameter so callers (e.g. `LLMManager.startup`) can
   supply the resolved runtime config.
 
+### Fixed (surfaced during 2.0.7 end-to-end review)
+- **`mirdan triage --stdin` in-process fallback now actually loads the
+  LLM.** `_try_local_triage` called `await mgr.startup()` but the
+  warmup task is scheduled in the background by design (so the MCP
+  `initialize` response isn't blocked). `classify()` fired against an
+  unwarmed backend, `generate_structured` returned None, and the CLI
+  emitted the "no sidecar and local LLM unavailable" stub even though
+  the LLM was configured correctly. The CLI fallback now awaits
+  `mgr._health._warmup_task` before classify; the MCP server still
+  returns `initialize` without blocking.
+- **`mirdan check --smart --fix` LLM fix loop is no longer dead code.**
+  `_run_llm_fix_loop` created an `LLMManager` but never called
+  `startup()`; `LLMFixer` saw `self._backend is None` and returned
+  None for every violation, so no fixes were ever produced. Fixed by
+  starting the manager, awaiting warmup, and shutting it down on exit.
+- **`mirdan fix path.py` survives non-interactive stdin.** Piping into
+  the fix command (no tty) previously raised `EOFError` from the
+  "Apply fixes? [y/N]" prompt and printed a raw Python traceback. Now
+  caught with a helpful message pointing to `--auto` and no file
+  mutation.
+- **Malformed `.mirdan/config.yaml` surfaces a clean single-line
+  error.** Previously a `yaml.YAMLError` traceback reached the CLI.
+  `MirdanConfig.load` and `_load_yaml_dict` now raise
+  `ConfigError(path, cause)` which the CLI entry point catches and
+  prints as `Error: ...` before exiting 1. Covers malformed YAML,
+  non-mapping top-level documents, failed Pydantic validation, and
+  the deep-merge code path.
+
 ## [2.0.6] - 2026-04-22
 
 ### Fixed
