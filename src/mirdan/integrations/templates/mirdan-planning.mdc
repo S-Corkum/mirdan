@@ -1,55 +1,49 @@
 ---
-description: "mirdan planning enhancement — activate when creating implementation plans, task breakdowns, or roadmaps in Plan Mode"
+description: "mirdan three-layer planning — activate when creating implementation plans in Plan Mode"
 alwaysApply: false
 ---
 
-# mirdan Planning Enhancement
+# mirdan Planning (Three-Layer, Brief-First)
 
-Enhance Cursor's native plan mode with structured thinking and verified facts.
-Do NOT override Cursor's plan format — improve the plan's quality and accuracy.
+## Prerequisites
 
-## Context (Before Planning)
-Call `mcp__enyal__enyal_recall` with `input: { query: "architecture conventions decisions" }`
-to load project context. Then call `mcp__enyal__enyal_traverse` with
-`input: { start_query: "<planned area>" }` to discover related decisions and dependencies.
+A brief must exist at `docs/briefs/<slug>.md`. If none, run `/brief <slug>`
+first. Plans without a brief use the legacy flat template and are not
+eligible for `/plan-execute`.
 
-**Important:** All enyal tools require parameters wrapped in an `input` object.
-For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall("...")`.
+## Workflow in Plan Mode
 
-## Deep Analysis (Before Planning)
-Use `mcp__sequential-thinking__sequentialthinking` to analyze the task before
-generating plan steps. Think through:
-- Full scope: what needs to change and why
-- Phases: logical grouping and ordering of changes
-- Dependencies: which changes depend on others
-- Completeness: imports, tests, config, types — nothing missing
-- Risks: edge cases, breaking changes, security implications
-
-Start with `totalThoughts: 8` and adjust as complexity demands. For simple
-tasks use fewer; for architectural changes use 10-15.
-
-## Grounding (Before Each Step)
-- Read every file the plan will modify — verify it exists, note structure
-- Use `@Docs [library-name]` for any external API the plan references
-- No step should reference a file, function, or API without verification
+1. Call `mcp__mirdan__validate_brief(brief_path)`. If `passed=false`, surface
+   gaps and do not proceed.
+2. Call `mcp__mirdan__enhance_prompt(prompt=<outcome>, task_type="planning",
+   brief_path=<path>)`. Brief constraints merge into `quality_requirements`.
+3. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
+   architecture decisions and dependency clusters.
+4. Read every file referenced in brief's Prior Art section.
+5. Draft the plan in three-layer structure:
+   - Research Notes (verified facts with tool citations)
+   - Epic Layer (outcome + metric + scope boundary + epic grounding)
+   - Story Layer (INVEST check + AC list per story)
+   - Subtasks per story (File, Action, Details, Depends on, Verify,
+     Grounding, If-blocked — all 6 fields mandatory)
+6. Self-check: every subtask has all 6 grounding fields.
+7. Write to `docs/plans/<slug>.md` with frontmatter `brief: docs/briefs/<slug>.md`.
 
 ## Quality Constraints
-- No vague language ("should", "probably", "maybe") — these signal unverified facts
-- Every file path verified to exist (or explicitly marked as new)
-- Atomic steps — one action per step
-- Include test, import, and config steps when applicable
 
-## Subagent Dispatch
+- No vague language — "should", "probably", "likely", "maybe", "around line"
+- Every file path verified (or explicitly marked NEW with parent Glob check)
+- Atomic subtasks — one action per subtask
+- No cross-subtask references ("like 1.2 but for /users") — spell out each subtask
+- Subtasks are self-contained — cheap executors don't re-read the epic
 
-After the plan is finalized, send TODO groups to implementation subagents:
-- **`mirdan-implementer`** — for code implementation TODOs
-- **`mirdan-test-writer`** — for test creation TODOs
+## Execution Dispatch
 
-Each subagent enforces mirdan quality standards and spawns readonly validators
-(quality-validator, slop-detector, test-auditor) as background subagents.
+After Build is clicked, `/plan-execute` walks subtasks and dispatches each:
+- **Claude Code:** to the `cheap-executor` agent (Haiku) via the Agent tool
+- **Cursor:** hardware-adaptive — Option A (inline on selected model) or
+  Option B (MCP-proxied via `mcp__mirdan__propose_subtask_diff` using local
+  Gemma 4). Routing is auto-selected via `mcp__mirdan__mirdan_health`.
 
-## During Build Execution
-When executing plan steps after Build is clicked:
-- Execute each step directly
-- Do NOT call enhance_prompt or sequential-thinking during execution
-- `mcp__mirdan__validate_code_quality` runs automatically via afterFileEdit
+`/plan-verify` runs as a pre-flight check before execution begins. Pass
+`--skip-verify` to bypass in emergencies.

@@ -25,6 +25,12 @@ _TOOL_PRIORITY = [
     "get_quality_trends",
     "scan_dependencies",
     "scan_conventions",
+    # 2.1.0 brief-driven pipeline tools (lower priority — used by the pipeline
+    # skills/commands rather than being direct developer entry points).
+    "validate_brief",
+    "verify_plan_against_brief",
+    "mirdan_health",
+    "propose_subtask_diff",
 ]
 
 
@@ -121,6 +127,7 @@ async def enhance_prompt(
     model_tier: str = "auto",
     session_id: str = "",
     ceremony_level: str = "auto",
+    brief_path: str = "",
 ) -> dict[str, Any]:
     """
     Automatically enhance a coding prompt with quality requirements,
@@ -144,6 +151,9 @@ async def enhance_prompt(
                        "auto" scales based on task complexity. "micro" for trivial
                        changes, "thorough" for complex multi-framework tasks.
                        Security-touching tasks escalate to at least "standard".
+        brief_path: Optional path to a brief markdown file. When provided, the
+                    brief's Constraints and Out-of-Scope sections are merged into
+                    the returned quality framework.
 
     Returns:
         Enhanced prompt with quality requirements and tool recommendations
@@ -158,6 +168,7 @@ async def enhance_prompt(
         model_tier=model_tier,
         session_id=session_id,
         ceremony_level=ceremony_level,
+        brief_path=brief_path,
     )
 
 
@@ -349,6 +360,140 @@ async def scan_dependencies(
     p = _get_provider()
     uc = p.create_scan_dependencies_usecase()
     return await uc.execute(project_path=project_path, ecosystem=ecosystem)
+
+
+# ---------------------------------------------------------------------------
+# 2.1.0 brief-driven pipeline tools
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+async def validate_brief(brief_path: str) -> dict[str, Any]:
+    """
+    Validate a brief file against the brief-driven pipeline rubric.
+
+    Checks 5 required sections (Outcome, Users & Scenarios, Business Acceptance
+    Criteria, Constraints, Out of Scope), minimum AC count, and vague-language
+    patterns. Recommended sections (Prior Art, Known Pitfalls, Quality Bar,
+    Non-Goals) emit warnings but do not fail validation.
+
+    Args:
+        brief_path: Absolute or project-relative path to the brief markdown file.
+
+    Returns:
+        dict with keys: passed, score, gaps, missing_required, thin_recommended,
+        would_pass_after_fixes
+    """
+    p = _get_provider()
+    uc = p.create_validate_brief_usecase()
+    return await uc.execute(brief_path)
+
+
+@mcp.tool()
+async def verify_plan_against_brief(
+    plan_path: str,
+    brief_path: str,
+) -> dict[str, Any]:
+    """
+    Verify a three-layer plan satisfies its brief.
+
+    Mechanical checks (no LLM): grounding-field presence per subtask, INVEST
+    structure per story, out-of-scope keyword scan, required-section presence.
+    Semantic checks (local Gemma 4, graceful degradation): brief AC to story AC
+    mapping coverage.
+
+    Args:
+        plan_path: Path to three-layer plan markdown file
+        brief_path: Path to brief markdown file referenced by the plan
+
+    Returns:
+        dict with verified, coverage_score, unmapped_acs, missing_grounding,
+        out_of_scope_violations, invest_failures, semantic_check_skipped, summary
+    """
+    p = _get_provider()
+    uc = p.create_verify_plan_against_brief_usecase()
+    return await uc.execute(plan_path, brief_path)
+
+
+@mcp.tool()
+async def propose_subtask_diff(
+    subtask_yaml: str,
+    file_context: dict[str, str],
+) -> dict[str, Any]:
+    """
+    Propose a unified diff that executes a pre-grounded subtask, using local
+    Gemma 4. Used by Cursor /plan-execute Option B (MCP-proxied cheap executor).
+    Fails closed — never calls external APIs.
+
+    Args:
+        subtask_yaml: YAML-structured subtask block with File/Action/Details/Grounding
+        file_context: Mapping of file paths to current file content (for diff context)
+
+    Returns:
+        dict with diff, model_used, confidence, halted, halt_reason
+    """
+    p = _get_provider()
+    uc = p.create_propose_subtask_diff_usecase()
+    return await uc.execute(subtask_yaml, file_context)
+
+
+@mcp.tool()
+async def mirdan_health() -> dict[str, Any]:
+    """
+    Report mirdan's local LLM and hardware health so IDE clients (notably Cursor's
+    /plan-execute) can pick between Option A (inline) and Option B (MCP-proxied).
+
+    Returns:
+        dict with local_llm_available, model_in_use, vram_gb, recommended_mode,
+        backend_kind
+    """
+    p = _get_provider()
+    mgr = p.get_llm_manager()
+    vram_gb = _detect_vram_gb()
+    if mgr is None:
+        return {
+            "local_llm_available": False,
+            "model_in_use": None,
+            "vram_gb": vram_gb,
+            "recommended_mode": "inline",
+            "backend_kind": None,
+        }
+    try:
+        health = await mgr.health()
+    except Exception:
+        return {
+            "local_llm_available": False,
+            "model_in_use": None,
+            "vram_gb": vram_gb,
+            "recommended_mode": "inline",
+            "backend_kind": None,
+        }
+    available = getattr(health, "state", None)
+    available_flag = available is not None and str(available).endswith("AVAILABLE")
+    model_name = getattr(health, "model_name", None)
+    backend_kind = getattr(health, "backend_kind", None)
+    recommended = "proxied" if available_flag and vram_gb >= 12 else "inline"
+    return {
+        "local_llm_available": available_flag,
+        "model_in_use": model_name,
+        "vram_gb": vram_gb,
+        "recommended_mode": recommended,
+        "backend_kind": backend_kind,
+    }
+
+
+def _detect_vram_gb() -> int:
+    """Best-effort VRAM detection. Returns 0 if unknown.
+
+    Prefers mirdan's HardwareDetector; falls back to available RAM as a rough proxy.
+    """
+    try:
+        from mirdan.llm.health import HardwareDetector
+
+        ram_mb = HardwareDetector.get_available_memory_mb()
+        return int(ram_mb // 1024)
+    except Exception:
+        return 0
 
 
 def main() -> None:

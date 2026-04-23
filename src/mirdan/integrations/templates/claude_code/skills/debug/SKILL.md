@@ -1,43 +1,22 @@
 ---
 name: debug
-description: "Mirdan-assisted debugging with quality validation"
-argument-hint: "Describe the bug or error"
+description: "[DEPRECATED] Retired in 2.1.0 — debug inline and run /plan-verify if the fix touches a plan-tracked file"
+argument-hint: "(deprecated)"
 model: inherit
-allowed-tools: mcp__mirdan__enhance_prompt, mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__sequential-thinking__sequentialthinking, mcp__enyal__enyal_recall, mcp__enyal__enyal_remember, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools:
 ---
 
-# /debug — Quality-Aware Debugging
+# /debug — DEPRECATED
 
-Debug issues with mirdan quality analysis to prevent introducing new problems.
+**DEPRECATED: /debug is retired in 2.1.0, use inline debugging instead**
 
-## Dynamic Context
+Debug inline using Read, Grep, and the main chat. After fixing, call
+`mcp__mirdan__validate_code_quality` on the modified file to confirm no new
+violations were introduced. If the fix touches a file tracked in a
+three-layer plan at `docs/plans/`, run `/plan-verify <path>` afterward to
+confirm plan coverage is still intact.
 
-Recent changes:
-```
-!`git diff --stat HEAD 2>/dev/null | tail -5`
-```
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-## Workflow
-
-1. **Analyze** — Call `mcp__mirdan__enhance_prompt` with the bug description (task_type=debug)
-   - Get security context and quality requirements
-   - Note if touches_security is flagged
-
-2. **Check Known Issues** — Call `mcp__enyal__enyal_recall` with `input: { query: "<bug description>" }` to check if a similar issue was previously solved
-
-3. **Hypothesize** — Use `mcp__sequential-thinking__sequentialthinking` to form structured hypotheses about root cause before investigating code
-
-4. **Investigate** — Read relevant code, trace the issue through the codebase
-
-5. **Fix** — Apply the fix following quality requirements from enhance_prompt
-
-6. **Validate** — Call `mcp__mirdan__validate_code_quality` on the modified code
-   - Set `check_security=true` if touches_security was flagged
-   - Ensure the fix doesn't introduce new violations
-
-7. **Persist** — Call `mcp__enyal__enyal_remember` with `input: { content: "<fix pattern>", content_type: "pattern", tags: [...] }` to store the fix pattern so similar issues can be resolved faster in future sessions
-
-8. **Verify** — Confirm:
-   - Root cause addressed (not just symptoms)
-   - No new validation errors introduced
-   - Regression test coverage considered
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.

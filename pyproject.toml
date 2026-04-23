@@ -131,6 +131,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "local_llm: requires a running local LLM (Gemma 4 via Ollama or llama-cpp-python)",
+    "performance: performance-sensitive tests that assert wall-clock bounds",
+]
 
 [tool.coverage.report]
 fail_under = 83

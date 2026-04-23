@@ -216,19 +216,18 @@ class TestModernizedSkills:
         content = (skills_dir / "plan" / "SKILL.md").read_text()
         assert ".mirdan/config.yaml" in content
 
-    def test_quality_skill_has_context_fork(self, skills_dir: Path) -> None:
-        content = (skills_dir / "quality" / "SKILL.md").read_text()
-        assert "context: fork" in content
+    def test_retired_skills_are_deprecation_stubs(self, skills_dir: Path) -> None:
+        """2.1.0 retired /debug /review /quality /gate /scan as deprecation stubs.
 
-    def test_review_skill_has_context_fork(self, skills_dir: Path) -> None:
-        content = (skills_dir / "review" / "SKILL.md").read_text()
-        assert "context: fork" in content
-
-    def test_debug_skill_references_current_tools(self, skills_dir: Path) -> None:
-        content = (skills_dir / "debug" / "SKILL.md").read_text()
-        assert "mcp__mirdan__enhance_prompt" in content
+        Stubs are intentionally minimal — no context fork, no tool references,
+        no workflow body. They print a redirect and exit.
+        """
+        for skill in ("debug", "review", "quality", "gate", "scan"):
+            content = (skills_dir / skill / "SKILL.md").read_text()
+            assert "DEPRECATED" in content, f"{skill} must be a deprecation stub"
 
     def test_all_skills_exist(self, skills_dir: Path) -> None:
+        # Retired skills still have files (as stubs) through 2.1.x.
         for skill in ("code", "debug", "plan", "quality", "review"):
             assert (skills_dir / skill / "SKILL.md").exists()
 
@@ -261,6 +260,8 @@ class TestSpecializedAgents:
             "convention-check.md",
             "test-quality.md",
             "plan-reviewer.md",
+            # 2.1.0 brief-driven pipeline: cheap executor for /plan-execute dispatch.
+            "cheap-executor.md",
         }
         actual = {p.name for p in agents_dir.iterdir() if p.suffix == ".md"}
         assert expected == actual
@@ -293,10 +294,19 @@ class TestSpecializedAgents:
         assert "memory:" not in content
 
     def test_agents_reference_current_tools(self, agents_dir: Path) -> None:
+        # cheap-executor (2.1.0) intentionally does NOT call validate_code_quality —
+        # it executes a pre-grounded subtask and halts on mismatch; validation is
+        # performed by /plan-execute after the agent returns, not by the agent itself.
+        agents_without_validate = {"cheap-executor.md"}
         for agent_file in agents_dir.iterdir():
-            if agent_file.suffix == ".md":
-                content = agent_file.read_text()
-                assert "validate_code_quality" in content
+            if agent_file.suffix != ".md":
+                continue
+            if agent_file.name in agents_without_validate:
+                continue
+            content = agent_file.read_text()
+            assert "validate_code_quality" in content, (
+                f"{agent_file.name} missing validate_code_quality reference"
+            )
 
 
 # ---------------------------------------------------------------------------

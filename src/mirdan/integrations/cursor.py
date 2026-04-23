@@ -888,6 +888,16 @@ def _generate_static_rules(
         path.write_text(templates["mirdan-planning.mdc"])
         generated.append(path)
 
+    if "mirdan-brief.mdc" in templates:
+        path = rules_dir / "mirdan-brief.mdc"
+        path.write_text(templates["mirdan-brief.mdc"])
+        generated.append(path)
+
+    if "mirdan-plan-verify.mdc" in templates:
+        path = rules_dir / "mirdan-plan-verify.mdc"
+        path.write_text(templates["mirdan-plan-verify.mdc"])
+        generated.append(path)
+
     if "mirdan-plan-review.mdc" in templates:
         path = rules_dir / "mirdan-plan-review.mdc"
         path.write_text(templates["mirdan-plan-review.mdc"])
@@ -1198,8 +1208,22 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 """
 
 _COMMAND_DEBUG = """\
-# /debug — Quality-Aware Debugging
+# /debug — DEPRECATED
 
+**DEPRECATED: /debug is retired in 2.1.0, debug inline instead**
+
+Debug inline using Read, Grep, and the main chat. If the fix touches a file
+tracked in a three-layer plan under `docs/plans/`, call
+`mcp__mirdan__validate_code_quality` after the fix to confirm code quality
+and `mcp__mirdan__verify_plan_against_brief` if plan coverage matters.
+
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
+
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.
+"""
+
+_COMMAND_DEBUG_LEGACY_UNUSED = """\
 Debug issues with mirdan quality analysis to prevent introducing new problems.
 
 ## Workflow
@@ -1228,31 +1252,20 @@ Debug issues with mirdan quality analysis to prevent introducing new problems.
 """
 
 _COMMAND_REVIEW = """\
-# /review — Code Review with Quality Standards
+# /review — DEPRECATED
 
-Review code against mirdan quality standards.
+**DEPRECATED: /review is retired in 2.1.0, use /plan-review --stakes high instead**
 
-## Workflow
+For judgment review of a plan: `/plan-review --stakes high <plan-path>` —
+produces the 5-section structured output against the shared rubric.
 
-1. Call `mcp__mirdan__get_quality_standards` for the language/framework to establish
-   review criteria.
+For reviewing arbitrary files or PRs without a plan context: call
+`mcp__mirdan__validate_code_quality` directly on the file contents.
 
-2. Call `mcp__enyal__enyal_recall` with
-   `input: { query: "code conventions", file_path: "<changed file path>" }`
-   to get project code conventions. The `file_path` parameter enables
-   scope-weighted results.
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-3. Read each changed file. Check for:
-   - AI quality rules: AI001 (placeholders), AI002 (hallucinated imports),
-     AI007 (security theater), AI008 (injection vulnerabilities)
-   - Security rules: SEC001-SEC014
-   - Architecture rules: ARCH001-ARCH005
-   - Deviations from project conventions loaded from enyal
-
-4. Call `mcp__mirdan__validate_code_quality` with `check_security=true` on
-   security-sensitive files.
-
-5. Report findings grouped by severity: errors (must fix), warnings (should fix).
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.
 """
 
 _COMMAND_PLAN = """\
@@ -1306,80 +1319,49 @@ Quality validation runs automatically after each file edit.
 """
 
 _COMMAND_QUALITY = """\
-# /quality — On-Demand Quality Validation
+# /quality — DEPRECATED
 
-Run mirdan quality validation on demand.
+**DEPRECATED: /quality is retired in 2.1.0, call mcp__mirdan__validate_code_quality directly**
 
-## Workflow
+For quality validation of a single file or snippet, call
+`mcp__mirdan__validate_code_quality` directly with the code and language.
+For plan-level quality gating, use `/plan-verify <plan-path>`.
 
-1. Identify files to validate — changed files, staged files, or specific path.
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-2. Call `mcp__enyal__enyal_recall` with `input: { query: "quality conventions" }`
-   to load project quality standards for comparison.
-
-3. Call `mcp__mirdan__validate_code_quality` on each file:
-   - Use `check_security=true` for auth, input handling, database, or API code
-   - Use `severity_threshold="info"` for comprehensive results
-
-4. Call `mcp__mirdan__get_quality_trends` to check session-wide quality trends.
-
-5. Report findings:
-   - Errors (must fix before completing)
-   - Warnings (should fix, note if deferring)
-   - Overall quality score
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.
 """
 
 _COMMAND_SCAN = """\
-# /scan — Convention Scanner
+# /scan — DEPRECATED
 
-Scan the codebase for quality violations and convention patterns.
+**DEPRECATED: /scan is retired in 2.1.0, call scan_conventions / scan_dependencies directly**
 
-## Workflow
+For convention scanning, call `mcp__mirdan__scan_conventions` directly.
+For dependency vulnerability scanning, call `mcp__mirdan__scan_dependencies`.
+Both MCP tools take parameters directly and return structured results.
 
-1. Call `mcp__enyal__enyal_recall` with `input: { query: "conventions patterns" }`
-   to load known project conventions for comparison.
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-2. Identify files to scan — all source files, or scope by argument (path or language).
-
-3. Call `mcp__mirdan__scan_conventions` to discover patterns and violations.
-
-4. Call `mcp__mirdan__get_quality_standards` for the project language to verify
-   findings against defined rules.
-
-5. Report:
-   - Violations by rule ID and count
-   - New patterns discovered
-   - Conventions that diverge from standards or stored knowledge
-
-6. If new high-confidence conventions are discovered, call `mcp__enyal__enyal_remember`
-   with `input: { content: "<convention>", content_type: "convention", tags: [...] }`
-   to persist them for future sessions.
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.
 """
 
 _COMMAND_GATE = """\
-# /gate — Quality Gate
+# /gate — DEPRECATED
 
-Run the full quality gate before committing or completing a task.
+**DEPRECATED: /gate is retired in 2.1.0, use validate_code_quality + validate_quick directly**
 
-## Workflow
+For per-file quality gate checks, call `mcp__mirdan__validate_code_quality`
+and `mcp__mirdan__validate_quick` directly. For plan-level gating before
+`/plan-execute`, use `/plan-verify <plan-path>` (runs automatically as a
+pre-flight check when executing a plan).
 
-1. Find all changed files: uncommitted changes and staged files.
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-2. Call `mcp__mirdan__validate_code_quality` on each changed file.
-   Use `check_security=true` for any file touching auth, input, SQL, or APIs.
-
-3. Check that every file passes with quality score >= 0.7.
-   Security-critical files require score >= 0.8.
-
-4. Fix all errors. For warnings, note rule IDs and justification if deferring.
-
-5. Re-validate after fixes to confirm PASS status.
-
-6. If validation produced `knowledge_entries`, call `mcp__enyal__enyal_remember`
-   with `input: { content: "<entry>", content_type: "<type>", tags: [...], scope: "<scope>" }`
-   to store them with the suggested tags and scope.
-
-7. Only mark the task complete after all files pass the quality gate.
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.
 """
 
 _COMMAND_AUTOMATIONS = """\
@@ -1446,12 +1428,21 @@ _CURSOR_COMMANDS: dict[str, str] = {
 def generate_cursor_commands(cursor_dir: Path, *, force: bool = False) -> list[Path]:
     """Generate .cursor/commands/*.md files for Cursor slash commands.
 
-    Creates plain Markdown command files (no frontmatter) for each mirdan
-    workflow. These are injected as prompt context when the user types
-    /code, /debug, /review, /plan, /quality, /scan, or /gate in Cursor.
+    Writes two groups of commands:
 
-    Existing files are preserved — this function is idempotent per file.
-    If force=True, overwrite existing files with latest mirdan content.
+    1. **Legacy commands** from the in-file ``_CURSOR_COMMANDS`` dict
+       (``/code``, ``/debug``, ``/review``, ``/plan``, ``/quality``, ``/scan``,
+       ``/gate``, plus ``/automations``). In mirdan 2.1.0, ``/debug``,
+       ``/review``, ``/quality``, ``/scan``, and ``/gate`` are retired —
+       Story 6 replaces their ``_CURSOR_COMMANDS`` entries with deprecation
+       stubs. ``/code`` and ``/automations`` remain.
+
+    2. **Brief-driven pipeline commands** (2.1.0) from packaged templates at
+       ``mirdan/integrations/templates/cursor_commands/*.md``:
+       ``/brief``, ``/plan`` (overrides legacy), ``/plan-verify``,
+       ``/plan-review``, ``/plan-execute``.
+
+    Existing files are preserved — idempotent per file unless ``force=True``.
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
@@ -1464,11 +1455,37 @@ def generate_cursor_commands(cursor_dir: Path, *, force: bool = False) -> list[P
     commands_dir.mkdir(parents=True, exist_ok=True)
 
     created: list[Path] = []
+
     for filename, content in _CURSOR_COMMANDS.items():
         dest = commands_dir / filename
         if force or not dest.exists():
             dest.write_text(content)
             created.append(dest)
+
+    # Brief-driven pipeline commands override any legacy same-named files
+    # (notably /plan) because they carry the 2.1.0 three-layer behavior.
+    pipeline_filenames = (
+        "brief.md",
+        "plan.md",
+        "plan-verify.md",
+        "plan-review.md",
+        "plan-execute.md",
+    )
+    try:
+        pipeline_pkg = files("mirdan.integrations.templates.cursor_commands")
+    except (ModuleNotFoundError, FileNotFoundError):
+        return created
+
+    for filename in pipeline_filenames:
+        try:
+            content = (pipeline_pkg / filename).read_text()
+        except (FileNotFoundError, OSError):
+            continue
+        dest = commands_dir / filename
+        if force or not dest.exists():
+            dest.write_text(content)
+            if dest not in created:
+                created.append(dest)
 
     return created
 

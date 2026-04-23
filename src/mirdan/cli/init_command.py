@@ -736,6 +736,39 @@ def _setup_agents_md(
     print(f"  Created {agents_path}")
 
 
+_2_1_0_MIGRATION_NOTICE = """\
+Upgrading mirdan config from 2.0.x to 2.1.0.
+
+Breaking changes in 2.1.0:
+- /debug, /review, /quality, /gate, /scan skills are retired
+  (deprecation stubs installed in both Claude Code and Cursor; full deletion
+  in 2.2.0)
+- /plan now requires --brief <path> by default
+  (pass --no-brief for exploratory plans; existing flat plans still run)
+- New skills: /brief, /plan-verify, /plan-execute
+- New MCP tools: validate_brief, verify_plan_against_brief,
+  propose_subtask_diff, mirdan_health
+
+See CHANGELOG.md "2.1.0" section for the full migration table.
+"""
+
+
+def _print_2_1_0_migration_notice_if_applicable(config_path: Path) -> None:
+    """Print 2.1.0 migration notice when upgrading from 2.0.x.
+
+    Heuristic: existing config lacks the `brief:` top-level key → 2.0.x.
+    Fast (single file read) to stay within the 2-second migration quality bar.
+    """
+    try:
+        raw = config_path.read_text()
+    except OSError:
+        return
+    # `brief:` at top level is unique to 2.1.0+; its absence signals 2.0.x.
+    if "\nbrief:\n" in raw or raw.startswith("brief:\n") or "\nbrief:" in raw.lower()[:4000]:
+        return
+    print(_2_1_0_MIGRATION_NOTICE)
+
+
 def _run_upgrade(directory: Path) -> None:
     """Upgrade an existing mirdan installation.
 
@@ -755,6 +788,11 @@ def _run_upgrade(directory: Path) -> None:
     if not config_path.exists():
         print("No existing mirdan config found. Run 'mirdan init' first.")
         sys.exit(1)
+
+    # 2.1.0 migration notice — detect upgrade from 2.0.x and surface the
+    # breaking skill retirement up front so users aren't surprised by
+    # deprecation stubs on their next invocation.
+    _print_2_1_0_migration_notice_if_applicable(config_path)
 
     # Load existing config (auto-merges with defaults for new fields)
     config = MirdanConfig.load(config_path)

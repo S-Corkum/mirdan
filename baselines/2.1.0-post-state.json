@@ -1,0 +1,26 @@
+{
+  "validate_brief": {
+    "wall_clock_ms": 5.3,
+    "passed": true,
+    "score": 0.7999999999999999,
+    "missing_required": [],
+    "thin_recommended_count": 1,
+    "gap_count": 3,
+    "external_api_calls": 0
+  },
+  "verify_plan_against_brief_mechanical": {
+    "wall_clock_ms": 29.2,
+    "verified": false,
+    "coverage_score": 0.8,
+    "unmapped_acs_count": 0,
+    "missing_grounding_count": 4,
+    "out_of_scope_violations_count": 0,
+    "invest_failures_count": 0,
+    "semantic_check_skipped": true,
+    "external_api_calls": 0
+  },
+  "inputs": {
+    "brief_tokens_est": 6267,
+    "plan_tokens_est": 23091
+  }
+}

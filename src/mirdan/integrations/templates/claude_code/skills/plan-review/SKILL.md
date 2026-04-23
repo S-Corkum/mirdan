@@ -1,7 +1,7 @@
 ---
 name: plan-review
-description: "Staff-engineer-grade review of AI-generated implementation plans — verifies grounding, completeness, and cheap-model executability"
-argument-hint: "Path to plan file, or 'last' to review the most recent plan"
+description: "Deep plan review — escape hatch for high-stakes plans requiring model-judgment review"
+argument-hint: "<plan-path> [--stakes high] [--target flash]"
 user-invocable: true
 model: inherit
 context: fork
@@ -13,15 +13,31 @@ allowed-tools: >-
   Read, Glob, Grep
 ---
 
-# /plan-review — Staff-Engineer Plan Review
+# /plan-review — Escape Hatch for High-Stakes Review
 
-Review an AI-generated implementation plan for factual accuracy and cheap-model executability. This skill is the Judge half of a Judge/Planner separation — `/plan` creates plans, `/plan-review` reviews them.
+**Default plan verification is `/plan-verify` (mechanical, local Gemma 4, fast).**
+Use this skill only when model-judgment review is required — auth, payments,
+data migration, regulated code, or any plan where emergent cross-story risks
+matter more than coverage accounting.
+
+`--stakes high` is the required flag for routine use; it spawns the
+`plan-reviewer` subagent which enforces the shared 5-section rubric at
+`<mirdan-install>/templates/plan-review-rubric.md`.
+
+Review output sections (mandatory, in this order):
+1. `## unmapped_acs`
+2. `## constraint_violations`
+3. `## scope_violations`
+4. `## grounding_gaps`
+5. `## risks`
+
+Followed by `**Verdict:** pass | fail | revise`.
 
 ## Usage
 
-- `/plan-review docs/plans/auth.md` — Review a specific plan
-- `/plan-review last` — Review the most recent plan in docs/plans/
-- `/plan-review docs/plans/auth.md --target flash` — Review for a Flash-class executor
+- `/plan-review docs/plans/auth.md --stakes high` — Judgment review for high-stakes plan
+- `/plan-review last --stakes high` — Review the most recent plan
+- `/plan-review docs/plans/auth.md --stakes high --target flash` — For Flash-class executor
 
 ## Dynamic Context
 

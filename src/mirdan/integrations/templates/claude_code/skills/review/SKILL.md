@@ -1,43 +1,24 @@
 ---
 name: review
-description: "Code review with mirdan quality standards enforcement"
-argument-hint: "File or PR to review"
+description: "[DEPRECATED] Retired in 2.1.0 — use /plan-review --stakes high OR call validate_code_quality directly"
+argument-hint: "(deprecated)"
 user-invocable: true
 model: inherit
-context: fork
-allowed-tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__get_quality_trends, mcp__enyal__enyal_recall, Read, Glob, Grep
+allowed-tools:
 ---
 
-# /review — Quality Standards Code Review
+# /review — DEPRECATED
 
-Review code or diffs against mirdan quality standards in an isolated context.
+**DEPRECATED: /review is retired in 2.1.0, use /plan-review --stakes high instead**
 
-## Dynamic Context
+For judgment review of a plan: `/plan-review --stakes high <plan-path>` —
+produces the 5-section structured output against the shared rubric at
+`templates/plan-review-rubric.md`.
 
-Recent changes:
-```
-!`git diff --stat HEAD 2>/dev/null | tail -10`
-```
+For reviewing arbitrary files or PRs without a plan context: call
+`mcp__mirdan__validate_code_quality` directly on the file contents.
 
-## Workflow
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-1. **Read** — Read the code to review (specific file or recent changes)
-
-2. **Conventions** — Call `mcp__enyal__enyal_recall` with `input: { query: "code conventions", file_path: "<file path>", content_type: "convention" }` to get project code conventions with scope-weighted results
-
-3. **Validate** — Call `mcp__mirdan__validate_code_quality` on the code
-   - Set `check_security=true` for security-sensitive files
-   - Set `check_architecture=true` for structural analysis
-
-4. **Standards** — Call `mcp__mirdan__get_quality_standards` for the language
-   - Compare code against language best practices
-
-5. **Report** — Present findings organized by severity:
-   - **Errors** — Must fix before merge
-   - **Warnings** — Should fix, note if intentional
-   - **Info** — Suggestions for improvement
-
-6. **Summary** — Overall assessment:
-   - Quality score
-   - Key areas of concern
-   - Positive observations
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.

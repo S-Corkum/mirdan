@@ -1,11 +1,11 @@
 """Configuration system for Mirdan."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ConfigError(Exception):
@@ -125,6 +125,58 @@ class PlanningConfig(BaseModel):
     # Anti-slop enforcement
     reject_vague_language: bool = True
     max_words_per_step_detail: int = Field(default=100, description="Force atomic steps")
+
+    # Three-layer template support (2.1.0 brief-driven pipeline)
+    template_mode: Literal["flat", "three_layer"] = Field(
+        default="three_layer",
+        description=(
+            "Plan template shape. 'three_layer' = epic/stories/subtasks "
+            "(brief-first default); 'flat' = single-layer step list (legacy)."
+        ),
+    )
+    require_brief: bool = Field(
+        default=True,
+        description="/plan refuses to run without --brief <path> when true",
+    )
+
+
+class BriefConfig(BaseModel):
+    """Brief authoring and validation configuration (2.1.0)."""
+
+    # Forbid unknown fields — enforces the "no external API keys" rule at
+    # the schema layer for this subsection (see brief Constraint #7).
+    model_config = {"extra": "forbid"}
+
+    briefs_dir: str = Field(
+        default="docs/briefs/",
+        description="Directory for brief markdown files",
+    )
+    required_sections: list[str] = Field(
+        default_factory=lambda: [
+            "Outcome",
+            "Users & Scenarios",
+            "Business Acceptance Criteria",
+            "Constraints",
+            "Out of Scope",
+        ],
+        description="Hard-required sections; /plan refuses invalid briefs",
+    )
+    recommended_sections: list[str] = Field(
+        default_factory=lambda: [
+            "Prior Art",
+            "Known Pitfalls",
+            "Quality Bar",
+            "Non-Goals",
+        ],
+        description="Recommended sections; absence emits warnings only",
+    )
+    min_acs: int = Field(default=3, ge=1, description="Minimum ACs for brief to pass")
+    min_constraints: int = Field(default=1, ge=1)
+    min_scenarios: int = Field(default=1, ge=1)
+    auto_store_enyal: bool = Field(
+        default=True,
+        description="Auto-store validated briefs to enyal with content_type='brief'",
+    )
 
 
 class SessionConfig(BaseModel):
@@ -541,6 +593,7 @@ class MirdanConfig(BaseModel):
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
+    brief: BriefConfig = Field(default_factory=BriefConfig)
     thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
     tokens: TokenConfig = Field(default_factory=TokenConfig)
@@ -558,6 +611,37 @@ class MirdanConfig(BaseModel):
     architecture: ArchitectureConfig = Field(default_factory=ArchitectureConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_external_api_keys(cls, data: Any) -> Any:
+        """Reject external-provider API-key fields (brief Constraint #7).
+
+        Mirdan never calls external LLM APIs; its local-LLM-only stance is
+        enforced at the config schema layer so users can't accidentally
+        bypass it by adding an API key to .mirdan/config.yaml.
+
+        Does not reject unknown fields generally — that would break legitimate
+        config extensions — only the specific *_api_key fields that would
+        indicate an attempt to configure an external provider.
+        """
+        if not isinstance(data, dict):
+            return data
+        forbidden = {
+            "anthropic_api_key",
+            "openai_api_key",
+            "google_api_key",
+            "cohere_api_key",
+            "azure_openai_api_key",
+        }
+        hits = sorted(forbidden & set(data.keys()))
+        if hits:
+            raise ValueError(
+                "External LLM provider API keys are not accepted in mirdan "
+                f"config (found: {', '.join(hits)}). Mirdan uses local LLMs "
+                "only — see CHANGELOG.md 2.1.0 section."
+            )
+        return data
 
     @property
     def is_workspace(self) -> bool:

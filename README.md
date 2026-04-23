@@ -17,6 +17,82 @@ Works with **Claude Code**, **Cursor IDE**, and **Cursor CLI**. Runs on 16GB lap
 
 ---
 
+## Brief-Driven Plan Pipeline (New in 2.1.0)
+
+Mirdan 2.1.0 adds a **brief-first plan workflow** that shifts frontier-model
+token spend upstream (brief authoring) so the rest of the pipeline can run on
+cheaper models. One artifact, three layers, cross-IDE parity.
+
+```
+/brief <slug>                      → author structured brief in docs/briefs/
+/plan --brief <path>               → three-layer plan (epic → stories → subtasks)
+/plan-verify <plan-path>           → mechanical coverage check via local Gemma 4
+/plan-review --stakes high <path>  → escape hatch: judgment review on shared rubric
+/plan-execute <plan-path>          → dispatch subtasks to Haiku (CC) / local LLM (Cursor)
+```
+
+### Worked example
+
+```bash
+# 1. Author a brief (required before /plan runs)
+/brief add-passkey-auth "Add passkey authentication for web sign-in"
+# → prompts for Outcome, Users & Scenarios, Business ACs, Constraints, Out of Scope
+# → writes docs/briefs/add-passkey-auth.md
+# → auto-stores to enyal with content_type="brief"
+
+# 2. Generate the plan (brief constraints merge into quality_requirements)
+/plan --brief docs/briefs/add-passkey-auth.md
+# → writes docs/plans/add-passkey-auth.md with frontmatter brief: docs/briefs/add-passkey-auth.md
+
+# 3. Verify coverage mechanically (local Gemma 4, ≤30s on mid-tier hardware)
+/plan-verify docs/plans/add-passkey-auth.md
+# → ## Verification report with unmapped_acs, missing_grounding, ...
+
+# 4. Execute (Claude Code dispatches to Haiku subagents; Cursor A/B routing)
+/plan-execute docs/plans/add-passkey-auth.md
+# → runs /plan-verify as pre-flight, then walks subtasks in dependency order
+```
+
+### MCP tool reference
+
+| Tool | Returns |
+|---|---|
+| `mcp__mirdan__validate_brief(brief_path)` | `{passed, score, gaps, missing_required, thin_recommended, would_pass_after_fixes}` |
+| `mcp__mirdan__verify_plan_against_brief(plan_path, brief_path)` | `{verified, coverage_score, missing_grounding, out_of_scope_violations, invest_failures, phantom_files, dependency_errors, vague_cross_references, unmapped_acs, semantic_check_skipped, summary}` |
+| `mcp__mirdan__propose_subtask_diff(subtask_yaml, file_context)` | `{diff, model_used, confidence, halted, halt_reason}` |
+| `mcp__mirdan__mirdan_health()` | `{local_llm_available, model_in_use, vram_gb, recommended_mode, backend_kind}` |
+| `mcp__mirdan__enhance_prompt(prompt, brief_path=...)` | existing output + `quality_requirements` prefixed with `[from brief]` + `out_of_scope` list |
+
+### What `/plan-verify` actually catches (evidence-based)
+
+**Mechanical findings — reliable at any hardware tier, no LLM required:**
+- `phantom_files` — subtask's `**File:**` points at a path that doesn't exist; for `NEW:` files, parent directory is missing
+- `dependency_errors` — `**Depends on:**` references a subtask ID that isn't in the plan; or a circular dependency graph
+- `vague_cross_references` — "as discussed", "like Step N", "from before" — phrases cheap executors can't resolve
+- `missing_grounding` — subtask missing any of the 6 required grounding fields
+- `out_of_scope_violations` — brief Out-of-Scope items appearing in plan body
+- `invest_failures` — stories missing INVEST structural fields
+
+Evidence: `tests/evidence/` — 100% detection on seeded defects, 0% false positives on clean plans, deterministic across 20 runs. Runtime: median 1.45 ms, max 11.87 ms across 18 historical plans.
+
+**Semantic findings — require BRAIN-tier (31B+) local model:**
+- `unmapped_acs` — brief Business ACs not mapped to any story AC by an LLM judge with confidence ≥ 0.6
+
+Semantic check is **automatically skipped** if no BRAIN-tier model is available. Gemma 4 E2B/E4B are FAST-tier and are not discriminative for this task — see `docs/briefs/mirdan-brief-driven-pipeline.md` "Semantic path hardware requirement" for the teeth-test data that established this.
+
+### Reference implementation
+
+`docs/briefs/mirdan-brief-driven-pipeline.md` and
+`docs/plans/mirdan-brief-driven-pipeline.md` in the project root are the
+2.1.0 release's own brief-and-plan pair — dogfooded during development.
+
+### Retired in 2.1.0
+
+`/debug`, `/review`, `/quality`, `/gate`, `/scan` ship as deprecation stubs.
+See `CHANGELOG.md` 2.1.0 section for the migration table. Full deletion in 2.2.0.
+
+---
+
 ## Local Intelligence Layer (New in 2.0)
 
 Mirdan 2.0 offloads mundane work to a small local model (Gemma 4) running on your machine. The paid model focuses exclusively on complex reasoning and writing code.

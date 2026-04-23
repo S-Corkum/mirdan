@@ -6,7 +6,7 @@ from pathlib import Path
 
 from mirdan.integrations.cursor import _CURSOR_COMMANDS, generate_cursor_commands
 
-_EXPECTED_COMMANDS = {
+_LEGACY_COMMANDS = {
     "code.md",
     "debug.md",
     "review.md",
@@ -17,14 +17,25 @@ _EXPECTED_COMMANDS = {
     "automations.md",
 }
 
+# 2.1.0 brief-driven pipeline adds 4 pipeline commands alongside legacy.
+# `/plan` is overridden by the new three-layer version.
+_PIPELINE_COMMANDS = {
+    "brief.md",
+    "plan-verify.md",
+    "plan-review.md",
+    "plan-execute.md",
+}
+
+_EXPECTED_COMMANDS = _LEGACY_COMMANDS | _PIPELINE_COMMANDS
+
 
 class TestGenerateCursorCommands:
     """Tests for generate_cursor_commands()."""
 
-    def test_generates_eight_files(self, tmp_path: Path) -> None:
+    def test_generates_twelve_files(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_commands(cursor_dir)
-        assert len(paths) == 8
+        assert len(paths) == 12
 
     def test_generates_expected_filenames(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -46,7 +57,7 @@ class TestGenerateCursorCommands:
         """Calling twice should not overwrite files created on first call."""
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_commands(cursor_dir)
-        assert len(first) == 8
+        assert len(first) == 12
 
         # Mutate one file to verify it is not overwritten
         target = cursor_dir / "commands" / "code.md"
@@ -82,7 +93,7 @@ class TestGenerateCursorCommands:
         paths = generate_cursor_commands(cursor_dir)
         returned_names = {p.name for p in paths}
         assert "code.md" not in returned_names
-        assert len(paths) == 7
+        assert len(paths) == 11
 
 
 class TestCursorCommandContent:
@@ -136,13 +147,18 @@ class TestCursorCommandContent:
 
 
 class TestCursorCommandsDict:
-    """Tests for the _CURSOR_COMMANDS constant."""
+    """Tests for the _CURSOR_COMMANDS constant.
 
-    def test_dict_has_eight_entries(self) -> None:
+    The in-memory dict holds the legacy commands only. 2.1.0 pipeline
+    commands (brief, plan-verify, plan-review, plan-execute) live as
+    packaged markdown templates and are merged in by generate_cursor_commands.
+    """
+
+    def test_dict_has_eight_legacy_entries(self) -> None:
         assert len(_CURSOR_COMMANDS) == 8
 
-    def test_dict_keys_match_expected(self) -> None:
-        assert set(_CURSOR_COMMANDS.keys()) == _EXPECTED_COMMANDS
+    def test_dict_keys_match_legacy(self) -> None:
+        assert set(_CURSOR_COMMANDS.keys()) == _LEGACY_COMMANDS
 
     def test_all_values_are_non_empty_strings(self) -> None:
         for name, content in _CURSOR_COMMANDS.items():

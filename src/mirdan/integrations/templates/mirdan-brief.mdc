@@ -1,0 +1,45 @@
+---
+description: "mirdan brief authoring — activate before plan creation in Plan Mode"
+alwaysApply: false
+---
+
+# mirdan Brief Authoring
+
+Before generating a plan, author a structured brief. Briefs constrain the
+solution space so a mid-capable creator model can produce a good plan without
+review cycles.
+
+## Steps
+
+1. Scaffold from `<mirdan-install>/templates/brief.md`. If the packaged
+   template is unavailable, use the inline structure below.
+2. Call `mcp__enyal__enyal_recall` with the outcome keywords to gather Prior
+   Art — past decisions, conventions, superseded entries.
+3. Call `mcp__mirdan__enhance_prompt(prompt=<outcome>, task_type="planning")`
+   to pull framework detection and security context into the brief.
+4. Fill required sections:
+   - **Outcome** — specific metric or observable outcome
+   - **Users & Scenarios** — named persona + concrete scenario
+   - **Business Acceptance Criteria** — ≥ 3 testable criteria
+   - **Constraints** — ≥ 1 specific, non-negotiable rule
+   - **Out of Scope** — ≥ 1 explicit exclusion
+5. Optionally fill recommended sections (Prior Art, Known Pitfalls, Quality
+   Bar, Non-Goals).
+6. Call `mcp__mirdan__validate_brief(brief_path)`. Resolve every `error`-level
+   gap; warnings may remain.
+7. Save to `docs/briefs/<slug>.md`.
+8. Auto-store to enyal with `content_type="brief"`, `scope="project"`, and
+   tags `[<slug>, *detected_frameworks, "freshness:active"]`. Supersede any
+   existing `freshness:active` entry for the same slug.
+
+## AC Testability
+
+Each Business AC must contain observable/measurable language. Examples:
+
+- ❌ "Endpoint should be fast"
+- ✅ "Endpoint responds under 200ms at p95"
+
+## Hand-off
+
+After the brief is saved, `mirdan-planning` activates for plan generation.
+Invoke `/plan --brief docs/briefs/<slug>.md`.

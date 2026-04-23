@@ -128,6 +128,7 @@ class EnhancePromptUseCase:
         model_tier: str = "auto",
         session_id: str = "",
         ceremony_level: str = "auto",
+        brief_path: str = "",
     ) -> dict[str, Any]:
         """Execute the enhance_prompt use case.
 
@@ -448,6 +449,10 @@ class EnhancePromptUseCase:
 
         result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 
+        # Merge brief constraints before formatting so they appear in the output.
+        if brief_path:
+            self._merge_brief(result_dict, brief_path)
+
         # Apply token-budget-aware formatting
         tier = _parse_model_tier(model_tier)
         result_dict = self._output_formatter.format_enhanced_prompt(
@@ -455,6 +460,56 @@ class EnhancePromptUseCase:
         )
 
         return result_dict
+
+    @staticmethod
+    def _merge_brief(result_dict: dict[str, Any], brief_path: str) -> None:
+        """Parse brief Constraints and Out-of-Scope into the enhance_prompt output.
+
+        Brief constraints are prepended to quality_requirements with a
+        '[from brief] ' prefix. Out-of-scope items populate a new top-level
+        'out_of_scope' field.
+        """
+        from pathlib import Path
+
+        from mirdan.core.brief_validator import BriefValidator
+
+        p = Path(brief_path)
+        if not p.exists() or not p.is_file():
+            result_dict["brief_warning"] = f"brief not found: {brief_path}"
+            return
+        text = p.read_text()
+        # Reuse the validator's section extractor (protected access is
+        # intentional — this is an internal helper used by the same release).
+        sections = BriefValidator()._extract_sections(text)
+
+        constraint_lines: list[str] = []
+        for raw in sections.get("Constraints", "").splitlines():
+            stripped = raw.strip()
+            if stripped.startswith("- "):
+                constraint_lines.append(f"[from brief] {stripped[2:].strip()}")
+
+        if constraint_lines:
+            existing: Any = result_dict.get("quality_requirements", "")
+            merged: Any
+            if isinstance(existing, str):
+                merged = (
+                    "\n".join([*constraint_lines, existing])
+                    if existing
+                    else "\n".join(constraint_lines)
+                )
+            elif isinstance(existing, list):
+                merged = [*constraint_lines, *existing]
+            else:
+                merged = constraint_lines
+            result_dict["quality_requirements"] = merged
+
+        out_of_scope: list[str] = []
+        for raw in sections.get("Out of Scope", "").splitlines():
+            stripped = raw.strip()
+            if stripped.startswith("- "):
+                out_of_scope.append(stripped[2:].strip())
+        if out_of_scope:
+            result_dict["out_of_scope"] = out_of_scope
 
     async def _run_triage(self, prompt: str, intent: Any, session_id: str) -> Any:
         """Run triage classification, checking session bridge cache first.

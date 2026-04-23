@@ -317,15 +317,25 @@ class TestSkillFrontmatter:
         ("skill", "hint"),
         [
             ("code", "Describe what to build"),
-            ("debug", "Describe the bug or error"),
-            ("review", "File or PR to review"),
-            ("plan", "Describe what to plan"),
-            ("quality", "File path or --trends"),
+            # /plan's argument-hint changed in 2.1.0 to advertise brief-first default.
+            ("plan", "--brief <path> | --no-brief (exploratory)"),
+            # debug / review / quality retired in 2.1.0 (see test_retired_skills_are_stubs
+            # below). Their argument-hint is intentionally "(deprecated)".
         ],
     )
     def test_skill_has_argument_hint(self, skills_pkg: Any, skill: str, hint: str) -> None:
         content = (skills_pkg / skill / "SKILL.md").read_text()
         assert f'argument-hint: "{hint}"' in content
+
+    @pytest.mark.parametrize(
+        "skill",
+        ["debug", "review", "quality", "gate", "scan"],
+    )
+    def test_retired_skills_are_stubs(self, skills_pkg: Any, skill: str) -> None:
+        """2.1.0 retired skills ship as deprecation stubs with (deprecated) arg hint."""
+        content = (skills_pkg / skill / "SKILL.md").read_text()
+        assert "DEPRECATED" in content, f"{skill} must be a deprecation stub"
+        assert 'argument-hint: "(deprecated)"' in content
 
     def test_review_is_user_invocable(self, skills_pkg: Any) -> None:
         content = (skills_pkg / "review" / "SKILL.md").read_text()

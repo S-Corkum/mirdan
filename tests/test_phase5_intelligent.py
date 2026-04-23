@@ -577,10 +577,12 @@ class TestGAPolish:
     """Tests for GA version and classifiers."""
 
     def test_version_is_current(self) -> None:
-        # Major.minor must remain on the 2.0 line; patch bumps are routine.
+        # 2.1.0 brief-driven pipeline release; later 2.x minors allowed.
         from mirdan import __version__
 
-        assert __version__.startswith("2.0."), __version__
+        major, minor = __version__.split(".")[:2]
+        assert int(major) == 2
+        assert int(minor) >= 1, f"expected >=2.1.x, got {__version__}"
 
     def test_classifier_is_stable(self) -> None:
         import tomllib

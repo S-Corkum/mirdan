@@ -1,36 +1,21 @@
 ---
 name: gate
-description: "Quality gate check — validate all changed files pass mirdan standards before committing or marking task complete"
-argument-hint: "Optional: --format text|json"
+description: "[DEPRECATED] Retired in 2.1.0 — call validate_code_quality + validate_quick directly, or /plan-verify for plan-level gating"
+argument-hint: "(deprecated)"
 model: inherit
-allowed-tools: mcp__mirdan__validate_code_quality, mcp__mirdan__get_quality_standards, mcp__mirdan__validate_quick, mcp__enyal__enyal_recall, mcp__enyal__enyal_remember, Read, Glob, Grep, Bash
+allowed-tools:
 ---
 
-# /gate — Quality Gate
+# /gate — DEPRECATED
 
-Run the full quality gate before committing or completing a task.
+**DEPRECATED: /gate is retired in 2.1.0, use validate_code_quality + validate_quick directly**
 
-## Dynamic Context
+For per-file quality gating, call `mcp__mirdan__validate_code_quality` and
+`mcp__mirdan__validate_quick` directly. For plan-level gating (before
+`/plan-execute`), use `/plan-verify <plan-path>` which runs automatically as
+a pre-flight check when executing a plan.
 
-Changed files:
-```
-!`git diff --stat HEAD 2>/dev/null | tail -10`
-```
+This stub will be removed in 2.2.0. Update any automation or muscle memory now.
 
-## Workflow
-
-1. **Identify** — Find all files changed in this session:
-   - `git diff --name-only HEAD` for uncommitted changes
-   - `git diff --staged --name-only` for staged files
-
-2. **Gate** — Run `Bash("uvx mirdan gate --format text")` to check overall quality gate status
-
-3. **Validate** — For any file that failed, call `mcp__mirdan__validate_code_quality` with `check_security=true` to get specific violations
-
-4. **Fix** — Address all errors. Warnings should be reviewed but may be accepted with justification.
-
-5. **Re-gate** — Run the gate again to confirm PASS status
-
-6. **Persist** — If validation produced `knowledge_entries`, store them via `mcp__enyal__enyal_remember` with `input: { content: "<entry>", content_type: "<type>", tags: [...], scope: "<scope>" }`
-
-7. **Complete** — Only mark task complete if gate returns PASS
+See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
+retirement map.

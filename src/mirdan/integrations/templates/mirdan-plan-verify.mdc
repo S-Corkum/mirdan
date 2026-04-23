@@ -1,0 +1,28 @@
+---
+description: "mirdan plan verification — activate after plan creation to verify coverage against the brief"
+alwaysApply: false
+---
+
+# mirdan Plan Verify
+
+Run mechanical verification of a three-layer plan against its brief.
+Cheap (local Gemma 4), deterministic, ≤ 30s on mid-tier hardware for a
+30-subtask plan. This is the default quality check between plan creation
+and execution.
+
+## Workflow
+
+1. Parse the plan path from the user's message.
+2. Read the plan's frontmatter `brief:` field.
+3. Call `mcp__mirdan__verify_plan_against_brief(plan_path, brief_path)`.
+4. Render the structured report with sections:
+   - `coverage_score`, `semantic_check` (ran / skipped)
+   - `unmapped_acs`, `missing_grounding`, `out_of_scope_violations`,
+     `invest_failures`, `summary`
+5. Exit status: pass if `verified=true`, fail otherwise.
+
+## Escape hatch
+
+For judgment review (auth, payments, regulated code, cross-story emergent
+risks), use `/plan-review --stakes high <plan-path>`. That route uses the
+shared 5-section rubric at `templates/plan-review-rubric.md`.

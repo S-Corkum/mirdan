@@ -6,6 +6,10 @@
           {
             "type": "command",
             "command": "mirdan validate --version 2>/dev/null && echo 'mirdan quality runtime active' || echo 'mirdan not found - install with: pip install mirdan'"
+          },
+          {
+            "type": "command",
+            "command": "MARK=.mirdan/.migration-2.1.0-shown; if [ -f .mirdan/config.yaml ] && ! grep -q '^brief:' .mirdan/config.yaml && [ ! -f $MARK ]; then echo '⚠ mirdan 2.1.0 retired /debug /review /quality /gate /scan. Run: mirdan init --upgrade'; touch $MARK 2>/dev/null || true; fi"
           }
         ]
       }

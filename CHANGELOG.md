@@ -5,6 +5,130 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-04-23
+
+### Added
+
+- **Brief-driven plan pipeline** — new workflow that shifts frontier-model
+  token spend from review cycles to brief authoring. A structured brief
+  constrains the solution space so a mid-capable creator model can produce
+  reliable three-layer plans (epic → stories → subtasks) without review loops.
+- **Four new MCP tools:**
+  - `validate_brief(brief_path)` — enforces 5 required sections (Outcome,
+    Users & Scenarios, Business Acceptance Criteria, Constraints, Out of
+    Scope), minimum AC count, and vague-language patterns. Returns
+    `BriefQualityScore`.
+  - `verify_plan_against_brief(plan_path, brief_path)` — mechanical coverage
+    check + optional semantic AC-mapping via local Gemma 4; returns structured
+    report with `unmapped_acs`, `missing_grounding`, `out_of_scope_violations`,
+    `invest_failures`, `summary`.
+  - `propose_subtask_diff(subtask_yaml, file_context)` — local-LLM-proxied
+    cheap executor for Cursor's `/plan-execute` Option B; fails closed, never
+    calls external APIs.
+  - `mirdan_health()` — exposes local-LLM availability, VRAM, recommended
+    routing mode for Cursor's hardware-adaptive `/plan-execute`.
+- **Claude Code skills:** new `/brief`, `/plan-verify`, `/plan-execute`;
+  rewritten `/plan` (brief-first default, three-layer template); narrowed
+  `/plan-review` (escape hatch for high-stakes judgment review).
+- **Claude Code agent:** new `cheap-executor` (Haiku) that executes a single
+  pre-grounded subtask and halts on grounding mismatch — does not re-verify,
+  does not guess alternatives.
+- **Cursor rules:** new `mirdan-brief.mdc`, `mirdan-plan-verify.mdc`;
+  rewritten `mirdan-planning.mdc` (dead `mirdan-implementer` /
+  `mirdan-test-writer` subagent references removed); narrowed
+  `mirdan-plan-review.mdc`.
+- **Cursor slash commands:** new `/brief`, `/plan-verify`, `/plan-review`,
+  `/plan-execute`; `/plan` overridden with brief-first three-layer version.
+- **Shared plan-review rubric** at `src/mirdan/templates/plan-review-rubric.md`
+  — both Claude Code and Cursor produce byte-identical 5-section output
+  (`unmapped_acs`, `constraint_violations`, `scope_violations`,
+  `grounding_gaps`, `risks`) followed by `**Verdict:** pass | fail | revise`.
+- **Templates:** `src/mirdan/templates/brief.md` and
+  `src/mirdan/templates/plan-three-layer.md` — structured scaffolds for the
+  two document types.
+- **`PlanValidator.validate()`** accepts `template_mode: "flat" | "three_layer"`
+  (default `"flat"` preserves backwards compat) with new
+  `THREE_LAYER_REQUIRED_SECTIONS`, `THREE_LAYER_STORY_REQUIRED_FIELDS`,
+  `THREE_LAYER_SUBTASK_REQUIRED_FIELDS` class constants.
+- **`enhance_prompt` accepts `brief_path`** — when provided, brief
+  Constraints are prepended to `quality_requirements` with `[from brief]`
+  prefix and `out_of_scope` is added as a top-level field.
+
+### Changed
+
+- **`/plan` is brief-first by default.** Without `--brief <path>`, `/plan`
+  refuses to run and prints a redirect to `/brief`. Pass `--no-brief` to
+  bypass for exploratory plans (produces legacy flat template, not eligible
+  for `/plan-execute`).
+- **`PlanningConfig`** adds `template_mode: Literal["flat", "three_layer"]`
+  (default `"three_layer"`) and `require_brief: bool = True`.
+- **`MirdanConfig`** adds `brief: BriefConfig` field with defaults for
+  `briefs_dir`, required/recommended sections, and `auto_store_enyal=True`.
+- **`TaskType`** enum extends with `BRIEF_VALIDATION` and `PLAN_VERIFICATION`.
+
+### Deprecated
+
+- **Top-level skills `/debug`, `/review`, `/quality`, `/gate`, `/scan`** —
+  retired via deprecation stubs in both Claude Code and Cursor. Stubs print
+  a redirect to the replacement and exit without performing work. **Full
+  deletion in 2.2.0.**
+
+### Migration from 2.0.x
+
+| Retired | Replacement |
+|---|---|
+| `/debug` | Debug inline with Read/Grep; call `mcp__mirdan__validate_code_quality` on modified files |
+| `/review` | `/plan-review --stakes high <plan-path>` for judgment review, or call `mcp__mirdan__validate_code_quality` directly |
+| `/quality` | Call `mcp__mirdan__validate_code_quality` directly |
+| `/gate` | Call `mcp__mirdan__validate_code_quality` + `mcp__mirdan__validate_quick` directly, or `/plan-verify <plan-path>` for plan-level gating |
+| `/scan` | Call `mcp__mirdan__scan_conventions` / `mcp__mirdan__scan_dependencies` directly |
+
+Existing flat-template plans under `docs/plans/` continue to work with
+existing (pre-brief) `/plan` and `/plan-review` flows without modification.
+Only creation of new plans defaults to brief-first.
+
+### Architectural Decisions
+
+- Diverges from 2.0.0 "zero new MCP tools" commitment (enyal `d24e7a1f`).
+  Justification: the four new tools have typed inputs (file paths, subtask
+  YAML, file-content dicts) and typed outputs (scored reports, unified diffs,
+  health dicts) that don't fit the existing `enhance_prompt` /
+  `validate_code_quality` surface without semantically wrong overloading.
+- **Semantic AC-mapping check hard-requires BRAIN-tier (31B+) model.**
+  Evidence pass on Gemma 4 E2B-Q3 (2026-04-23) showed E2B-sized models are
+  not discriminative — they map every brief AC regardless of relevance (e.g.
+  mapped "Klingon localization" to the cache-endpoint plan with confidence
+  1.00). `verify_plan_against_brief` now checks `ModelRole.BRAIN` availability,
+  requires LLM-reported confidence ≥ 0.6, and gracefully falls back to
+  mechanical-only verification. **Do not enable the semantic path on FAST-tier
+  hardware — it produces false confidence, not useful judgment.**
+
+### Evidence-based claims (2026-04-23)
+
+The following are now backed by evidence tests in `tests/evidence/`:
+
+- **Mechanical verifier catches structural defects:** 100% detection on 11
+  seeded defects across grounding, INVEST, scope, phantom files, dependency
+  errors, and vague cross-references. 0% false positives on clean fixture.
+- **Mechanical verifier is fast:** 1.45 ms median, 11.87 ms max on 18
+  historical plans (largest: 41 KB / 37 subtasks).
+- **Mirdan makes no external HTTP calls:** httpx transport mock confirms; the
+  self-test verifies that `api.anthropic.com` would be blocked, so the
+  "0 URLs seen" assertion has teeth.
+- **Verifier is deterministic:** byte-identical output across 20 runs and
+  across independent usecase instances (Claude Code ↔ Cursor parity via MCP).
+- **Backwards compatible:** all 18 historical 2.0.x plans validate under
+  the new `template_mode="flat"` path without crashes.
+
+### Added mechanical upgrades (2.1.0 evidence pass)
+
+- `verify_plan_against_brief` now returns three new fields: `phantom_files`
+  (file paths that don't exist — most severe mechanical finding),
+  `dependency_errors` (dangling `Depends on` refs, cycles),
+  `vague_cross_references` ("as discussed", "like Step N", etc.).
+- `VerifyPlanAgainstBriefUseCase` accepts a `project_root` parameter so
+  tests can anchor file-existence checks against an arbitrary tree.
+
 ## [2.0.7] - 2026-04-22
 
 ### Fixed

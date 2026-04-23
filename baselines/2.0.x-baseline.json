@@ -1,0 +1,40 @@
+{
+  "captured_at": "2026-04-23T13:21:27.472449+00:00",
+  "source_plans": [
+    "/tmp/baseline-plans/plan-mirdan-local-intelligence-layer.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-15-documentation.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-14-metrics-finetune.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-13-research-agent.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-12-prompt-optimization.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-11-smart-validation.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-10-check-runner.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-09-triage.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-08-hooks-setup.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-07-session-bridge-cli.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-06-provider-wiring.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-05-manager-sidecar.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-04-registry-hardware-health.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-03-llamacpp-backend.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-02-ollama-backend.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-01-config-models-protocol.md",
+    "/tmp/baseline-plans/plan-mirdan-2.0-00-index.md",
+    "/tmp/baseline-plans/mirdan-enyal-integration.md"
+  ],
+  "plan_creation": {
+    "n": 18,
+    "model": "Opus",
+    "mean_tokens": 2495,
+    "median_tokens": 1455,
+    "mean_usd": 0.1422,
+    "median_usd": 0.0829
+  },
+  "plan_execution": {
+    "n": 1,
+    "model": "Haiku",
+    "mean_tokens": 7940,
+    "median_tokens": 7940,
+    "mean_usd": 0.0302,
+    "median_usd": 0.0302
+  },
+  "notes": "Baseline for mirdan 2.1.0 brief-driven pipeline. Token counts are char-to-token proxy estimates (~4 chars/token). Costs use Claude 4.x published pricing. Used for regression comparison post-2.1.0 launch."
+}
