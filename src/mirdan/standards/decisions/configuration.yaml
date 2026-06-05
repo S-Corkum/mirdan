@@ -23,3 +23,7 @@ senior_questions:
   - "How are secrets separated from non-secret configuration?"
   - "What happens when a configuration value is missing or invalid at startup?"
   - "How do you roll back a configuration change that causes issues?"
+lld_prompts:
+  - "List each config key, its type, default, and whether it is required."
+  - "State where it is loaded from and where it is validated."
+  - "Name what happens when a required key is missing or invalid."

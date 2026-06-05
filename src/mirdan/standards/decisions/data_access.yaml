@@ -25,3 +25,7 @@ senior_questions:
   - "How are database migrations handled? Who owns the schema?"
   - "What is the N+1 query strategy? Are queries optimized for the access pattern?"
   - "How does this handle connection pooling and transaction boundaries?"
+lld_prompts:
+  - "Define the data model/entity: fields, types, and the primary key/index."
+  - "Write the query or repository method signatures — inputs and return types."
+  - "State the transaction boundary and what happens on partial failure."

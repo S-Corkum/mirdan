@@ -23,7 +23,7 @@ class TestDecisionConfig:
     def test_defaults(self) -> None:
         config = DecisionConfig()
         assert config.enabled is True
-        assert config.max_decisions == 1
+        assert config.max_decisions == 3
 
     def test_custom_values(self) -> None:
         config = DecisionConfig(enabled=False, max_decisions=3)

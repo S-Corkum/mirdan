@@ -96,3 +96,24 @@ Before implementing the main change, consider these structural improvements that
 These are suggestions, not requirements. Apply only if they simplify your task.
 {%- endif %}
 {%- endmacro %}
+
+{% macro design_guidance_section(decisions) -%}
+{% if decisions -%}
+## Design Decisions (resolve BEFORE writing code)
+This task touches {{ decisions|length }} design domain(s). For EACH, commit to a choice and a one-line rationale grounded in THIS codebase — do not leave any unresolved.
+{% for d in decisions %}
+### {{ d.domain }}
+Options:
+{% for a in d.approaches -%}
+- **{{ a.name }}** ({{ a.complexity }}) — best when {{ a.when_best }}; avoid when {{ a.when_avoid }}
+{% endfor %}
+{% if d.lld_prompts -%}
+Specify in your low-level design:
+{% for q in d.lld_prompts -%}
+- {{ q }}
+{% endfor %}
+{% endif -%}
+**Your decision:** <approach you will use + one-line rationale grounded in existing code>
+{% endfor %}
+{%- endif %}
+{%- endmacro %}

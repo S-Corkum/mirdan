@@ -53,9 +53,7 @@ def detected_typescript() -> DetectedProject:
 class TestHooksGeneration:
     """Tests for hook injection into .claude/settings.json."""
 
-    def test_creates_settings_json(
-        self, tmp_path: Path, detected_python: DetectedProject
-    ) -> None:
+    def test_creates_settings_json(self, tmp_path: Path, detected_python: DetectedProject) -> None:
         """Should create .claude/settings.json with a hooks block."""
         generated = generate_claude_code_config(tmp_path, detected_python)
         settings_path = tmp_path / ".claude" / "settings.json"
@@ -102,9 +100,7 @@ class TestHooksGeneration:
         hook_types = [h["type"] for h in ptu_hooks]
         assert hook_types == ["command"]
 
-    def test_stop_is_command_only(
-        self, tmp_path: Path, detected_python: DetectedProject
-    ) -> None:
+    def test_stop_is_command_only(self, tmp_path: Path, detected_python: DetectedProject) -> None:
         """Stop hook must be command-only.
 
         Prompt-type hooks on blocking events (Stop, UserPromptSubmit)
@@ -119,9 +115,7 @@ class TestHooksGeneration:
         hook_types = [h["type"] for h in stop_hooks]
         assert hook_types == ["command"]
 
-    def test_post_tool_use_matcher(
-        self, tmp_path: Path, detected_python: DetectedProject
-    ) -> None:
+    def test_post_tool_use_matcher(self, tmp_path: Path, detected_python: DetectedProject) -> None:
         """PostToolUse should match Write|Edit|MultiEdit tools."""
         generate_claude_code_config(tmp_path, detected_python)
         settings_path = tmp_path / ".claude" / "settings.json"

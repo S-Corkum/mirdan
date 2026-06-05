@@ -128,7 +128,6 @@ class EnhancePromptUseCase:
         model_tier: str = "auto",
         session_id: str = "",
         ceremony_level: str = "auto",
-        brief_path: str = "",
     ) -> dict[str, Any]:
         """Execute the enhance_prompt use case.
 
@@ -303,23 +302,27 @@ class EnhancePromptUseCase:
             policy = None
             effective_context_level = context_level
 
-        # Ceremony-gated analyzers — only at STANDARD+ ceremony
+        # Ceremony-gated analyzers. Design guidance (decision/guardrail) fires
+        # from LIGHT+ so it reaches routine generation/refactor tasks; the heavier
+        # tidy-first and architecture-drift analyzers stay at STANDARD+.
         tidy_analysis = None
         decision_guidance = None
         guardrail_analysis = None
         arch_context = None
-        if self._analyzers and level >= CeremonyLevel.STANDARD:
-            if self._analyzers.tidy_first and intent.task_type in (
+        if self._analyzers and level >= CeremonyLevel.LIGHT:
+            is_gen_or_refactor = intent.task_type in (
                 TaskType.GENERATION,
                 TaskType.REFACTOR,
-            ):
-                tidy_analysis = self._analyzers.tidy_first.analyze(intent)
-            if self._analyzers.decision:
+            )
+            if self._analyzers.decision and is_gen_or_refactor:
                 decision_guidance = self._analyzers.decision.analyze(intent)
             if self._analyzers.guardrail:
                 guardrail_analysis = self._analyzers.guardrail.analyze(intent)
-            if self._analyzers.architecture:
-                arch_context = self._analyzers.architecture.get_context_warnings(intent)
+            if level >= CeremonyLevel.STANDARD:
+                if self._analyzers.tidy_first and is_gen_or_refactor:
+                    tidy_analysis = self._analyzers.tidy_first.analyze(intent)
+                if self._analyzers.architecture:
+                    arch_context = self._analyzers.architecture.get_context_warnings(intent)
 
         # Compute persistent violation requirements from session history
         persistent_reqs = _get_persistent_violation_reqs(session, self._session_tracker)
@@ -403,6 +406,9 @@ class EnhancePromptUseCase:
                 if tidy_analysis and tidy_analysis.suggestions
                 else None
             ),
+            design_guidance=(
+                [d.to_dict() for d in decision_guidance] if decision_guidance else None
+            ),
         )
 
         result_dict = enhanced.to_dict()
@@ -449,10 +455,6 @@ class EnhancePromptUseCase:
 
         result_dict["timing_ms"] = {"total": round((perf_counter() - _t0) * 1000, 1)}
 
-        # Merge brief constraints before formatting so they appear in the output.
-        if brief_path:
-            self._merge_brief(result_dict, brief_path)
-
         # Apply token-budget-aware formatting
         tier = _parse_model_tier(model_tier)
         result_dict = self._output_formatter.format_enhanced_prompt(
@@ -460,56 +462,6 @@ class EnhancePromptUseCase:
         )
 
         return result_dict
-
-    @staticmethod
-    def _merge_brief(result_dict: dict[str, Any], brief_path: str) -> None:
-        """Parse brief Constraints and Out-of-Scope into the enhance_prompt output.
-
-        Brief constraints are prepended to quality_requirements with a
-        '[from brief] ' prefix. Out-of-scope items populate a new top-level
-        'out_of_scope' field.
-        """
-        from pathlib import Path
-
-        from mirdan.core.brief_validator import BriefValidator
-
-        p = Path(brief_path)
-        if not p.exists() or not p.is_file():
-            result_dict["brief_warning"] = f"brief not found: {brief_path}"
-            return
-        text = p.read_text()
-        # Reuse the validator's section extractor (protected access is
-        # intentional — this is an internal helper used by the same release).
-        sections = BriefValidator()._extract_sections(text)
-
-        constraint_lines: list[str] = []
-        for raw in sections.get("Constraints", "").splitlines():
-            stripped = raw.strip()
-            if stripped.startswith("- "):
-                constraint_lines.append(f"[from brief] {stripped[2:].strip()}")
-
-        if constraint_lines:
-            existing: Any = result_dict.get("quality_requirements", "")
-            merged: Any
-            if isinstance(existing, str):
-                merged = (
-                    "\n".join([*constraint_lines, existing])
-                    if existing
-                    else "\n".join(constraint_lines)
-                )
-            elif isinstance(existing, list):
-                merged = [*constraint_lines, *existing]
-            else:
-                merged = constraint_lines
-            result_dict["quality_requirements"] = merged
-
-        out_of_scope: list[str] = []
-        for raw in sections.get("Out of Scope", "").splitlines():
-            stripped = raw.strip()
-            if stripped.startswith("- "):
-                out_of_scope.append(stripped[2:].strip())
-        if out_of_scope:
-            result_dict["out_of_scope"] = out_of_scope
 
     async def _run_triage(self, prompt: str, intent: Any, session_id: str) -> Any:
         """Run triage classification, checking session bridge cache first.

@@ -694,10 +694,10 @@ def _generate_dynamic_rules(
     path.write_text(plan_review_content)
     generated.append(path)
 
-    # Debug rule (always)
-    debug_content = _build_debug_mdc()
-    path = rules_dir / "mirdan-debug.mdc"
-    path.write_text(debug_content)
+    # Plan verify rule (always)
+    plan_verify_content = _build_plan_verify_mdc()
+    path = rules_dir / "mirdan-plan-verify.mdc"
+    path.write_text(plan_verify_content)
     generated.append(path)
 
     # Agent rule (always)
@@ -817,13 +817,13 @@ def _build_plan_review_mdc() -> str:
         return "# mirdan Plan Review\n\nTemplate not found.\n"
 
 
-def _build_debug_mdc() -> str:
-    """Build the debug .mdc rule — loads from static template."""
+def _build_plan_verify_mdc() -> str:
+    """Build the plan-verify .mdc rule — loads from static template."""
     templates = _load_templates()
     try:
-        return templates["mirdan-debug.mdc"]
+        return templates["mirdan-plan-verify.mdc"]
     except KeyError:
-        return "# mirdan Debug Mode Standards\n\nTemplate not found.\n"
+        return "# mirdan Plan Verify\n\nTemplate not found.\n"
 
 
 def _build_agent_mdc() -> str:
@@ -888,11 +888,6 @@ def _generate_static_rules(
         path.write_text(templates["mirdan-planning.mdc"])
         generated.append(path)
 
-    if "mirdan-brief.mdc" in templates:
-        path = rules_dir / "mirdan-brief.mdc"
-        path.write_text(templates["mirdan-brief.mdc"])
-        generated.append(path)
-
     if "mirdan-plan-verify.mdc" in templates:
         path = rules_dir / "mirdan-plan-verify.mdc"
         path.write_text(templates["mirdan-plan-verify.mdc"])
@@ -901,11 +896,6 @@ def _generate_static_rules(
     if "mirdan-plan-review.mdc" in templates:
         path = rules_dir / "mirdan-plan-review.mdc"
         path.write_text(templates["mirdan-plan-review.mdc"])
-        generated.append(path)
-
-    if "mirdan-debug.mdc" in templates:
-        path = rules_dir / "mirdan-debug.mdc"
-        path.write_text(templates["mirdan-debug.mdc"])
         generated.append(path)
 
     if "mirdan-agent.mdc" in templates:
@@ -1207,163 +1197,6 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 8. Fix all errors before marking complete. Note warnings for review.
 """
 
-_COMMAND_DEBUG = """\
-# /debug — DEPRECATED
-
-**DEPRECATED: /debug is retired in 2.1.0, debug inline instead**
-
-Debug inline using Read, Grep, and the main chat. If the fix touches a file
-tracked in a three-layer plan under `docs/plans/`, call
-`mcp__mirdan__validate_code_quality` after the fix to confirm code quality
-and `mcp__mirdan__verify_plan_against_brief` if plan coverage matters.
-
-This stub will be removed in 2.2.0. Update any automation or muscle memory now.
-
-See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
-retirement map.
-"""
-
-_COMMAND_DEBUG_LEGACY_UNUSED = """\
-Debug issues with mirdan quality analysis to prevent introducing new problems.
-
-## Workflow
-
-1. Call `mcp__mirdan__enhance_prompt` with the bug description to get context.
-
-2. Call `mcp__enyal__enyal_recall` with `input: { query: "<bug description>" }`
-   to check if a similar issue was previously solved.
-
-3. Use `mcp__sequential-thinking__sequentialthinking` to form structured
-   hypotheses about root cause, then plan systematic verification for each.
-
-4. Use `@Docs [library-name]` to verify correct API behavior — many bugs are
-   incorrect assumptions about library APIs.
-
-5. Read relevant code and trace the actual error path to verify hypotheses.
-
-6. Apply the minimal fix targeting the root cause, not just symptoms.
-
-7. Call `mcp__mirdan__validate_code_quality` on modified files to confirm the fix
-   does not introduce new violations.
-
-8. Call `mcp__enyal__enyal_remember` with
-   `input: { content: "<fix pattern>", content_type: "pattern", tags: [...] }`
-   to store the fix pattern for future reference.
-"""
-
-_COMMAND_REVIEW = """\
-# /review — DEPRECATED
-
-**DEPRECATED: /review is retired in 2.1.0, use /plan-review --stakes high instead**
-
-For judgment review of a plan: `/plan-review --stakes high <plan-path>` —
-produces the 5-section structured output against the shared rubric.
-
-For reviewing arbitrary files or PRs without a plan context: call
-`mcp__mirdan__validate_code_quality` directly on the file contents.
-
-This stub will be removed in 2.2.0. Update any automation or muscle memory now.
-
-See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
-retirement map.
-"""
-
-_COMMAND_PLAN = """\
-# /plan — Enhanced Implementation Planning
-
-Create plans enhanced with structured analysis and grounded facts.
-
-## Workflow
-
-1. **Context** — Call `mcp__enyal__enyal_recall` with
-   `input: { query: "architecture conventions decisions" }` to load project
-   context. Then call `mcp__enyal__enyal_traverse` with
-   `input: { start_query: "<planned area>" }` to discover related decisions
-   and dependencies.
-
-2. **Analyze** — Use `mcp__sequential-thinking__sequentialthinking` to think
-   through the task deeply before generating steps. Cover scope, phases,
-   dependencies, edge cases, and completeness. Start with `totalThoughts: 8`,
-   adjust as needed.
-
-3. **Ground** — Read all files that will be modified — verify they exist, note
-   current structure and relevant line numbers. Use `@Docs [library-name]`
-   for every external API involved — never plan around assumed APIs.
-
-4. **Plan** — Output a clear task list using Cursor's native plan format. Use
-   file paths in backticks for clickable links. Each step: one atomic action.
-   Order steps by execution phase — group steps that must run together, not by
-   file or module.
-
-5. **Constrain** — No vague language ("should", "probably", "maybe"). Verified
-   paths only. Include tests, imports, and config changes. Architecture decisions
-   from enyal must be respected.
-
-**Note:** All enyal tools require parameters inside an `input` object.
-For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall("...")`.
-
-## Subagent Dispatch
-
-After the plan is finalized, select TODO groups and send them to implementation
-subagents:
-- **`mirdan-implementer`** — for code implementation TODOs
-- **`mirdan-test-writer`** — for test creation TODOs
-
-Each subagent enforces mirdan quality standards and spawns readonly validators
-(quality-validator, slop-detector, test-auditor) as background subagents.
-
-## During Build Execution
-
-Execute each step directly. Skip enhance_prompt and sequential-thinking.
-Quality validation runs automatically after each file edit.
-"""
-
-_COMMAND_QUALITY = """\
-# /quality — DEPRECATED
-
-**DEPRECATED: /quality is retired in 2.1.0, call mcp__mirdan__validate_code_quality directly**
-
-For quality validation of a single file or snippet, call
-`mcp__mirdan__validate_code_quality` directly with the code and language.
-For plan-level quality gating, use `/plan-verify <plan-path>`.
-
-This stub will be removed in 2.2.0. Update any automation or muscle memory now.
-
-See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
-retirement map.
-"""
-
-_COMMAND_SCAN = """\
-# /scan — DEPRECATED
-
-**DEPRECATED: /scan is retired in 2.1.0, call scan_conventions / scan_dependencies directly**
-
-For convention scanning, call `mcp__mirdan__scan_conventions` directly.
-For dependency vulnerability scanning, call `mcp__mirdan__scan_dependencies`.
-Both MCP tools take parameters directly and return structured results.
-
-This stub will be removed in 2.2.0. Update any automation or muscle memory now.
-
-See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
-retirement map.
-"""
-
-_COMMAND_GATE = """\
-# /gate — DEPRECATED
-
-**DEPRECATED: /gate is retired in 2.1.0, use validate_code_quality + validate_quick directly**
-
-For per-file quality gate checks, call `mcp__mirdan__validate_code_quality`
-and `mcp__mirdan__validate_quick` directly. For plan-level gating before
-`/plan-execute`, use `/plan-verify <plan-path>` (runs automatically as a
-pre-flight check when executing a plan).
-
-This stub will be removed in 2.2.0. Update any automation or muscle memory now.
-
-See `CHANGELOG.md` "2.1.0" section under "Migration from 2.0.x" for the full
-retirement map.
-"""
-
 _COMMAND_AUTOMATIONS = """\
 # /automations — Cursor Automations Setup Guide
 
@@ -1415,12 +1248,6 @@ back via comments, PRs, or notifications.
 
 _CURSOR_COMMANDS: dict[str, str] = {
     "code.md": _COMMAND_CODE,
-    "debug.md": _COMMAND_DEBUG,
-    "review.md": _COMMAND_REVIEW,
-    "plan.md": _COMMAND_PLAN,
-    "quality.md": _COMMAND_QUALITY,
-    "scan.md": _COMMAND_SCAN,
-    "gate.md": _COMMAND_GATE,
     "automations.md": _COMMAND_AUTOMATIONS,
 }
 
@@ -1430,17 +1257,12 @@ def generate_cursor_commands(cursor_dir: Path, *, force: bool = False) -> list[P
 
     Writes two groups of commands:
 
-    1. **Legacy commands** from the in-file ``_CURSOR_COMMANDS`` dict
-       (``/code``, ``/debug``, ``/review``, ``/plan``, ``/quality``, ``/scan``,
-       ``/gate``, plus ``/automations``). In mirdan 2.1.0, ``/debug``,
-       ``/review``, ``/quality``, ``/scan``, and ``/gate`` are retired —
-       Story 6 replaces their ``_CURSOR_COMMANDS`` entries with deprecation
-       stubs. ``/code`` and ``/automations`` remain.
+    1. **Always-available commands** from the in-file ``_CURSOR_COMMANDS`` dict:
+       ``/code`` and ``/automations``.
 
-    2. **Brief-driven pipeline commands** (2.1.0) from packaged templates at
+    2. **Planning commands** from packaged templates at
        ``mirdan/integrations/templates/cursor_commands/*.md``:
-       ``/brief``, ``/plan`` (overrides legacy), ``/plan-verify``,
-       ``/plan-review``, ``/plan-execute``.
+       ``/plan`` (flat, with a low-level design), ``/plan-verify``, ``/plan-review``.
 
     Existing files are preserved — idempotent per file unless ``force=True``.
 
@@ -1462,14 +1284,11 @@ def generate_cursor_commands(cursor_dir: Path, *, force: bool = False) -> list[P
             dest.write_text(content)
             created.append(dest)
 
-    # Brief-driven pipeline commands override any legacy same-named files
-    # (notably /plan) because they carry the 2.1.0 three-layer behavior.
+    # Planning commands from packaged templates (the canonical /plan source).
     pipeline_filenames = (
-        "brief.md",
         "plan.md",
         "plan-verify.md",
         "plan-review.md",
-        "plan-execute.md",
     )
     try:
         pipeline_pkg = files("mirdan.integrations.templates.cursor_commands")
@@ -2002,86 +1821,6 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 5. Fix all errors before marking complete. Note warnings for review.
 """
 
-_SKILL_DEBUG = """\
----
-name: mirdan-debug
-description: >-
-  Quality-aware debugging workflow. Use when diagnosing bugs, tracing
-  errors, or investigating unexpected behavior. Validates fixes against
-  mirdan quality standards.
-disable-model-invocation: false
----
-
-# mirdan Debug — Quality-Aware Debugging
-
-Debug issues with mirdan quality analysis to prevent introducing new problems.
-
-## When to Use
-
-- Diagnosing bugs or unexpected behavior
-- Tracing error paths
-- Investigating test failures
-- Performance issues
-
-## Workflow
-
-1. Call `mcp__mirdan__enhance_prompt` with the bug description to get
-   context and detect frameworks.
-
-2. Use `@Docs [library-name]` to verify correct API behavior — many
-   bugs are incorrect assumptions about library APIs.
-
-3. Read relevant code and trace the actual error path before forming
-   hypotheses.
-
-4. Apply the minimal fix targeting the root cause, not just symptoms.
-
-5. Call `mcp__mirdan__validate_code_quality` on modified files to
-   confirm the fix does not introduce new violations.
-
-6. Use Cursor's runtime instrumentation (v2.6) to capture actual execution
-   paths and variable states when the root cause is not obvious from static
-   code reading alone.
-"""
-
-_SKILL_REVIEW = """\
----
-name: mirdan-review
-description: >-
-  Code review with mirdan quality standards enforcement. Use when
-  reviewing PRs, code changes, or preparing code for review.
-disable-model-invocation: false
----
-
-# mirdan Review — Code Review with Quality Standards
-
-Review code against mirdan quality standards.
-
-## When to Use
-
-- Reviewing pull requests
-- Preparing code for review
-- Auditing existing code quality
-- Post-implementation quality check
-
-## Workflow
-
-1. Call `mcp__mirdan__get_quality_standards` for the language/framework
-   to establish review criteria.
-
-2. Read each changed file. Check for:
-   - AI quality rules: AI001 (placeholders), AI002 (hallucinated imports),
-     AI007 (security theater), AI008 (injection vulnerabilities)
-   - Security rules: SEC001-SEC014
-   - Architecture rules: ARCH001-ARCH005
-
-3. Call `mcp__mirdan__validate_code_quality` with `check_security=true`
-   on security-sensitive files.
-
-4. Report findings grouped by severity: errors (must fix), warnings
-   (should fix).
-"""
-
 _SKILL_PLAN = """\
 ---
 name: mirdan-plan
@@ -2206,132 +1945,9 @@ Invoke explicitly with `/mirdan-plan-review` when you want to:
 Report findings as: `[DIMENSION/CONFIDENCE] Description — Fix: recommendation`
 """
 
-_SKILL_QUALITY = """\
----
-name: mirdan-quality
-description: >-
-  On-demand code quality validation. Use to validate specific files or
-  recent changes against mirdan quality standards.
-disable-model-invocation: true
----
-
-# mirdan Quality — On-Demand Quality Validation
-
-Run mirdan quality validation on demand.
-
-## When to Use
-
-Invoke explicitly with `/mirdan-quality` when you want to:
-- Validate specific files
-- Check quality of staged changes
-- Get a quality score for recent work
-
-## Workflow
-
-1. Identify files to validate — changed files, staged files, or
-   specific path.
-
-2. Call `mcp__mirdan__validate_code_quality` on each file:
-   - Use `check_security=true` for auth, input handling, database, or
-     API code
-   - Use `severity_threshold="info"` for comprehensive results
-
-3. Call `mcp__mirdan__get_quality_trends` to check session-wide quality
-   trends.
-
-4. Report findings:
-   - Errors (must fix before completing)
-   - Warnings (should fix, note if deferring)
-   - Overall quality score
-"""
-
-_SKILL_SCAN = """\
----
-name: mirdan-scan
-description: >-
-  Convention and pattern scanner. Use to scan codebase for coding
-  conventions, violations, and AI quality issues.
-disable-model-invocation: true
----
-
-# mirdan Scan — Convention Scanner
-
-Scan the codebase for quality violations and convention patterns.
-
-## When to Use
-
-Invoke explicitly with `/mirdan-scan` when you want to:
-- Discover codebase conventions
-- Find pattern violations
-- Audit AI code quality across the project
-
-## Workflow
-
-1. Identify files to scan — all source files, or scope by argument
-   (path or language).
-
-2. Call `mcp__mirdan__scan_conventions` to discover patterns and
-   violations.
-
-3. Call `mcp__mirdan__get_quality_standards` for the project language
-   to verify findings against defined rules.
-
-4. Report:
-   - Violations by rule ID and count
-   - New patterns discovered
-   - Conventions that diverge from standards
-
-5. If new high-confidence conventions are discovered, store them for
-   future reference.
-"""
-
-_SKILL_GATE = """\
----
-name: mirdan-gate
-description: >-
-  Quality gate check before commit or task completion. Use to validate
-  all changed files pass mirdan quality standards.
-disable-model-invocation: true
----
-
-# mirdan Gate — Quality Gate
-
-Run the full quality gate before committing or completing a task.
-
-## When to Use
-
-Invoke explicitly with `/mirdan-gate` when you want to:
-- Validate all changes before committing
-- Run a final quality check before marking a task complete
-- Ensure security-critical files meet the 0.8 threshold
-
-## Workflow
-
-1. Find all changed files: uncommitted changes and staged files.
-
-2. Call `mcp__mirdan__validate_code_quality` on each changed file.
-   Use `check_security=true` for any file touching auth, input, SQL,
-   or APIs.
-
-3. Check that every file passes with quality score >= 0.7.
-   Security-critical files require score >= 0.8.
-
-4. Fix all errors. For warnings, note rule IDs and justification if
-   deferring.
-
-5. Re-validate after fixes to confirm PASS status.
-
-6. Only mark the task complete after all files pass the quality gate.
-"""
-
 _CURSOR_SKILLS: dict[str, str] = {
     "mirdan-code": _SKILL_CODE,
-    "mirdan-debug": _SKILL_DEBUG,
-    "mirdan-review": _SKILL_REVIEW,
     "mirdan-plan": _SKILL_PLAN,
-    "mirdan-quality": _SKILL_QUALITY,
-    "mirdan-scan": _SKILL_SCAN,
-    "mirdan-gate": _SKILL_GATE,
     "mirdan-plan-review": _SKILL_PLAN_REVIEW,
 }
 

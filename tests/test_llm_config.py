@@ -187,9 +187,7 @@ class TestConfigErrorHandling:
             MirdanConfig.load(bad)
         assert "mapping" in str(exc_info.value)
 
-    def test_failed_pydantic_validation_raises_config_error(
-        self, tmp_path: "Path"
-    ) -> None:
+    def test_failed_pydantic_validation_raises_config_error(self, tmp_path: "Path") -> None:
         from mirdan.config import ConfigError, MirdanConfig
 
         bad = tmp_path / "config.yaml"

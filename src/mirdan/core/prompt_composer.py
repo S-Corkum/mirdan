@@ -28,19 +28,25 @@ class PromptComposer:
     # and improve first-attempt correctness (per "Beyond the Prompt" MSR 2026).
     TASK_GUIDANCE: dict[TaskType, str] = {
         TaskType.GENERATION: (
-            "## Implementation Approach\n"
-            "Focus on integrating with existing patterns. "
-            "Before writing new code, read similar implementations in the codebase. "
-            "New functions must have clear inputs/outputs and be easy to test independently.\n"
-            "If decision_guidance is provided, review the trade-offs before choosing an approach."
+            "## Before Writing Code: State the Design\n"
+            "Write these lines FIRST — they are cheap and prevent rework:\n"
+            "1. **Signature(s):** exact name, params with types, and return type for each "
+            "new public function/class.\n"
+            "2. **Errors:** which inputs fail, and what you raise or return for each "
+            "(do not silently swallow).\n"
+            "3. **Integration point:** the existing function/module this plugs into — "
+            "name it (you must have Read it).\n"
+            "4. **Data shape:** if you introduce a dict/model/record, write its fields and types.\n"
+            "Then implement to match. If implementation forces a design change, update the "
+            "design lines first, then the code."
         ),
         TaskType.REFACTOR: (
             "## Refactoring Protocol\n"
             "1. Identify all callers of the code being refactored\n"
             "2. Ensure all existing tests pass BEFORE making changes\n"
             "3. Make incremental changes — each commit should be independently correct\n"
-            "4. After refactoring, verify no public API signatures changed\n"
-            "If decision_guidance is provided, review the trade-offs before choosing an approach."
+            "4. State the public signatures you are preserving (name, params, types, return) "
+            "and confirm none change without explicit approval"
         ),
         TaskType.DEBUG: (
             "## Debugging Protocol\n"
@@ -107,6 +113,7 @@ class PromptComposer:
         extra_requirements: Sequence[str] = (),
         session: SessionContext | None = None,
         tidy_suggestions: list[dict[str, Any]] | None = None,
+        design_guidance: list[dict[str, Any]] | None = None,
     ) -> EnhancedPrompt:
         """Compose the final enhanced prompt."""
         # Prepend persistent violation feedback before static standards so they
@@ -124,6 +131,7 @@ class PromptComposer:
             verification_steps,
             tool_recommendations,
             tidy_suggestions=tidy_suggestions,
+            design_guidance=design_guidance,
         )
 
         return EnhancedPrompt(
@@ -234,6 +242,7 @@ class PromptComposer:
         verification_steps: list[str],
         tool_recommendations: list[ToolRecommendation],
         tidy_suggestions: list[dict[str, Any]] | None = None,
+        design_guidance: list[dict[str, Any]] | None = None,
     ) -> str:
         """Build the final prompt text using Jinja2 templates."""
         # Dispatch to planning template for PLANNING tasks
@@ -287,6 +296,7 @@ class PromptComposer:
             include_tool_hints=include_tool_hints,
             task_guidance=task_guidance,
             tidy_suggestions=tidy_suggestions if verbosity != "minimal" else None,
+            design_guidance=design_guidance if verbosity != "minimal" else None,
         ).strip()
 
     def _get_task_constraints(self, intent: Intent) -> list[str]:

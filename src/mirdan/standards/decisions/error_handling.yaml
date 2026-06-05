@@ -23,3 +23,7 @@ senior_questions:
   - "What errors are expected vs. unexpected? Are they handled differently?"
   - "How is error context (stack trace, variables) preserved for debugging?"
   - "What does the user see when an error occurs? Is it actionable?"
+lld_prompts:
+  - "List each failure mode this code can hit and the exception/Result type for each."
+  - "For each error type, name the layer that raises it and the layer that catches it."
+  - "State what the caller sees on failure: exception type, error code, or return value."

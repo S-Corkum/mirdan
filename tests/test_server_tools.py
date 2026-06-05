@@ -408,11 +408,11 @@ class TestToolRegistration:
     """Tests for MCP tool registration."""
 
     @pytest.mark.asyncio
-    async def test_exactly_eleven_tools_registered(self) -> None:
-        """All 11 MCP tools should be registered (7 core + 4 brief-driven pipeline, 2.1.0)."""
+    async def test_exactly_eight_tools_registered(self) -> None:
+        """All 8 MCP tools should be registered (7 core + verify_plan)."""
         tools = await server_mod.mcp.list_tools()
         tool_names = {t.name for t in tools}
-        assert len(tool_names) == 11
+        assert len(tool_names) == 8
         expected = {
             "enhance_prompt",
             "validate_code_quality",
@@ -421,11 +421,7 @@ class TestToolRegistration:
             "get_quality_trends",
             "scan_dependencies",
             "scan_conventions",
-            # 2.1.0 brief-driven pipeline
-            "validate_brief",
-            "verify_plan_against_brief",
-            "propose_subtask_diff",
-            "mirdan_health",
+            "verify_plan",
         }
         assert tool_names == expected
 

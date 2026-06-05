@@ -101,20 +101,22 @@ class TestSkillsAutoInvocation:
         assert "mcp__mirdan__enhance_prompt" in content
         assert "mcp__mirdan__validate_code_quality" in content
 
-    def test_debug_skill_has_mcp_tools(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_plan_skill_has_mcp_tools(self, tmp_path: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.claude_code import generate_skills
 
         paths = generate_skills(tmp_path, detected)
-        debug_skill = next(p for p in paths if p.parent.name == "debug")
-        content = debug_skill.read_text()
+        plan_skill = next(p for p in paths if p.parent.name == "plan")
+        content = plan_skill.read_text()
         assert "mcp__mirdan__" in content
 
-    def test_review_skill_has_mcp_tools(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_plan_verify_skill_has_mcp_tools(
+        self, tmp_path: Path, detected: DetectedProject
+    ) -> None:
         from mirdan.integrations.claude_code import generate_skills
 
         paths = generate_skills(tmp_path, detected)
-        review_skill = next(p for p in paths if p.parent.name == "review")
-        content = review_skill.read_text()
+        pv_skill = next(p for p in paths if p.parent.name == "plan-verify")
+        content = pv_skill.read_text()
         assert "mcp__mirdan__" in content
 
     def test_skills_have_allowed_tools(self, tmp_path: Path, detected: DetectedProject) -> None:
@@ -214,21 +216,15 @@ class TestAdvancedHooks:
         hooks = self._load_hooks(tmp_path, detected)
         assert "UserPromptSubmit" not in hooks
 
-    def test_subagent_start_not_registered(
-        self, tmp_path: Path, detected: DetectedProject
-    ) -> None:
+    def test_subagent_start_not_registered(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         assert "SubagentStart" not in hooks
 
-    def test_pre_compact_not_registered(
-        self, tmp_path: Path, detected: DetectedProject
-    ) -> None:
+    def test_pre_compact_not_registered(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         assert "PreCompact" not in hooks
 
-    def test_post_tool_use_is_command_only(
-        self, tmp_path: Path, detected: DetectedProject
-    ) -> None:
+    def test_post_tool_use_is_command_only(self, tmp_path: Path, detected: DetectedProject) -> None:
         hooks = self._load_hooks(tmp_path, detected)
         post_tool = hooks.get("PostToolUse", [])
         assert len(post_tool) > 0

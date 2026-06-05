@@ -243,12 +243,9 @@ These rules apply to all AI agents working in this codebase:
 
 ### Skills & Agents
 - `/code`: Quality-guided code generation
-- `/debug`: Quality-aware debugging
-- `/review`: Code review with quality standards
-- `/plan`: Quality-gated implementation planning
-- `/quality`: On-demand quality validation and trends
-- `/scan`: Convention scanning and codebase analysis
-- `/gate`: Quality gate check before commits or task completion
+- `/plan`: Flat grounded plan with a low-level design
+- `/plan-review`: Deep judgment review of a plan
+- `/plan-verify`: Mechanical plan self-check (local, no LLM)
 """
 
 

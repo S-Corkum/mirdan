@@ -22,9 +22,7 @@ from mirdan.core.check_defaults import (
         ("java", "mvn"),
     ],
 )
-def test_language_has_expected_lint_tool(
-    language: str, expected_lint_prefix: str
-) -> None:
+def test_language_has_expected_lint_tool(language: str, expected_lint_prefix: str) -> None:
     cfg = defaults_for_language(language)
     assert cfg is not None
     assert cfg.lint_command.startswith(expected_lint_prefix)

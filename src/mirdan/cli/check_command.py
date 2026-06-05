@@ -274,8 +274,7 @@ def _typecheck_target(command: str, files: list[str]) -> list[str]:
         return []
 
     has_target = any(
-        tok in {"src", "src/", "."} or tok.startswith(("src/", "./", "/"))
-        for tok in tokens[1:]
+        tok in {"src", "src/", "."} or tok.startswith(("src/", "./", "/")) for tok in tokens[1:]
     )
     if has_target:
         return []

@@ -23,3 +23,7 @@ senior_questions:
   - "What happens to state during network failures or page refreshes?"
   - "Is the state shape designed for the queries that will read it?"
   - "How do you prevent state mutations from unintended sources?"
+lld_prompts:
+  - "Name each piece of state, its type, and which component/module owns it."
+  - "Define the actions/transitions that mutate it — signature and effect."
+  - "State how derived state is computed and when it invalidates."

@@ -17,8 +17,8 @@ claude --plugin-dir ./mirdan-plugin
 
 ## What's Included
 
-- **MCP Server**: mirdan quality validation tools (5 tools)
-- **Skills**: `/code`, `/debug`, `/review` slash commands
+- **MCP Server**: mirdan quality validation tools (8 tools)
+- **Skills**: `/code`, `/plan`, `/plan-review`, `/plan-verify` slash commands
 - **Agents**: `quality-gate` subagent for automated validation
 - **Hooks**: Pre/Post tool-use quality checks
 
@@ -31,3 +31,6 @@ claude --plugin-dir ./mirdan-plugin
 | `validate_quick` | Fast security-only validation |
 | `get_quality_standards` | Language/framework standards |
 | `get_quality_trends` | Quality score history |
+| `scan_conventions` | Discover project conventions |
+| `scan_dependencies` | Dependency vulnerability scan |
+| `verify_plan` | Mechanical plan self-check (local, no LLM) |

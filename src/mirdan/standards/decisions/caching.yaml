@@ -23,3 +23,7 @@ senior_questions:
   - "What is the cache invalidation strategy? How do you handle stale data?"
   - "What is the expected cache hit ratio? Is caching even worth the complexity?"
   - "How does the cache behave under cold-start or cache-miss storms?"
+lld_prompts:
+  - "Define the cache key (its components and type) and the cached value's type."
+  - "State the invalidation trigger and the TTL."
+  - "Name what happens on a cache miss — the source-of-truth call."

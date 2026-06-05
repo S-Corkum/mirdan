@@ -126,56 +126,12 @@ class PlanningConfig(BaseModel):
     reject_vague_language: bool = True
     max_words_per_step_detail: int = Field(default=100, description="Force atomic steps")
 
-    # Three-layer template support (2.1.0 brief-driven pipeline)
+    # Plan template shape. Flat (Research Notes + atomic "### Step N" steps) is
+    # the only form /plan produces; "three_layer" is retained in the Literal only
+    # so any pre-existing config still validates.
     template_mode: Literal["flat", "three_layer"] = Field(
-        default="three_layer",
-        description=(
-            "Plan template shape. 'three_layer' = epic/stories/subtasks "
-            "(brief-first default); 'flat' = single-layer step list (legacy)."
-        ),
-    )
-    require_brief: bool = Field(
-        default=True,
-        description="/plan refuses to run without --brief <path> when true",
-    )
-
-
-class BriefConfig(BaseModel):
-    """Brief authoring and validation configuration (2.1.0)."""
-
-    # Forbid unknown fields — enforces the "no external API keys" rule at
-    # the schema layer for this subsection (see brief Constraint #7).
-    model_config = {"extra": "forbid"}
-
-    briefs_dir: str = Field(
-        default="docs/briefs/",
-        description="Directory for brief markdown files",
-    )
-    required_sections: list[str] = Field(
-        default_factory=lambda: [
-            "Outcome",
-            "Users & Scenarios",
-            "Business Acceptance Criteria",
-            "Constraints",
-            "Out of Scope",
-        ],
-        description="Hard-required sections; /plan refuses invalid briefs",
-    )
-    recommended_sections: list[str] = Field(
-        default_factory=lambda: [
-            "Prior Art",
-            "Known Pitfalls",
-            "Quality Bar",
-            "Non-Goals",
-        ],
-        description="Recommended sections; absence emits warnings only",
-    )
-    min_acs: int = Field(default=3, ge=1, description="Minimum ACs for brief to pass")
-    min_constraints: int = Field(default=1, ge=1)
-    min_scenarios: int = Field(default=1, ge=1)
-    auto_store_enyal: bool = Field(
-        default=True,
-        description="Auto-store validated briefs to enyal with content_type='brief'",
+        default="flat",
+        description="Plan template shape: 'flat' = single-layer grounded step list.",
     )
 
 
@@ -466,8 +422,11 @@ class DecisionConfig(BaseModel):
         description="Enable decision trade-off analysis in enhance_prompt.",
     )
     max_decisions: int = Field(
-        default=1,
-        description="Maximum decision domains to surface per prompt.",
+        default=3,
+        description=(
+            "Maximum decision domains to surface per prompt. Surfaced as a "
+            "Design Decisions section injected into the enhanced prompt."
+        ),
     )
 
 
@@ -593,7 +552,6 @@ class MirdanConfig(BaseModel):
     orchestration: OrchestrationConfig = Field(default_factory=OrchestrationConfig)
     enhancement: EnhancementConfig = Field(default_factory=EnhancementConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
-    brief: BriefConfig = Field(default_factory=BriefConfig)
     thresholds: ThresholdsConfig = Field(default_factory=ThresholdsConfig)
     session: SessionConfig = Field(default_factory=SessionConfig)
     tokens: TokenConfig = Field(default_factory=TokenConfig)
@@ -615,7 +573,7 @@ class MirdanConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _reject_external_api_keys(cls, data: Any) -> Any:
-        """Reject external-provider API-key fields (brief Constraint #7).
+        """Reject external-provider API-key fields (local-LLM-only policy).
 
         Mirdan never calls external LLM APIs; its local-LLM-only stance is
         enforced at the config schema layer so users can't accidentally
@@ -693,9 +651,7 @@ class MirdanConfig(BaseModel):
             with config_path.open() as f:
                 data = yaml.safe_load(f) or {}
         except yaml.YAMLError as exc:
-            raise ConfigError(
-                f"Invalid YAML in {config_path}: {exc}"
-            ) from exc
+            raise ConfigError(f"Invalid YAML in {config_path}: {exc}") from exc
 
         if not isinstance(data, dict):
             raise ConfigError(
@@ -706,9 +662,7 @@ class MirdanConfig(BaseModel):
         try:
             return cls(**data)
         except Exception as exc:
-            raise ConfigError(
-                f"Config at {config_path} failed validation: {exc}"
-            ) from exc
+            raise ConfigError(f"Config at {config_path} failed validation: {exc}") from exc
 
     @classmethod
     def find_config(cls, start_path: Path | None = None) -> "MirdanConfig":

@@ -1,8 +1,7 @@
-# /plan-verify — Brief-Driven Plan Verification
+# /plan-verify — Mechanical Plan Self-Check
 
-Run mechanical verification of a three-layer plan against its brief via
-local Gemma 4. Cheap, deterministic, ≤ 30s on mid-tier hardware for a
-30-subtask plan. Replaces `/plan-review` as the default quality check.
+Verify a flat plan against **itself** — no brief, no LLM, deterministic,
+milliseconds. Confirms the plan is internally executable before you implement it.
 
 ## Usage
 
@@ -10,39 +9,29 @@ local Gemma 4. Cheap, deterministic, ≤ 30s on mid-tier hardware for a
 
 ## Workflow
 
-1. Read the plan file; extract the `brief:` field from the frontmatter.
-2. If no `brief:` field: emit `Plan has no brief reference. /plan-verify
-   only supports brief-driven plans. Use /plan-review for flat-template
-   plans.` and exit.
-3. Call `mcp__mirdan__verify_plan_against_brief(plan_path, brief_path)`.
-4. Render the structured report with ALL these sections:
+1. Call `mcp__mirdan__verify_plan(plan_path)`.
+2. Render the structured report:
 
    ```
    ## Verification: <plan-path>
 
-   ### Coverage Score: <score>/1.0
-   ### Semantic Check: <ran | skipped — BRAIN-tier LLM not available>
+   ### Score: <coverage_score>/1.0 — <PASS | FAIL>
 
-   ### Mechanical findings (no LLM — reliable at any hardware tier)
-   #### phantom_files           — files referenced but not found
-   #### dependency_errors       — dangling Depends-on refs or cycles
-   #### vague_cross_references  — "as discussed", "like Step N", etc.
-   #### missing_grounding       — subtasks missing any of 6 grounding fields
-   #### out_of_scope_violations — brief Out-of-Scope items appearing in plan
-   #### invest_failures         — stories missing INVEST structural fields
-
-   ### Semantic findings (BRAIN-tier LLM only; conf >= 0.6)
-   #### unmapped_acs            — brief ACs with no story AC mapping
+   #### phantom_files          — File field points at a path that doesn't exist
+   #### dependency_errors      — Depends-On refs to missing steps, or cycles
+   #### vague_cross_references — "as discussed", "see above", "from before"
+   #### missing_grounding      — steps missing File/Action/Details/Verify/Grounding
+   #### lld_gaps (advisory)    — [EXISTING] interface w/o file:line citation, or
+                                 [NEW] interface created by no step
 
    ### Summary
    <summary field>
    ```
 
-5. Exit non-zero if `verified=false` so CI / hooks can gate on it.
+3. Exit non-zero if `verified=false` so CI / hooks can gate on it.
 
 ## Escape hatch
 
-For judgment review (auth, payments, regulated code), use
-`/plan-review <plan-path>` which instructs the user-selected Cursor model to
-produce the same 5-section output shape against the shared rubric at
+For judgment review (auth, payments, regulated code, cross-step emergent risk),
+use `/plan-review --stakes high <plan-path>` against the shared rubric at
 `templates/plan-review-rubric.md`.

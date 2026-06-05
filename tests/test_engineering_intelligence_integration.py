@@ -50,6 +50,57 @@ class TestEnhancePromptIntegration:
         assert "cognitive_guardrails" not in result
 
 
+class TestDesignGuidanceReachesModel:
+    """2.2.0: design guidance must reach the model, not just sit in a side field.
+
+    Before 2.2.0 ``decision_guidance`` was a top-level field never injected into the
+    ``enhanced_prompt`` text, and the minimal/haiku output tier dropped it entirely.
+    These guard that it now reaches the prompt at full/compact tiers and that a
+    compressed nudge survives the minimal tier.
+    """
+
+    _DESIGN_PROMPT = "Add a REST API endpoint for user login with error handling"
+
+    @pytest.mark.asyncio
+    async def test_injected_into_prompt_text_full_tier(self, provider: ComponentProvider) -> None:
+        uc = provider.create_enhance_prompt_usecase(set())
+        result = await uc.execute(
+            self._DESIGN_PROMPT,
+            task_type="generation",
+            ceremony_level="standard",
+            model_tier="opus",
+        )
+        text = result.get("enhanced_prompt", "")
+        assert "## Design Decisions" in text
+        assert "**Your decision:**" in text
+        assert "State the Design" in text  # rewritten TASK_GUIDANCE
+
+    @pytest.mark.asyncio
+    async def test_survives_compact_tier(self, provider: ComponentProvider) -> None:
+        """COMPACT (sonnet) must preserve the design section in enhanced_prompt."""
+        uc = provider.create_enhance_prompt_usecase(set())
+        result = await uc.execute(
+            self._DESIGN_PROMPT,
+            task_type="generation",
+            ceremony_level="standard",
+            model_tier="sonnet",
+        )
+        assert "## Design Decisions" in result.get("enhanced_prompt", "")
+
+    @pytest.mark.asyncio
+    async def test_compressed_nudge_at_minimal_tier(self, provider: ComponentProvider) -> None:
+        """MINIMAL (haiku) drops the full prompt but must keep a compressed nudge."""
+        uc = provider.create_enhance_prompt_usecase(set())
+        result = await uc.execute(
+            self._DESIGN_PROMPT,
+            task_type="generation",
+            ceremony_level="standard",
+            model_tier="haiku",
+        )
+        assert result.get("design_decisions")
+        assert "design_directive" in result
+
+
 class TestValidateCodeIntegration:
     """End-to-end tests for validate_code with new features."""
 

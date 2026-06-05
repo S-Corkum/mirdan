@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-06-04
+
+Reverses the 2.1.0 brief-driven direction. The brief was a business-ceremony
+upstream artifact that gated all planning; 2.2.0 removes it and instead invests
+in **engineering substance** — a low-level-design layer inside the plan, and
+design guidance that actually reaches the model.
+
+### Removed
+
+- **Brief-driven pipeline (entire).** `/brief` skill + Cursor command, the
+  `validate_brief` and `verify_plan_against_brief` MCP tools, `BriefValidator`,
+  `ValidateBriefUseCase`, `VerifyPlanAgainstBriefUseCase`, `BriefConfig`,
+  `BriefQualityScore`, `TaskType.BRIEF_VALIDATION` / `PLAN_VERIFICATION`,
+  `PlanningConfig.require_brief`, the brief-first gate in `/plan`, and
+  `enhance_prompt`'s `brief_path` parameter / `_merge_brief`.
+- **Execution-dispatch layer.** `/plan-execute` skill + Cursor command, the
+  `cheap-executor` agent, the `propose_subtask_diff` and `mirdan_health` MCP
+  tools (and `ProposeSubtaskDiffUseCase`). Implement directly from the reviewed
+  plan instead.
+- **Retired-stub skills** (deprecated in 2.1.0, deletion was scheduled for
+  2.2.0): `/debug`, `/review`, `/quality`, `/gate`, `/scan`.
+
+### Changed
+
+- **`/plan` is flat-grounded-steps again** (pre-2.1.0 format: Research Notes +
+  atomic `### Step N` steps with File/Action/Details/Depends-On/Verify/Grounding),
+  now with a required **`## Low-Level Design`** section (Interfaces & Signatures,
+  Error Taxonomy, Design Decisions; Data Model / Module Boundaries gated by
+  applicability — no brief-style "fill every heading" ceremony). `PlanningConfig.template_mode`
+  defaults to `"flat"`.
+- **`/plan-verify` runs a brief-free mechanical self-check** via the new
+  `verify_plan` tool: `phantom_files`, `dependency_errors`,
+  `vague_cross_references`, `missing_grounding`, and `lld_gaps` — deterministic,
+  local, no LLM. (The mechanical engine is the 2.1.0 verifier's, extracted from
+  its brief coupling.)
+- **Design guidance now reaches the model.** The `decision_analyzer` design
+  templates (api_design, error_handling, data_access, …) are injected directly
+  into `enhance_prompt`'s prompt text (previously a side field dropped at
+  compact output tiers), gated at LIGHT+ for generation/refactor, capped at 3,
+  and gain `lld_prompts` that turn architecture-selection tables into
+  low-level-design prompts. `TASK_GUIDANCE` rewritten from platitudes to a
+  concrete artifact-naming directive.
+
+### MCP tools (8)
+
+`enhance_prompt`, `validate_code_quality`, `validate_quick`,
+`get_quality_standards`, `get_quality_trends`, `scan_conventions`,
+`scan_dependencies`, `verify_plan`.
+
+### Security & Dependencies
+
+- **Dependency lock refreshed to latest-compatible**, remediating 17 `pip-audit`
+  advisories: bumps `authlib` 1.7.2, `cryptography` 48.0.0, `idna` 3.18, `pyjwt`
+  2.13.0, `python-dotenv` 1.2.2, `python-multipart` 0.0.32, `starlette` 1.2.1,
+  `pytest` 9.0.3, and **drops `urllib3`** from the tree (its 2 advisories go with it).
+- **Direct deps:** `fastmcp` 3.4.0, `pydantic` 2.13.4, `llama-cpp-python` 0.3.26,
+  `numpy` 2.4.6, `pytest-asyncio` 1.4.0, `pytest-cov` 7.1.0.
+- **Dev tooling:** `mypy` → 2.1 (floor `>=2.0`; codebase clean under mypy 2.x strict),
+  `ruff` → 0.15 (floor `>=0.15`; 2026 format style applied; the new `ASYNC240` rule is
+  suppressed per-file at infrequent startup/one-shot local-file call sites).
+- The only residual `pip-audit` finding is `diskcache` CVE-2025-69872 (no upstream
+  fix; transitive via the `llamacpp` extra's `llama-cpp-python`), already ignored in CI.
+
+### Migration from 2.1.0
+
+| Retired | Replacement |
+|---|---|
+| `/brief` | Removed — go straight to `/plan` |
+| `/plan --brief <path>` | `/plan` (flat, with a Low-Level Design section) |
+| `/plan-verify` (brief-gated) | `/plan-verify` (brief-free mechanical self-check) |
+| `/plan-execute` | Implement from the reviewed plan directly |
+| `validate_brief`, `verify_plan_against_brief` | `verify_plan(plan_path)` |
+| `propose_subtask_diff`, `mirdan_health` | Removed |
+| `/debug` `/review` `/quality` `/gate` `/scan` | Inline + `validate_code_quality` / `scan_*` / `/plan-review` |
+
+Existing flat plans under `docs/plans/` continue to validate (the Low-Level
+Design section and per-step `Depends On` are recommended/soft, not hard gates).
+
 ## [2.1.0] - 2026-04-23
 
 ### Added

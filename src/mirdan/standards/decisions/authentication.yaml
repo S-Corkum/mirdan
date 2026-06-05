@@ -24,3 +24,7 @@ senior_questions:
   - "How are tokens/sessions revoked? What happens if a credential is compromised?"
   - "What is the token lifetime and refresh strategy?"
   - "How does this handle concurrent sessions across devices?"
+lld_prompts:
+  - "Write the auth-check signature: input (token/session), return (identity type), failure mode."
+  - "State where credentials/tokens are stored and their lifetime."
+  - "Name which routes/operations require which permission."

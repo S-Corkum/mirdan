@@ -17,79 +17,44 @@ Works with **Claude Code**, **Cursor IDE**, and **Cursor CLI**. Runs on 16GB lap
 
 ---
 
-## Brief-Driven Plan Pipeline (New in 2.1.0)
+## Planning Pipeline (2.2.0)
 
-Mirdan 2.1.0 adds a **brief-first plan workflow** that shifts frontier-model
-token spend upstream (brief authoring) so the rest of the pipeline can run on
-cheaper models. One artifact, three layers, cross-IDE parity.
+Mirdan's planning workflow is **flat, grounded, and design-first** — no briefs, no
+business ceremony. A plan is Research Notes → a Low-Level Design → atomic grounded
+steps, verifiable mechanically before you implement it.
 
 ```
-/brief <slug>                      → author structured brief in docs/briefs/
-/plan --brief <path>               → three-layer plan (epic → stories → subtasks)
-/plan-verify <plan-path>           → mechanical coverage check via local Gemma 4
-/plan-review --stakes high <path>  → escape hatch: judgment review on shared rubric
-/plan-execute <plan-path>          → dispatch subtasks to Haiku (CC) / local LLM (Cursor)
+/plan <slug> <description>     → flat grounded plan with a Low-Level Design section
+/plan-verify <plan-path>       → mechanical self-check (local, deterministic, no LLM)
+/plan-review --stakes high <p> → escape hatch: model-judgment review on the shared rubric
 ```
 
-### Worked example
+The **Low-Level Design** section is where engineering substance lives — interfaces
+& signatures (each tagged `[NEW]`/`[EXISTING]` with a `file:line` citation), an error
+taxonomy, and the design decisions surfaced by `enhance_prompt`. Subsections are
+applicability-gated — include one only if it applies, no "fill every heading" filler.
 
-```bash
-# 1. Author a brief (required before /plan runs)
-/brief add-passkey-auth "Add passkey authentication for web sign-in"
-# → prompts for Outcome, Users & Scenarios, Business ACs, Constraints, Out of Scope
-# → writes docs/briefs/add-passkey-auth.md
-# → auto-stores to enyal with content_type="brief"
+### What `/plan-verify` catches (deterministic, local, no LLM)
 
-# 2. Generate the plan (brief constraints merge into quality_requirements)
-/plan --brief docs/briefs/add-passkey-auth.md
-# → writes docs/plans/add-passkey-auth.md with frontmatter brief: docs/briefs/add-passkey-auth.md
+- `phantom_files` — a step's `**File:**` points at a path that doesn't exist
+- `dependency_errors` — `**Depends On:**` refs to missing steps, or cycles
+- `vague_cross_references` — "as discussed", "see above" — unresolvable by a reader
+- `missing_grounding` — a step missing File / Action / Details / Verify / Grounding
+- `lld_gaps` (advisory) — an `[EXISTING]` interface without a citation, or a `[NEW]`
+  one created by no step
 
-# 3. Verify coverage mechanically (local Gemma 4, ≤30s on mid-tier hardware)
-/plan-verify docs/plans/add-passkey-auth.md
-# → ## Verification report with unmapped_acs, missing_grounding, ...
+### Design guidance reaches the model
 
-# 4. Execute (Claude Code dispatches to Haiku subagents; Cursor A/B routing)
-/plan-execute docs/plans/add-passkey-auth.md
-# → runs /plan-verify as pre-flight, then walks subtasks in dependency order
-```
+`enhance_prompt` injects a **Design Decisions** section directly into the prompt text
+for generation/refactor tasks — options, low-level-design prompts, and a forced
+"Your decision:" slot — drawing on mirdan's design templates (api_design,
+error_handling, data_access, …). It survives the compact output tiers cheap models receive.
 
-### MCP tool reference
+### MCP tool
 
 | Tool | Returns |
 |---|---|
-| `mcp__mirdan__validate_brief(brief_path)` | `{passed, score, gaps, missing_required, thin_recommended, would_pass_after_fixes}` |
-| `mcp__mirdan__verify_plan_against_brief(plan_path, brief_path)` | `{verified, coverage_score, missing_grounding, out_of_scope_violations, invest_failures, phantom_files, dependency_errors, vague_cross_references, unmapped_acs, semantic_check_skipped, summary}` |
-| `mcp__mirdan__propose_subtask_diff(subtask_yaml, file_context)` | `{diff, model_used, confidence, halted, halt_reason}` |
-| `mcp__mirdan__mirdan_health()` | `{local_llm_available, model_in_use, vram_gb, recommended_mode, backend_kind}` |
-| `mcp__mirdan__enhance_prompt(prompt, brief_path=...)` | existing output + `quality_requirements` prefixed with `[from brief]` + `out_of_scope` list |
-
-### What `/plan-verify` actually catches (evidence-based)
-
-**Mechanical findings — reliable at any hardware tier, no LLM required:**
-- `phantom_files` — subtask's `**File:**` points at a path that doesn't exist; for `NEW:` files, parent directory is missing
-- `dependency_errors` — `**Depends on:**` references a subtask ID that isn't in the plan; or a circular dependency graph
-- `vague_cross_references` — "as discussed", "like Step N", "from before" — phrases cheap executors can't resolve
-- `missing_grounding` — subtask missing any of the 6 required grounding fields
-- `out_of_scope_violations` — brief Out-of-Scope items appearing in plan body
-- `invest_failures` — stories missing INVEST structural fields
-
-Evidence: `tests/evidence/` — 100% detection on seeded defects, 0% false positives on clean plans, deterministic across 20 runs. Runtime: median 1.45 ms, max 11.87 ms across 18 historical plans.
-
-**Semantic findings — require BRAIN-tier (31B+) local model:**
-- `unmapped_acs` — brief Business ACs not mapped to any story AC by an LLM judge with confidence ≥ 0.6
-
-Semantic check is **automatically skipped** if no BRAIN-tier model is available. Gemma 4 E2B/E4B are FAST-tier and are not discriminative for this task — see `docs/briefs/mirdan-brief-driven-pipeline.md` "Semantic path hardware requirement" for the teeth-test data that established this.
-
-### Reference implementation
-
-`docs/briefs/mirdan-brief-driven-pipeline.md` and
-`docs/plans/mirdan-brief-driven-pipeline.md` in the project root are the
-2.1.0 release's own brief-and-plan pair — dogfooded during development.
-
-### Retired in 2.1.0
-
-`/debug`, `/review`, `/quality`, `/gate`, `/scan` ship as deprecation stubs.
-See `CHANGELOG.md` 2.1.0 section for the migration table. Full deletion in 2.2.0.
+| `mcp__mirdan__verify_plan(plan_path)` | `{verified, coverage_score, phantom_files, dependency_errors, vague_cross_references, missing_grounding, lld_gaps, summary}` |
 
 ---
 
@@ -351,7 +316,7 @@ mirdan profile suggest                # Let mirdan recommend one
 mirdan init --claude-code
 ```
 
-Generates `.mcp.json`, hooks, rules, 7 skills (`/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, `/gate`), and 5 agents (quality-gate, security-audit, test-quality, convention-check, architecture-reviewer).
+Generates `.mcp.json`, hooks, rules, 4 skills (`/code`, `/plan`, `/plan-review`, `/plan-verify`), and 6 agents (quality-gate, security-audit, test-quality, convention-check, architecture-reviewer, plan-reviewer).
 
 Hook stringency levels control how aggressively mirdan intervenes:
 
@@ -373,7 +338,7 @@ Generates a complete Cursor 2.x integration:
 - **Hooks** — `.cursor/hooks.json` with prompt-type + command-type hooks, `.cursor/hooks/*.sh` scripts
 - **Subagents** — `.cursor/agents/*.md` (quality-validator, security-scanner, test-auditor, slop-detector, architecture-reviewer)
 - **Skills** — `.cursor/skills/*/SKILL.md` following the [Agent Skills Standard](https://agentskills.io) (code, debug, review, plan, quality, scan, gate)
-- **Commands** — `.cursor/commands/*.md` slash commands (`/code`, `/debug`, `/review`, `/plan`, `/quality`, `/scan`, `/gate`)
+- **Commands** — `.cursor/commands/*.md` slash commands (`/code`, `/plan`, `/plan-verify`, `/plan-review`, `/automations`)
 - **Environment** — `.cursor/environment.json` for Cloud Agent environments
 - **Config** — `.cursor/mcp.json`, `AGENTS.md`, `BUGBOT.md`
 

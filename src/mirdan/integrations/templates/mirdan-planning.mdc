@@ -1,49 +1,34 @@
 ---
-description: "mirdan three-layer planning — activate when creating implementation plans in Plan Mode"
+description: "mirdan flat planning — activate when creating implementation plans in Plan Mode"
 alwaysApply: false
 ---
 
-# mirdan Planning (Three-Layer, Brief-First)
+# mirdan Planning (Flat, Grounded, with Low-Level Design)
 
-## Prerequisites
-
-A brief must exist at `docs/briefs/<slug>.md`. If none, run `/brief <slug>`
-first. Plans without a brief use the legacy flat template and are not
-eligible for `/plan-execute`.
+Plans are **Research Notes → Low-Level Design → atomic grounded steps**, output to
+`docs/plans/<slug>.md`. No brief required.
 
 ## Workflow in Plan Mode
 
-1. Call `mcp__mirdan__validate_brief(brief_path)`. If `passed=false`, surface
-   gaps and do not proceed.
-2. Call `mcp__mirdan__enhance_prompt(prompt=<outcome>, task_type="planning",
-   brief_path=<path>)`. Brief constraints merge into `quality_requirements`.
-3. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
+1. Call `mcp__mirdan__enhance_prompt(prompt=<description>, task_type="planning")`.
+   Use `decision_guidance` (design domains) to shape the design.
+2. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
    architecture decisions and dependency clusters.
-4. Read every file referenced in brief's Prior Art section.
-5. Draft the plan in three-layer structure:
-   - Research Notes (verified facts with tool citations)
-   - Epic Layer (outcome + metric + scope boundary + epic grounding)
-   - Story Layer (INVEST check + AC list per story)
-   - Subtasks per story (File, Action, Details, Depends on, Verify,
-     Grounding, If-blocked — all 6 fields mandatory)
-6. Self-check: every subtask has all 6 grounding fields.
-7. Write to `docs/plans/<slug>.md` with frontmatter `brief: docs/briefs/<slug>.md`.
+3. Research before any step: Read every file you'll modify, Glob the structure,
+   context7 every external API.
+4. Draft the plan:
+   - **Research Notes** — verified facts with tool citations.
+   - **Low-Level Design** — Interfaces & Signatures (each tagged [NEW]/[EXISTING];
+     [EXISTING] cites `file:line`, [NEW] created by a step), Error Taxonomy, Design
+     Decisions. Data Model / Module Boundaries only if they apply (no "N/A" fillers).
+   - **Steps** — `### Step N` with File, Action, Details, Depends On, Verify, Grounding.
+5. Write to `docs/plans/<slug>.md`.
+6. Run `/plan-verify docs/plans/<slug>.md` to confirm it is internally executable.
 
 ## Quality Constraints
 
-- No vague language — "should", "probably", "likely", "maybe", "around line"
-- Every file path verified (or explicitly marked NEW with parent Glob check)
-- Atomic subtasks — one action per subtask
-- No cross-subtask references ("like 1.2 but for /users") — spell out each subtask
-- Subtasks are self-contained — cheap executors don't re-read the epic
-
-## Execution Dispatch
-
-After Build is clicked, `/plan-execute` walks subtasks and dispatches each:
-- **Claude Code:** to the `cheap-executor` agent (Haiku) via the Agent tool
-- **Cursor:** hardware-adaptive — Option A (inline on selected model) or
-  Option B (MCP-proxied via `mcp__mirdan__propose_subtask_diff` using local
-  Gemma 4). Routing is auto-selected via `mcp__mirdan__mirdan_health`.
-
-`/plan-verify` runs as a pre-flight check before execution begins. Pass
-`--skip-verify` to bypass in emergencies.
+- No vague language — "should", "probably", "likely", "maybe", "around line N".
+- Every file path verified (or marked NEW with parent Glob check).
+- Atomic steps — one action per step.
+- Steps are self-contained — restate the one relevant design line inside a step
+  rather than referencing "the design above".

@@ -238,9 +238,7 @@ class TestCheckJsonShape:
         assert data["infra_ok"] is True
         assert data["infra_failures"] == []
 
-    def test_check_json_infra_failure_surfaces(
-        self, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_check_json_infra_failure_surfaces(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Missing-binary path produces an infra_failures entry."""
         data = self._run_and_capture(capsys, "infrastructure", "ok", "ok")
         assert data["all_pass"] is False

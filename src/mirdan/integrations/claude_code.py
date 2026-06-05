@@ -59,7 +59,7 @@ def generate_claude_code_config(
 def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
     """Generate .claude/skills/ SKILL.md files from templates.
 
-    Creates skill directories with SKILL.md files for /code, /debug, /review.
+    Creates skill directories with SKILL.md files for /code, /plan, /plan-review, /plan-verify.
 
     Args:
         project_dir: The project root directory.
@@ -73,7 +73,7 @@ def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
     if templates_pkg is None:
         return generated
 
-    for skill_name in ("code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"):
+    for skill_name in ("code", "plan", "plan-review", "plan-verify"):
         skill_dir = project_dir / ".claude" / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
 
@@ -224,7 +224,7 @@ def export_plugin(output_dir: Path) -> Path:
         "version": _get_version(),
         "author": "mirdan",
         "categories": ["code-quality", "security", "ai-safety"],
-        "skills": ["code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"],
+        "skills": ["code", "plan", "plan-review", "plan-verify"],
         "agents": [
             "quality-gate",
             "security-audit",
@@ -254,7 +254,7 @@ def export_plugin(output_dir: Path) -> Path:
         json.dump(mcp_config, f, indent=2)
 
     # Copy skills
-    for skill_name in ("code", "debug", "review", "plan", "plan-review", "quality", "scan", "gate"):
+    for skill_name in ("code", "plan", "plan-review", "plan-verify"):
         skill_dir = output_dir / "skills" / skill_name
         skill_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -447,9 +447,7 @@ def _write_validate_file_script(claude_dir: Path, mirdan_cmd: str) -> None:
     hooks_dir.mkdir(parents=True, exist_ok=True)
     script_path = hooks_dir / "validate-file.sh"
     extract_path = (
-        "import json,sys; "
-        "d=json.load(sys.stdin); "
-        "print(d.get('tool_input',{}).get('file_path',''))"
+        "import json,sys; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('file_path',''))"
     )
     script_path.write_text(
         f"""#!/bin/bash

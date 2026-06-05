@@ -158,14 +158,14 @@ class TestOverlaySkills:
         output = gen.generate(detected, platform="claude-code")
         assert "/plan" in output
 
-    def test_overlay_has_quality(self) -> None:
+    def test_overlay_has_plan_verify(self) -> None:
         from mirdan.cli.detect import DetectedProject
         from mirdan.integrations.agents_md import AgentsMDGenerator
 
         detected = DetectedProject(primary_language="python")
         gen = AgentsMDGenerator()
         output = gen.generate(detected, platform="claude-code")
-        assert "/quality" in output
+        assert "/plan-verify" in output
 
 
 # ---------------------------------------------------------------------------
@@ -317,10 +317,7 @@ class TestSkillFrontmatter:
         ("skill", "hint"),
         [
             ("code", "Describe what to build"),
-            # /plan's argument-hint changed in 2.1.0 to advertise brief-first default.
-            ("plan", "--brief <path> | --no-brief (exploratory)"),
-            # debug / review / quality retired in 2.1.0 (see test_retired_skills_are_stubs
-            # below). Their argument-hint is intentionally "(deprecated)".
+            ("plan", "<slug> <description>"),
         ],
     )
     def test_skill_has_argument_hint(self, skills_pkg: Any, skill: str, hint: str) -> None:
@@ -331,15 +328,9 @@ class TestSkillFrontmatter:
         "skill",
         ["debug", "review", "quality", "gate", "scan"],
     )
-    def test_retired_skills_are_stubs(self, skills_pkg: Any, skill: str) -> None:
-        """2.1.0 retired skills ship as deprecation stubs with (deprecated) arg hint."""
-        content = (skills_pkg / skill / "SKILL.md").read_text()
-        assert "DEPRECATED" in content, f"{skill} must be a deprecation stub"
-        assert 'argument-hint: "(deprecated)"' in content
-
-    def test_review_is_user_invocable(self, skills_pkg: Any) -> None:
-        content = (skills_pkg / "review" / "SKILL.md").read_text()
-        assert "user-invocable: true" in content
+    def test_retired_skills_are_deleted(self, skills_pkg: Any, skill: str) -> None:
+        """2.2.0 fully deletes the 2.1.0-retired skills."""
+        assert not (skills_pkg / skill).is_dir()
 
 
 # ---------------------------------------------------------------------------

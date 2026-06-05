@@ -107,9 +107,7 @@ class TestFullGeneration:
         assert "PostToolUse" in hooks
         assert "Stop" in hooks
 
-    def test_session_start_not_registered(
-        self, full_generator: HookTemplateGenerator
-    ) -> None:
+    def test_session_start_not_registered(self, full_generator: HookTemplateGenerator) -> None:
         """SessionStart is prompt-only and would gate every session.
 
         Prompt-type hooks are LLM-evaluated as blocking conditions in
@@ -124,30 +122,22 @@ class TestFullGeneration:
         hooks = full_generator.generate()["hooks"]
         assert "SessionStop" in hooks
 
-    def test_subagent_start_not_registered(
-        self, full_generator: HookTemplateGenerator
-    ) -> None:
+    def test_subagent_start_not_registered(self, full_generator: HookTemplateGenerator) -> None:
         """SubagentStart is prompt-only → skipped to avoid gate lockups."""
         hooks = full_generator.generate()["hooks"]
         assert "SubagentStart" not in hooks
 
-    def test_subagent_stop_not_registered(
-        self, full_generator: HookTemplateGenerator
-    ) -> None:
+    def test_subagent_stop_not_registered(self, full_generator: HookTemplateGenerator) -> None:
         """SubagentStop is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
         assert "SubagentStop" not in hooks
 
-    def test_pre_compact_not_registered(
-        self, full_generator: HookTemplateGenerator
-    ) -> None:
+    def test_pre_compact_not_registered(self, full_generator: HookTemplateGenerator) -> None:
         """PreCompact is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
         assert "PreCompact" not in hooks
 
-    def test_notification_not_registered(
-        self, full_generator: HookTemplateGenerator
-    ) -> None:
+    def test_notification_not_registered(self, full_generator: HookTemplateGenerator) -> None:
         """Notification is prompt-only → skipped."""
         hooks = full_generator.generate()["hooks"]
         assert "Notification" not in hooks

@@ -24,3 +24,7 @@ senior_questions:
   - "What is the test pyramid balance? Are tests testing behavior or implementation?"
   - "How fast is the test suite? Can developers run it before every commit?"
   - "What is the mock boundary? Are you testing mocks or real behavior?"
+lld_prompts:
+  - "List the behaviors under test and the one assertion each verifies."
+  - "Name the boundaries you mock vs exercise for real."
+  - "State the edge-case inputs each test covers (empty, null, boundary, error path)."

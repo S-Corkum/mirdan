@@ -39,15 +39,13 @@ from mirdan.core.tidy_first import TidyFirstAnalyzer
 from mirdan.core.vuln_scanner import VulnScanner
 from mirdan.llm.manager import LLMManager
 from mirdan.usecases.enhance_prompt import EnhancePromptUseCase
-from mirdan.usecases.propose_subtask_diff import ProposeSubtaskDiffUseCase
 from mirdan.usecases.quality_standards import GetQualityStandardsUseCase
 from mirdan.usecases.quality_trends import GetQualityTrendsUseCase
 from mirdan.usecases.scan_conventions import ScanConventionsUseCase
 from mirdan.usecases.scan_dependencies import ScanDependenciesUseCase
-from mirdan.usecases.validate_brief import ValidateBriefUseCase
 from mirdan.usecases.validate_code import ValidateCodeUseCase
 from mirdan.usecases.validate_quick import ValidateQuickUseCase
-from mirdan.usecases.verify_plan_against_brief import VerifyPlanAgainstBriefUseCase
+from mirdan.usecases.verify_plan import VerifyPlanUseCase
 
 logger = logging.getLogger(__name__)
 
@@ -273,19 +271,11 @@ class ComponentProvider:
             vuln_scanner=self.vuln_scanner,
         )
 
-    # -- 2.1.0 brief-driven pipeline --------------------------------------
-
-    def create_validate_brief_usecase(self) -> ValidateBriefUseCase:
-        return ValidateBriefUseCase(config=self.config.brief)
-
-    def create_verify_plan_against_brief_usecase(self) -> VerifyPlanAgainstBriefUseCase:
-        return VerifyPlanAgainstBriefUseCase(llm_manager=self.llm_manager)
-
-    def create_propose_subtask_diff_usecase(self) -> ProposeSubtaskDiffUseCase:
-        return ProposeSubtaskDiffUseCase(llm_manager=self.llm_manager)
+    def create_verify_plan_usecase(self) -> VerifyPlanUseCase:
+        return VerifyPlanUseCase()
 
     def get_llm_manager(self) -> LLMManager | None:
-        """Expose the LLM manager for tools that need health introspection."""
+        """Expose the LLM manager for tools that need it."""
         return self.llm_manager
 
     async def close(self) -> None:

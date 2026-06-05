@@ -24,3 +24,7 @@ senior_questions:
   - "Who are the API consumers? How will the API evolve without breaking them?"
   - "What is the versioning and deprecation strategy?"
   - "How are errors communicated? Is the error format consistent and documented?"
+lld_prompts:
+  - "Write the exact endpoint/function signatures: path or name, params with types, return type, status codes."
+  - "Define the request and response schemas — field names and types."
+  - "State the error responses: which inputs fail and exactly what the caller receives."

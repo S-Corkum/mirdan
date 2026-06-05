@@ -2,9 +2,9 @@
 fails the test.
 
 Swaps in a custom httpx transport that inspects every outgoing request and
-raises if the host isn't localhost / 127.0.0.1. Runs the pipeline's MCP
-tools through it. If anything tries to reach the internet, the test fails
-loudly with the attempted URL.
+raises if the host isn't localhost / 127.0.0.1. Runs mirdan's local-only tools
+through it. If anything tries to reach the internet, the test fails loudly with
+the attempted URL.
 
 This is the runtime-side complement to test_no_external_apis.py's
 schema-side rejection.
@@ -17,9 +17,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from mirdan.usecases.propose_subtask_diff import ProposeSubtaskDiffUseCase
-from mirdan.usecases.validate_brief import ValidateBriefUseCase
-from mirdan.usecases.verify_plan_against_brief import VerifyPlanAgainstBriefUseCase
+from mirdan.usecases.verify_plan import VerifyPlanUseCase
 
 
 class ExternalCallDetectedError(AssertionError):
@@ -35,22 +33,13 @@ class LocalhostOnlyTransport(httpx.AsyncBaseTransport):
     def __init__(self) -> None:
         self.seen_urls: list[str] = []
 
-    async def handle_async_request(
-        self, request: httpx.Request
-    ) -> httpx.Response:
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         self.seen_urls.append(url)
         host = request.url.host or ""
         if host not in ("localhost", "127.0.0.1", "::1", ""):
-            raise ExternalCallDetectedError(
-                f"External call attempted: {url} (host={host!r})"
-            )
-        # Return a stub 200 so code that tests for failure still works.
-        return httpx.Response(
-            200,
-            content=b'{"ok": true}',
-            request=request,
-        )
+            raise ExternalCallDetectedError(f"External call attempted: {url} (host={host!r})")
+        return httpx.Response(200, content=b'{"ok": true}', request=request)
 
 
 class LocalhostOnlySyncTransport(httpx.BaseTransport):
@@ -62,9 +51,7 @@ class LocalhostOnlySyncTransport(httpx.BaseTransport):
         self.seen_urls.append(url)
         host = request.url.host or ""
         if host not in ("localhost", "127.0.0.1", "::1", ""):
-            raise ExternalCallDetectedError(
-                f"External call attempted: {url} (host={host!r})"
-            )
+            raise ExternalCallDetectedError(f"External call attempted: {url} (host={host!r})")
         return httpx.Response(200, content=b'{"ok": true}', request=request)
 
 
@@ -100,116 +87,44 @@ def blocking_transport(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-_MIN_BRIEF = """# Brief
-
-## Outcome
-x
-
-## Users & Scenarios
-y
-
-## Business Acceptance Criteria
-- [ ] a
-- [ ] b
-- [ ] c
-
-## Constraints
-- x
-
-## Out of Scope
-- y
-"""
-
-
-_MIN_PLAN = """---
-brief: /tmp/b.md
----
-
-# Plan
+_FLAT_PLAN = """# Plan
 
 ## Research Notes
-ok
+### Files Verified
+- ok
 
-## Epic Layer
-e
+## Plan Steps
 
-## Story Layer
-
-### Story 1 — t
-- **As** u
-- **I want** x
-- **So that** y
-
-**Acceptance Criteria:**
-- [ ] a
-
-#### Subtasks
-##### 1.1 — act
-**File:** x
+### Step 1: act
+**File:** `README.md`
 **Action:** Edit
 **Details:** d
-**Depends on:** —
+**Depends On:** —
 **Verify:** v
 **Grounding:** g
 """
 
 
 @pytest.fixture
-def brief_path(tmp_path: Path) -> Path:
-    p = tmp_path / "b.md"
-    p.write_text(_MIN_BRIEF)
-    return p
-
-
-@pytest.fixture
 def plan_path(tmp_path: Path) -> Path:
     p = tmp_path / "p.md"
-    p.write_text(_MIN_PLAN)
+    p.write_text(_FLAT_PLAN)
     return p
 
 
 class TestNetworkIsolation:
-    """Each hot-path usecase must run with no non-localhost HTTP traffic."""
+    """mirdan's plan verification must run with no non-localhost HTTP traffic."""
 
-    @pytest.mark.asyncio
-    async def test_validate_brief_makes_no_external_calls(
-        self, blocking_transport, brief_path
-    ):
-        await ValidateBriefUseCase().execute(str(brief_path))
-        # If it attempted an external host, LocalhostOnlyTransport would have
-        # raised. We additionally assert no URLs were seen at all — the
-        # validator shouldn't talk to anything.
-        assert blocking_transport["async"].seen_urls == []
-        assert blocking_transport["sync"].seen_urls == []
-
-    @pytest.mark.asyncio
-    async def test_verify_plan_mechanical_makes_no_external_calls(
-        self, blocking_transport, brief_path, plan_path
-    ):
-        # llm_manager=None → mechanical path only, no LLM backend touched.
-        await VerifyPlanAgainstBriefUseCase(llm_manager=None).execute(
-            str(plan_path), str(brief_path)
-        )
-        assert blocking_transport["async"].seen_urls == []
-        assert blocking_transport["sync"].seen_urls == []
-
-    @pytest.mark.asyncio
-    async def test_propose_subtask_diff_no_llm_makes_no_external_calls(
-        self, blocking_transport
-    ):
-        # Fail-closed path: LLM unavailable → synchronous halt, no HTTP.
-        result = await ProposeSubtaskDiffUseCase(llm_manager=None).execute(
-            subtask_yaml="File: x.py\nAction: Edit\n",
-            file_context={"x.py": "# content\n"},
-        )
-        assert result["halted"] is True
+    def test_verify_plan_makes_no_external_calls(self, blocking_transport, plan_path):
+        # verify_plan is purely mechanical — it must touch no network at all.
+        VerifyPlanUseCase(project_root=plan_path.parent).execute(str(plan_path))
         assert blocking_transport["async"].seen_urls == []
         assert blocking_transport["sync"].seen_urls == []
 
     def test_external_host_would_be_blocked(self, blocking_transport):
         """Self-test: confirm the transport actually blocks external hosts.
 
-        If this fails, the isolation tests above are giving false assurance.
+        If this fails, the isolation test above is giving false assurance.
         """
         import httpx as _httpx
 

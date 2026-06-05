@@ -35,22 +35,18 @@ def detected() -> DetectedProject:
 class TestGenerateSkills:
     """Tests for skill file generation."""
 
-    def test_creates_seven_skills(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_creates_four_skills(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
-        assert len(paths) == 8
+        assert len(paths) == 4
 
     def test_skill_names(self, tmp_path: Path, detected: DetectedProject) -> None:
         paths = generate_skills(tmp_path, detected)
         names = {p.parent.name for p in paths}
         assert names == {
             "code",
-            "debug",
-            "review",
             "plan",
             "plan-review",
-            "quality",
-            "scan",
-            "gate",
+            "plan-verify",
         }
 
     def test_skills_are_valid_markdown(self, tmp_path: Path, detected: DetectedProject) -> None:
@@ -204,7 +200,7 @@ class TestExportPlugin:
         output = tmp_path / "plugin-out"
         export_plugin(output)
 
-        for skill in ("code", "debug", "review"):
+        for skill in ("code", "plan", "plan-review", "plan-verify"):
             assert (output / "skills" / skill / "SKILL.md").exists()
 
     def test_plugin_has_agents(self, tmp_path: Path) -> None:
@@ -266,6 +262,6 @@ class TestSetupClaudeCodeIntegration:
         assert "mirdan" in data["mcpServers"]
 
         # Skills should still be valid
-        for skill in ("code", "debug", "review"):
+        for skill in ("code", "plan", "plan-review", "plan-verify"):
             content = (tmp_path / ".claude" / "skills" / skill / "SKILL.md").read_text()
             assert content.startswith("---")

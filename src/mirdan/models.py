@@ -35,8 +35,6 @@ class TaskType(Enum):
     DOCUMENTATION = "documentation"
     TEST = "test"
     PLANNING = "planning"
-    BRIEF_VALIDATION = "brief_validation"
-    PLAN_VERIFICATION = "plan_verification"
     UNKNOWN = "unknown"
 
 
@@ -177,22 +175,6 @@ class PlanQualityScore:
     issues: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
     ready_for_cheap_model: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for API response."""
-        return asdict(self)
-
-
-@dataclass
-class BriefQualityScore:
-    """Quality score for a brief, per brief-driven pipeline rubric."""
-
-    passed: bool
-    score: float  # 0.0-1.0
-    gaps: list[dict[str, Any]] = field(default_factory=list)
-    would_pass_after_fixes: bool = False
-    missing_required: list[str] = field(default_factory=list)
-    thin_recommended: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API response."""
@@ -891,12 +873,16 @@ class DecisionGuidance:
     domain: str
     approaches: list[DecisionApproach] = field(default_factory=list)
     senior_questions: list[str] = field(default_factory=list)
+    # Low-level-design prompts: bridge the architecture-selection trade-offs
+    # above into concrete LLD output (signatures, error types, data shapes).
+    lld_prompts: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "domain": self.domain,
             "approaches": [a.to_dict() for a in self.approaches],
             "senior_questions": self.senior_questions,
+            "lld_prompts": self.lld_prompts,
         }
 
 

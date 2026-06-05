@@ -1,48 +1,41 @@
-# /plan — Brief-Driven Three-Layer Plan
+# /plan — Flat Grounded Plan with Low-Level Design
 
-Generate an implementation plan structured as epic → stories → subtasks,
-constrained by a brief. Plans output to `docs/plans/<slug>.md` with the brief
-referenced in frontmatter.
+Generate an implementation plan as **Research Notes → Low-Level Design → atomic
+grounded steps**. Output to `docs/plans/<slug>.md`. No brief required.
 
 ## Usage
 
-- `/plan --brief <path>` (required by default)
-- `/plan --no-brief` (exploratory; legacy flat template; NOT eligible for
-  `/plan-execute` or `/plan-verify`)
+`/plan <slug> "<what to build>"`
 
 ## Workflow
 
-1. **Brief-first gate**: without `--brief` and without `--no-brief`, emit:
-   `Brief-first is the default. Run /brief <slug> first, or pass --no-brief
-   for exploratory plans.` and exit.
-2. With `--brief <path>`: call `mcp__mirdan__validate_brief(brief_path)`.
-   If `passed=false`, display gaps and exit.
-3. With `--no-brief`: warn and proceed with legacy flat flow.
-4. Read the brief. Extract Outcome, Constraints, ACs, Out-of-Scope, Prior Art.
-5. Call `mcp__mirdan__enhance_prompt(prompt=<derived task>,
-   task_type="planning", brief_path=<path>)` — brief constraints merge into
-   `quality_requirements` automatically.
-6. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
+1. Call `mcp__mirdan__enhance_prompt(prompt=<description>, task_type="planning")`.
+   Use `detected_frameworks`, `touches_security`, and any `decision_guidance`
+   (design domains) to shape the design.
+2. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
    architecture clusters and past decisions.
-7. Read every file referenced in the brief's Prior Art. Glob directory
-   structure for cited paths.
-8. Draft the plan using `<mirdan-install>/templates/plan-three-layer.md`:
-   Research Notes → Epic Layer → Story Layer (INVEST) → Subtasks (6 grounding
-   fields each, all mandatory).
-9. Self-validate: run `mcp__mirdan__validate_code_quality` on any embedded
-   code snippets. Glob-verify every cited file path.
-10. Write to `docs/plans/<slug>.md` with frontmatter
-    `brief: docs/briefs/<slug>.md` — slug derived from the brief filename.
-11. Emit: `Plan saved to docs/plans/<slug>.md. Run /plan-verify
-    docs/plans/<slug>.md to confirm coverage against the brief.`
+3. Research before any step: Glob the structure, Read every file you'll modify,
+   Read the dependency manifest and similar implementations, context7 every
+   external API. You cannot write a step for a file you haven't Read.
+4. Write **Research Notes** — verified facts with tool citations.
+5. Write the **Low-Level Design** (schema below). Include a subsection ONLY if it
+   applies — delete inapplicable headings, do not write "N/A".
+6. Write atomic `### Step N` steps with **File / Action / Details / Depends On /
+   Verify / Grounding**.
+7. Self-validate: `mcp__mirdan__validate_code_quality` on embedded snippets;
+   Glob-verify every cited path.
+8. Write to `docs/plans/<slug>.md`.
+9. Emit: `Plan saved to docs/plans/<slug>.md. Run /plan-verify docs/plans/<slug>.md to confirm it is internally executable.`
 
-## Subtask self-containment
+## Low-Level Design schema
 
-Every subtask must be executable without reading its parent story or the
-epic. Compress the "why" from the parent story's AC into a one-line context
-note inside each subtask when needed.
+`## Low-Level Design` section. **Mandatory:** Interfaces & Signatures (each tagged
+[NEW]/[EXISTING]; [EXISTING] cites `file:line`, [NEW] created by a step), Error
+Taxonomy, Design Decisions (one per surfaced design domain + rationale).
+**Applicability-gated:** Data Model (only if a persisted/serialized shape changes),
+Module Boundaries (only if >1 module touched).
 
 ## Vague-language ban
 
 No "should", "probably", "likely", "maybe", "around line N", "somewhere in",
-"I think", "I believe", "assume", "might", "possibly". Verify and state facts.
+"I think", "assume", "might", "possibly". Verify and state facts.

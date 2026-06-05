@@ -1499,7 +1499,7 @@ class TestTaskGuidance:
         from mirdan.core.prompt_composer import PromptComposer
 
         assert TaskType.GENERATION in PromptComposer.TASK_GUIDANCE
-        assert "Implementation Approach" in PromptComposer.TASK_GUIDANCE[TaskType.GENERATION]
+        assert "State the Design" in PromptComposer.TASK_GUIDANCE[TaskType.GENERATION]
 
     def test_refactor_guidance_present(self) -> None:
         """REFACTOR task type has guidance text."""

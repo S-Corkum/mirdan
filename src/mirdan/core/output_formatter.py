@@ -231,6 +231,16 @@ class OutputFormatter:
         }
         if "session_id" in data:
             result["session_id"] = data["session_id"]
+        # Even at minimal tier, carry a compressed design nudge when design
+        # domains were detected — a cheap model writing code needs the low-level
+        # design scaffolding most, and this costs only a couple of lines.
+        decisions = data.get("decision_guidance")
+        if decisions:
+            result["design_decisions"] = [d.get("domain", "") for d in decisions]
+            result["design_directive"] = (
+                "Before coding, state: signature(s) (name/params/types/return), "
+                "error cases, the integration point, and any new data shape."
+            )
         return result
 
     def _compact_validation(self, data: dict[str, Any]) -> dict[str, Any]:

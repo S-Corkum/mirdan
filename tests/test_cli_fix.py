@@ -221,18 +221,14 @@ class TestFixInputEOF:
                 return (code, [_Fix()])
 
         with (
-            patch(
-                "mirdan.cli.fix_command.CodeValidator"
-            ) as mock_validator_cls,
+            patch("mirdan.cli.fix_command.CodeValidator") as mock_validator_cls,
             patch(
                 "mirdan.cli.fix_command.AutoFixer",
                 return_value=_AutoFixer(),
             ),
             patch("builtins.input", side_effect=EOFError()),
         ):
-            mock_validator_cls.return_value.validate.return_value = (
-                _ValidationResult()
-            )
+            mock_validator_cls.return_value.validate.return_value = _ValidationResult()
             _fix_file(str(source), dry_run=False, auto_apply=False)
 
         out = capsys.readouterr().out

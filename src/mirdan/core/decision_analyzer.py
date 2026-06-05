@@ -100,4 +100,5 @@ class DecisionAnalyzer:
             domain=template.get("name", "unknown"),
             approaches=approaches,
             senior_questions=template.get("senior_questions", []),
+            lld_prompts=template.get("lld_prompts", []),
         )

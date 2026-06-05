@@ -126,16 +126,12 @@ class TestUserPromptSubmit:
 
     def test_present_in_standard_when_llm_enabled(self) -> None:
         generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(
-            HookStringency.STANDARD, llm_enabled=True
-        )
+        result = generator.generate_claude_code_hooks(HookStringency.STANDARD, llm_enabled=True)
         assert "UserPromptSubmit" in result["hooks"]
 
     def test_command_only_when_llm_enabled(self) -> None:
         generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(
-            HookStringency.STANDARD, llm_enabled=True
-        )
+        result = generator.generate_claude_code_hooks(HookStringency.STANDARD, llm_enabled=True)
         ups = result["hooks"]["UserPromptSubmit"]
         hook_types = [h["type"] for h in ups[0]["hooks"]]
         assert hook_types == ["command"]
@@ -216,19 +212,13 @@ class TestModernizedSkills:
         content = (skills_dir / "plan" / "SKILL.md").read_text()
         assert ".mirdan/config.yaml" in content
 
-    def test_retired_skills_are_deprecation_stubs(self, skills_dir: Path) -> None:
-        """2.1.0 retired /debug /review /quality /gate /scan as deprecation stubs.
-
-        Stubs are intentionally minimal — no context fork, no tool references,
-        no workflow body. They print a redirect and exit.
-        """
+    def test_retired_skills_are_absent(self, skills_dir: Path) -> None:
+        """2.2.0 fully deletes the 2.1.0-retired /debug /review /quality /gate /scan."""
         for skill in ("debug", "review", "quality", "gate", "scan"):
-            content = (skills_dir / skill / "SKILL.md").read_text()
-            assert "DEPRECATED" in content, f"{skill} must be a deprecation stub"
+            assert not (skills_dir / skill).exists(), f"{skill} skill must be deleted in 2.2.0"
 
     def test_all_skills_exist(self, skills_dir: Path) -> None:
-        # Retired skills still have files (as stubs) through 2.1.x.
-        for skill in ("code", "debug", "plan", "quality", "review"):
+        for skill in ("code", "plan", "plan-review", "plan-verify"):
             assert (skills_dir / skill / "SKILL.md").exists()
 
 
@@ -260,8 +250,6 @@ class TestSpecializedAgents:
             "convention-check.md",
             "test-quality.md",
             "plan-reviewer.md",
-            # 2.1.0 brief-driven pipeline: cheap executor for /plan-execute dispatch.
-            "cheap-executor.md",
         }
         actual = {p.name for p in agents_dir.iterdir() if p.suffix == ".md"}
         assert expected == actual
@@ -294,10 +282,8 @@ class TestSpecializedAgents:
         assert "memory:" not in content
 
     def test_agents_reference_current_tools(self, agents_dir: Path) -> None:
-        # cheap-executor (2.1.0) intentionally does NOT call validate_code_quality —
-        # it executes a pre-grounded subtask and halts on mismatch; validation is
-        # performed by /plan-execute after the agent returns, not by the agent itself.
-        agents_without_validate = {"cheap-executor.md"}
+        # All current agents reference validate_code_quality.
+        agents_without_validate: set[str] = set()
         for agent_file in agents_dir.iterdir():
             if agent_file.suffix != ".md":
                 continue
@@ -338,7 +324,7 @@ class TestPluginExport:
         from mirdan.integrations.claude_code import export_plugin
 
         export_plugin(tmp_path)
-        for skill in ("code", "debug", "plan", "quality", "review"):
+        for skill in ("code", "plan", "plan-review", "plan-verify"):
             assert (tmp_path / "skills" / skill / "SKILL.md").exists()
 
     def test_export_creates_agents(self, tmp_path: Path) -> None:

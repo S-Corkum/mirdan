@@ -114,9 +114,9 @@ jobs:
         run: uv pip install pip-audit
 
       - name: Run dependency audit
-        # CVE-2025-69872: diskcache pickle deserialization (no fix available).
-        # Transitive dep via fastmcp 2.x -> py-key-value-aio[disk].
-        # Fixed in fastmcp 3.0.0; remove --ignore-vuln after upgrading.
+        # CVE-2025-69872: diskcache pickle deserialization (no upstream fix).
+        # Transitive dep of the `llamacpp` extra: llama-cpp-python -> diskcache.
+        # Only exploitable via a malicious local cache file; mirdan owns its cache dir.
         run: uv run pip-audit --ignore-vuln CVE-2025-69872
 
   build:

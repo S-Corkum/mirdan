@@ -17,18 +17,18 @@ allowed-tools: >-
 
 **Default plan verification is `/plan-verify` (mechanical, local Gemma 4, fast).**
 Use this skill only when model-judgment review is required — auth, payments,
-data migration, regulated code, or any plan where emergent cross-story risks
-matter more than coverage accounting.
+data migration, regulated code, or any plan where emergent cross-step risks
+matter more than mechanical checks.
 
 `--stakes high` is the required flag for routine use; it spawns the
 `plan-reviewer` subagent which enforces the shared 5-section rubric at
 `<mirdan-install>/templates/plan-review-rubric.md`.
 
 Review output sections (mandatory, in this order):
-1. `## unmapped_acs`
-2. `## constraint_violations`
-3. `## scope_violations`
-4. `## grounding_gaps`
+1. `## design_gaps`
+2. `## grounding_gaps`
+3. `## completeness_gaps`
+4. `## safety`
 5. `## risks`
 
 Followed by `**Verdict:** pass | fail | revise`.

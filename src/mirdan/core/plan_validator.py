@@ -37,6 +37,12 @@ class PlanValidator:
         "Plan Steps": r"###?\s*Step\s+\d+:",
     }
 
+    # Recommended (soft) sections — absence warns via recommendations, never fails
+    # (keeps historical flat plans valid).
+    RECOMMENDED_SECTIONS: dict[str, str] = {
+        "Low-Level Design": r"##?\s*Low-?Level\s+Design",
+    }
+
     # Required fields per step
     STEP_REQUIRED_FIELDS: list[tuple[str, str]] = [
         (r"\*\*File:\*\*", "Step missing 'File:' field"),
@@ -46,7 +52,7 @@ class PlanValidator:
         (r"\*\*Grounding:\*\*", "Step missing 'Grounding:' field"),
     ]
 
-    # Three-layer template required sections (2.1.0 brief-driven pipeline)
+    # Three-layer template required sections (legacy; retained for config back-compat)
     THREE_LAYER_REQUIRED_SECTIONS: dict[str, str] = {
         "Research Notes": r"##?\s*Research\s+Notes",
         "Epic Layer": r"##?\s*Epic\s+Layer",
@@ -98,7 +104,7 @@ class PlanValidator:
             plan_text: The plan text to validate
             target_model: Model that will implement (affects strictness)
             template_mode: "flat" (legacy, default for backwards compat) or
-                "three_layer" (2.1.0 brief-driven pipeline — epic/stories/subtasks)
+                "three_layer" (legacy — epic/stories/subtasks; no longer produced by /plan)
 
         Returns:
             PlanQualityScore with scores and issues
@@ -122,6 +128,11 @@ class PlanValidator:
             if not re.search(pattern, plan_text, re.IGNORECASE):
                 missing_sections += 1
                 issues.append(f"Missing required section: {section_name}")
+
+        # Recommended (soft) sections — warn via recommendations, never fail.
+        for section_name, pattern in self.RECOMMENDED_SECTIONS.items():
+            if not re.search(pattern, plan_text, re.IGNORECASE):
+                recommendations.append(f"Add a '{section_name}' section (recommended)")
 
         # Extract and validate each step
         steps = self._extract_steps(plan_text)

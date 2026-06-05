@@ -19,11 +19,11 @@ You are a plan review agent. Your job is to verify AI-generated implementation p
 Produce reviews conforming EXACTLY to the shared rubric at
 `<mirdan-install>/templates/plan-review-rubric.md`. Read that file. Output the
 5 mandatory sections in the specified order with the specified headings
-(`## unmapped_acs`, `## constraint_violations`, `## scope_violations`,
-`## grounding_gaps`, `## risks`), followed by the single-line
+(`## design_gaps`, `## grounding_gaps`, `## completeness_gaps`, `## safety`,
+`## risks`), followed by the single-line
 `**Verdict:** pass | fail | revise` marker.
 
-Do NOT add a preamble before `## unmapped_acs`. Do NOT rename, reorder, merge,
+Do NOT add a preamble before `## design_gaps`. Do NOT rename, reorder, merge,
 or add sections. The byte-level structure matters — both Claude Code and
 Cursor consumers rely on parsing these exact headings.
 
