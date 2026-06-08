@@ -274,3 +274,24 @@ def func_{i}() -> None:
         result = extractor.scan(tmp_path, language="python")
         tc_entries = [e for e in result.conventions if "type-checking" in e.tags]
         assert len(tc_entries) >= 1
+
+
+def test_scan_survives_oserror_during_rglob(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extractor: ConventionExtractor
+) -> None:
+    """rglob raising mid-walk (e.g. a synthetic firmlink subtree) must not crash
+    scan(); it degrades to the files collected so far. Regression for 2.2.1.
+    """
+    import errno
+
+    real_file = tmp_path / "real.py"
+    real_file.write_text("def f(x: int) -> int:\n    return x\n")
+
+    def fake_rglob(self: Path, pattern: str):
+        yield real_file
+        raise OSError(errno.EINVAL, "Invalid argument")
+
+    monkeypatch.setattr(Path, "rglob", fake_rglob)
+
+    result = extractor.scan(tmp_path, language="python")  # must not raise
+    assert isinstance(result, ScanResult)

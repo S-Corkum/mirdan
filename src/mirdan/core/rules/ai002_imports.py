@@ -696,13 +696,21 @@ class AI002ImportRule(BaseRule):
         """Find local package names (src layout or flat layout)."""
         packages: set[str] = set()
         src_dir = project_dir / "src"
-        search_dirs = [src_dir] if src_dir.is_dir() else [project_dir]
+        try:
+            search_dirs = [src_dir] if src_dir.is_dir() else [project_dir]
+        except OSError:
+            return packages
         for d in search_dirs:
-            if not d.is_dir():
+            try:
+                children = list(d.iterdir())
+            except OSError:
                 continue
-            for child in d.iterdir():
-                if child.is_dir() and (child / "__init__.py").exists():
-                    packages.add(child.name)
+            for child in children:
+                try:
+                    if child.is_dir() and (child / "__init__.py").exists():
+                        packages.add(child.name)
+                except OSError:
+                    continue
         return packages
 
     def _parse_package_json_deps(self, path: Path) -> set[str]:

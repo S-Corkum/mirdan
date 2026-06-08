@@ -61,6 +61,7 @@ class ValidateCodeUseCase:
         smart_validator: Any = None,
         training_collector: Any = None,
         context_provider: Any = None,
+        project_dir: Path | None = None,
     ) -> None:
         self._code_validator = code_validator
         self._session_manager = session_manager
@@ -82,6 +83,7 @@ class ValidateCodeUseCase:
         self._smart_validator = smart_validator
         self._training_collector = training_collector
         self._context_provider = context_provider
+        self._project_dir = project_dir
 
     async def execute(
         self,
@@ -425,14 +427,18 @@ class ValidateCodeUseCase:
 
         # Attempt full-file validation when files are resolvable on disk.
         # Full files enable architecture checks and reduce false positives.
-        project_dir = Path.cwd()
+        project_dir = self._project_dir or Path.cwd()
         file_scope_rules = {"ARCH002", "TSARCH002"}
         full_file_violations: list[Any] = []
         fallback_files: list[str] = []
 
         for diff_file in parsed.files_changed:
             full_path = project_dir / diff_file
-            if full_path.exists():
+            try:
+                exists = full_path.exists()
+            except OSError:
+                exists = False
+            if exists:
                 try:
                     file_code = full_path.read_text(encoding="utf-8")
                     changed_lines = set(parsed.get_changed_line_numbers(diff_file))

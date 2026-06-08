@@ -183,7 +183,14 @@ class ConventionExtractor:
 
         files: list[Path] = []
         for ext in extensions:
-            for f in directory.rglob(f"*{ext}"):
+            walker = directory.rglob(f"*{ext}")
+            while True:
+                try:
+                    f = next(walker)
+                except StopIteration:
+                    break
+                except OSError:
+                    break  # hostile subtree (e.g. synthetic firmlink): stop this extension scan
                 if any(part in _SKIP_DIRS for part in f.parts):
                     continue
                 files.append(f)

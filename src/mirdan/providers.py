@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +59,37 @@ def _create_violation_explainer() -> Any:
     return ViolationExplainer()
 
 
+def _resolve_project_dir(config_dir: Path | None) -> Path:
+    """Resolve the project root for path-rooted components.
+
+    Precedence:
+      1. MIRDAN_PROJECT_DIR / CLAUDE_PROJECT_DIR env override (an existing, non-root dir)
+      2. The directory that supplied the .mirdan config (walked up from cwd)
+      3. The current working directory — unless it is the filesystem root
+      4. The user's home directory — a safe, writable fallback for launch contexts
+         (Claude Desktop, global config) whose cwd is '/'; falls back to the system
+         temp dir if the home directory cannot be determined.
+    """
+    for env_var in ("MIRDAN_PROJECT_DIR", "CLAUDE_PROJECT_DIR"):
+        raw = os.environ.get(env_var)
+        if raw:
+            candidate = Path(raw).expanduser()
+            try:
+                if candidate.is_dir() and candidate != candidate.parent:
+                    return candidate.resolve()
+            except OSError:
+                pass
+    if config_dir is not None and config_dir != config_dir.parent:
+        return config_dir
+    cwd = Path.cwd()
+    if cwd != cwd.parent:  # Path('/').parent == Path('/')
+        return cwd
+    try:
+        return Path.home()
+    except RuntimeError:
+        return Path(tempfile.gettempdir())
+
+
 class ComponentProvider:
     """Structured component container with use-case factories.
 
@@ -65,8 +98,9 @@ class ComponentProvider:
     """
 
     def __init__(self, config: MirdanConfig | None = None) -> None:
+        config_dir: Path | None = None
         if config is None:
-            config = MirdanConfig.find_config()
+            config, config_dir = MirdanConfig.find_config_with_path()
 
         if config.quality_profile and config.quality_profile != "default":
             from mirdan.core.quality_profiles import apply_profile, get_profile
@@ -83,7 +117,7 @@ class ComponentProvider:
                     "Unknown quality profile '%s', using default", config.quality_profile
                 )
 
-        project_dir = Path.cwd()
+        project_dir = _resolve_project_dir(config_dir)
 
         workspace_resolver = None
         if config.is_workspace:
@@ -149,7 +183,7 @@ class ComponentProvider:
             minimal_threshold=minimal_threshold,
             micro_threshold=micro_threshold,
         )
-        self.quality_persistence = QualityPersistence()
+        self.quality_persistence = QualityPersistence(base_dir=project_dir)
         self.knowledge_producer = KnowledgeProducer()
         self.linter_runner: LinterRunner = create_linter_runner(config)
         self.session_tracker = SessionTracker()
@@ -163,6 +197,7 @@ class ComponentProvider:
         self.ceremony_advisor = CeremonyAdvisor(config.ceremony)
         self.active_orchestrator = ToolExecutor(context_aggregator.registry)
         self.config = config
+        self.project_dir = project_dir
         self.workspace_resolver = workspace_resolver
         self.llm_manager = LLMManager.create_if_enabled(config.llm)
 
@@ -247,6 +282,7 @@ class ComponentProvider:
             smart_validator=self.smart_validator,
             training_collector=self.training_collector,
             context_provider=self.context_provider,
+            project_dir=self.project_dir,
         )
 
     def create_validate_quick_usecase(self) -> ValidateQuickUseCase:

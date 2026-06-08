@@ -995,3 +995,35 @@ class TestSEC014VulnerableDependency:
         violations = checker.check_quick(code, "python")
         sec014 = [v for v in violations if v.id == "SEC014"]
         assert len(sec014) == 1
+
+
+def test_find_local_packages_survives_oserror_on_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A child whose ``__init__.py`` probe raises OSError (e.g. a macOS synthetic
+    firmlink like ``/.resolve`` raising EINVAL) must not crash local-package
+    discovery or AIQualityChecker construction. Regression for the 2.2.1 boot crash.
+    """
+    import errno
+
+    from mirdan.core.rules.ai002_imports import AI002ImportRule
+
+    good = tmp_path / "src" / "good"
+    good.mkdir(parents=True)
+    (good / "__init__.py").touch()
+    (tmp_path / "src" / "bad").mkdir()  # sibling whose __init__.py probe will raise
+
+    real_exists = Path.exists
+
+    def fake_exists(self: Path) -> bool:
+        if self.name == "__init__.py" and self.parent.name == "bad":
+            raise OSError(errno.EINVAL, "Invalid argument")
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    result = AI002ImportRule._find_local_packages(tmp_path)  # must not raise
+    assert "good" in result
+    assert "bad" not in result
+    # Full construction path (the original crash site) must not raise either.
+    AIQualityChecker(project_dir=tmp_path)

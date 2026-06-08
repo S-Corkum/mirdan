@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-06-08
+
+### Fixed
+
+- MCP server boot crash under global / Claude Desktop launches whose working directory
+  is the filesystem root `/`. `project_dir` now resolves via `MIRDAN_PROJECT_DIR` /
+  `CLAUDE_PROJECT_DIR` → the directory supplying `.mirdan` config → cwd → home, and never
+  the filesystem root.
+- Hardened filesystem walks (`AI002` local-package discovery, convention scanning) against
+  `OSError` (e.g. macOS synthetic firmlinks raising `EINVAL`, unreadable dirs raising `EACCES`).
+- Routed `QualityPersistence` history and diff-mode validation through the resolved project
+  directory instead of `Path.cwd()`.
+
 ## [2.2.0] - 2026-06-04
 
 Reverses the 2.1.0 brief-driven direction. The brief was a business-ceremony
