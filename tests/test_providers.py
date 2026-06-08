@@ -65,18 +65,14 @@ class TestResolveProjectDir:
         monkeypatch.setattr(Path, "cwd", lambda: tmp_path)
         assert _resolve_project_dir(None) == tmp_path
 
-    def test_root_cwd_falls_back_to_home_not_root(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_root_cwd_falls_back_to_home_not_root(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _clear_env(monkeypatch)
         monkeypatch.setattr(Path, "cwd", lambda: Path("/"))
         result = _resolve_project_dir(None)
         assert result != Path("/")
         assert result == Path.home()
 
-    def test_env_var_set_to_root_is_rejected(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_env_var_set_to_root_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _clear_env(monkeypatch)
         monkeypatch.setenv("MIRDAN_PROJECT_DIR", "/")
         monkeypatch.setattr(Path, "cwd", lambda: Path("/"))
