@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import statistics
 import subprocess
 import sys
@@ -38,6 +39,10 @@ _HAIKU_OUTPUT_USD_PER_MTOK = 5.0
 
 # Rough char→token ratio for markdown (empirical; varies by tokenizer)
 _CHARS_PER_TOKEN = 4
+
+# Resolve git's absolute path once (avoids the partial-path S607); fall back to a
+# PATH lookup if git is absent — callers handle the resulting FileNotFoundError.
+_GIT = shutil.which("git") or "git"
 
 
 def _chars_to_tokens(chars: int) -> int:
@@ -62,8 +67,8 @@ def _plan_creation_usd(tokens: int) -> float:
 def _plan_execution_tokens(slug: str, repo_root: Path) -> int | None:
     """Rough proxy: cumulative diff size of commits touching ``slug`` files."""
     try:
-        result = subprocess.run(
-            ["git", "-C", str(repo_root), "log", "--oneline", "--all", "--grep", slug],
+        result = subprocess.run(  # noqa: S603  # trusted: fixed git subcommand, no shell, hardcoded args
+            [_GIT, "-C", str(repo_root), "log", "--oneline", "--all", "--grep", slug],
             capture_output=True,
             text=True,
             check=False,
@@ -76,8 +81,8 @@ def _plan_execution_tokens(slug: str, repo_root: Path) -> int | None:
         return None
     total_chars = 0
     for sha in commits[:5]:
-        diff = subprocess.run(
-            ["git", "-C", str(repo_root), "show", "--stat", sha],
+        diff = subprocess.run(  # noqa: S603  # trusted: fixed git subcommand, no shell, hardcoded args
+            [_GIT, "-C", str(repo_root), "show", "--stat", sha],
             capture_output=True,
             text=True,
             check=False,

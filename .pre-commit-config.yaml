@@ -3,7 +3,7 @@
 # Catches ruff lint + format issues locally before they reach CI. Hooks run the
 # project's own ruff via `uv run`, so the version always matches CI — no drift
 # between a passing pre-commit and a failing CI format check. Scoped to the same
-# paths CI lints (`src/mirdan` + `tests`) so local and CI verdicts agree.
+# paths CI lints (`src/mirdan` + `tests` + `scripts`) so local and CI verdicts agree.
 #
 # One-time setup:
 #   uv tool install pre-commit   # or: pipx install pre-commit
@@ -16,12 +16,12 @@ repos:
         entry: uv run ruff format
         language: system
         types_or: [python, pyi]
-        files: ^(src/mirdan|tests)/
+        files: ^(src/mirdan|tests|scripts)/
         require_serial: true
       - id: ruff-check
         name: ruff check
         entry: uv run ruff check --fix
         language: system
         types_or: [python, pyi]
-        files: ^(src/mirdan|tests)/
+        files: ^(src/mirdan|tests|scripts)/
         require_serial: true
