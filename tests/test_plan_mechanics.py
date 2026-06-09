@@ -68,7 +68,9 @@ def test_capable_edit_without_anchor_exempt() -> None:
 
 
 def test_empty_anchor_flagged() -> None:
-    body = "**File:** `x.py`\n**Action:** Edit\n**Details:** d\n```anchor\n```\n```replace\ny\n```\n"
+    body = (
+        "**File:** `x.py`\n**Action:** Edit\n**Details:** d\n```anchor\n```\n```replace\ny\n```\n"
+    )
     out = pm.check_edit_anchors([("1", body)])
     assert len(out) == 1
     assert "empty" in out[0]["issue"]
@@ -129,7 +131,9 @@ def test_atomicity_ignores_and_then_inside_anchor() -> None:
 
 
 def test_atomicity_capable_exempt() -> None:
-    body = "**File:** `a.py`\n**Action:** Edit  **[target: capable]**\n**Details:** add x and then y\n"
+    body = (
+        "**File:** `a.py`\n**Action:** Edit  **[target: capable]**\n**Details:** add x and then y\n"
+    )
     assert pm.check_atomicity([("1", body)]) == []
 
 

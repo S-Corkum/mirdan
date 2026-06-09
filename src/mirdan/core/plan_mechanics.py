@@ -344,9 +344,7 @@ def check_anchor_uniqueness(steps: list[Step], project_root: Path) -> list[dict[
     return findings
 
 
-_ACTION_CONJ_RE = re.compile(
-    r"\*\*Action:\*\*[^\n]*\b(?:and|then|also|plus)\b", re.IGNORECASE
-)
+_ACTION_CONJ_RE = re.compile(r"\*\*Action:\*\*[^\n]*\b(?:and|then|also|plus)\b", re.IGNORECASE)
 _DETAILS_FIELD_RE = re.compile(
     r"\*\*Details:\*\*(?P<body>.*?)"
     r"(?=\n\*\*(?:Depends\s+[Oo]n|Verify|Grounding|Action|File):|\Z)",
@@ -402,9 +400,7 @@ def check_atomicity(steps: list[Step]) -> list[dict[str, str]]:
     return findings
 
 
-_DESIGN_DECISIONS_RE = re.compile(
-    r"^#{2,4}\s+Design Decisions\s*$", re.MULTILINE | re.IGNORECASE
-)
+_DESIGN_DECISIONS_RE = re.compile(r"^#{2,4}\s+Design Decisions\s*$", re.MULTILINE | re.IGNORECASE)
 _ANY_HEADING_RE = re.compile(r"^#{1,6}\s+\S", re.MULTILINE)
 _INLINE_CODE_RE = re.compile(r"`[^`]*`")
 _DQUOTED_RE = re.compile(r"\"[^\"\n]*\"")

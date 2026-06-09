@@ -97,8 +97,7 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         stop_hooks = data["hooks"]["stop"]
         assert any(
-            h["type"] == "command" and "validate --staged" in str(h["command"])
-            for h in stop_hooks
+            h["type"] == "command" and "validate --staged" in str(h["command"]) for h in stop_hooks
         )
 
     def test_after_file_edit_runs_validate_command(self, tmp_path: Path) -> None:
