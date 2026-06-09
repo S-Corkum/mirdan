@@ -1,6 +1,6 @@
 # Mirdan
 
-AI Code Quality Orchestrator — **saves 30-45% of your paid AI coding tokens** by running a local intelligence layer that handles triage, linting, type checking, test running, and validation so expensive models like Claude Opus focus on writing code.
+AI Code Quality Orchestrator — **deterministic quality enforcement and Haiku-proof planning** for Claude Code and Cursor. 64 security and quality rules, an AI-slop detector, and a no-LLM plan verifier run locally as zero-token hooks — so cheap models can plan and build without shipping slop.
 
 [![PyPI version](https://img.shields.io/pypi/v/mirdan.svg)](https://pypi.org/project/mirdan/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -8,31 +8,41 @@ AI Code Quality Orchestrator — **saves 30-45% of your paid AI coding tokens** 
 
 ```bash
 uv tool install mirdan                  # Install mirdan
-mirdan llm setup                        # Auto-installs backend, downloads model, configures
 mirdan init --claude-code               # or --cursor
 # Done. Quality enforcement is now automatic.
 ```
 
-Works with **Claude Code**, **Cursor IDE**, and **Cursor CLI**. Runs on 16GB laptops. Everything stays local.
+Works with **Claude Code**, **Cursor IDE**, and **Cursor CLI**. Deterministic checks — everything stays local, no external API calls.
 
 ---
 
-## Planning Pipeline (2.2.0)
+## Planning Pipeline — Haiku-proof plans
 
-Mirdan's planning workflow is **flat, grounded, and design-first** — no briefs, no
-business ceremony. A plan is Research Notes → a Low-Level Design → atomic grounded
-steps, verifiable mechanically before you implement it.
+Mirdan's planning workflow is **flat, grounded, and design-first** — no briefs, no business
+ceremony. A plan is Research Notes → a Low-Level Design → atomic grounded steps, formatted so a
+**cheap model can execute it cold** and verified mechanically before you implement it.
+
+This is the heart of the 2.3.0 (Claude Code) and 2.4.0 (Cursor) realignment. Both editors now ship
+native plan modes that **plan with a strong model and build with a cheap one** — Claude Code's
+`opusplan` (Opus plans, Sonnet/Haiku builds), Cursor's cross-model Plan Mode (build with Haiku /
+Composer). Mirdan supplies what makes that safe: a plan format a cheap executor won't hallucinate
+against, plus a deterministic, no-LLM verifier.
 
 ```
-/plan <slug> <description>     → flat grounded plan with a Low-Level Design section
+/plan <slug> <description>     → flat grounded plan (format_version 2) with a Low-Level Design
 /plan-verify <plan-path>       → mechanical self-check (local, deterministic, no LLM)
 /plan-review --stakes high <p> → escape hatch: model-judgment review on the shared rubric
 ```
 
-The **Low-Level Design** section is where engineering substance lives — interfaces
-& signatures (each tagged `[NEW]`/`[EXISTING]` with a `file:line` citation), an error
-taxonomy, and the design decisions surfaced by `enhance_prompt`. Subsections are
-applicability-gated — include one only if it applies, no "fill every heading" filler.
+### The Haiku-proof format (`format_version: 2`)
+
+Every `Action: Edit` step carries a literal ```anchor```/```replace``` pair — the exact existing
+text and its replacement — so a cheap build model applies it as a find-and-replace instead of
+guessing. The anchor must be **unique** in the target file; decisions are **pre-resolved** (no
+"TBD" / "decide later"); steps are atomic. A judgment step that can't be anchored is tagged
+`[target: capable]` and counted — so a Haiku-targeted plan that isn't fully cold-executable says so.
+On Claude Code the format lives in the `/plan` skill; on Cursor it lives in the agent-requested
+`mirdan-planning.mdc` rule that native Plan Mode reads.
 
 ### What `/plan-verify` catches (deterministic, local, no LLM)
 
@@ -40,32 +50,34 @@ applicability-gated — include one only if it applies, no "fill every heading" 
 - `dependency_errors` — `**Depends On:**` refs to missing steps, or cycles
 - `vague_cross_references` — "as discussed", "see above" — unresolvable by a reader
 - `missing_grounding` — a step missing File / Action / Details / Verify / Grounding
-- `lld_gaps` (advisory) — an `[EXISTING]` interface without a citation, or a `[NEW]`
-  one created by no step
+- `missing_edit_anchors` — an Edit step without an ```anchor```/```replace``` pair
+- `anchor_uniqueness_errors` — an anchor not found, or matching more than one place in the file
+- `atomicity_violations` — more than one file/action per step, or compound "and then" steps
+- `unresolved_decisions` — "TBD" / either-or / "decide later" left in the plan
+- `lld_gaps` (advisory) — an `[EXISTING]` interface without a citation, or a `[NEW]` one created by no step
 
-### Design guidance reaches the model
-
-`enhance_prompt` injects a **Design Decisions** section directly into the prompt text
-for generation/refactor tasks — options, low-level-design prompts, and a forced
-"Your decision:" slot — drawing on mirdan's design templates (api_design,
-error_handling, data_access, …). It survives the compact output tiers cheap models receive.
+The **Low-Level Design** section is where engineering substance lives — interfaces & signatures
+(each tagged `[NEW]`/`[EXISTING]` with a `file:line` citation), an error taxonomy, and the design
+decisions surfaced by `enhance_prompt`. Subsections are applicability-gated — include one only if it
+applies, no "fill every heading" filler.
 
 ### MCP tool
 
 | Tool | Returns |
 |---|---|
-| `mcp__mirdan__verify_plan(plan_path)` | `{verified, coverage_score, phantom_files, dependency_errors, vague_cross_references, missing_grounding, lld_gaps, summary}` |
+| `verify_plan(plan_path)` | `{verified, coverage_score, format_version, phantom_files, dependency_errors, vague_cross_references, missing_grounding, missing_edit_anchors, anchor_uniqueness_errors, atomicity_violations, unresolved_decisions, capable_steps, lld_gaps, summary}` |
 
 ---
 
 ## Deterministic + content, not a local model (2.3.0)
 
 The local-LLM "intelligence layer" (Gemma via Ollama / llama-cpp) was **removed in 2.3.0**.
-mirdan is now **deterministic checks + opinionated content** — fast, dependency-light, and
-fully local (no model downloads, no external calls). The *intelligence* comes from your
-coding assistant's own models (Claude Code's Opus/Sonnet/Haiku); mirdan supplies what those
-models lack: a no-LLM plan verifier, the Haiku-proof plan format, the plan-review rubric, the
-AI-slop ruleset, and curated quality standards.
+mirdan is now **deterministic checks + opinionated content** — fast, dependency-light, and fully
+local (no model downloads, no external calls). The *intelligence* comes from your coding
+assistant's own models; mirdan supplies what they lack and **rides their native mechanisms**
+(Claude Code 2.x and Cursor 2.x plan modes, subagents, command hooks, rules/skills) instead of
+re-implementing them: a no-LLM plan verifier, the Haiku-proof plan format, the plan-review rubric,
+the AI-slop ruleset, and curated quality standards.
 
 ---
 
@@ -136,11 +148,11 @@ mirdan init --cursor         # Cursor: hooks, rules, AGENTS.md, BUGBOT.md
 mirdan init --all            # Both IDEs
 ```
 
-This generates everything — MCP server config, quality hooks, rules files, and agent definitions. After init, your IDE automatically:
+This generates everything — MCP server config, command-type quality hooks, rules files, skills, and agent definitions. After init, your IDE automatically:
 
-1. Enriches prompts with quality requirements before coding tasks
-2. Validates code against security and quality rules after every edit
-3. Runs a final quality gate before task completion
+1. Validates each edited file against security + quality rules (PostToolUse hook, zero model tokens)
+2. Runs a final quality gate before the turn/task completes (Stop / TaskCompleted hooks)
+3. Surfaces the rules, skills (`/plan`, `/code`), and opt-in `enhance_prompt` for non-trivial work
 
 ### Use From the Command Line
 
@@ -283,15 +295,17 @@ mirdan profile suggest                # Let mirdan recommend one
 mirdan init --claude-code
 ```
 
-Generates `.mcp.json`, hooks, rules, 4 skills (`/code`, `/plan`, `/plan-review`, `/plan-verify`), and 6 agents (quality-gate, security-audit, test-quality, convention-check, architecture-reviewer, plan-reviewer).
+Generates `.mcp.json`, command-type hooks, rules, 4 skills (`/code`, `/plan`, `/plan-review`, `/plan-verify`), and 3 agents (quality-gate, security-audit, plan-reviewer).
 
-Hook stringency levels control how aggressively mirdan intervenes:
+Hooks are **command-type** — deterministic shell checks that run outside the model context (zero model tokens) and can block on failure:
 
-| Level | Hooks | Best For |
-|-------|-------|----------|
-| MINIMAL | 2 (PostToolUse, Stop) | Low-friction onboarding |
-| STANDARD | 5 (+ UserPromptSubmit, PreToolUse, SubagentStart) | Daily development |
-| COMPREHENSIVE | 15 (full lifecycle including compaction, worktrees) | Teams and production |
+| Hook | Runs |
+|------|------|
+| PostToolUse | Validate the just-edited file (`mirdan validate --quick --scope security`) |
+| Stop | Quality gate over the staged/changed set before the turn completes |
+| TaskCompleted | Final validation gate on task completion |
+
+Quality guidance (AI/SEC rules, the planning format) lives in `.claude/rules/` and the skills, not in token-spending prompt hooks. `enhance_prompt` is opt-in — recommended before security-sensitive, multi-file, or new-library work; `validate_code_quality` after writing stays the mandatory gate.
 
 ### Cursor
 
@@ -301,10 +315,10 @@ mirdan init --cursor
 
 Generates a complete Cursor 2.x integration:
 
-- **Rules** — `.cursor/rules/*.mdc` (always-on, security, planning, debug, agent, language-specific)
-- **Hooks** — `.cursor/hooks.json` with prompt-type + command-type hooks, `.cursor/hooks/*.sh` scripts
-- **Subagents** — `.cursor/agents/*.md` (quality-validator, security-scanner, test-auditor, slop-detector, architecture-reviewer)
-- **Skills** — `.cursor/skills/*/SKILL.md` following the [Agent Skills Standard](https://agentskills.io) (code, debug, review, plan, quality, scan, gate)
+- **Rules** — `.cursor/rules/*.mdc` (always-on, security, planning, plan-review, plan-verify, agent, language-specific) — the `mirdan-planning.mdc` rule carries the Haiku-proof plan format that native Plan Mode reads
+- **Hooks** — `.cursor/hooks.json` with zero-token command-type hooks (validate-on-edit, shell-guard, staged-validate-on-stop), `.cursor/hooks/*.sh` scripts
+- **Subagents** — `.cursor/agents/*.md` (quality-validator, security-scanner, plan-reviewer)
+- **Skills** — `.cursor/skills/*/SKILL.md` following the [Agent Skills Standard](https://agentskills.io) (code, plan-review)
 - **Commands** — `.cursor/commands/*.md` slash commands (`/code`, `/plan`, `/plan-verify`, `/plan-review`, `/automations`)
 - **Environment** — `.cursor/environment.json` for Cloud Agent environments
 - **Config** — `.cursor/mcp.json`, `AGENTS.md`, `BUGBOT.md`
@@ -321,24 +335,6 @@ Add to your MCP configuration:
     "mirdan": {
       "command": "uvx",
       "args": ["mirdan"]
-    }
-  }
-}
-```
-
-**Corporate networks** (Netskope, Zscaler, Artifactory proxy): pass env vars for SSL and model downloads:
-
-```json
-{
-  "mcpServers": {
-    "mirdan": {
-      "command": "uvx",
-      "args": ["mirdan"],
-      "env": {
-        "MIRDAN_HF_ENDPOINT": "https://artifactory.corp.com/hf",
-        "MIRDAN_HF_TOKEN": "your-artifactory-token",
-        "MIRDAN_SSL_CERT_FILE": "/path/to/corporate-ca-bundle.crt"
-      }
     }
   }
 }
@@ -463,21 +459,10 @@ thresholds:
 
 # Hook behavior
 hooks:
-  enabled_events: ["PreToolUse", "PostToolUse", "Stop"]
+  enabled_events: ["PostToolUse", "Stop"]
   quick_validate_timeout: 5000
   auto_fix_suggestions: true
 ```
-
-LLM configuration goes in `.mirdan.yaml` (written by `mirdan llm setup`):
-
-```yaml
-llm:
-  enabled: true
-  backend: llamacpp                # llamacpp (default) or ollama
-  model_keep_alive: 5m             # Unload model after idle (saves RAM)
-```
-
-See the full [LLM configuration reference](https://github.com/S-Corkum/mirdan/blob/main/docs/llm-configuration.md) or run `mirdan llm setup` to auto-configure.
 
 ---
 
@@ -676,7 +661,7 @@ Discover implicit codebase conventions and generate custom rules.
 | `mirdan validate` | Validate code quality (`--file`, `--staged`, `--stdin`, `--diff`, `--quick`) |
 | `mirdan gate` | Quality gate for CI/CD (`--include-dependencies` for vuln check) |
 | `mirdan fix` | Auto-fix violations (`--dry-run`, `--auto`, `--staged`) |
-| `mirdan check` | Run lint + typecheck + test (`--smart` for LLM analysis, `--fix` for auto-fix) |
+| `mirdan check` | Run lint + typecheck + test |
 | `mirdan scan` | Discover conventions (`--directory`) or scan deps (`--dependencies`) |
 | `mirdan profile` | Manage quality profiles (`list`, `suggest`, `apply`) |
 | `mirdan export` | Export results (`--format sarif\|badge\|json`) |
@@ -684,12 +669,6 @@ Discover implicit codebase conventions and generate custom rules.
 | `mirdan standards` | View quality standards for a language |
 | `mirdan checklist` | View verification checklists for a task type |
 | `mirdan plugin` | Plugin export for standalone distribution |
-| `mirdan llm setup` | Configure local LLM — installs backend, downloads model |
-| `mirdan llm status` | Show LLM health, loaded model, hardware profile (`--json`) |
-| `mirdan llm warmup` | Pre-load model into memory for faster first inference |
-| `mirdan llm metrics` | Token savings dashboard (`--days N`, `--json`) |
-| `mirdan triage` | Classify a task via local LLM (`--stdin`, used by hooks) |
-| `mirdan fine-tune` | Training data management (`status`, `export`) |
 
 ---
 
@@ -725,12 +704,6 @@ Discover implicit codebase conventions and generate custom rules.
 | Python version error | Ensure Python 3.11+ is installed |
 | Hook not firing | Check hook stringency level — MINIMAL only fires on 2 events |
 | Tool budget limiting tools | Set `MIRDAN_TOOL_BUDGET=5` or remove the env var |
-| "LLM backend unavailable" | Run `mirdan llm setup` — it auto-installs the backend and model |
-| "Model not found" | Run `mirdan llm setup` to download the recommended model |
-| Slow LLM inference (<5 tok/s) | Verify Metal: `CMAKE_ARGS="-DGGML_METAL=ON" pip install --force-reinstall llama-cpp-python` |
-| High memory usage | Set `model_keep_alive: 2m` in `.mirdan.yaml`. Model unloads after idle. |
-| Hooks not calling local LLM | Run `mirdan init --claude-code` (or `--cursor`) to regenerate hooks |
-| Corporate network download fails | Set `MIRDAN_HF_ENDPOINT` and `MIRDAN_HF_TOKEN` (see [troubleshooting guide](https://github.com/S-Corkum/mirdan/blob/main/docs/llm-troubleshooting.md)) |
 
 ---
 

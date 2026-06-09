@@ -30,25 +30,20 @@ class TestCursorHookStringency:
         assert "stop" in events
 
     def test_stringency_events_standard(self) -> None:
-        """STANDARD should have 4 events."""
+        """STANDARD adds beforeShellExecution (command-type only)."""
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.STANDARD]
-        assert len(events) == 4
+        assert len(events) == 3
         assert "afterFileEdit" in events
-        assert "postToolUse" in events
-        assert "sessionStart" in events
+        assert "beforeShellExecution" in events
         assert "stop" in events
 
     def test_stringency_events_comprehensive(self) -> None:
-        """COMPREHENSIVE should have 7 events."""
+        """COMPREHENSIVE = command-type hooks only (afterFileEdit, beforeShellExecution, stop)."""
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.COMPREHENSIVE]
-        assert len(events) == 7
+        assert len(events) == 3
         assert "afterFileEdit" in events
-        assert "postToolUseFailure" in events
-        assert "stop" in events
-        assert "sessionStart" in events
         assert "beforeShellExecution" in events
-        assert "subagentStart" in events
-        assert "preCompact" in events
+        assert "stop" in events
 
 
 class TestGenerateCursorHooks:
@@ -70,21 +65,21 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         assert data["version"] == 1
 
-    def test_comprehensive_has_seven_events(self, tmp_path: Path) -> None:
-        """COMPREHENSIVE should produce 7 hook events."""
+    def test_comprehensive_has_three_events(self, tmp_path: Path) -> None:
+        """COMPREHENSIVE should produce 3 command hook events."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir, CursorHookStringency.COMPREHENSIVE)
         assert result is not None
         data = json.loads(result.read_text())
-        assert len(data["hooks"]) == 7
+        assert len(data["hooks"]) == 3
 
-    def test_standard_has_four_events(self, tmp_path: Path) -> None:
-        """STANDARD should produce 4 hook events."""
+    def test_standard_has_three_events(self, tmp_path: Path) -> None:
+        """STANDARD should produce 3 command hook events."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir, CursorHookStringency.STANDARD)
         assert result is not None
         data = json.loads(result.read_text())
-        assert len(data["hooks"]) == 4
+        assert len(data["hooks"]) == 3
 
     def test_minimal_has_two_events(self, tmp_path: Path) -> None:
         """MINIMAL should produce 2 hook events."""
@@ -94,24 +89,27 @@ class TestGenerateCursorHooks:
         data = json.loads(result.read_text())
         assert len(data["hooks"]) == 2
 
-    def test_stop_hook_has_loop_limit(self, tmp_path: Path) -> None:
-        """stop hook should have loop_limit field."""
+    def test_stop_hook_runs_staged_validate(self, tmp_path: Path) -> None:
+        """stop hook is a command running mirdan validate --staged."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
         stop_hooks = data["hooks"]["stop"]
-        assert any("loop_limit" in h for h in stop_hooks)
+        assert any(
+            h["type"] == "command" and "validate --staged" in str(h["command"])
+            for h in stop_hooks
+        )
 
-    def test_after_file_edit_mentions_validate(self, tmp_path: Path) -> None:
-        """afterFileEdit prompt should mention validate_code_quality."""
+    def test_after_file_edit_runs_validate_command(self, tmp_path: Path) -> None:
+        """afterFileEdit is a command hook running the validate-file script."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
         hooks = data["hooks"]["afterFileEdit"]
-        prompt = hooks[0]["prompt"]
-        assert "validate_code_quality" in prompt
+        assert hooks[0]["type"] == "command"
+        assert "mirdan-validate-file.sh" in str(hooks[0]["command"])
 
     def test_comprehensive_does_not_include_before_submit_prompt(self, tmp_path: Path) -> None:
         """beforeSubmitPrompt was removed from COMPREHENSIVE to avoid false positives."""
@@ -162,8 +160,8 @@ class TestGenerateCursorHooks:
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
-        # COMPREHENSIVE has 7 events
-        assert len(data["hooks"]) == 7
+        # COMPREHENSIVE has 3 command events
+        assert len(data["hooks"]) == 3
 
 
 class TestCommandTypeHooks:
@@ -210,28 +208,26 @@ class TestCommandTypeHooks:
         cmd_hook = next(h for h in hooks if h["type"] == "command")
         assert cmd_hook.get("failClosed") is True
 
-    def test_stop_gate_has_loop_limit(self, tmp_path: Path) -> None:
-        """Stop gate command hook should have loop_limit."""
+    def test_stop_runs_staged_validate(self, tmp_path: Path) -> None:
+        """stop command hook runs mirdan validate --staged."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
         hooks = data["hooks"]["stop"]
         cmd_hook = next(h for h in hooks if h["type"] == "command")
-        assert "loop_limit" in cmd_hook
+        assert "validate --staged" in str(cmd_hook["command"])
 
-    def test_mixed_hooks_prompt_and_command(self, tmp_path: Path) -> None:
-        """Events should have both prompt and command hooks."""
+    def test_hooks_are_command_only(self, tmp_path: Path) -> None:
+        """All hooks are command-type (no prompt-type lifecycle hooks)."""
         cursor_dir = tmp_path / ".cursor"
         result = generate_cursor_hooks(cursor_dir)
         assert result is not None
         data = json.loads(result.read_text())
 
-        for event in ("beforeShellExecution", "stop"):
-            hooks = data["hooks"][event]
+        for event, hooks in data["hooks"].items():
             types = {h["type"] for h in hooks}
-            assert "prompt" in types, f"{event} missing prompt hook"
-            assert "command" in types, f"{event} missing command hook"
+            assert types == {"command"}, f"{event} has non-command hooks: {types}"
 
     def test_command_hook_listed_before_prompt(self, tmp_path: Path) -> None:
         """Command hooks should fire first (listed before prompt hooks)."""
@@ -293,11 +289,12 @@ class TestHookScriptGeneration:
         assert "force" in content
         assert "reset --hard" in content
 
-    def test_stop_gate_checks_git_changes(self, tmp_path: Path) -> None:
+    def test_validate_file_reads_stdin(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         generate_cursor_hook_scripts(cursor_dir)
-        content = (cursor_dir / "hooks" / "mirdan-stop-gate.sh").read_text()
-        assert "git diff" in content
+        content = (cursor_dir / "hooks" / "mirdan-validate-file.sh").read_text()
+        assert "json.load(sys.stdin)" in content
+        assert "mirdan validate" in content
 
     def test_idempotent_does_not_overwrite(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -316,4 +313,4 @@ class TestHookScriptGeneration:
         generate_cursor_hook_scripts(cursor_dir)
         hooks_dir = cursor_dir / "hooks"
         names = {p.name for p in hooks_dir.iterdir()}
-        assert names == {"mirdan-shell-guard.sh", "mirdan-stop-gate.sh"}
+        assert names == {"mirdan-shell-guard.sh", "mirdan-validate-file.sh"}

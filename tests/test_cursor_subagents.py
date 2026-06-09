@@ -11,27 +11,17 @@ from mirdan.integrations.cursor import _CURSOR_SUBAGENTS, generate_cursor_subage
 _EXPECTED_SUBAGENTS = {
     "mirdan-quality-validator.md",
     "mirdan-security-scanner.md",
-    "mirdan-test-auditor.md",
-    "mirdan-slop-detector.md",
-    "mirdan-architecture-reviewer.md",
-    "mirdan-implementer.md",
-    "mirdan-test-writer.md",
     "mirdan-plan-reviewer.md",
 }
 
 _READONLY_SUBAGENTS = {
     "mirdan-quality-validator.md",
     "mirdan-security-scanner.md",
-    "mirdan-test-auditor.md",
-    "mirdan-slop-detector.md",
-    "mirdan-architecture-reviewer.md",
     "mirdan-plan-reviewer.md",
 }
 
-_WRITABLE_SUBAGENTS = {
-    "mirdan-implementer.md",
-    "mirdan-test-writer.md",
-}
+# Native Plan-Mode build executes; mirdan ships no writable executor subagents.
+_WRITABLE_SUBAGENTS: set[str] = set()
 
 _VALID_MODELS = {"fast", "inherit", "sonnet"}
 
@@ -42,7 +32,7 @@ class TestGenerateCursorSubagents:
     def test_generates_seven_files(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_subagents(cursor_dir)
-        assert len(paths) == 8
+        assert len(paths) == 3
 
     def test_generates_expected_filenames(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -54,7 +44,7 @@ class TestGenerateCursorSubagents:
     def test_idempotent_does_not_overwrite_existing(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_subagents(cursor_dir)
-        assert len(first) == 8
+        assert len(first) == 3
 
         # Mutate one file to verify it is not overwritten
         target = cursor_dir / "agents" / "mirdan-quality-validator.md"
@@ -89,7 +79,7 @@ class TestGenerateCursorSubagents:
         paths = generate_cursor_subagents(cursor_dir)
         returned_names = {p.name for p in paths}
         assert "mirdan-quality-validator.md" not in returned_names
-        assert len(paths) == 7
+        assert len(paths) == 2
 
 
 class TestCursorSubagentFrontmatter:
@@ -122,7 +112,7 @@ class TestCursorSubagentFrontmatter:
             assert "description" in fm, f"{md_file.name} missing 'description'"
             assert "model" in fm, f"{md_file.name} missing 'model'"
             assert "readonly" in fm, f"{md_file.name} missing 'readonly'"
-            assert "background" in fm, f"{md_file.name} missing 'background'"
+            assert "is_background" in fm, f"{md_file.name} missing 'is_background'"
 
     def test_names_are_valid_format(self, tmp_path: Path) -> None:
         """Names must be lowercase with hyphens per Cursor spec."""
@@ -207,13 +197,6 @@ class TestCursorSubagentContent:
         content = (cursor_dir / "agents" / "mirdan-security-scanner.md").read_text()
         assert "SEC001" in content
 
-    def test_slop_detector_mentions_ai_rules(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        generate_cursor_subagents(cursor_dir)
-        content = (cursor_dir / "agents" / "mirdan-slop-detector.md").read_text()
-        assert "AI001" in content
-        assert "AI008" in content
-
 
 class TestCursorSubagentAsyncContent:
     """Tests for async/coordination sections in subagent content."""
@@ -228,7 +211,7 @@ class TestCursorSubagentAsyncContent:
             content = md_file.read_text()
             parts = content.split("---", 2)
             fm = yaml.safe_load(parts[1])
-            if fm.get("background") is True:
+            if fm.get("is_background") is True:
                 assert "Async Execution Notes" in content, (
                     f"{md_file.name} (background=true) must have Async Execution Notes"
                 )
@@ -243,7 +226,7 @@ class TestCursorSubagentAsyncContent:
             content = md_file.read_text()
             parts = content.split("---", 2)
             fm = yaml.safe_load(parts[1])
-            if fm.get("background") is False:
+            if fm.get("is_background") is False:
                 assert "Subagent Coordination" in content, (
                     f"{md_file.name} (background=false) must have Subagent Coordination"
                 )
@@ -252,8 +235,8 @@ class TestCursorSubagentAsyncContent:
 class TestCursorSubagentsDict:
     """Tests for the _CURSOR_SUBAGENTS constant."""
 
-    def test_dict_has_eight_entries(self) -> None:
-        assert len(_CURSOR_SUBAGENTS) == 8
+    def test_dict_has_three_entries(self) -> None:
+        assert len(_CURSOR_SUBAGENTS) == 3
 
     def test_dict_keys_match_expected(self) -> None:
         assert set(_CURSOR_SUBAGENTS.keys()) == _EXPECTED_SUBAGENTS
@@ -262,39 +245,3 @@ class TestCursorSubagentsDict:
         for name, content in _CURSOR_SUBAGENTS.items():
             assert isinstance(content, str), f"{name} content must be a string"
             assert len(content.strip()) > 0, f"{name} content must not be empty"
-
-
-class TestImplementationSubagents:
-    """Tests for the implementation (writable) subagents."""
-
-    def test_implementer_is_writable_foreground(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        generate_cursor_subagents(cursor_dir)
-        content = (cursor_dir / "agents" / "mirdan-implementer.md").read_text()
-        parts = content.split("---", 2)
-        fm = yaml.safe_load(parts[1])
-        assert fm["readonly"] is False
-        assert fm["background"] is False
-        assert fm["model"] == "inherit"
-
-    def test_test_writer_is_writable_foreground(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        generate_cursor_subagents(cursor_dir)
-        content = (cursor_dir / "agents" / "mirdan-test-writer.md").read_text()
-        parts = content.split("---", 2)
-        fm = yaml.safe_load(parts[1])
-        assert fm["readonly"] is False
-        assert fm["background"] is False
-        assert fm["model"] == "inherit"
-
-    def test_implementer_references_enhance_prompt(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        generate_cursor_subagents(cursor_dir)
-        content = (cursor_dir / "agents" / "mirdan-implementer.md").read_text()
-        assert "enhance_prompt" in content
-
-    def test_test_writer_references_validate(self, tmp_path: Path) -> None:
-        cursor_dir = tmp_path / ".cursor"
-        generate_cursor_subagents(cursor_dir)
-        content = (cursor_dir / "agents" / "mirdan-test-writer.md").read_text()
-        assert "validate_code_quality" in content

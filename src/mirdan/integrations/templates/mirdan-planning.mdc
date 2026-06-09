@@ -3,32 +3,42 @@ description: "mirdan flat planning — activate when creating implementation pla
 alwaysApply: false
 ---
 
-# mirdan Planning (Flat, Grounded, with Low-Level Design)
+# mirdan Planning (Flat, Grounded, Haiku-proof, with Low-Level Design)
 
 Plans are **Research Notes → Low-Level Design → atomic grounded steps**, output to
-`docs/plans/<slug>.md`. No brief required.
+`docs/plans/<slug>.md` with `format_version: 2` frontmatter. No brief required. The plan must be
+executable **cold** by a cheap build model (Plan Mode's "build with another model"), so every edit
+is a literal find-and-replace and every decision is pre-resolved.
 
 ## Workflow in Plan Mode
 
-1. Call `mcp__mirdan__enhance_prompt(prompt=<description>, task_type="planning")`.
-   Use `decision_guidance` (design domains) to shape the design.
-2. Call `mcp__enyal__enyal_recall` and `mcp__enyal__enyal_traverse` for
-   architecture decisions and dependency clusters.
-3. Research before any step: Read every file you'll modify, Glob the structure,
-   context7 every external API.
+1. (Optional) `mcp__mirdan__enhance_prompt(prompt=<description>, task_type="planning")` for design
+   domains / security detection — recommended for security-sensitive or unfamiliar work.
+2. `mcp__enyal__enyal_recall` / `enyal_traverse` for architecture decisions + dependency clusters.
+3. Research before any step: Read every file you'll modify, Glob the structure, context7 every
+   external API. You cannot write a step for a file you haven't Read.
 4. Draft the plan:
    - **Research Notes** — verified facts with tool citations.
-   - **Low-Level Design** — Interfaces & Signatures (each tagged [NEW]/[EXISTING];
-     [EXISTING] cites `file:line`, [NEW] created by a step), Error Taxonomy, Design
-     Decisions. Data Model / Module Boundaries only if they apply (no "N/A" fillers).
+   - **Low-Level Design** — Interfaces & Signatures (each tagged [NEW]/[EXISTING]; [EXISTING] cites
+     `file:line`, [NEW] created by a step), Error Taxonomy, Design Decisions (**resolve each** — pick
+     one option; never leave "TBD" / "either-or" / "decide later"). Data Model / Module Boundaries
+     only if they apply (no "N/A" fillers).
    - **Steps** — `### Step N` with File, Action, Details, Depends On, Verify, Grounding.
-5. Write to `docs/plans/<slug>.md`.
-6. Run `/plan-verify docs/plans/<slug>.md` to confirm it is internally executable.
+5. For every `Action: Edit` step, put a literal find-and-replace in Details so a cheap model applies
+   it cold: the exact existing text in a ` ```anchor ` block and the exact new text in a ` ```replace `
+   block. The anchor must be the **smallest span that is unique** in the target file. To insert,
+   anchor on the verbatim existing line and replace it with that line plus the new line(s); copy
+   whitespace exactly. A step that genuinely cannot be anchored (a wholesale/judgment rewrite) is
+   tagged **[target: capable]** on its Action line — but it is then not haiku-cold, so keep these rare.
+6. Add `format_version: 2` to the plan frontmatter; write to `docs/plans/<slug>.md`.
+7. Run `/plan-verify docs/plans/<slug>.md` — it enforces the anchor / uniqueness / atomicity /
+   resolved-decision checks before you build the plan.
 
 ## Quality Constraints
 
 - No vague language — "should", "probably", "likely", "maybe", "around line N".
+- No unresolved decisions — "TBD", "either…or", "decide later".
 - Every file path verified (or marked NEW with parent Glob check).
 - Atomic steps — one action per step.
-- Steps are self-contained — restate the one relevant design line inside a step
-  rather than referencing "the design above".
+- Every `Action: Edit` carries a unique ```anchor```/```replace``` pair (or is [target: capable]).
+- Steps are self-contained — restate the one relevant design line inside a step.

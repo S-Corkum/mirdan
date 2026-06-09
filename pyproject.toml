@@ -1,7 +1,7 @@
 [project]
 name = "mirdan"
 dynamic = ["version"]
-description = "AI Code Quality Orchestrator - Automatically transforms developer prompts into high-quality, structured requests"
+description = "Deterministic code-quality enforcement and Haiku-proof planning for Claude Code and Cursor — zero-token hooks, fully local"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -82,32 +82,15 @@ ignore = [
 "src/mirdan/core/gatherers/**" = ["S110"]  # Allow silent exception handling in optional gatherers
 "src/mirdan/core/client_registry.py" = ["ASYNC109"]  # timeout parameter is intentional API design
 "src/mirdan/core/active_orchestrator.py" = ["ASYNC109"]  # timeout parameter is passthrough API design
-"src/mirdan/llm/prompts/**" = ["E501"]  # Prompt templates and few-shot examples have long lines by design
 "src/mirdan/cli/check_command.py" = ["S603", "S110", "ASYNC240"]  # subprocess.run safe; session bridge write is fire-and-forget; ASYNC240: one-shot file check
-"src/mirdan/llm/context_provider.py" = ["E501", "PERF401"]  # Framework hints; append loop for parsing
-"src/mirdan/cli/llm_setup_command.py" = ["E501", "S603", "S607", "SIM105"]  # CLI print; subprocess; try/except for YAML
-"src/mirdan/cli/triage_command.py" = ["S110"]  # Session bridge write is fire-and-forget
-"src/mirdan/llm/health.py" = ["S607"]  # vm_stat and system_profiler are safe system tools
-"src/mirdan/llm/llamacpp.py" = ["RUF005", "ASYNC240"]  # List concat is clearer than unpacking; ASYNC240: model-path exists/stat health check
-"src/mirdan/llm/manager.py" = ["SIM105", "ASYNC240"]  # Port file cleanup clearer with try/except; ASYNC240: startup/shutdown port-file ops
-"src/mirdan/llm/sidecar.py" = ["SIM105", "ASYNC240"]  # Task cancel + port cleanup clearer with try/except; ASYNC240: startup/shutdown port-file ops
-"src/mirdan/llm/ollama.py" = ["F841"]  # start timestamp used for elapsed_ms calculation pattern
-"src/mirdan/core/smart_validator.py" = ["S101"]  # assert on fix_validator is a programming invariant check
-"src/mirdan/core/research_agent.py" = ["SIM103", "E501"]  # Return-condition less readable; gh CLI log messages
-"src/mirdan/llm/registry.py" = ["E501", "ASYNC240"]  # Long docstring in ModelSelector; ASYNC240: Path.expanduser() (no I/O)
-"src/mirdan/core/triage.py" = ["E501"]  # Long constructor signature
 "src/mirdan/core/check_runner.py" = ["E501", "ASYNC109"]  # Long constructor; timeout param is API design
 "src/mirdan/config.py" = ["E501"]  # Long Field descriptions in config classes
 "src/mirdan/usecases/validate_code.py" = ["E501", "SIM105", "S110", "ASYNC240"]  # Long lines; fire-and-forget; ASYNC240: one-shot file exists check
-# ASYNC240 (Path methods in async fns) suppressed below: all are infrequent
-# startup/shutdown/one-shot local-file ops on a low-concurrency stdio server,
-# not hot-path async I/O. Preserved as a rule for genuinely new hot-path code.
-"src/mirdan/core/llm_fixer.py" = ["ASYNC240"]  # one-shot read/write of the file being fixed
+# ASYNC240 (Path methods in async fns) suppressed below: infrequent one-shot
+# local-file ops on a low-concurrency stdio server, not hot-path async I/O.
 "src/mirdan/usecases/scan_conventions.py" = ["ASYNC240"]  # one-shot Path.resolve() at scan start
 "src/mirdan/usecases/scan_dependencies.py" = ["ASYNC240"]  # one-shot Path.resolve() at scan start
 "src/mirdan/usecases/enhance_prompt.py" = ["E501"]  # Long lines in method calls
-"src/mirdan/llm/training_collector.py" = ["PERF401"]  # Append loop is clearer for fire-and-forget pattern
-"src/mirdan/core/prompt_optimizer.py" = ["E501"]  # Long constructor signature
 
 [tool.mypy]
 python_version = "3.11"

@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-06-09
+
+Realigns mirdan's **Cursor** integration to native Cursor 2.x — the Cursor analog of
+the 2.3.0 Claude Code realignment. Cursor now ships first-party Plan Mode (plan→build,
+cross-model: plan with a strong model, build with a cheap one), subagents, zero-token
+command hooks, rules + AGENTS.md, Skills, and BugBot. mirdan sheds the duplicated
+plumbing/ceremony on the Cursor side and concentrates on what stays uniquely valuable:
+the no-LLM `verify_plan` gate, the Haiku-proof plan format, the AI-slop ruleset, and the
+plan-review rubric.
+
+### Changed
+
+- **Haiku-proof planning reaches native Plan Mode.** The Haiku-proof plan format
+  (`format_version: 2`, literal anchor/replace edits, anchor uniqueness, atomicity,
+  pre-resolved decisions) now lives in the agent-requested rule `mirdan-planning.mdc` —
+  the surface Cursor's Plan Mode reads — so natively produced plans are cold-executable
+  by a cheap build model. `/plan-verify` (rule + command) renders the v2 checks; the
+  Cursor plan-review rubric gains the anchor / unresolved-decision criteria + haiku
+  verdict side-condition.
+- **Cursor hooks are zero-token command hooks.** The ~15 prompt-type lifecycle hooks are
+  replaced by 3 command-type hooks (validate-on-edit, shell-guard, staged-validate-on-stop)
+  that run outside the model context.
+- **`enhance_prompt` is opt-in** across the Cursor rules / AGENTS.md / skills — not a
+  mandatory entry gate. `validate_code_quality` after writing remains mandatory.
+- **Cursor subagents 8 → 3** (`mirdan-quality-validator`, `mirdan-security-scanner`,
+  `mirdan-plan-reviewer`); frontmatter aligned to Cursor's native `is_background` spec.
+
+### Removed
+
+- Dead local-LLM Cursor code (`generate_cursor_llm_rule` / `mirdan-llm.mdc` / `llm_enabled`),
+  the two writable executor subagents (`mirdan-implementer`, `mirdan-test-writer` — native
+  Plan-Mode build executes), the advisory `mirdan-stop-gate.sh`, and the redundant `/plan`
+  skill (the `mirdan-planning.mdc` rule is the single source).
+
 ## [2.3.0] - 2026-06-09
 
 Realigns mirdan to native Claude Code. Claude Code now ships the *mechanisms*

@@ -10,7 +10,6 @@ from mirdan.integrations.cursor import _CURSOR_SKILLS, generate_cursor_skills
 
 _EXPECTED_SKILLS = {
     "mirdan-code",
-    "mirdan-plan",
     "mirdan-plan-review",
 }
 
@@ -18,16 +17,16 @@ _EXPECTED_SKILLS = {
 _MANUAL_SKILLS = {"mirdan-plan-review"}
 
 # Skills that auto-invoke based on context.
-_AUTO_SKILLS = {"mirdan-code", "mirdan-plan"}
+_AUTO_SKILLS = {"mirdan-code"}
 
 
 class TestGenerateCursorSkills:
     """Tests for generate_cursor_skills()."""
 
-    def test_generates_three_skill_directories(self, tmp_path: Path) -> None:
+    def test_generates_two_skill_directories(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         paths = generate_cursor_skills(cursor_dir)
-        assert len(paths) == 3
+        assert len(paths) == 2
 
     def test_generates_expected_skill_names(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
@@ -60,7 +59,7 @@ class TestGenerateCursorSkills:
     def test_idempotent_does_not_overwrite_existing(self, tmp_path: Path) -> None:
         cursor_dir = tmp_path / ".cursor"
         first = generate_cursor_skills(cursor_dir)
-        assert len(first) == 3
+        assert len(first) == 2
 
         target = cursor_dir / "skills" / "mirdan-code" / "SKILL.md"
         target.write_text("# custom content")
@@ -94,7 +93,7 @@ class TestGenerateCursorSkills:
         paths = generate_cursor_skills(cursor_dir)
         returned_names = {p.parent.name for p in paths}
         assert "mirdan-code" not in returned_names
-        assert len(paths) == 2
+        assert len(paths) == 1
 
 
 class TestCursorSkillFrontmatter:
@@ -196,8 +195,8 @@ class TestCursorSkillContent:
 class TestCursorSkillsDict:
     """Tests for the _CURSOR_SKILLS constant."""
 
-    def test_dict_has_three_entries(self) -> None:
-        assert len(_CURSOR_SKILLS) == 3
+    def test_dict_has_two_entries(self) -> None:
+        assert len(_CURSOR_SKILLS) == 2
 
     def test_dict_keys_match_expected(self) -> None:
         assert set(_CURSOR_SKILLS.keys()) == _EXPECTED_SKILLS

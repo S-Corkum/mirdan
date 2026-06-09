@@ -13,9 +13,11 @@ implementation.
 
 1. Parse the plan path from the user's message.
 2. Call `mcp__mirdan__verify_plan(plan_path)`.
-3. Render the report with sections: `coverage_score`, `phantom_files`,
-   `dependency_errors`, `vague_cross_references`, `missing_grounding`, `lld_gaps`
-   (advisory), `summary`.
+3. Render the report with sections: `coverage_score`, `format_version`, `phantom_files`,
+   `dependency_errors`, `vague_cross_references`, `missing_grounding`, `lld_gaps` (advisory),
+   and the `format_version: 2` Haiku-proof checks — `missing_edit_anchors`,
+   `anchor_uniqueness_errors`, `atomicity_violations`, `unresolved_decisions`, `capable_steps` —
+   plus `summary` (which warns if anchored content is present but the plan is not `format_version: 2`).
 4. Exit status: pass if `verified=true`, fail otherwise.
 
 ## Escape hatch

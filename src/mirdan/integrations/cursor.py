@@ -7,7 +7,6 @@ Supports .cursor/rules/*.mdc, .cursor/AGENTS.md, .cursor/BUGBOT.md,
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
 from enum import Enum
 from importlib.resources import files
 from pathlib import Path
@@ -22,31 +21,19 @@ from mirdan.core.quality_standards import QualityStandards
 
 
 class CursorHookStringency(Enum):
-    """Hook stringency levels for Cursor hooks.json generation."""
+    """Hook stringency levels for Cursor hooks.json generation (command-type only)."""
 
-    MINIMAL = "minimal"  # 2 events: afterFileEdit, stop
-    STANDARD = "standard"  # 4 events: + postToolUse, sessionStart
-    COMPREHENSIVE = "comprehensive"  # 7 events: all enforcement hooks
+    MINIMAL = "minimal"  # afterFileEdit, stop
+    STANDARD = "standard"  # + beforeShellExecution
+    COMPREHENSIVE = "comprehensive"  # same as standard — all zero-token command hooks
 
 
-# Events for each stringency level
+# Command-type events per stringency level. All hooks are zero-token shell commands;
+# quality guidance lives in rules, not prompt-type lifecycle hooks.
 CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
     CursorHookStringency.MINIMAL: ["afterFileEdit", "stop"],
-    CursorHookStringency.STANDARD: [
-        "afterFileEdit",
-        "postToolUse",
-        "sessionStart",
-        "stop",
-    ],
-    CursorHookStringency.COMPREHENSIVE: [
-        "afterFileEdit",
-        "postToolUseFailure",
-        "stop",
-        "sessionStart",
-        "beforeShellExecution",
-        "subagentStart",
-        "preCompact",
-    ],
+    CursorHookStringency.STANDARD: ["afterFileEdit", "beforeShellExecution", "stop"],
+    CursorHookStringency.COMPREHENSIVE: ["afterFileEdit", "beforeShellExecution", "stop"],
 }
 
 
@@ -55,53 +42,18 @@ CURSOR_STRINGENCY_EVENTS: dict[CursorHookStringency, list[str]] = {
 # ---------------------------------------------------------------------------
 
 
-def generate_cursor_llm_rule(cursor_dir: Path) -> Path | None:
-    """Generate .cursor/rules/mirdan-llm.mdc for LLM-enabled projects.
-
-    This is the PRIMARY injection mechanism for Cursor — ``alwaysApply: true``
-    rules are included in every prompt like a system instruction.
-
-    Args:
-        cursor_dir: The .cursor/ directory to write into.
-
-    Returns:
-        Path to created .mdc file, or None if already exists.
-    """
-    rules_dir = cursor_dir / "rules"
-    rules_dir.mkdir(parents=True, exist_ok=True)
-    mdc_path = rules_dir / "mirdan-llm.mdc"
-
-    if mdc_path.exists():
-        return None
-
-    content = (
-        "---\n"
-        "description: mirdan quality enforcement with local LLM optimization\n"
-        "alwaysApply: true\n"
-        "---\n\n"
-        "MANDATORY: Before writing ANY code, call the enhance_prompt MCP tool.\n"
-        "This tool gathers context locally using a free local model, saving significant\n"
-        "paid API tokens. After writing code, call validate_code_quality for enriched\n"
-        "validation with false-positive filtering and root-cause analysis.\n"
-    )
-    mdc_path.write_text(content)
-    return mdc_path
-
-
 def generate_cursor_hooks(
     cursor_dir: Path,
     stringency: CursorHookStringency = CursorHookStringency.COMPREHENSIVE,
-    llm_enabled: bool = False,
 ) -> Path | None:
-    """Generate .cursor/hooks.json with prompt-type and command-type hooks.
+    """Generate .cursor/hooks.json with zero-token command-type hooks.
 
-    Produces Cursor 1.7+ hooks.json with:
-    - Prompt hooks for context-dependent quality enforcement (LLM-evaluated)
-    - Command hooks for fast, deterministic checks (shell scripts)
+    All hooks are command-type shell scripts/CLI that run outside the model
+    context — no prompt-type lifecycle hooks (quality guidance lives in rules).
 
     Args:
         cursor_dir: The .cursor/ directory to write into.
-        stringency: Hook stringency level controlling event count.
+        stringency: Hook stringency level controlling which command hooks are emitted.
 
     Returns:
         Path to created hooks.json, or None if file already exists.
@@ -119,38 +71,24 @@ def generate_cursor_hooks(
     events = CURSOR_STRINGENCY_EVENTS[stringency]
     hooks: dict[str, list[dict[str, str | int]]] = {}
 
-    for event in events:
-        generator = _CURSOR_HOOK_GENERATORS.get(event)
-        if generator:
-            hooks[event] = generator()
-
-    # Append command-type hooks for events that benefit from fast checks
-    _append_command_hooks(hooks, events, cursor_dir)
-
-    # LLM-enabled: enhance sessionStart with additional_context,
-    # add beforeShellExecution governance to prevent duplicate tool runs
-    if llm_enabled:
-        hooks.setdefault("sessionStart", []).append(
-            {
-                "type": "prompt",
-                "prompt": (
-                    "mirdan local LLM is active. Call enhance_prompt before coding"
-                    " — it uses a free local model to optimize your workflow."
-                    " After writing code, call validate_code_quality for enriched"
-                    " validation. mirdan check runner handles lint/typecheck/test"
-                    " automatically."
-                ),
-            }
-        )
-        hooks.setdefault("beforeShellExecution", []).append(
+    # Zero-token command hooks only — quality guidance lives in rules, not prompt hooks.
+    if "afterFileEdit" in events:
+        hooks["afterFileEdit"] = [
+            {"type": "command", "command": ".cursor/hooks/mirdan-validate-file.sh", "timeout": 10}
+        ]
+    if "beforeShellExecution" in events:
+        hooks["beforeShellExecution"] = [
             {
                 "type": "command",
-                "command": 'echo \'{"permission":"allow"}\'',
-                "timeout": 5000,
+                "command": ".cursor/hooks/mirdan-shell-guard.sh",
+                "timeout": 5,
+                "failClosed": True,
             }
-        )
-        # Also generate the .mdc rule (primary Cursor injection)
-        generate_cursor_llm_rule(cursor_dir)
+        ]
+    if "stop" in events:
+        hooks["stop"] = [
+            {"type": "command", "command": "mirdan validate --staged --format text", "timeout": 60}
+        ]
 
     config = {"version": 1, "hooks": hooks}
 
@@ -158,282 +96,6 @@ def generate_cursor_hooks(
         json.dump(config, f, indent=2)
 
     return hooks_path
-
-
-def _append_command_hooks(
-    hooks: dict[str, list[dict[str, str | int]]],
-    events: list[str],
-    cursor_dir: Path,
-) -> None:
-    """Append command-type hooks to events that benefit from fast checks.
-
-    Adds deterministic shell-script hooks alongside existing prompt hooks.
-    Command hooks fire first (faster), providing a first line of defense.
-
-    Args:
-        hooks: Existing hooks dict to mutate.
-        events: Active events for this stringency level.
-        cursor_dir: The .cursor/ directory (for script paths).
-    """
-    shell_guard = cursor_dir / "hooks" / "mirdan-shell-guard.sh"
-    stop_gate = cursor_dir / "hooks" / "mirdan-stop-gate.sh"
-
-    if "beforeShellExecution" in events and shell_guard.exists():
-        hooks.setdefault("beforeShellExecution", []).insert(
-            0,
-            {
-                "type": "command",
-                "command": ".cursor/hooks/mirdan-shell-guard.sh",
-                "timeout": 5,
-                "failClosed": True,
-            },
-        )
-
-    if "stop" in events and stop_gate.exists():
-        hooks.setdefault("stop", []).insert(
-            0,
-            {
-                "type": "command",
-                "command": ".cursor/hooks/mirdan-stop-gate.sh",
-                "timeout": 15,
-                "loop_limit": 3,
-            },
-        )
-
-
-def _hook_after_file_edit() -> list[dict[str, str | int]]:
-    """afterFileEdit: Validate changed code quality."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "The file {file_path} was just edited. Call"
-                " mcp__mirdan__validate_code_quality on the changed code to"
-                " check for quality violations. Fix any errors found."
-            ),
-        }
-    ]
-
-
-def _hook_stop() -> list[dict[str, str | int]]:
-    """stop: Verification gate before task completion."""
-    return [
-        {
-            "type": "prompt",
-            "loop_limit": 2,
-            "prompt": (
-                "If code was written or edited during this task,"
-                " verify that mcp__mirdan__validate_code_quality was"
-                " called on all changed files and no unresolved errors"
-                " remain. If validation was not run on changed code,"
-                " call it now. If no code was changed, this check"
-                " passes automatically."
-            ),
-        }
-    ]
-
-
-def _hook_before_submit_prompt() -> list[dict[str, str | int]]:
-    """beforeSubmitPrompt: Lightweight quality reminder (no blocking MCP calls).
-
-    IMPORTANT: This hook's prompt must NOT instruct the evaluator to verify
-    file existence or check attachments — the fast eval model cannot access
-    the filesystem and will fail with false positives when attachments are
-    present in the hook input data.
-    """
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "mirdan quality standards are active. Use @Docs for"
-                " external APIs. Quality validation runs automatically"
-                " after file edits. Always allow the prompt to proceed."
-            ),
-        }
-    ]
-
-
-def _hook_post_tool_use() -> list[dict[str, str | int]]:
-    """postToolUse: Review non-edit tool results.
-
-    Note: file-edit validation is handled by afterFileEdit to avoid
-    duplicate mirdan calls.  This hook covers shell commands, MCP
-    calls, and other non-edit tool outcomes.
-    """
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "A tool just completed. If the output indicates errors"
-                " or warnings, review them before continuing. File-edit"
-                " quality checks are handled separately."
-            ),
-        }
-    ]
-
-
-def _hook_post_tool_use_failure() -> list[dict[str, str | int]]:
-    """postToolUseFailure: Handle failed tool calls."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "A tool call just failed. Analyze the error before"
-                " retrying. Consider an alternative approach rather"
-                " than repeating the same call."
-            ),
-        }
-    ]
-
-
-def _hook_session_start() -> list[dict[str, str | int]]:
-    """sessionStart: Initialize quality context for new session."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "mirdan quality context is active. For coding tasks:"
-                " 1) Call mcp__mirdan__enhance_prompt for quality requirements."
-                " 2) After writing code, call mcp__mirdan__validate_code_quality."
-                " 3) Fix all errors before marking complete."
-            ),
-        }
-    ]
-
-
-def _hook_session_end() -> list[dict[str, str | int]]:
-    """sessionEnd: Persist quality summary at session end."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "Session ending. Verify all changed files were validated"
-                " with mcp__mirdan__validate_code_quality and no"
-                " unresolved errors remain."
-            ),
-        }
-    ]
-
-
-def _hook_subagent_start() -> list[dict[str, str | int]]:
-    """subagentStart: Pass quality context to subagents."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "You are a subagent. mirdan quality standards are active."
-                " Validate any code with mcp__mirdan__validate_code_quality"
-                " before returning results."
-            ),
-        }
-    ]
-
-
-def _hook_subagent_stop() -> list[dict[str, str | int]]:
-    """subagentStop: Review subagent output quality."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "Review the subagent's output. If code was written,"
-                " ensure it was validated with"
-                " mcp__mirdan__validate_code_quality."
-            ),
-        }
-    ]
-
-
-def _hook_before_shell_execution() -> list[dict[str, str | int]]:
-    """beforeShellExecution: Security check before shell commands.
-
-    NOTE: The deterministic command hook (mirdan-shell-guard.sh) handles
-    blocking truly dangerous patterns (rm -rf /, DROP TABLE, force-push
-    to main/master, git reset --hard). This prompt hook is kept minimal
-    to avoid the fast eval model being overly cautious about safe
-    operations like ``git commit``, ``git push origin <branch>``, etc.
-    """
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "A shell command is about to execute."
-                " Allow all standard development commands (git, npm, pip,"
-                " make, cargo, uv, pytest, etc.) without blocking."
-                " Only flag commands that contain hardcoded secrets or"
-                " credentials visible in the command string."
-            ),
-        }
-    ]
-
-
-def _hook_after_shell_execution() -> list[dict[str, str | int]]:
-    """afterShellExecution: Review shell command results."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "A shell command completed. Review the output for"
-                " errors or warnings that might affect code quality."
-            ),
-        }
-    ]
-
-
-def _hook_before_mcp_execution() -> list[dict[str, str | int]]:
-    """beforeMCPExecution: Context before MCP tool calls."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "An MCP tool is about to be called. If calling"
-                " mirdan tools, ensure correct parameters are set"
-                " (check_security, language, session_id)."
-            ),
-        }
-    ]
-
-
-def _hook_after_mcp_execution() -> list[dict[str, str | int]]:
-    """afterMCPExecution: Review MCP tool results."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "An MCP tool call completed. If mirdan validation"
-                " returned errors, fix them before continuing."
-            ),
-        }
-    ]
-
-
-def _hook_pre_compact() -> list[dict[str, str | int]]:
-    """preCompact: Preserve quality state before compaction."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "Context is being compacted. Preserve mirdan quality"
-                " state: session_id, task_type, language, security"
-                " sensitivity, last validation score, and open"
-                " violations. Restore by calling enhance_prompt"
-                " after compaction."
-            ),
-        }
-    ]
-
-
-def _hook_after_agent_response() -> list[dict[str, str | int]]:
-    """afterAgentResponse: Quality check on agent responses."""
-    return [
-        {
-            "type": "prompt",
-            "prompt": (
-                "Agent response generated. If code was included,"
-                " ensure it was validated with"
-                " mcp__mirdan__validate_code_quality before presenting."
-            ),
-        }
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -480,27 +142,21 @@ echo '{"permission":"allow"}'
 exit 0
 """
 
-_STOP_GATE_SCRIPT = """\
+_VALIDATE_FILE_SCRIPT = """\
 #!/usr/bin/env bash
-# mirdan stop gate — remind about quality validation at task completion.
-# Reads JSON from stdin (Cursor hooks protocol). If there are uncommitted
-# changes, outputs a followup_message suggesting /mirdan-gate.
-#
-# Always exits 0 (advisory, never blocks).
+# mirdan validate-file — validate the just-edited file (Cursor afterFileEdit hook).
+# Reads JSON from stdin (Cursor hooks protocol), extracts the file path, and runs
+# mirdan's deterministic quick validation. Advisory: surfaces findings, never blocks.
 set -euo pipefail
 
-# Check for uncommitted changes
-CHANGED=$(git diff --name-only 2>/dev/null | head -20 || echo "")
-STAGED=$(git diff --cached --name-only 2>/dev/null | head -20 || echo "")
-ALL_CHANGED=$(echo -e "${CHANGED}\\n${STAGED}" | sort -u | sed '/^$/d')
+INPUT=$(cat)
+PATH_EXTRACT='import sys,json; print(json.load(sys.stdin).get("file_path",""))'
+FILE=$(echo "$INPUT" | python3 -c "$PATH_EXTRACT" 2>/dev/null || echo "")
 
-if [ -z "$ALL_CHANGED" ]; then
-    exit 0
-fi
+[ -z "$FILE" ] && exit 0
+[ -f "$FILE" ] || exit 0
 
-COUNT=$(echo "$ALL_CHANGED" | wc -l | tr -d ' ')
-MSG="Quality gate: ${COUNT} file(s) changed. Run /mirdan-gate."
-echo "{\\"followup_message\\":\\"$MSG\\"}"
+mirdan validate --quick --scope security --file "$FILE" --format micro 2>&1 || true
 exit 0
 """
 
@@ -508,8 +164,8 @@ exit 0
 def generate_cursor_hook_scripts(cursor_dir: Path) -> list[Path]:
     """Generate .cursor/hooks/*.sh command-type hook scripts.
 
-    Creates executable shell scripts for fast, deterministic hook checks.
-    These complement the prompt-type hooks with zero LLM overhead.
+    Creates executable shell scripts for the zero-token command-type hooks
+    (deterministic, no model overhead).
 
     Existing scripts are preserved — this function is idempotent per file.
 
@@ -524,7 +180,7 @@ def generate_cursor_hook_scripts(cursor_dir: Path) -> list[Path]:
 
     scripts = {
         "mirdan-shell-guard.sh": _SHELL_GUARD_SCRIPT,
-        "mirdan-stop-gate.sh": _STOP_GATE_SCRIPT,
+        "mirdan-validate-file.sh": _VALIDATE_FILE_SCRIPT,
     }
 
     created: list[Path] = []
@@ -536,25 +192,6 @@ def generate_cursor_hook_scripts(cursor_dir: Path) -> list[Path]:
             created.append(dest)
 
     return created
-
-
-_CURSOR_HOOK_GENERATORS: dict[str, Callable[[], list[dict[str, str | int]]]] = {
-    "afterFileEdit": _hook_after_file_edit,
-    "postToolUse": _hook_post_tool_use,
-    "postToolUseFailure": _hook_post_tool_use_failure,
-    "stop": _hook_stop,
-    "sessionStart": _hook_session_start,
-    "sessionEnd": _hook_session_end,
-    "beforeSubmitPrompt": _hook_before_submit_prompt,
-    "subagentStart": _hook_subagent_start,
-    "subagentStop": _hook_subagent_stop,
-    "beforeShellExecution": _hook_before_shell_execution,
-    "afterShellExecution": _hook_after_shell_execution,
-    "beforeMCPExecution": _hook_before_mcp_execution,
-    "afterMCPExecution": _hook_after_mcp_execution,
-    "preCompact": _hook_pre_compact,
-    "afterAgentResponse": _hook_after_agent_response,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -939,11 +576,12 @@ def _generate_agents_md(
 
 
 _AGENTS_QUALITY_CHECKPOINTS = """
-## Mandatory Quality Checkpoints
+## Quality Checkpoints
 
 ### Before Writing Code
-- Call `mcp__mirdan__enhance_prompt` to get quality requirements for the task
-- Review the `quality_requirements` and `touches_security` fields in the response
+- `enhance_prompt` is optional by default and recommended before security-sensitive,
+  multi-file, or new-library work — call `mcp__mirdan__enhance_prompt` to get quality
+  requirements and review `quality_requirements` / `touches_security` in the response
 
 ### After Every File Edit
 - Call `mcp__mirdan__validate_code_quality` on all changed files
@@ -1168,8 +806,9 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 
 ## Workflow
 
-1. Call `mcp__mirdan__enhance_prompt` with the task to get quality requirements,
-   detected language, and security sensitivity.
+1. (Optional, recommended for security-sensitive / multi-file / new-library work) Call
+   `mcp__mirdan__enhance_prompt` with the task for quality requirements, detected language,
+   and security sensitivity.
 
 2. Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }`
    to load project conventions, past decisions, and relevant patterns before
@@ -1317,12 +956,11 @@ _SUBAGENT_QUALITY_VALIDATOR = """\
 ---
 name: mirdan-quality-validator
 description: >-
-  Validate code quality against mirdan standards.
-  Use after writing or editing code files to check for AI slop,
-  security issues, and style violations.
+  Validate code quality against mirdan standards in one pass — AI slop (AI001-008),
+  security, architecture, test coverage, and style. Use after writing or editing code files.
 model: fast
 readonly: true
-background: true
+is_background: true
 ---
 
 # mirdan Quality Validator
@@ -1344,7 +982,8 @@ Validate recently changed code files against mirdan quality standards.
 
 4. Aggregate findings across all files.
 
-5. Report results as a markdown summary:
+5. Report results as a markdown summary, grouped by family (Security / Architecture /
+   AI-slop / Test / Style):
    - Total files checked
    - Overall quality score
    - Errors (must fix) with file path, line number, and rule ID
@@ -1366,7 +1005,7 @@ description: >-
   authentication, user input, database queries, or file I/O.
 model: inherit
 readonly: true
-background: false
+is_background: false
 ---
 
 # mirdan Security Scanner
@@ -1404,274 +1043,6 @@ must be addressed before proceeding. It may spawn child subagents for
 parallel file scanning when many files match trigger patterns.
 """
 
-_SUBAGENT_TEST_AUDITOR = """\
----
-name: mirdan-test-auditor
-description: >-
-  Audit test files for meaningful coverage and correctness.
-  Use when reviewing existing test files, not for creating new ones.
-model: inherit
-readonly: true
-background: false
----
-
-# mirdan Test Auditor
-
-Audit test quality for meaningful coverage and correctness.
-
-## Focus Areas
-
-- Meaningful assertions (not just "no error" or `assert True`)
-- Test isolation (no interdependencies or shared mutable state)
-- Edge cases (boundary conditions, error paths)
-- Fixture quality (minimal, focused)
-- Naming (test names describe behavior)
-
-## Instructions
-
-1. Use file search to find test files (`**/test_*.py`, `**/*.test.ts`,
-   `**/*.spec.ts`).
-
-2. Read each test file.
-
-3. Call `mcp__mirdan__validate_code_quality` for each file with:
-   - `severity_threshold="info"`
-
-4. Additionally check for:
-   - Tests with no assertions
-   - Tests that only assert `True` or check no exception
-   - Tests coupled to implementation details
-   - Missing error path coverage
-   - External service dependencies without mocking
-   - Overly broad exception handling in tests
-
-5. Report: test files audited, quality issues with file and test name,
-   missing coverage areas, and overall test quality score.
-
-## Subagent Coordination
-
-This subagent runs in the foreground. For large test suites, it may spawn
-child subagents to parallelize auditing across test directories.
-"""
-
-_SUBAGENT_SLOP_DETECTOR = """\
----
-name: mirdan-slop-detector
-description: >-
-  Detect AI-generated code quality issues: placeholder code, hallucinated
-  imports, invented APIs, dead code, and copy-paste artifacts.
-  Use proactively on any AI-generated or recently edited code.
-model: fast
-readonly: true
-background: true
----
-
-# mirdan AI Slop Detector
-
-Detect AI-generated code quality issues proactively.
-
-## AI Quality Rules
-
-| Rule | Severity | Description |
-|------|----------|-------------|
-| AI001 | error | Placeholder code — `NotImplementedError`, bare `pass`, `TODO` |
-| AI002 | error | Hallucinated imports — imports that don't resolve |
-| AI003 | warning | Invented APIs — function calls with wrong signatures |
-| AI004 | warning | Dead code — unused functions, variables, imports |
-| AI005 | info | Copy-paste artifacts — duplicate code blocks |
-| AI006 | warning | Inconsistent naming — doesn't match codebase conventions |
-| AI007 | error | Unvalidated input — missing validation at boundaries |
-| AI008 | error | String injection — f-strings in SQL/eval/exec/shell |
-
-## Instructions
-
-1. Identify recently modified code files.
-
-2. Read each file.
-
-3. Call `mcp__mirdan__validate_code_quality` for each file with:
-   - `check_security=true`
-   - `severity_threshold="info"`
-
-4. Additionally check for:
-   - Excessive try/except blocks swallowing errors
-   - Unnecessary abstractions for one-time operations
-   - Over-engineered solutions beyond what was requested
-
-5. Report: files checked, AI-specific issues by rule ID with line numbers,
-   errors (must fix), warnings (should fix), and observations.
-
-## Async Execution Notes
-
-This subagent runs in the background (async). The parent agent continues
-working while validation runs. Results are returned via agent ID — the
-parent can resume this subagent to retrieve findings.
-"""
-
-_SUBAGENT_ARCHITECTURE_REVIEWER = """\
----
-name: mirdan-architecture-reviewer
-description: >-
-  Review code architecture for structural quality issues including
-  function length, file length, nesting depth, god classes, and SOLID
-  violations. Use to review architecture after refactors or new modules.
-model: inherit
-readonly: true
-background: false
----
-
-# mirdan Architecture Reviewer
-
-Review code architecture for structural quality issues.
-
-## Focus Areas
-
-- Function length exceeding 30 lines (ARCH001)
-- File length exceeding 300 non-empty lines (ARCH002)
-- Nesting depth deeper than 4 levels (ARCH004)
-- God classes with more than 10 methods (ARCH005)
-- SOLID violations: single responsibility, interface segregation
-- Cross-file patterns: consistent error handling, naming, imports
-
-## Instructions
-
-1. Identify recently changed or created files.
-
-2. Read each file completely.
-
-3. Call `mcp__mirdan__validate_code_quality` for each file with:
-   - `check_architecture=true`
-   - `severity_threshold="warning"`
-
-4. Analyze cross-file patterns:
-   - Are naming conventions consistent across files?
-   - Is error handling consistent?
-   - Are import patterns consistent?
-
-5. Report: files analyzed, structural issues with line numbers,
-   architecture violations, cross-file observations, and
-   refactoring recommendations.
-
-## Subagent Coordination
-
-This subagent runs in the foreground. For multi-module projects, it may
-spawn child subagents to review each module's architecture in parallel.
-"""
-
-_SUBAGENT_IMPLEMENTER = """\
----
-name: mirdan-implementer
-description: >-
-  Implement code changes with mirdan quality enforcement. Use when dispatching
-  implementation TODOs — new features, refactors, bug fixes, or any code
-  modifications. Automatically validates quality and spawns readonly validators.
-model: inherit
-readonly: false
-background: false
----
-
-# mirdan Implementer
-
-Implement code changes with full mirdan quality enforcement.
-
-## Instructions
-
-1. **Quality Context** — Call `mcp__mirdan__enhance_prompt` with a summary of the
-   implementation task to establish quality requirements and detect security sensitivity.
-
-2. **Project Context** — Call `mcp__enyal__enyal_recall` with
-   `input: { query: "<relevant query for area being modified>" }` to load project
-   conventions, architecture decisions, and patterns.
-
-3. **Language Standards** — Call `mcp__mirdan__get_quality_standards` for the detected
-   language to get specific rules and idioms to follow.
-
-4. **Implement** — For each TODO or task:
-   - Read the target file completely before modifying it
-   - Follow the plan's exact details — do not add unrequested changes
-   - Use `@Docs [library-name]` to verify API signatures before calling them
-   - Call `mcp__mirdan__validate_code_quality` after each file edit
-   - If `touches_security` was flagged, use `check_security=true`
-   - Fix all errors before proceeding to the next file
-
-5. **Persist** — After all TODOs are complete:
-   - Store any new decisions or patterns via `mcp__enyal__enyal_remember` with
-     `input: { content: "<knowledge>", content_type: "<type>", tags: [...] }`
-   - Run the relevant test suite to confirm nothing is broken
-
-## Quality Rules (Always Active)
-- **AI001**: No placeholder code (NotImplementedError, bare pass, TODO)
-- **AI002**: No hallucinated imports — verify every import exists
-- **AI003**: No invented APIs — verify function signatures with docs or source
-- **AI008**: No injection vulnerabilities (no f-string SQL, eval, exec)
-
-## Subagent Coordination
-
-This subagent runs in the foreground. It may spawn readonly subagents for
-parallel validation while continuing implementation work:
-- `mirdan-quality-validator` (background) — async quality checks on edited files
-- `mirdan-slop-detector` (background) — async AI slop detection
-- `mirdan-security-scanner` (foreground) — blocking security review for sensitive files
-"""
-
-_SUBAGENT_TEST_WRITER = """\
----
-name: mirdan-test-writer
-description: >-
-  Write tests with mirdan quality enforcement. Use when dispatching test
-  creation TODOs — unit tests, integration tests, or test updates for new
-  or changed functionality. Validates test quality automatically.
-model: inherit
-readonly: false
-background: false
----
-
-# mirdan Test Writer
-
-Write tests with full mirdan quality enforcement.
-
-## Instructions
-
-1. **Understand the Code** — Read the implementation code being tested to understand:
-   - Public API surface (functions, classes, methods)
-   - Edge cases and error paths
-   - Input validation and boundary conditions
-   - Dependencies and external calls that need mocking
-
-2. **Project Conventions** — Call `mcp__enyal__enyal_recall` with
-   `input: { query: "testing conventions" }` to load project test patterns:
-   - Test framework (pytest, unittest, jest, etc.)
-   - Fixture patterns and conftest structure
-   - Naming conventions for test files and functions
-   - Mocking strategy (when to mock vs. use real dependencies)
-
-3. **Write Tests** — For each test TODO:
-   - Follow the project's existing test patterns exactly
-   - Include: positive cases, error cases, boundary conditions, edge cases
-   - Use descriptive test names that document expected behavior
-   - Keep tests focused — one assertion concept per test
-   - Call `mcp__mirdan__validate_code_quality` on each test file
-
-4. **Verify** — Run the test suite to confirm all new tests pass:
-   - Fix any failures before marking the TODO complete
-   - Ensure new tests don't break existing tests
-   - Check that tests actually assert meaningful behavior (not just "no error")
-
-## Quality Rules (Always Active)
-- No tests with zero assertions
-- No tests that only assert `True` or check no exception
-- No tests coupled to implementation details (test behavior, not internals)
-- No external service dependencies without mocking
-- No shared mutable state between tests
-
-## Subagent Coordination
-
-This subagent runs in the foreground. It may spawn readonly subagents for
-test quality review:
-- `mirdan-test-auditor` (foreground) — audit test coverage and correctness
-- `mirdan-quality-validator` (background) — validate test code quality
-"""
-
 _SUBAGENT_PLAN_REVIEWER = """\
 ---
 name: mirdan-plan-reviewer
@@ -1681,7 +1052,7 @@ description: >-
   7-dimension review report with PASS/REVISE/FAIL verdict.
 model: sonnet
 readonly: true
-background: true
+is_background: true
 ---
 
 # mirdan Plan Reviewer
@@ -1711,12 +1082,16 @@ factual accuracy and executability by cheaper models (Haiku, Flash).
 
 6. Check dependency ordering (circular deps, creation before modification).
 
-7. Semantic review: completeness, executability, safety, architecture.
+7. Semantic review: completeness, executability, safety, architecture. For every
+   `Action: Edit`, confirm a unique ```anchor```/```replace``` pair (anchor findable
+   exactly once in the target file); flag any unresolved decision (TBD / either-or).
 
 8. Score 7 dimensions (Grounding 30%, Completeness 20%, Atomicity 15%,
-   Clarity 10%, Dependency 10%, Executability 10%, Safety 5%).
+   Clarity 10%, Dependency 10%, Executability 10%, Safety 5%). Atomicity 1.0 requires
+   every non-capable Edit to carry a unique anchor/replace.
 
-9. Output verdict: PASS (>=0.95 for haiku) / REVISE (>=0.5) / FAIL (<0.5).
+9. Output verdict: PASS (>=0.95 for haiku) / REVISE (>=0.5) / FAIL (<0.5). For a haiku
+   target, any unresolved decision or `[target: capable]` step → at most REVISE.
 
 ## Report Format
 
@@ -1737,11 +1112,6 @@ Results are returned as a structured report when the subagent completes.
 _CURSOR_SUBAGENTS: dict[str, str] = {
     "mirdan-quality-validator.md": _SUBAGENT_QUALITY_VALIDATOR,
     "mirdan-security-scanner.md": _SUBAGENT_SECURITY_SCANNER,
-    "mirdan-test-auditor.md": _SUBAGENT_TEST_AUDITOR,
-    "mirdan-slop-detector.md": _SUBAGENT_SLOP_DETECTOR,
-    "mirdan-architecture-reviewer.md": _SUBAGENT_ARCHITECTURE_REVIEWER,
-    "mirdan-implementer.md": _SUBAGENT_IMPLEMENTER,
-    "mirdan-test-writer.md": _SUBAGENT_TEST_WRITER,
     "mirdan-plan-reviewer.md": _SUBAGENT_PLAN_REVIEWER,
 }
 
@@ -1821,51 +1191,6 @@ Execute coding tasks with automatic quality enforcement via mirdan.
 5. Fix all errors before marking complete. Note warnings for review.
 """
 
-_SKILL_PLAN = """\
----
-name: mirdan-plan
-description: >-
-  Quality-gated implementation planning. Use when creating implementation
-  plans, architecture designs, or task breakdowns.
-disable-model-invocation: false
----
-
-# mirdan Plan — Quality-Gated Implementation Planning
-
-Create implementation plans with anti-hallucination standards.
-
-## When to Use
-
-- Creating implementation plans
-- Architecture design sessions
-- Task breakdown and estimation
-- Migration or refactor planning
-
-## Workflow
-
-1. Call `mcp__mirdan__enhance_prompt` with the planning task to detect
-   frameworks and quality requirements.
-
-2. Use `@Docs [library-name]` to look up current API documentation for
-   each library involved — never plan around assumed APIs.
-
-3. Read all files that will be modified before writing plan steps. Cite
-   exact line numbers and function names.
-
-4. Each plan step must include:
-   - Exact file path (verified to exist)
-   - Specific action with details
-   - Verification method
-   - Grounding (which tool confirmed the facts)
-
-5. No vague language: "should", "probably", "maybe" are not allowed in
-   plan steps.
-
-6. After the plan is finalized, send TODO groups to implementation subagents:
-   `mirdan-implementer` for code, `mirdan-test-writer` for tests. Each
-   subagent enforces mirdan quality standards automatically.
-"""
-
 _SKILL_PLAN_REVIEW = """\
 ---
 name: mirdan-plan-review
@@ -1923,7 +1248,9 @@ Invoke explicitly with `/mirdan-plan-review` when you want to:
 
 6. **Semantic Review** — Assess:
    - COMPLETENESS: Missing tests, exports, configs?
-   - EXECUTABILITY: Can Haiku execute each step with only its context?
+   - EXECUTABILITY: Can Haiku execute each step with only its context? Every
+     `Action: Edit` has a ```anchor```/```replace``` whose anchor is findable exactly
+     once in the file; no unresolved decisions (TBD / either-or).
    - SAFETY: Auth/input/DB changes have validation?
 
 7. **Synthesize Report** — Score 7 dimensions, determine verdict.
@@ -1934,7 +1261,7 @@ Invoke explicitly with `/mirdan-plan-review` when you want to:
 |-----------|--------|-----------|
 | Grounding | 30% | All refs verified or expected-new |
 | Completeness | 20% | No gaps in steps |
-| Atomicity | 15% | All steps single-action |
+| Atomicity | 15% | All steps single-action; every non-capable Edit has a unique anchor/replace |
 | Clarity | 10% | Zero vague language |
 | Dependency Order | 10% | Valid ordering |
 | Executability | 10% | Self-contained steps |
@@ -1942,12 +1269,13 @@ Invoke explicitly with `/mirdan-plan-review` when you want to:
 
 ## Verdict: PASS (>=0.95 haiku) / REVISE (>=0.5) / FAIL (<0.5)
 
+For a **haiku** target, any unresolved decision or `[target: capable]` step → at most REVISE.
+
 Report findings as: `[DIMENSION/CONFIDENCE] Description — Fix: recommendation`
 """
 
 _CURSOR_SKILLS: dict[str, str] = {
     "mirdan-code": _SKILL_CODE,
-    "mirdan-plan": _SKILL_PLAN,
     "mirdan-plan-review": _SKILL_PLAN_REVIEW,
 }
 

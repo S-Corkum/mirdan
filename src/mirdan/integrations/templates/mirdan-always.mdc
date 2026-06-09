@@ -10,12 +10,13 @@ Use the mirdan MCP server for code quality enforcement on every coding task.
 
 ## Entry Point
 
-Before writing any code:
-1. Call `mcp__mirdan__enhance_prompt` with the task description.
-   Use the returned quality requirements as constraints during implementation.
-2. Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to
-   load project conventions, past decisions, and relevant patterns. Follow these
-   conventions during implementation.
+`enhance_prompt` is optional by default and recommended before security-sensitive, multi-file,
+or new-library work — call `mcp__mirdan__enhance_prompt` with the task description and use the
+returned quality requirements as constraints. `validate_code_quality` after writing remains
+mandatory (see Exit Gate).
+
+For any task, call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to
+load project conventions, past decisions, and relevant patterns, and follow them.
 
 **Important:** All enyal tools require parameters wrapped in an `input` object.
 For example: `enyal_recall(input: { query: "..." })`, not `enyal_recall(query: "...")`.
@@ -34,8 +35,3 @@ Fix all errors before proceeding. Note warnings and address if reasonable.
 After completing the task, call `mcp__enyal__enyal_remember` with
 `input: { content: "<knowledge>", content_type: "<type>", tags: [...] }` to store
 any new decisions, patterns, or conventions discovered during implementation.
-
-## Completion
-
-Before marking any task complete, call `mcp__mirdan__get_verification_checklist`
-with the task type. Review and satisfy each item.

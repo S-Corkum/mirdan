@@ -1,8 +1,8 @@
 """
 Mirdan: AI Code Quality Orchestrator
 
-Automatically transforms developer prompts into high-quality,
-structured requests that maximize AI coding assistant capabilities.
+Deterministic code-quality enforcement and Haiku-proof planning for Claude Code
+and Cursor — zero-token hooks, opinionated content, fully local.
 """
 
-__version__ = "2.3.0"
+__version__ = "2.4.0"

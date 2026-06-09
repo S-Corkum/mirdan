@@ -8,7 +8,8 @@ alwaysApply: false
 Background agents and autonomous task runners must follow stricter quality gates.
 
 ## Mandatory Agent Checkpoints
-- Call `mcp__mirdan__enhance_prompt` at task start to establish quality context
+- Call `mcp__mirdan__enhance_prompt` at task start for security-sensitive, multi-file, or
+  new-library work (optional otherwise) to establish quality context
 - Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to load project conventions and past decisions
 - Validate every file edit with `mcp__mirdan__validate_code_quality` before proceeding
 - Quality score must be >= 0.7 before marking any step complete

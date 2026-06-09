@@ -266,7 +266,7 @@ class TestCursorEventsComplete:
         )
 
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.COMPREHENSIVE]
-        assert len(events) == 7
+        assert len(events) == 3
 
     def test_standard_count(self) -> None:
         from mirdan.integrations.cursor import (
@@ -275,18 +275,14 @@ class TestCursorEventsComplete:
         )
 
         events = CURSOR_STRINGENCY_EVENTS[CursorHookStringency.STANDARD]
-        assert len(events) == 4
+        assert len(events) == 3
 
     @pytest.mark.parametrize(
         "event",
         [
             "afterFileEdit",
-            "postToolUseFailure",
-            "stop",
-            "sessionStart",
             "beforeShellExecution",
-            "subagentStart",
-            "preCompact",
+            "stop",
         ],
     )
     def test_cursor_event_exists_in_comprehensive(self, event: str) -> None:
