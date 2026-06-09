@@ -111,30 +111,13 @@ class TestGenerateClaudeCodeHooks:
 
 
 class TestUserPromptSubmit:
-    """Tests for UserPromptSubmit event generator.
+    """UserPromptSubmit is a prompt-only/blocking event — never emitted (a prompt-type
+    hook on a blocking event is evaluated as a gate and locks turns regardless of wording)."""
 
-    UserPromptSubmit is only emitted when LLM triage is enabled; the
-    non-LLM path returns an empty list so the event is skipped. A
-    prompt-type hook on this blocking event is evaluated as a gate and
-    locks turns regardless of wording.
-    """
-
-    def test_absent_in_standard_when_llm_disabled(self) -> None:
+    def test_absent_in_standard(self) -> None:
         generator = HookTemplateGenerator()
         result = generator.generate_claude_code_hooks(HookStringency.STANDARD)
         assert "UserPromptSubmit" not in result["hooks"]
-
-    def test_present_in_standard_when_llm_enabled(self) -> None:
-        generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(HookStringency.STANDARD, llm_enabled=True)
-        assert "UserPromptSubmit" in result["hooks"]
-
-    def test_command_only_when_llm_enabled(self) -> None:
-        generator = HookTemplateGenerator()
-        result = generator.generate_claude_code_hooks(HookStringency.STANDARD, llm_enabled=True)
-        ups = result["hooks"]["UserPromptSubmit"]
-        hook_types = [h["type"] for h in ups[0]["hooks"]]
-        assert hook_types == ["command"]
 
 
 # ---------------------------------------------------------------------------
@@ -246,9 +229,6 @@ class TestSpecializedAgents:
         expected = {
             "quality-gate.md",
             "security-audit.md",
-            "architecture-reviewer.md",
-            "convention-check.md",
-            "test-quality.md",
             "plan-reviewer.md",
         }
         actual = {p.name for p in agents_dir.iterdir() if p.suffix == ".md"}
@@ -258,14 +238,6 @@ class TestSpecializedAgents:
         content = (agents_dir / "security-audit.md").read_text()
         assert "PROACTIVELY" in content
 
-    def test_ai_slop_detector_is_proactive(self, agents_dir: Path) -> None:
-        content = (agents_dir / "convention-check.md").read_text()
-        assert "PROACTIVELY" in content
-
-    def test_architecture_reviewer_uses_sonnet(self, agents_dir: Path) -> None:
-        content = (agents_dir / "architecture-reviewer.md").read_text()
-        assert "model: sonnet" in content
-
     def test_quality_validator_no_background(self, agents_dir: Path) -> None:
         """background: is not a valid Claude Code agent field — must be absent."""
         content = (agents_dir / "quality-gate.md").read_text()
@@ -274,11 +246,6 @@ class TestSpecializedAgents:
     def test_quality_validator_no_memory(self, agents_dir: Path) -> None:
         """memory: is not a valid Claude Code agent field — must be absent."""
         content = (agents_dir / "quality-gate.md").read_text()
-        assert "memory:" not in content
-
-    def test_test_auditor_no_memory(self, agents_dir: Path) -> None:
-        """memory: is not a valid Claude Code agent field — must be absent."""
-        content = (agents_dir / "test-quality.md").read_text()
         assert "memory:" not in content
 
     def test_agents_reference_current_tools(self, agents_dir: Path) -> None:
@@ -334,7 +301,7 @@ class TestPluginExport:
         agents_dir = tmp_path / "agents"
         assert agents_dir.exists()
         md_files = list(agents_dir.glob("*.md"))
-        assert len(md_files) == 6
+        assert len(md_files) == 3
 
 
 # ---------------------------------------------------------------------------

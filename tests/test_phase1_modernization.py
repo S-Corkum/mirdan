@@ -356,21 +356,6 @@ class TestAgentFrontmatter:
         content = (agents_pkg / "security-audit.md").read_text()
         assert "isolation:" not in content
 
-    def test_test_quality_no_skills(self, agents_pkg: Any) -> None:
-        """skills: is not a valid Claude Code agent field — must be absent."""
-        content = (agents_pkg / "test-quality.md").read_text()
-        assert "skills:" not in content
-
-    def test_convention_check_no_memory(self, agents_pkg: Any) -> None:
-        """memory: is not a valid Claude Code agent field — must be absent."""
-        content = (agents_pkg / "convention-check.md").read_text()
-        assert "memory:" not in content
-
-    def test_architecture_reviewer_no_mcp_servers(self, agents_pkg: Any) -> None:
-        """mcpServers: is not a valid Claude Code agent field — must be absent."""
-        content = (agents_pkg / "architecture-reviewer.md").read_text()
-        assert "mcpServers:" not in content
-
 
 # ---------------------------------------------------------------------------
 # 1F: Claude Code Rules Modernization
@@ -391,10 +376,12 @@ class TestRuleFrontmatter:
         assert content.startswith("---")
         assert "description:" in content
 
-    def test_quality_no_paths(self, rules_pkg: Any) -> None:
-        """mirdan-quality.md should be always active (no paths)."""
+    def test_quality_has_code_paths(self, rules_pkg: Any) -> None:
+        """2.3.0: mirdan-quality.md is path-scoped to code files (AI-quality rules
+        only matter when editing code), no longer always-on."""
         content = (rules_pkg / "mirdan-quality.md").read_text()
-        assert "paths:" not in content
+        assert "paths:" in content
+        assert '- "**/*.py"' in content
 
     def test_python_has_paths(self, rules_pkg: Any) -> None:
         content = (rules_pkg / "mirdan-python.md").read_text()

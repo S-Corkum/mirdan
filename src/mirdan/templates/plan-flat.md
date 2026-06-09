@@ -4,6 +4,8 @@ status: draft
 author: <author>
 created: <YYYY-MM-DD>
 target: <version or milestone>
+format_version: 2
+target_model: haiku
 ---
 
 # Plan: <title>
@@ -14,6 +16,16 @@ concreteness. Every File path is real (Read/Glob-verified). Every interface is
 tagged [NEW] or [EXISTING]; [EXISTING] cites file:line, [NEW] is created by a step.
 Include a Low-Level Design subsection ONLY if it applies — delete inapplicable
 headings, do not write "N/A".
+
+EXECUTION CONTRACT (format_version: 2): every `Action: Edit` step carries a literal
+anchor/replace pair (see Step 1). The executor does an exact find-and-replace of the
+single matching occurrence — replace verbatim; do not paraphrase, reindent, or
+regenerate surrounding code. To INSERT, set the anchor to the verbatim existing line
+and the replace to that line plus the new line(s). Make each anchor the smallest
+verbatim span that is UNIQUE in the target file, and copy whitespace exactly. A step
+that genuinely cannot be anchored (a wholesale/judgment rewrite) is tagged
+[target: capable] on its Action line and needs no anchor — but such a plan is not
+haiku-cold-executable.
 -->
 
 ## Research Notes (Pre-Plan Verification)
@@ -22,7 +34,7 @@ All facts verified via Read/Grep/tool-call on 2026-06-04.
 
 ### Files Verified
 - `src/app/cache.py`: `class LruCache` at line 12; `get(key)` at line 28, no TTL support.
-- `src/app/config.py`: `Settings` model at line 9; no `cache_ttl` field.
+- `src/app/config.py`: `Settings(BaseModel)` at line 9, first field `name: str` at line 10; no `cache_ttl` field.
 
 ### Dependencies Confirmed
 - `cachetools`: 5.3.2 (pyproject.toml line 24).
@@ -54,10 +66,19 @@ All facts verified via Read/Grep/tool-call on 2026-06-04.
 ### Step 1: Add cache_ttl_seconds to Settings
 **File:** `src/app/config.py`
 **Action:** Edit
-**Details:** After line 9 add `cache_ttl_seconds: int = Field(default=300, gt=0, description="Cache entry TTL in seconds")`.
+**Details:** Add the TTL field to the `Settings` model, anchored on its first field.
+```anchor
+class Settings(BaseModel):
+    name: str
+```
+```replace
+class Settings(BaseModel):
+    name: str
+    cache_ttl_seconds: int = Field(default=300, gt=0, description="Cache entry TTL in seconds")
+```
 **Depends On:** —
 **Verify:** Read config.py; confirm field present and `Settings().cache_ttl_seconds == 300`.
-**Grounding:** Read of config.py:9 (Settings model); convention from enyal config-convention.
+**Grounding:** Read of config.py:9-10 (Settings model + first field) copied verbatim into the anchor.
 
 ### Step 2: Add TtlCache
 **File:** NEW: `src/app/ttl_cache.py`
@@ -68,9 +89,12 @@ All facts verified via Read/Grep/tool-call on 2026-06-04.
 **Grounding:** context7 for `cachetools.TTLCache` signature; parent dir `src/app/` Glob-confirmed.
 
 ## Self-Check
+- [ ] `format_version: 2` set; any step that can't be anchored is tagged [target: capable]
 - [ ] Research Notes present with tool citations
 - [ ] Every interface tagged [NEW]/[EXISTING]; [EXISTING] cites file:line; [NEW] created by a step
 - [ ] Every step has File, Action, Details, Depends On, Verify, Grounding
+- [ ] Every `Action: Edit` step has an ```anchor```/```replace``` pair copied verbatim, and the anchor is unique in the file
 - [ ] No vague language ("should", "probably", "around line X", "I think", "assume")
+- [ ] No unresolved decisions (no TBD / either-or / "decide later") — every Design Decision is resolved
 - [ ] Every File path verified or marked NEW with parent Glob-confirmed
 - [ ] Steps are atomic — one action each

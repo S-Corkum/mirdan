@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from mirdan.cli.detect import DetectedProject
-from mirdan.integrations.claude_code import generate_claude_code_config
+from mirdan.integrations.claude_code import generate_claude_code_config, generate_skills
 
 
 @pytest.fixture()
@@ -384,3 +384,50 @@ class TestHookDelegation:
         stop = data["hooks"]["Stop"]
         hook_types = [h["type"] for h in stop[0]["hooks"]]
         assert hook_types == ["command"]
+
+
+# ---------------------------------------------------------------------------
+# 2.3.0: per-edit validator scope, no PreToolUse, deprecated-skill prune
+# ---------------------------------------------------------------------------
+
+
+class TestValidatorScopeAndSkillPrune:
+    def test_validate_script_uses_security_scope(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """The per-edit PostToolUse validator runs the cheapest --scope security."""
+        generate_claude_code_config(tmp_path, detected_python)
+        script = tmp_path / ".claude" / "hooks" / "validate-file.sh"
+        assert script.exists()
+        content = script.read_text()
+        assert "--scope security" in content
+        assert "--scope essential" not in content
+
+    def test_no_pretooluse_hook(self, tmp_path: Path, detected_python: DetectedProject) -> None:
+        """No PreToolUse enhance_prompt nudge is installed (opt-in, not forced)."""
+        generate_claude_code_config(tmp_path, detected_python)
+        data = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+        assert "PreToolUse" not in data["hooks"]
+
+    def test_generate_skills_prunes_deprecated(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """A stale mirdan-generated deprecated skill dir is removed; current ones installed."""
+        stale = tmp_path / ".claude" / "skills" / "debug"
+        stale.mkdir(parents=True)
+        (stale / "SKILL.md").write_text("old debug skill")
+        generate_skills(tmp_path, detected_python)
+        assert not stale.exists()
+        assert (tmp_path / ".claude" / "skills" / "plan-verify" / "SKILL.md").exists()
+
+    def test_generate_skills_preserves_user_skill(
+        self, tmp_path: Path, detected_python: DetectedProject
+    ) -> None:
+        """A user-authored skill sharing a deprecated name (extra files) is preserved."""
+        user = tmp_path / ".claude" / "skills" / "scan"
+        user.mkdir(parents=True)
+        (user / "SKILL.md").write_text("my custom scan")
+        (user / "helper.py").write_text("x = 1\n")
+        generate_skills(tmp_path, detected_python)
+        assert user.exists()
+        assert (user / "helper.py").exists()

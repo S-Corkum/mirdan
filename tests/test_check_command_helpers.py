@@ -177,7 +177,6 @@ class TestCheckJsonShape:
         from mirdan.cli.check_command import run_check
         from mirdan.config import (
             CheckRunnerConfig,
-            LLMConfig,
             MirdanConfig,
             ProjectConfig,
         )
@@ -209,14 +208,11 @@ class TestCheckJsonShape:
 
         test_config = MirdanConfig(
             project=ProjectConfig(primary_language="python"),
-            llm=LLMConfig(
-                checks=CheckRunnerConfig(auto_fix_lint=False),
-            ),
+            checks=CheckRunnerConfig(auto_fix_lint=False),
         )
 
         with (
             patch("mirdan.cli.check_command._run_subprocess", side_effect=_fake),
-            patch("mirdan.cli.check_command._try_sidecar", return_value=None),
             patch(
                 "mirdan.cli.check_command.MirdanConfig.find_config",
                 return_value=test_config,

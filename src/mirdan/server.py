@@ -44,12 +44,7 @@ def _get_provider() -> ComponentProvider:
 @asynccontextmanager
 async def _lifespan(app: FastMCP[Any]) -> AsyncIterator[None]:
     """Manage server lifecycle: startup initialization and shutdown cleanup."""
-    provider = _get_provider()
-
-    if provider.llm_manager:
-        _startup_task = asyncio.create_task(provider.llm_manager.startup())
-        _background_tasks.add(_startup_task)
-        _startup_task.add_done_callback(_background_tasks.discard)
+    _get_provider()
 
     budget_str = os.environ.get("MIRDAN_TOOL_BUDGET")
     if budget_str is not None and budget_str != "":
@@ -360,12 +355,20 @@ async def verify_plan(plan_path: str) -> dict[str, Any]:
     NEW: files, its parent dir), Depends-on references resolve with no cycles,
     there are no vague cross-references, and every step has its grounding fields.
 
+    On a plan with ``format_version: 2`` frontmatter the Haiku-proof checks are
+    enforced (hard): literal anchor/replace edit blocks, anchor uniqueness, step
+    atomicity, and pre-resolved decisions. On v1 / frontmatter-less plans these are
+    reported but do not affect ``verified`` (the historical corpus keeps passing);
+    a v1 plan that contains anchors gets a downgrade warning in ``summary``.
+
     Args:
         plan_path: Absolute or project-relative path to the plan markdown file.
 
     Returns:
-        dict with verified, coverage_score, phantom_files, dependency_errors,
-        vague_cross_references, missing_grounding, summary
+        dict with verified, coverage_score, format_version, phantom_files,
+        dependency_errors, vague_cross_references, missing_grounding, lld_gaps,
+        missing_edit_anchors, anchor_uniqueness_errors, atomicity_violations,
+        unresolved_decisions, capable_steps, summary
     """
     p = _get_provider()
     uc = p.create_verify_plan_usecase()

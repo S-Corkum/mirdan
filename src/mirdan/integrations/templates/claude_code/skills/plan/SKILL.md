@@ -48,12 +48,24 @@ Recent plans:
 
 7. **Write atomic steps** — `### Step N` with **File / Action / Details /
    Depends On / Verify / Grounding**. Each step single-action, grounded, no vague
-   language ("should", "probably", "around line X", "I think", "assume").
+   language ("should", "probably", "around line X", "I think", "assume") and no
+   unresolved decisions ("TBD", "either…or", "decide later").
+
+   For every `Action: Edit` step, put a literal find-and-replace in Details so a cheap
+   model executes it cold: copy the exact existing text into a ` ```anchor ` block and
+   the exact new text into a ` ```replace ` block. The anchor must be the smallest span
+   that is **unique** in the target file (verify during Research); to insert, anchor on
+   the verbatim existing line and replace it with that line plus the new line(s). A step
+   that genuinely cannot be anchored (a wholesale/judgment rewrite) is tagged
+   **[target: capable]** on its Action line — but it is then not haiku-cold, so keep
+   these rare. `/plan-verify` enforces all of this at `format_version: 2`.
 
 8. **Self-validate** — run `mcp__mirdan__validate_code_quality` on any embedded code
    snippets; Glob-verify every cited file path.
 
-9. **Write** — save to `docs/plans/<slug>.md`.
+9. **Write** — save to `docs/plans/<slug>.md`. Always include `format_version: 2` in
+   the plan frontmatter so the Haiku-proof checks (anchors, uniqueness, atomicity,
+   resolved decisions) are enforced by `/plan-verify`.
 
 10. **Emit hand-off** — print exactly:
     `Plan saved to docs/plans/<slug>.md. Run /plan-verify docs/plans/<slug>.md to confirm it is internally executable.`
@@ -70,7 +82,9 @@ Write a `## Low-Level Design` section. **Mandatory** subsections:
 - **Error Taxonomy** — each failure mode and the exception/return for it; which layer
   raises vs handles.
 - **Design Decisions** — for each design domain surfaced by `enhance_prompt`, the
-  approach chosen + one-line rationale grounded in this codebase.
+  approach chosen + one-line rationale grounded in this codebase. **Resolve every
+  decision here** — pick one option; never leave "TBD", "either/or", or "decide
+  later" for the implementer to invent (`/plan-verify` flags these at v2).
 
 **Applicability-gated** (include only if relevant):
 

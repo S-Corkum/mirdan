@@ -196,3 +196,76 @@ class TestDeterminismAndErrors:
         r = VerifyPlanUseCase(project_root=tmp_path).execute(str(tmp_path / "nope.md"))
         assert r["verified"] is False
         assert "error" in r
+
+
+_V2_HEADER = (
+    "---\nformat_version: 2\n---\n# Plan\n\n"
+    "## Research Notes\n### Files Verified\n- real.py\n\n## Plan Steps\n\n"
+)
+
+
+class TestHaikuProofV2:
+    """format_version 2 enforces anchors/uniqueness/atomicity/resolved-decisions.
+
+    v1 / frontmatter-less plans keep these soft (the _CLEAN_PLAN invariant above).
+    """
+
+    def test_v2_unanchored_edit_fails(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("x = 1\n")
+        body = _V2_HEADER + (
+            "### Step 1: edit\n**File:** `real.py`\n**Action:** Edit\n"
+            "**Details:** change it\n**Depends On:** —\n**Verify:** v\n**Grounding:** Read real.py\n"
+        )
+        r = VerifyPlanUseCase(project_root=tmp_path).execute(_write(tmp_path, body))
+        assert r["format_version"] == 2
+        assert len(r["missing_edit_anchors"]) == 1
+        assert r["verified"] is False
+        assert r["coverage_score"] < 1.0
+
+    def test_v2_capable_edit_exempt(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("x = 1\n")
+        body = _V2_HEADER + (
+            "### Step 1: rewrite\n**File:** `real.py`\n**Action:** Edit  **[target: capable]**\n"
+            "**Details:** rewrite the module\n**Depends On:** —\n"
+            "**Verify:** v\n**Grounding:** Read real.py\n"
+        )
+        r = VerifyPlanUseCase(project_root=tmp_path).execute(_write(tmp_path, body))
+        assert r["missing_edit_anchors"] == []
+        assert r["capable_steps"] == ["1"]
+        assert r["verified"] is True
+
+    def test_v2_anchored_edit_passes(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("a = 1\nold = 1\nb = 2\n")
+        body = _V2_HEADER + (
+            "### Step 1: edit\n**File:** `real.py`\n**Action:** Edit\n"
+            "**Details:** swap\n```anchor\nold = 1\n```\n```replace\nold = 2\n```\n"
+            "**Depends On:** —\n**Verify:** v\n**Grounding:** Read real.py\n"
+        )
+        r = VerifyPlanUseCase(project_root=tmp_path).execute(_write(tmp_path, body))
+        assert r["missing_edit_anchors"] == []
+        assert r["anchor_uniqueness_errors"] == []
+        assert r["verified"] is True
+
+    def test_v2_nonunique_anchor_fails(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("old = 1\nold = 1\n")
+        body = _V2_HEADER + (
+            "### Step 1: edit\n**File:** `real.py`\n**Action:** Edit\n"
+            "**Details:** swap\n```anchor\nold = 1\n```\n```replace\nold = 2\n```\n"
+            "**Depends On:** —\n**Verify:** v\n**Grounding:** Read real.py\n"
+        )
+        r = VerifyPlanUseCase(project_root=tmp_path).execute(_write(tmp_path, body))
+        assert len(r["anchor_uniqueness_errors"]) == 1
+        assert r["verified"] is False
+
+    def test_v1_anchored_plan_warns_downgrade(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("old = 1\n")
+        body = (  # no frontmatter → v1, but contains an anchor block
+            "# Plan\n## Research Notes\n### Files Verified\n- real.py\n\n## Plan Steps\n\n"
+            "### Step 1: edit\n**File:** `real.py`\n**Action:** Edit\n"
+            "**Details:** swap\n```anchor\nold = 1\n```\n```replace\nold = 2\n```\n"
+            "**Depends On:** —\n**Verify:** v\n**Grounding:** Read real.py\n"
+        )
+        r = VerifyPlanUseCase(project_root=tmp_path).execute(_write(tmp_path, body))
+        assert r["format_version"] == 1
+        assert "WARNING" in r["summary"]
+        assert r["verified"] is True  # v1 soft — anchors reported, not enforced

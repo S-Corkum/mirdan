@@ -19,11 +19,10 @@ Recent changes:
 
 ## Workflow
 
-1. **Analyze** — Call `mcp__mirdan__enhance_prompt` with the user's task to get:
-   - Detected language and frameworks
-   - Quality requirements to follow
-   - Security sensitivity (touches_security)
-   - A session_id for the task
+1. **Analyze (optional)** — `enhance_prompt` is optional by default and **recommended**
+   before security-sensitive, multi-file, or new-library work. When used it returns the
+   detected language/frameworks, quality requirements, and security sensitivity. Skip it
+   for trivial edits. (`validate_code_quality` after writing — step 6 — stays mandatory.)
 
 2. **Recall** — Call `mcp__enyal__enyal_recall` with `input: { query: "<task description>" }` to load project conventions, past decisions, and relevant patterns before writing any code
 
@@ -42,5 +41,13 @@ Recent changes:
 
 8. **Complete** — Confirm:
    - All validation errors resolved
-   - Quality requirements from enhance_prompt satisfied
+   - Quality requirements satisfied
    - No placeholder code (AI001) or hallucinated imports (AI002)
+
+## Execution discipline
+
+- One change at a time; Read a file before you edit it (the harness enforces
+  Read-before-Edit) and verify after (re-Read or run the test).
+- Implement exactly the task — don't add scope or "improvements" not asked for.
+- If something unexpected comes up (a missing file, a wrong assumption), STOP and ask
+  rather than guessing.

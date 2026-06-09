@@ -125,7 +125,7 @@ Build a mental step graph from "Depends On:" fields:
 Assess dimensions that require judgment:
 
 - **COMPLETENESS**: For each new function or file in the plan, is there a corresponding test step? Are `__init__.py` exports updated when new modules are added? Are config changes included? Are type annotations addressed?
-- **EXECUTABILITY**: Read each step as if you are Claude Haiku with no prior context. Does the step contain ALL information needed to execute it? Flag any step using "as discussed", "the function from before", "this file", or other ambiguous references.
+- **EXECUTABILITY**: Read each step as if you are Claude Haiku with no prior context. Does the step contain ALL information needed to execute it? Flag any step using "as discussed", "the function from before", "this file", or other ambiguous references. For every `Action: Edit`, confirm the ```anchor``` block is present and is a span you could find exactly once in the target file (a non-unique or absent anchor makes Haiku edit the wrong place). Flag any unresolved decision (TBD / either-or / "decide later").
 - **SAFETY**: If the plan touches auth, user input, database queries, or APIs — are input validation, error handling, and injection prevention addressed?
 - **ARCHITECTURE**: Do the changes respect the project conventions loaded from enyal in Step 3?
 
@@ -148,9 +148,9 @@ Calculate dimension scores using the rubric below and output the report in the e
 - **0.0**: Structurally incomplete
 
 ### Atomicity (15%)
-- **1.0**: All steps are single-action, single-file
-- **0.7**: 1-2 compound steps detected ("and then", "first...then")
-- **0.3**: Multiple compound steps
+- **1.0**: All steps single-action, single-file, and every `Action: Edit` carries a unique ```anchor```/```replace``` pair (or is tagged [target: capable])
+- **0.7**: 1-2 compound steps ("and then", "first...then") or 1-2 Edit steps missing anchors
+- **0.3**: Multiple compound or unanchored steps
 - **0.0**: Steps are mixed-action paragraphs
 
 ### Clarity (10%)
@@ -164,7 +164,7 @@ Calculate dimension scores using the rubric below and output the report in the e
 - **0.0**: Circular dependencies or fundamentally wrong order
 
 ### Executability (10%)
-- **1.0**: Every step is self-contained and unambiguous
+- **1.0**: Every step is self-contained and unambiguous; each `Action: Edit` anchor is text you could Ctrl-F and find exactly once in the target file
 - **0.7**: Most steps clear, some need minor additional context
 - **0.3**: Multiple steps require interpretation by the executor
 - **0.0**: Steps are vague descriptions, not executable instructions
@@ -184,6 +184,9 @@ Target model defaults to **haiku** if not specified in the argument.
 | haiku | >= 0.95 | 1.0 | >= 0.9 |
 | flash | >= 0.90 | >= 0.9 | >= 0.9 |
 | capable | >= 0.75 | >= 0.7 | >= 0.7 |
+
+For a **haiku** target, additionally: any unresolved decision or any `[target: capable]`
+step means the plan is not cold-executable by Haiku → at most REVISE.
 
 - **PASS**: Meets ALL thresholds for the target model
 - **REVISE**: Overall >= 0.5 but below PASS threshold — fixable issues with specific feedback

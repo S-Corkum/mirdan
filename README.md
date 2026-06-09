@@ -10,7 +10,7 @@ AI Code Quality Orchestrator — **saves 30-45% of your paid AI coding tokens** 
 uv tool install mirdan                  # Install mirdan
 mirdan llm setup                        # Auto-installs backend, downloads model, configures
 mirdan init --claude-code               # or --cursor
-# Done. Quality enforcement + local intelligence is now automatic.
+# Done. Quality enforcement is now automatic.
 ```
 
 Works with **Claude Code**, **Cursor IDE**, and **Cursor CLI**. Runs on 16GB laptops. Everything stays local.
@@ -58,34 +58,14 @@ error_handling, data_access, …). It survives the compact output tiers cheap mo
 
 ---
 
-## Local Intelligence Layer (New in 2.0)
+## Deterministic + content, not a local model (2.3.0)
 
-Mirdan 2.0 offloads mundane work to a small local model (Gemma 4) running on your machine. The paid model focuses exclusively on complex reasoning and writing code.
-
-**Before you code:**
-- **Triage** — classifies tasks. Trivial tasks (fix an import, format a file) never hit the paid model. Zero tokens spent.
-- **Research** — gathers codebase context, library docs, and project conventions locally (64GB+ only).
-
-**After you code:**
-- **Check Runner** — runs ruff, mypy, pytest locally. LLM parses output, auto-fixes lint, reports only complex failures.
-- **Smart Validation** — 64 quality rules + LLM false-positive filtering, root cause grouping, and fix suggestions.
-- **Auto-Fix** — `mirdan check --smart --fix` applies LLM-generated search/replace fixes with verification.
-
-| Hardware | What Runs | Token Savings |
-|----------|-----------|---------------|
-| 16GB laptop | Gemma 4 E4B Q3 — triage, checks, validation, auto-fix | 30-45% |
-| 32GB | Gemma 4 E4B Q3 — same features, more headroom | 35-50% |
-| 64GB+ Apple Silicon | + Gemma 4 31B for prompt optimization and research | 50-70% |
-
-### Quick Setup
-
-```bash
-mirdan llm setup              # Detects hardware, installs backend, downloads model, configures
-mirdan init --claude-code     # or --cursor
-mirdan llm status             # Verify it's working
-```
-
-Everything runs locally. No remote servers. No data leaves your machine.
+The local-LLM "intelligence layer" (Gemma via Ollama / llama-cpp) was **removed in 2.3.0**.
+mirdan is now **deterministic checks + opinionated content** — fast, dependency-light, and
+fully local (no model downloads, no external calls). The *intelligence* comes from your
+coding assistant's own models (Claude Code's Opus/Sonnet/Haiku); mirdan supplies what those
+models lack: a no-LLM plan verifier, the Haiku-proof plan format, the plan-review rubric, the
+AI-slop ruleset, and curated quality standards.
 
 ---
 
@@ -137,11 +117,9 @@ The AI gets structured guidance instead of a bare prompt, producing better code 
 
 ```bash
 uv tool install mirdan                   # Install mirdan
-mirdan llm setup                         # Auto-installs LLM backend + downloads model
 
 # Optional extras:
 uv tool install 'mirdan[ast]'            # + tree-sitter for TS/JS AST analysis
-uv tool install 'mirdan[enterprise]'     # + truststore for corporate SSL inspection
 
 # Upgrade:
 uv tool upgrade mirdan
@@ -158,7 +136,7 @@ mirdan init --cursor         # Cursor: hooks, rules, AGENTS.md, BUGBOT.md
 mirdan init --all            # Both IDEs
 ```
 
-This generates everything — MCP server config, quality hooks, rules files, and agent definitions. When LLM is enabled, hooks also configure local triage and check runner. After init, your IDE automatically:
+This generates everything — MCP server config, quality hooks, rules files, and agent definitions. After init, your IDE automatically:
 
 1. Enriches prompts with quality requirements before coding tasks
 2. Validates code against security and quality rules after every edit
@@ -170,14 +148,10 @@ This generates everything — MCP server config, quality hooks, rules files, and
 mirdan validate --file src/auth.py     # Validate a file
 mirdan validate --staged               # Validate git staged changes
 mirdan fix --file src/auth.py          # Auto-fix violations (pattern-based)
-mirdan check --smart                   # Run lint + typecheck + test with LLM analysis
-mirdan check --smart --fix src/        # Run checks AND auto-fix with local LLM
+mirdan check                           # Run lint + typecheck + test
 mirdan gate                            # CI/CD quality gate (exit 0 or 1)
 mirdan scan --dependencies             # Check deps for known CVEs
 mirdan scan --directory src/           # Discover codebase conventions
-mirdan llm setup                       # Configure local LLM
-mirdan llm status                      # Show LLM health, model, hardware
-mirdan llm metrics                     # Token savings dashboard
 ```
 
 ---
@@ -191,32 +165,25 @@ Mirdan is an [MCP server](https://modelcontextprotocol.io/) — it connects to A
 │  Your AI Assistant (Claude Code / Cursor / etc)  │
 │                                                  │
 │  1. You type a coding task                       │
-│  2. Hook triages task via local LLM ────┐        │
-│  3. AI generates code with guidance     │        │
-│  4. Hook runs lint/typecheck/test ◄─────┘        │
-│  5. AI fixes only complex issues                 │
-│  6. Quality gate passes → task complete          │
+│  2. AI generates code                            │
+│  3. PostToolUse hook validates the edited file   │
+│  4. AI fixes the flagged issues                  │
+│  5. Stop hook runs the quality gate → complete   │
 └──────────────────────────────────────────────────┘
          │                        ▲
          ▼                        │
 ┌──────────────────────────────────────────────────┐
-│  Mirdan MCP Server + Local Intelligence Layer    │
+│  Mirdan MCP Server (deterministic + content)     │
 │                                                  │
-│  MCP Tools (unchanged):                          │
+│  MCP Tools:                                       │
 │  enhance_prompt         → Quality requirements   │
-│  validate_code_quality  → 64 rules + LLM enrich │
+│  validate_code_quality  → 64 deterministic rules │
 │  validate_quick         → Fast security checks   │
 │  get_quality_standards  → Language/framework ref  │
 │  get_quality_trends     → Historical analysis    │
 │  scan_dependencies      → CVE detection (OSV)    │
 │  scan_conventions       → Convention discovery   │
-│                                                  │
-│  Local LLM (Gemma 4, runs on your machine):      │
-│  Triage          → Classify tasks, save tokens   │
-│  Check Runner    → Run ruff/mypy/pytest locally  │
-│  Smart Validator → FP filtering, root causes     │
-│  Auto-Fix        → Search/replace code fixes     │
-│  HTTP Sidecar    → <5ms hook integration         │
+│  verify_plan            → No-LLM plan verifier   │
 └──────────────────────────────────────────────────┘
 ```
 

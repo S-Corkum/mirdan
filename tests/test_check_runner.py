@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mirdan.config import CheckRunnerConfig, LLMConfig
+from mirdan.config import CheckRunnerConfig
 from mirdan.core.check_runner import CheckRunner
 from mirdan.models import SubprocessResult
 
@@ -122,8 +122,7 @@ class TestCheckRunnerAutoFix:
 
     @pytest.mark.asyncio
     async def test_auto_fix_when_lint_fails(self) -> None:
-        config = LLMConfig(checks=CheckRunnerConfig(auto_fix_lint=True))
-        runner = CheckRunner(config=config)
+        runner = CheckRunner(CheckRunnerConfig(auto_fix_lint=True))
         commands_run: list[str] = []
 
         async def mock_run(cmd: str, files: Any, cwd: str, **kw: Any) -> SubprocessResult:
@@ -142,8 +141,7 @@ class TestCheckRunnerAutoFix:
 
     @pytest.mark.asyncio
     async def test_no_auto_fix_when_disabled(self) -> None:
-        config = LLMConfig(checks=CheckRunnerConfig(auto_fix_lint=False))
-        runner = CheckRunner(config=config)
+        runner = CheckRunner(CheckRunnerConfig(auto_fix_lint=False))
         commands_run: list[str] = []
 
         async def mock_run(cmd: str, files: Any, cwd: str, **kw: Any) -> SubprocessResult:
@@ -156,75 +154,6 @@ class TestCheckRunnerAutoFix:
             await runner.run_all()
 
         assert not any("--fix" in c for c in commands_run)
-
-
-# ---------------------------------------------------------------------------
-# LLM analysis
-# ---------------------------------------------------------------------------
-
-
-class TestCheckRunnerLLMAnalysis:
-    """Tests for LLM-enhanced analysis."""
-
-    @pytest.mark.asyncio
-    async def test_uses_llm_when_available(self) -> None:
-        mock_llm = AsyncMock()
-        mock_llm.generate_structured.return_value = {
-            "issues": [
-                {
-                    "tool": "lint",
-                    "file": "main.py",
-                    "line": 5,
-                    "message": "unused import",
-                    "classification": "trivial",
-                }
-            ],
-            "summary": "1 trivial lint issue",
-        }
-
-        config = LLMConfig(check_runner=True)
-        runner = CheckRunner(llm_manager=mock_llm, config=config)
-
-        async def mock_run(cmd: str, files: Any, cwd: str, **kw: Any) -> SubprocessResult:
-            return _make_subprocess_result(command=cmd, returncode=0)
-
-        with patch.object(runner, "_run_cmd", side_effect=mock_run):
-            result = await runner.run_all()
-
-        assert result.summary == "1 trivial lint issue"
-        assert len(result.needs_attention) == 1
-        assert result.needs_attention[0]["classification"] == "trivial"
-
-    @pytest.mark.asyncio
-    async def test_falls_back_without_llm(self) -> None:
-        runner = CheckRunner(llm_manager=None)
-
-        async def mock_run(cmd: str, files: Any, cwd: str, **kw: Any) -> SubprocessResult:
-            return _make_subprocess_result(command=cmd, returncode=0)
-
-        with patch.object(runner, "_run_cmd", side_effect=mock_run):
-            result = await runner.run_all()
-
-        assert result.summary == "all checks pass"
-        assert result.needs_attention == []
-
-    @pytest.mark.asyncio
-    async def test_llm_returns_none_uses_basic_summary(self) -> None:
-        mock_llm = AsyncMock()
-        mock_llm.generate_structured.return_value = None
-
-        config = LLMConfig(check_runner=True)
-        runner = CheckRunner(llm_manager=mock_llm, config=config)
-
-        async def mock_run(cmd: str, files: Any, cwd: str, **kw: Any) -> SubprocessResult:
-            if "ruff" in cmd:
-                return _make_subprocess_result(command=cmd, returncode=1)
-            return _make_subprocess_result(command=cmd, returncode=0)
-
-        with patch.object(runner, "_run_cmd", side_effect=mock_run):
-            result = await runner.run_all()
-
-        assert "lint errors" in result.summary
 
 
 # ---------------------------------------------------------------------------

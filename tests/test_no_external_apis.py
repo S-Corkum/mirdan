@@ -55,17 +55,16 @@ class TestNoExternalLLMAPIs:
             f"External LLM API host(s) referenced in source — mirdan is local-only: {offenders}"
         )
 
-    def test_httpx_clients_target_localhost(self) -> None:
-        """The only httpx client in the LLM layer (ollama) defaults to localhost."""
-        import inspect
-
-        from mirdan.llm.ollama import OllamaBackend
-
-        # The default base URL must be a loopback address.
-        src = inspect.getsource(OllamaBackend.__init__)
-        assert "localhost" in src or "127.0.0.1" in src, (
-            "OllamaBackend default base_url is not loopback"
-        )
+    def test_no_httpx_import_in_source(self) -> None:
+        """mirdan ships no HTTP client at all — the local-LLM layer is gone, so
+        nothing under src/mirdan imports httpx (dependency scanning uses stdlib
+        urllib against the OSV database)."""
+        offenders = [
+            str(py.relative_to(_SRC_ROOT))
+            for py in _SRC_ROOT.rglob("*.py")
+            if "import httpx" in py.read_text(encoding="utf-8")
+        ]
+        assert not offenders, f"httpx imported in: {offenders}"
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,21 @@ class PlanValidator:
         (r"\bpossibly\b", "Don't say 'possibly' - be definitive"),
     ]
 
+    # Unresolved-decision markers — a cold model would have to invent a choice.
+    UNRESOLVED_DECISION_PATTERNS: list[tuple[str, str]] = [
+        (r"\bTBD\b", "Resolve 'TBD' — pre-decide before a cheap model implements"),
+        (r"\bTBC\b", "Resolve 'TBC' — pre-decide"),
+        (
+            r"\bdecide\s+(?:at|during|in)\s+(?:review|impl\w*)\b",
+            "Don't defer the decision to review/impl — make it now",
+        ),
+        (r"\beither\b[^.\n]{0,40}\bor\b", "Resolve the either/or — pick one approach"),
+        (
+            r"\bif\s+\w+[^.\n]{0,40}\bthen\b[^.\n]{0,40}\belse\b",
+            "Pre-resolve the if/then/else decision",
+        ),
+    ]
+
     # Required sections for a complete plan
     REQUIRED_SECTIONS: dict[str, str] = {
         "Research Notes": r"##?\s*Research\s+Notes",
@@ -122,6 +137,13 @@ class PlanValidator:
                 vague_count += len(matches)
                 issues.append(f"Vague language ({len(matches)}x): {message}")
 
+        # Unresolved-decision markers feed clarity (a cold model must not choose).
+        for pattern, message in self.UNRESOLVED_DECISION_PATTERNS:
+            matches = re.findall(pattern, plan_text, re.IGNORECASE)
+            if matches:
+                vague_count += len(matches)
+                issues.append(f"Unresolved decision ({len(matches)}x): {message}")
+
         # Check for required sections
         missing_sections = 0
         for section_name, pattern in self.REQUIRED_SECTIONS.items():
@@ -149,10 +171,12 @@ class PlanValidator:
             r"\bthen\s+also\b",
             r"\bfirst.*then\b",
         ]
+        atomicity_violations = 0
         for pattern in compound_patterns:
             if re.search(pattern, plan_text, re.IGNORECASE):
                 issues.append("Contains compound steps - split into atomic actions")
                 step_issues += 1
+                atomicity_violations += 1
 
         # Calculate scores using configured thresholds
         if self._thresholds:
@@ -167,7 +191,7 @@ class PlanValidator:
         clarity_score = max(0.0, 1.0 - (vague_count * clarity_penalty))
         completeness_score = max(0.0, 1.0 - (missing_sections * completeness_penalty))
         grounding_score = max(0.0, 1.0 - (step_issues * grounding_penalty))
-        atomicity_score = 1.0 if not any("compound" in i.lower() for i in issues) else 0.7
+        atomicity_score = max(0.0, 1.0 - 0.2 * atomicity_violations)
 
         # Weighted overall score
         overall = (

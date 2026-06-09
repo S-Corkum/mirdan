@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-06-09
+
+Realigns mirdan to native Claude Code. Claude Code now ships the *mechanisms*
+mirdan once provided (plan mode, plan subagents, per-agent model selection incl.
+Haiku, `opusplan`, zero-token hooks, on-demand skills, path-scoped rules). So
+mirdan sheds the duplicated plumbing and the front-loaded ceremony, and doubles
+down on what stays uniquely valuable: **deterministic checks + opinionated content**.
+The local-LLM subsystem is removed — Claude Code's own Opus/Sonnet/Haiku are the
+intelligence layer.
+
+### Removed
+
+- **Local-LLM subsystem (entire).** The `src/mirdan/llm/` package (Ollama +
+  llama-cpp backends, model registry, health/sidecar, training collector,
+  context provider, prompt templates), the LLM-only core modules (`triage`,
+  `smart_validator`, `research_agent`, `prompt_optimizer`, `llm_fixer`,
+  `ssl_config`), the `mirdan llm` / `mirdan triage` / `mirdan fine-tune` CLI
+  commands, the `LLMConfig` schema, and the `llama-cpp-python` / `httpx` /
+  `truststore` optional dependencies. mirdan is now deterministic + content only;
+  all validation, scanning, and plan verification are unchanged (they were never
+  LLM-based). `_reject_external_api_keys` and `scan_dependencies` (stdlib
+  `urllib`, OSV) are unaffected.
+- **Quality agents 6 → 3.** `architecture-reviewer`, `convention-check`, and
+  `test-quality` are merged into `quality-gate` (one `validate_code_quality`
+  pass already spans every rule family); `security-audit` and `plan-reviewer`
+  are kept.
+- **Dead static hook templates.** The unused PreToolUse `enhance_prompt`
+  prompt-hook blocks in the static hook templates (the live installer builds
+  hooks programmatically and never emitted them) — hygiene, no behavior change.
+
+### Changed
+
+- **`/plan` is "Haiku-proof" (`format_version: 2`).** `verify_plan` now
+  deterministically enforces, for v2 plans: literal `anchor`/`replace` edit
+  blocks, **anchor uniqueness** (exactly one verbatim match in the target file),
+  step **atomicity**, and **pre-resolved decisions** (no TBD / either-or /
+  "decide later"). Steps tagged `[target: capable]` are exempt (judgment /
+  un-anchorable / wholesale edits). v1 / frontmatter-less plans are unaffected
+  (checks are warn-only), so historical plans keep validating.
+- **`enhance_prompt` is opt-in, not mandatory.** The "Quality Sandwich" entry
+  ceremony is removed from the generated rules and skills; `enhance_prompt` is
+  now recommended (not required) before security-sensitive, multi-file, or
+  new-library work. The **`validate_code_quality` gate remains mandatory.**
+- **Hook-driven validation is leaner.** The per-edit PostToolUse validator
+  defaults to `--scope security` (fastest, lowest false-positive); the fuller
+  pass stays at the once-per-turn `Stop` gate.
+- **Rules slimmed + scoped.** `mirdan-quality.md` is path-scoped to code files;
+  `mirdan-workflow.md` is reduced to a short always-on pointer.
+- **`mirdan init` prunes deprecated skill directories** (`debug`/`gate`/
+  `quality`/`review`/`scan`) on install/upgrade, fixing skill drift.
+
+### Migration from 2.2.x
+
+- Delete any downloaded models under `~/.mirdan/models/`.
+- A legacy `llm:` block in `.mirdan/config.yaml` is ignored (no longer schema).
+- `mirdan llm` / `mirdan triage` / `mirdan fine-tune` are gone; deterministic
+  `mirdan validate` / `mirdan check` / `mirdan scan` are unchanged.
+
 ## [2.2.1] - 2026-06-08
 
 ### Fixed

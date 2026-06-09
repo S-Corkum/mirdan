@@ -2,10 +2,9 @@
 
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ConfigError(Exception):
@@ -480,61 +479,6 @@ class CheckRunnerConfig(BaseModel):
         return defaults.model_copy() if defaults is not None else cls()
 
 
-class LLMConfig(BaseModel):
-    """Local LLM configuration for the intelligence layer."""
-
-    enabled: bool = Field(default=False, description="Enable local LLM features")
-    backend: str = Field(default="auto", pattern="^(auto|ollama|llamacpp)$")
-    ollama_url: str = Field(default="http://localhost:11434")
-    gguf_dir: str = Field(
-        default="~/.mirdan/models"
-    )  # Consumers MUST call Path(gguf_dir).expanduser()
-    model_keep_alive: str = Field(default="5m", description="Unload model after idle period")
-    n_ctx: int = Field(default=4096, description="Context window for inference")
-    n_threads: int | None = Field(default=None, description="CPU threads (None=auto)")
-    # Feature toggles
-    triage: bool = Field(default=True)
-    smart_validation: bool = Field(default=True)
-    check_runner: bool = Field(default=True)
-    prompt_optimization: bool = Field(default=True)
-    research_agent: bool = Field(default=False)
-    # Safety
-    max_false_positive_ratio: float = Field(default=0.4)
-    validate_llm_fixes: bool = Field(default=True)
-    # Training data collection
-    collect_training_data: bool = Field(
-        default=False, description="Collect training samples for fine-tuning"
-    )
-    # Enterprise / corporate network
-    offline_mode: bool = Field(
-        default=False, description="Skip network downloads, use pre-downloaded models only"
-    )
-    # Nested config
-    checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
-
-    @field_validator("ollama_url")
-    @classmethod
-    def validate_ollama_url_is_localhost(cls, v: str) -> str:
-        """Enforce that ollama_url points to localhost only.
-
-        The local intelligence layer must never connect to remote machines.
-        This prevents SSRF and source code exfiltration via malicious
-        project config files.
-        """
-        allowed_hosts = {"localhost", "127.0.0.1", "::1", "[::1]"}
-        parsed = urlparse(v)
-        hostname = (parsed.hostname or "").lower()
-        if hostname not in allowed_hosts:
-            raise ValueError(
-                f"ollama_url must point to localhost (got host: {hostname!r}). "
-                f"Allowed hosts: {', '.join(sorted(allowed_hosts))}. "
-                "mirdan's local intelligence layer only connects to local services."
-            )
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"ollama_url must use http or https (got: {parsed.scheme!r}).")
-        return v
-
-
 class MirdanConfig(BaseModel):
     """Main Mirdan configuration."""
 
@@ -567,7 +511,7 @@ class MirdanConfig(BaseModel):
     decisions: DecisionConfig = Field(default_factory=DecisionConfig)
     guardrails: GuardrailConfig = Field(default_factory=GuardrailConfig)
     architecture: ArchitectureConfig = Field(default_factory=ArchitectureConfig)
-    llm: LLMConfig = Field(default_factory=LLMConfig)
+    checks: CheckRunnerConfig = Field(default_factory=CheckRunnerConfig)
     rules: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -596,8 +540,8 @@ class MirdanConfig(BaseModel):
         if hits:
             raise ValueError(
                 "External LLM provider API keys are not accepted in mirdan "
-                f"config (found: {', '.join(hits)}). Mirdan uses local LLMs "
-                "only — see CHANGELOG.md 2.1.0 section."
+                f"config (found: {', '.join(hits)}). mirdan does not call external "
+                "LLM providers."
             )
         return data
 

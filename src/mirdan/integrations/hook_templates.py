@@ -145,21 +145,14 @@ class HookTemplateGenerator:
     def generate_claude_code_hooks(
         self,
         stringency: HookStringency = HookStringency.COMPREHENSIVE,
-        llm_enabled: bool = False,
     ) -> dict[str, Any]:
         """Generate hooks.json for Claude Code.
 
-        Uses a mix of hook types (prompt, command, agent) depending
-        on the event. The stringency level controls how many hooks
-        are generated.
-
-        When llm_enabled is True, UserPromptSubmit and Stop hooks use
-        command-type hooks that call the sidecar/CLI for local LLM
-        triage and check runner, injecting results into Claude's context.
+        Uses command-type hooks depending on the event. The stringency level
+        controls how many hooks are generated.
 
         Args:
             stringency: Hook stringency level (minimal, standard, comprehensive).
-            llm_enabled: Whether local LLM features are enabled.
 
         Returns:
             hooks.json-compatible dict.
@@ -169,14 +162,6 @@ class HookTemplateGenerator:
         self._current_stringency = stringency
 
         for event in events:
-            # LLM-enabled overrides for specific events
-            if llm_enabled and event == "UserPromptSubmit":
-                hooks[event] = self._user_prompt_submit_llm()
-                continue
-            if llm_enabled and event == "Stop":
-                hooks[event] = self._stop_llm()
-                continue
-
             generator = self._event_generators().get(event)
             if generator:
                 hook_def = generator()
@@ -413,68 +398,3 @@ class HookTemplateGenerator:
     def _worktree_remove(self) -> list[dict[str, Any]]:
         """WorktreeRemove: Not registered — prompt-only event."""
         return []
-
-    # ------------------------------------------------------------------
-    # LLM-enhanced hook generators (Claude Code only)
-    # ------------------------------------------------------------------
-
-    def _user_prompt_submit_llm(self) -> list[dict[str, Any]]:
-        """UserPromptSubmit with local LLM triage via sidecar.
-
-        **Command-type only.** The command's stdout (triage JSON) is
-        injected as context that the assistant reads naturally. No
-        prompt-type hook is registered, because on a blocking event
-        any prompt text is treated as a condition by the hook-evaluator
-        and ends up blocking turns when the condition can't be
-        evaluated against actually-injected context. The triage result
-        speaks for itself; guidance on how to use it belongs in rule
-        files, not in an inline gate.
-        """
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": _TRIAGE_HOOK_SCRIPT,
-                        "timeout": 15000,
-                    },
-                ],
-            }
-        ]
-
-    def _stop_llm(self) -> list[dict[str, Any]]:
-        """Stop with local LLM check runner via sidecar.
-
-        **Command-type only.** Runs lint + typecheck + test locally and
-        emits JSON as stdout. The JSON is injected into the assistant's
-        context; real gating is the command's exit code, not any
-        prompt-hook wording. A prompt-type hook here is always an
-        LLM-evaluated gate that blocks whenever the evaluator decides
-        the condition isn't satisfied — which happens for infra
-        failures, empty output, and even correctly-worded "non-blocking
-        advisory" text. Keeping this path command-only prevents the
-        class of lockups we've seen.
-        """
-        return [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": f"{self._mirdan_cmd} check --smart",
-                        "timeout": 300000,
-                    },
-                ],
-            }
-        ]
-
-
-# Inline shell script for triage hook — tries sidecar first, falls back to CLI.
-_TRIAGE_HOOK_SCRIPT = (
-    "bash -c '"
-    'PORT_FILE=".mirdan/sidecar.port";'
-    ' if [ -f "$PORT_FILE" ]; then'
-    ' curl -s --max-time 10 "http://localhost:$(cat $PORT_FILE)/triage" --data-binary @-;'
-    " else"
-    " mirdan triage --stdin 2>/dev/null;"
-    " fi'"
-)

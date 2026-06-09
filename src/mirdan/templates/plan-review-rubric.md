@@ -11,14 +11,17 @@ Section headings are literal — do not rename, reorder, or add sections.
 
 Low-Level Design problems: a missing or unsound interface/signature, an incomplete
 error taxonomy, an unclear contract or data shape, an interface marked `[EXISTING]`
-without a `file:line` citation, or `[NEW]` created by no step.
+without a `file:line` citation, `[NEW]` created by no step, or a Design Decision left
+unresolved (TBD / either-or / "decide later" — a cold model would have to invent it).
 Each entry: `- <interface or design element>: <the problem>`.
 Empty → `- (none)`.
 
 ## grounding_gaps
 
 Steps missing one or more grounding fields (File, Action, Details, Verify,
-Grounding), or that reference a file / API / line not verified in Research Notes.
+Grounding), or that reference a file / API / line not verified in Research Notes, or an
+`Action: Edit` step missing its ```anchor```/```replace``` blocks or whose anchor is
+not a unique verbatim span of the target file.
 Each entry: `- <step id>: <what is missing or unverified>`.
 Empty → `- (none)`.
 
@@ -53,3 +56,6 @@ After the 5 sections, append a one-line verdict:
 - `pass` — design_gaps, grounding_gaps, completeness_gaps, safety all empty; risks acceptable or absent
 - `fail` — any of the first 4 sections is non-empty with blocking severity
 - `revise` — issues exist but are addressable without replanning
+
+For a **haiku** target, an unresolved decision or any `[target: capable]` step means the
+plan is not cold-executable by Haiku → `revise` (or split out the capable steps).

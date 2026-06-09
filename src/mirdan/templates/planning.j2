@@ -66,9 +66,13 @@ After completing research, BEFORE any plan steps, write a Research Notes section
 **Action:** Edit (or Read, Write, Bash, etc.)
 
 **Details:**
-- Line 45: Add import statement `from x import y`
-- Line 78: Add function with exact signature
-- [Be SPECIFIC - line numbers, function names, exact code]
+- For an `Action: Edit`, give a literal find-and-replace so a cheap model applies it
+  cold — a ` ```anchor ` block with the exact existing text and a ` ```replace ` block
+  with the exact new text. The anchor must be UNIQUE in the file. To insert, anchor on
+  the existing line and replace it with that line + the new line(s).
+- For `Action: Write`/`Bash`, give the whole file body / exact command.
+- A step that can't be anchored (wholesale/judgment rewrite) is tagged
+  **[target: capable]** on its Action line (it is then not haiku-cold).
 
 **Depends On:** Steps X, Y (must complete first)
 
@@ -103,6 +107,10 @@ After completing research, BEFORE any plan steps, write a Research Notes section
 ### FORBIDDEN step structures:
 BAD: "Update the file to add the function and fix the imports"
 GOOD: Step 1: Add import at line 1, Step 2: Add function at line 45
+BAD: an `Action: Edit` step with no ```anchor```/```replace``` blocks
+GOOD: every Edit carries the literal text to find + its exact replacement
+BAD: "decide at review" / "either A or B" / "TBD"
+GOOD: pick one option and state the one-line rationale in Design Decisions
 
 ### REQUIRED inclusions (the implementing model will NOT add these):
 - Import statements for any new dependencies used
@@ -124,9 +132,12 @@ Self-verify against these criteria:
 - [ ] Every line number is accurate (not approximated)
 - [ ] Every API reference was verified with context7
 - [ ] Every step has a Grounding field citing verification source
+- [ ] Every `Action: Edit` step has a unique ```anchor```/```replace``` pair (or is [target: capable])
 - [ ] No steps use vague language (should, probably, around, etc.)
+- [ ] No unresolved decisions (TBD / either-or / "decide later")
 - [ ] No steps combine multiple actions
 - [ ] Dependencies between steps are explicit
 - [ ] All imports, exports, tests, types are included
+- [ ] Plan frontmatter sets `format_version: 2`
 
 If ANY check fails, fix BEFORE presenting the plan.

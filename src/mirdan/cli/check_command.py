@@ -1,8 +1,7 @@
-"""``mirdan check`` — run lint + typecheck + test with optional LLM analysis and fix."""
+"""``mirdan check`` — run lint + typecheck + test (deterministic, no LLM)."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import shlex
 import subprocess
@@ -10,17 +9,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import httpx
-
 from mirdan.config import CheckRunnerConfig, MirdanConfig
 
 
 def run_check(args: list[str]) -> None:
-    """Run checks via sidecar or locally, print structured summary.
+    """Run lint + typecheck + test locally and print a structured summary.
 
     Usage:
-        mirdan check --smart [files...]
-        mirdan check --smart --fix [files...]
+        mirdan check [files...]
 
     Args:
         args: CLI arguments after ``check``.
@@ -29,22 +25,8 @@ def run_check(args: list[str]) -> None:
         _print_check_help()
         sys.exit(0)
 
-    fix_mode = "--fix" in args
     files = [a for a in args if not a.startswith("-")]
 
-    if fix_mode and not files:
-        print("Error: --fix requires specific file paths", file=sys.stderr)
-        sys.exit(1)
-
-    # Try sidecar first (report-only mode — fix mode runs locally)
-    if not fix_mode:
-        sidecar_result = _try_sidecar(files)
-        if sidecar_result is not None:
-            print(json.dumps(sidecar_result, indent=2))
-            _write_to_session_bridge(sidecar_result)
-            return
-
-    # Fallback: run tools locally
     config = MirdanConfig.find_config()
     checks_config = _resolve_checks(config)
 
@@ -56,13 +38,13 @@ def run_check(args: list[str]) -> None:
         checks_config.test_command, test_files, timeout=checks_config.test_timeout
     )
 
-    # Auto-fix lint if configured
+    # Auto-fix lint via the linter's own --fix (deterministic) if configured.
     auto_fixed: list[str] = []
     if checks_config.auto_fix_lint and lint_result["returncode"] != 0:
         fix_result = _run_subprocess(checks_config.lint_command + " --fix", files)
         if fix_result["returncode"] == 0:
             auto_fixed.append("lint auto-fixed")
-        # Re-run lint to see what remains
+        # Re-run lint to see what remains.
         lint_result = _run_subprocess(checks_config.lint_command, files)
 
     all_pass = (
@@ -70,23 +52,6 @@ def run_check(args: list[str]) -> None:
         and typecheck_result["returncode"] == 0
         and test_result["returncode"] == 0
     )
-
-    # Fix mode: apply LLM-generated fixes for remaining issues
-    fix_report: dict[str, Any] | None = None
-    if fix_mode and not all_pass and config.llm.enabled:
-        fix_report = asyncio.run(_run_llm_fix_loop(files, lint_result, typecheck_result, config))
-        if fix_report:
-            # Re-run checks to verify
-            lint_result = _run_subprocess(checks_config.lint_command, files)
-            typecheck_result = _run_subprocess(checks_config.typecheck_command, files)
-            test_result = _run_subprocess(
-                checks_config.test_command, [], timeout=checks_config.test_timeout
-            )
-            all_pass = (
-                lint_result["returncode"] == 0
-                and typecheck_result["returncode"] == 0
-                and test_result["returncode"] == 0
-            )
 
     results_list = [lint_result, typecheck_result, test_result]
     code_quality_pass = all(r.get("classification") != "code_quality" for r in results_list)
@@ -112,114 +77,29 @@ def run_check(args: list[str]) -> None:
         "auto_fixed": auto_fixed,
         "summary": "all checks pass" if all_pass else "some checks failed",
     }
-    if fix_report:
-        result["llm_fixes"] = fix_report
 
     print(json.dumps(result, indent=2))
     _write_to_session_bridge(result)
 
 
-async def _run_llm_fix_loop(
-    files: list[str],
-    lint_result: dict[str, Any],
-    typecheck_result: dict[str, Any],
-    config: MirdanConfig,
-) -> dict[str, Any] | None:
-    """Run LLM fix generation for failing files.
-
-    Args:
-        files: File paths to fix.
-        lint_result: Lint subprocess result dict.
-        typecheck_result: Typecheck subprocess result dict.
-        config: Mirdan config with LLM settings.
-
-    Returns:
-        Fix report dict, or None if no fixes were possible.
-    """
-    import contextlib
-
-    from mirdan.core.llm_fixer import LLMFixer
-    from mirdan.llm.manager import LLMManager
-
-    manager = LLMManager.create_if_enabled(config.llm)
-    if not manager:
-        return None
-
-    # Actually start the manager so it loads a backend and warms the model.
-    # Without this, ``generate_structured`` has no backend and silently
-    # returns None — the fix loop previously emitted no fixes ever.
-    await manager.startup()
-    if manager._backend is None:
-        with contextlib.suppress(Exception):
-            await manager.shutdown()
-        return None
-    if manager._health is not None and manager._health._warmup_task is not None:
-        with contextlib.suppress(Exception):
-            await manager._health._warmup_task
-
-    fixer = LLMFixer(llm_manager=manager, config=config.llm)
-
-    # Build per-file violations from tool output
-    # The LLM will see the raw error messages and the file content
-    all_reports: list[dict[str, Any]] = []
-
-    for file_path in files:
-        if not Path(file_path).exists():
-            continue
-
-        # Extract violations mentioning this file from lint/typecheck output
-        file_name = Path(file_path).name
-        lint_output = lint_result.get("stdout", "") + "\n" + lint_result.get("stderr", "")
-        tc_output = typecheck_result.get("stdout", "") + "\n" + typecheck_result.get("stderr", "")
-
-        violations: list[dict[str, Any]] = [
-            {"id": "LINT", "message": line.strip(), "tool": "lint"}
-            for line in lint_output.splitlines()
-            if file_name in line or file_path in line
-        ] + [
-            {"id": "TYPE", "message": line.strip(), "tool": "typecheck"}
-            for line in tc_output.splitlines()
-            if file_name in line or file_path in line
-        ]
-
-        if not violations:
-            continue
-
-        report = await fixer.fix_file(file_path, violations)
-        if report.applied:
-            all_reports.append(report.to_dict())
-
-    with contextlib.suppress(Exception):
-        await manager.shutdown()
-
-    if not all_reports:
-        return None
-
-    return {
-        "files_fixed": len(all_reports),
-        "details": all_reports,
-    }
-
-
 def _resolve_checks(config: MirdanConfig) -> CheckRunnerConfig:
     """Resolve the effective ``CheckRunnerConfig`` for this invocation.
 
-    Legacy configs written under 2.0.x have ``project.primary_language`` set
-    from detection but no ``llm.checks`` block persisted — so
-    ``config.llm.checks`` falls back to the Pydantic defaults (Python
-    tooling). When the loaded ``checks`` is exactly those defaults AND the
-    project's primary language has its own known default set, swap in the
+    Legacy configs may have ``project.primary_language`` set from detection but
+    no explicit ``checks`` block — so ``config.checks`` falls back to the Pydantic
+    defaults (Python tooling). When the loaded ``checks`` is exactly those defaults
+    AND the project's primary language has its own known default set, swap in the
     language-appropriate commands.
 
-    Known ambiguity: if a user has explicitly set ``ruff check`` / ``mypy``
-    / ``pytest`` as their checks in a non-Python project (unlikely but
-    possible), this helper will overwrite them. They can force their choice
-    back by changing any one of the three commands.
+    Known ambiguity: if a user has explicitly set ``ruff check`` / ``mypy`` /
+    ``pytest`` as their checks in a non-Python project (unlikely but possible),
+    this helper will overwrite them. They can force their choice back by changing
+    any one of the three commands.
     """
     is_python_default = (
-        config.llm.checks.lint_command == "ruff check"
-        and config.llm.checks.typecheck_command == "mypy"
-        and config.llm.checks.test_command == "pytest -x --tb=short"
+        config.checks.lint_command == "ruff check"
+        and config.checks.typecheck_command == "mypy"
+        and config.checks.test_command == "pytest -x --tb=short"
     )
     lang = config.project.primary_language.lower()
     if is_python_default and lang and lang != "python":
@@ -228,7 +108,7 @@ def _resolve_checks(config: MirdanConfig) -> CheckRunnerConfig:
         fallback = defaults_for_language(lang)
         if fallback is not None:
             return fallback
-    return config.llm.checks
+    return config.checks
 
 
 def _filter_test_files(files: list[str]) -> list[str]:
@@ -334,32 +214,6 @@ def _run_subprocess(command: str, files: list[str], timeout: int = 60) -> dict[s
         }
 
 
-def _try_sidecar(files: list[str]) -> dict[str, Any] | None:
-    """Try to POST to the sidecar's /check endpoint.
-
-    Returns:
-        Response dict, or None if sidecar is not running.
-    """
-    port_file = Path(".mirdan/sidecar.port")
-    if not port_file.exists():
-        return None
-
-    try:
-        port = int(port_file.read_text().strip())
-        resp = httpx.post(
-            f"http://127.0.0.1:{port}/check",
-            json={"files": files},
-            timeout=60.0,
-        )
-        if resp.status_code == 200:
-            result: dict[str, Any] = resp.json()
-            return result
-    except (httpx.ConnectError, httpx.TimeoutException, ValueError, OSError):
-        pass
-
-    return None
-
-
 def _write_to_session_bridge(result: dict[str, Any]) -> None:
     """Write check result to session bridge."""
     try:
@@ -375,10 +229,7 @@ def _print_check_help() -> None:
     print("mirdan check — run lint, typecheck, and test checks")
     print()
     print("Usage:")
-    print("  mirdan check --smart [files...]")
-    print("  mirdan check --smart --fix [files...]")
+    print("  mirdan check [files...]")
     print()
     print("Options:")
-    print("  --smart    Enable LLM-enhanced analysis (when available)")
-    print("  --fix      Apply LLM-generated fixes for failing checks")
     print("  -h, --help Show this help")

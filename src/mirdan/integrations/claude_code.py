@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from pathlib import Path
@@ -87,6 +88,17 @@ def generate_skills(project_dir: Path, detected: DetectedProject) -> list[Path]:
         except (FileNotFoundError, TypeError, AttributeError):
             continue
 
+    # Prune deprecated skill dirs (retired in 2.2.0) left over from older installs.
+    # Guarded: only remove a dir that contains nothing but mirdan-generated files,
+    # so a user-authored skill of the same name is preserved.
+    for stale in ("debug", "gate", "quality", "review", "scan"):
+        stale_dir = project_dir / ".claude" / "skills" / stale
+        if not stale_dir.is_dir():
+            continue
+        entries = {p.name for p in stale_dir.iterdir()}
+        if entries <= {"SKILL.md", "__init__.py", "__pycache__"}:
+            shutil.rmtree(stale_dir, ignore_errors=True)
+
     return generated
 
 
@@ -94,10 +106,9 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
     """Generate .claude/agents/ markdown files from templates.
 
     Creates specialized agent definitions:
-    - quality-gate: Full quality validation
-    - security-audit: Security-focused audit
-    - test-quality: Test code quality validation
-    - convention-check: Project convention compliance
+    - quality-gate: Full quality validation (security, architecture, AI-slop, tests)
+    - security-audit: Security-focused audit of sensitive paths
+    - plan-reviewer: Plan grounding / executability review
 
     Args:
         project_dir: The project root directory.
@@ -117,9 +128,6 @@ def generate_agents(project_dir: Path, detected: DetectedProject) -> list[Path]:
     agent_names = (
         "quality-gate",
         "security-audit",
-        "test-quality",
-        "convention-check",
-        "architecture-reviewer",
         "plan-reviewer",
     )
     for agent_name in agent_names:
@@ -228,9 +236,6 @@ def export_plugin(output_dir: Path) -> Path:
         "agents": [
             "quality-gate",
             "security-audit",
-            "test-quality",
-            "convention-check",
-            "architecture-reviewer",
             "plan-reviewer",
         ],
         "hooks": True,
@@ -270,9 +275,6 @@ def export_plugin(output_dir: Path) -> Path:
     for agent_name in (
         "quality-gate",
         "security-audit",
-        "test-quality",
-        "convention-check",
-        "architecture-reviewer",
         "plan-reviewer",
     ):
         try:
@@ -351,7 +353,6 @@ def _generate_hooks(project_dir: Path, upgrade: bool = False) -> Path | None:
         Path to ``settings.json`` if written, None if its ``hooks`` key was
         preserved.
     """
-    from mirdan.config import MirdanConfig
     from mirdan.integrations.hook_templates import (
         HookStringency,
         HookTemplateGenerator,
@@ -360,10 +361,6 @@ def _generate_hooks(project_dir: Path, upgrade: bool = False) -> Path | None:
     claude_dir = project_dir / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
     settings_path = claude_dir / "settings.json"
-
-    # Detect LLM enablement from the project's config so hooks match runtime
-    cfg, _ = MirdanConfig.find_config_with_path(project_dir)
-    llm_enabled = cfg.llm.enabled
 
     command, _args = detect_mirdan_command()
     mirdan_cmd = command if not _args else f"{command} {' '.join(_args)}"
@@ -377,7 +374,6 @@ def _generate_hooks(project_dir: Path, upgrade: bool = False) -> Path | None:
     )
     generated = generator.generate_claude_code_hooks(
         stringency=HookStringency.COMPREHENSIVE,
-        llm_enabled=llm_enabled,
     )
     new_hooks = generated["hooks"]
 
@@ -460,7 +456,7 @@ if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
 [ -f "$FILE_PATH" ] || exit 0
-{mirdan_cmd} validate --quick --scope essential --file "$FILE_PATH" --format micro 2>&1
+{mirdan_cmd} validate --quick --scope security --file "$FILE_PATH" --format micro 2>&1
 """
     )
     script_path.chmod(0o755)

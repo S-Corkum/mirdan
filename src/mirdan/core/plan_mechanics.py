@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 # A step's File field: "**File:** path" or "**File:** NEW: path".
 _FILE_FIELD_RE = re.compile(
     r"\*\*File:\*\*\s*(?P<label>NEW:\s*)?(?P<path>[^\s(]+)",
@@ -213,3 +215,259 @@ def check_lld_gaps(plan_text: str, steps: list[Step]) -> list[dict[str, str]]:
                     }
                 )
     return gaps
+
+
+# ---------------------------------------------------------------------------
+# Haiku-proof checks (format_version 2). Deterministic, no LLM.
+#
+# On v1 / frontmatter-less plans the caller treats these as soft (reported, not
+# scored), so the historical corpus keeps passing. On v2 plans they are hard.
+# ---------------------------------------------------------------------------
+
+_FRONTMATTER_RE = re.compile(r"^---\n(?P<body>.*?)\n---", re.DOTALL)
+
+
+def read_format_version(plan_text: str) -> int:
+    """Return the plan's declared ``format_version`` (frontmatter), defaulting to 1.
+
+    Any failure (no frontmatter, malformed YAML, non-int value) returns 1 — the
+    v1 / soft path — so a missing or broken stamp never hard-fails a legacy plan.
+    """
+    m = _FRONTMATTER_RE.match(plan_text)
+    if not m:
+        return 1
+    try:
+        meta = yaml.safe_load(m.group("body"))
+    except Exception:  # any YAML / parse error means "treat as v1"
+        return 1
+    if not isinstance(meta, dict):
+        return 1
+    try:
+        return int(meta.get("format_version", 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+# A step is "capable-targeted" when its Action line carries a [target: capable]
+# tag — judgment / un-anchorable / wholesale edits, exempt from anchor + atomicity
+# enforcement (and reported so a haiku-target reader knows it is not cold-executable).
+_CAPABLE_TAG_RE = re.compile(r"\*\*Action:\*\*[^\n]*\[target:\s*capable\]", re.IGNORECASE)
+
+
+def step_is_capable(step_body: str) -> bool:
+    """True if the step's Action line is tagged ``[target: capable]``."""
+    return bool(_CAPABLE_TAG_RE.search(step_body))
+
+
+_ACTION_EDIT_RE = re.compile(r"\*\*Action:\*\*\s*Edit\b", re.IGNORECASE)
+_ANCHOR_BLOCK_RE = re.compile(r"```anchor\b(?P<body>.*?)```", re.DOTALL)
+_REPLACE_BLOCK_RE = re.compile(r"```replace\b(?P<body>.*?)```", re.DOTALL)
+_FENCED_SPAN_RE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def check_edit_anchors(steps: list[Step]) -> list[dict[str, str]]:
+    """Every non-capable ``Action: Edit`` step must carry one literal find/replace.
+
+    A cold Haiku executor cannot compute line numbers; it can only do an
+    unambiguous literal find-and-replace. So each Edit step needs exactly one
+    non-empty ```anchor``` block (the verbatim existing text) and one ```replace```
+    block. Steps tagged ``[target: capable]`` are exempt.
+    """
+    findings: list[dict[str, str]] = []
+    for step_id, body in steps:
+        if not _ACTION_EDIT_RE.search(body) or step_is_capable(body):
+            continue
+        anchors = _ANCHOR_BLOCK_RE.findall(body)
+        replaces = _REPLACE_BLOCK_RE.findall(body)
+        if len(anchors) != 1 or len(replaces) != 1:
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "issue": "Edit step needs exactly one ```anchor``` and one "
+                    "```replace``` block (or mark the step [target: capable])",
+                }
+            )
+        elif not anchors[0].strip():
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "issue": "```anchor``` block is empty — copy the verbatim existing text",
+                }
+            )
+    return findings
+
+
+def check_anchor_uniqueness(steps: list[Step], project_root: Path) -> list[dict[str, str]]:
+    """Each anchored Edit's ```anchor``` text must occur exactly once in its file.
+
+    First-occurrence find-and-replace is only safe when the anchor is unique; a
+    non-unique (or absent) anchor would land the edit in the wrong place. Reads the
+    target file. ``NEW:`` / missing files are skipped (check_phantom_files covers them),
+    as are capable and presence-failing steps (check_edit_anchors covers those).
+    """
+    findings: list[dict[str, str]] = []
+    for step_id, body in steps:
+        if not _ACTION_EDIT_RE.search(body) or step_is_capable(body):
+            continue
+        anchors = _ANCHOR_BLOCK_RE.findall(body)
+        if len(anchors) != 1 or not anchors[0].strip():
+            continue
+        fm = _FILE_FIELD_RE.search(body)
+        if not fm or fm.group("label"):  # no File field, or a NEW: file
+            continue
+        raw_path = fm.group("path").strip().strip("`").strip("\"'").rstrip(".,;:")
+        target = (project_root / raw_path).resolve()
+        if not target.exists():
+            continue
+        try:
+            content = target.read_text()
+        except OSError:
+            continue
+        anchor_text = anchors[0].strip("\n")
+        count = content.count(anchor_text)
+        if count == 0:
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "path": raw_path,
+                    "issue": "anchor text not found verbatim in the target file",
+                }
+            )
+        elif count > 1:
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "path": raw_path,
+                    "issue": f"anchor text matches {count} places — make the anchor unique",
+                }
+            )
+    return findings
+
+
+_ACTION_CONJ_RE = re.compile(
+    r"\*\*Action:\*\*[^\n]*\b(?:and|then|also|plus)\b", re.IGNORECASE
+)
+_DETAILS_FIELD_RE = re.compile(
+    r"\*\*Details:\*\*(?P<body>.*?)"
+    r"(?=\n\*\*(?:Depends\s+[Oo]n|Verify|Grounding|Action|File):|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+_DETAIL_COMPOUND_RES = [
+    re.compile(r"\band\s+then\b", re.IGNORECASE),
+    re.compile(r"\bthen\s+also\b", re.IGNORECASE),
+    re.compile(r"\bfirst\b[^.\n]{0,60}\bthen\b", re.IGNORECASE),
+]
+
+
+def _details_body(step_body: str) -> str:
+    m = _DETAILS_FIELD_RE.search(step_body)
+    return m.group("body") if m else ""
+
+
+def check_atomicity(steps: list[Step]) -> list[dict[str, str]]:
+    """Flag non-atomic steps (more than one file or action). Capable steps exempt.
+
+    Low-false-positive by construction:
+    - more than one ``**File:**`` target in a step;
+    - a conjunction verb in the ``**Action:**`` field ("Edit and add");
+    - a compound connective ("and then" / "first…then") in the Details prose —
+      fenced ```anchor```/```replace``` code is stripped first, so real code
+      containing those words does not trip.
+    """
+    findings: list[dict[str, str]] = []
+    for step_id, body in steps:
+        if step_is_capable(body):
+            continue
+        if len(re.findall(r"\*\*File:\*\*", body)) > 1:
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "issue": "multiple **File:** targets — one file per step "
+                    "(or mark [target: capable])",
+                }
+            )
+        if _ACTION_CONJ_RE.search(body):
+            findings.append(
+                {"step_id": step_id, "issue": "compound Action verb — one action per step"}
+            )
+        details = _FENCED_SPAN_RE.sub(" ", _details_body(body))
+        if any(rgx.search(details) for rgx in _DETAIL_COMPOUND_RES):
+            findings.append(
+                {
+                    "step_id": step_id,
+                    "issue": "compound Details ('and then' / 'first…then') — "
+                    "split into atomic steps",
+                }
+            )
+    return findings
+
+
+_DESIGN_DECISIONS_RE = re.compile(
+    r"^#{2,4}\s+Design Decisions\s*$", re.MULTILINE | re.IGNORECASE
+)
+_ANY_HEADING_RE = re.compile(r"^#{1,6}\s+\S", re.MULTILINE)
+_INLINE_CODE_RE = re.compile(r"`[^`]*`")
+_DQUOTED_RE = re.compile(r"\"[^\"\n]*\"")
+_NEGATION_PREFIX_RE = re.compile(
+    r"\b(?:no|not|without|resolve[ds]?|avoid|never)\b[^.\n]{0,12}$", re.IGNORECASE
+)
+_UNRESOLVED_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bTBD\b"), "unresolved marker 'TBD'"),
+    (re.compile(r"\bTODO\b"), "unresolved marker 'TODO'"),
+    (re.compile(r"\bFIXME\b"), "unresolved marker 'FIXME'"),
+    (re.compile(r"\bTBC\b"), "unresolved marker 'TBC'"),
+    (re.compile(r"\?\?\?"), "unresolved marker '???'"),
+    (
+        re.compile(r"\bdecide\s+(?:at|during|in)\s+(?:review|impl\w*)\b", re.IGNORECASE),
+        "decision deferred ('decide at review/impl')",
+    ),
+    (re.compile(r"\beither\b[^.\n]{0,40}\bor\b", re.IGNORECASE), "unresolved either/or"),
+    (
+        re.compile(r"\boption\s+[A-Z]\b[^.\n]{0,40}\bor\b", re.IGNORECASE),
+        "unresolved 'option A or B'",
+    ),
+    (
+        re.compile(r"\bif\s+\w+[^.\n]{0,40}\bthen\b[^.\n]{0,40}\belse\b", re.IGNORECASE),
+        "conditional 'if…then…else' — pre-resolve the decision",
+    ),
+]
+
+
+def _mask_prose(text: str) -> str:
+    """Blank out fenced code, inline code, and double-quoted spans so that
+    quoted/illustrative marker mentions do not false-positive."""
+    text = _FENCED_SPAN_RE.sub(" ", text)
+    text = _INLINE_CODE_RE.sub(" ", text)
+    return _DQUOTED_RE.sub(" ", text)
+
+
+def check_unresolved_decisions(plan_text: str, steps: list[Step]) -> list[dict[str, str]]:
+    """Flag decisions left for the executor (TBD / either-or / 'decide later').
+
+    A cold Haiku executor must not have to *choose* — an unresolved decision forces
+    invention. Scans only the ``Design Decisions`` section and each step's Details
+    (never Verify/Grounding). Markers inside code spans or double quotes, or
+    immediately preceded by a negation ("no TBD"), are ignored.
+    """
+    segments: list[str] = []
+    dd = _DESIGN_DECISIONS_RE.search(plan_text)
+    if dd:
+        nxt = _ANY_HEADING_RE.search(plan_text, dd.end())
+        segments.append(plan_text[dd.end() : nxt.start() if nxt else len(plan_text)])
+    segments.extend(_details_body(body) for _sid, body in steps)
+
+    findings: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for seg in segments:
+        masked = _mask_prose(seg)
+        for rgx, msg in _UNRESOLVED_PATTERNS:
+            if msg in seen:
+                continue
+            for m in rgx.finditer(masked):
+                line_prefix = masked[: m.start()].rsplit("\n", 1)[-1]
+                if _NEGATION_PREFIX_RE.search(line_prefix):
+                    continue
+                seen.add(msg)
+                findings.append({"issue": msg})
+                break
+    return findings

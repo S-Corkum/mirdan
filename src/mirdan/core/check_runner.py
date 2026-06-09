@@ -6,14 +6,10 @@ import asyncio
 import logging
 import shlex
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from mirdan.config import CheckRunnerConfig, LLMConfig
-
-if TYPE_CHECKING:
-    from mirdan.llm.manager import LLMManager
-from mirdan.llm.prompts.checks import CHECK_SAMPLING, CHECK_SCHEMA, build_check_analysis_prompt
-from mirdan.models import CheckResult, ModelRole, SubprocessResult
+from mirdan.config import CheckRunnerConfig
+from mirdan.models import CheckResult, SubprocessResult
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +17,11 @@ logger = logging.getLogger(__name__)
 class CheckRunner:
     """Runs lint, typecheck, and test tools as subprocesses.
 
-    Optionally uses the local FAST model to parse combined output
-    into classified issues. Falls back to basic summary from exit codes
-    when the LLM is unavailable.
+    Deterministic: summarizes results from exit codes (no LLM).
     """
 
-    def __init__(
-        self,
-        llm_manager: LLMManager | None = None,
-        config: LLMConfig | None = None,
-        checks_override: CheckRunnerConfig | None = None,
-    ) -> None:
-        self._llm = llm_manager
-        self._config = config or LLMConfig()
-        if checks_override is not None:
-            self._config = self._config.model_copy(update={"checks": checks_override})
+    def __init__(self, checks: CheckRunnerConfig | None = None) -> None:
+        self._checks = checks or CheckRunnerConfig()
 
     async def run_all(
         self,
@@ -52,7 +38,7 @@ class CheckRunner:
             CheckResult with per-tool output and overall status.
         """
         cwd = working_dir or str(Path.cwd())
-        checks = self._config.checks
+        checks = self._checks
 
         # 1. Lint
         lint_result = await self._run_cmd(checks.lint_command, file_paths, cwd)
@@ -74,17 +60,9 @@ class CheckRunner:
             checks.test_command, None, cwd, timeout=checks.test_timeout
         )
 
-        # 5. LLM analysis (optional)
+        # 5. Summary from exit codes (deterministic, no LLM)
         needs_attention: list[dict[str, Any]] = []
-        summary = ""
-        if self._llm and self._config.check_runner:
-            analysis = await self._analyze(lint_result, typecheck_result, test_result)
-            if analysis:
-                needs_attention = analysis.get("issues", [])
-                summary = analysis.get("summary", "")
-
-        if not summary:
-            summary = self._basic_summary(lint_result, typecheck_result, test_result)
+        summary = self._basic_summary(lint_result, typecheck_result, test_result)
 
         results_list = [lint_result, typecheck_result, test_result]
         all_pass = all(r.returncode == 0 for r in results_list)
@@ -157,37 +135,6 @@ class CheckRunner:
                 stderr=f"Command not found: {args[0]}",
                 classification="infrastructure",
             )
-
-    async def _analyze(
-        self,
-        lint: SubprocessResult,
-        typecheck: SubprocessResult,
-        test: SubprocessResult,
-    ) -> dict[str, Any] | None:
-        """Use local LLM to classify issues from combined tool output.
-
-        Args:
-            lint: Lint subprocess result.
-            typecheck: Typecheck subprocess result.
-            test: Test subprocess result.
-
-        Returns:
-            Parsed analysis dict, or None if LLM unavailable.
-        """
-        if not self._llm:
-            return None
-        prompt = build_check_analysis_prompt(
-            lint.stdout,
-            lint.stderr,
-            typecheck.stdout,
-            typecheck.stderr,
-            test.stdout,
-            test.stderr,
-        )
-        result: dict[str, Any] | None = await self._llm.generate_structured(
-            ModelRole.FAST, prompt, CHECK_SCHEMA, **CHECK_SAMPLING
-        )
-        return result
 
     @staticmethod
     def _basic_summary(

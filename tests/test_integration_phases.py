@@ -134,13 +134,13 @@ class TestSkillsAutoInvocation:
 
 
 class TestSpecializedAgents:
-    """Tests for 6 specialized agents."""
+    """Tests for the 3 specialized agents (2.3.0 consolidation)."""
 
-    def test_six_agents_generated(self, tmp_path: Path, detected: DetectedProject) -> None:
+    def test_three_agents_generated(self, tmp_path: Path, detected: DetectedProject) -> None:
         from mirdan.integrations.claude_code import generate_agents
 
         paths = generate_agents(tmp_path, detected)
-        assert len(paths) == 6
+        assert len(paths) == 3
 
     def test_agents_have_no_unsupported_attrs(
         self, tmp_path: Path, detected: DetectedProject
@@ -170,9 +170,6 @@ class TestSpecializedAgents:
         expected = {
             "quality-gate.md",
             "security-audit.md",
-            "test-quality.md",
-            "convention-check.md",
-            "architecture-reviewer.md",
             "plan-reviewer.md",
         }
         assert names == expected

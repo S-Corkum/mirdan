@@ -99,7 +99,7 @@ For each reference, verify with the appropriate tool.
 ### 7. Semantic Review
 
 - **COMPLETENESS**: Missing tests, exports, configs, types?
-- **EXECUTABILITY**: Can Haiku execute each step with ONLY its context? No "as discussed" or ambiguous refs?
+- **EXECUTABILITY**: Can Haiku execute each step with ONLY its context? No "as discussed" or ambiguous refs? Every `Action: Edit` has an ```anchor``` findable exactly once in the file; no unresolved decisions (TBD / either-or).
 - **SAFETY**: Auth/input/DB/API changes have validation and error handling?
 - **ARCHITECTURE**: Changes respect project conventions from Step 3?
 
@@ -122,9 +122,9 @@ Calculate scores and output the report.
 - 0.0: Structurally incomplete
 
 ### Atomicity (15%)
-- 1.0: All single-action
-- 0.7: 1-2 compound steps
-- 0.3: Multiple compound
+- 1.0: All single-action, single-file; every `Action: Edit` has a unique ```anchor```/```replace``` pair (or is [target: capable])
+- 0.7: 1-2 compound steps, or 1-2 Edit steps missing anchors
+- 0.3: Multiple compound/unanchored
 - 0.0: Mixed-action paragraphs
 
 ### Clarity (10%)
@@ -158,6 +158,7 @@ Calculate scores and output the report.
 | capable | >= 0.75 | >= 0.7 | >= 0.7 |
 
 PASS: All thresholds met. REVISE: >= 0.5 but below threshold. FAIL: < 0.5.
+For a **haiku** target, any unresolved decision or `[target: capable]` step → at most REVISE.
 
 ## Report Format
 

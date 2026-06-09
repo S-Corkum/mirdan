@@ -1,25 +1,24 @@
 ---
 description: "Mirdan quality enforcement rules for AI-generated code"
+paths:
+  - "**/*.py"
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.rs"
+  - "**/*.go"
+  - "**/*.java"
 ---
 
-# Mirdan Quality Enforcement (Always Active)
+# Mirdan Quality Enforcement (code files)
 
-## Quality Workflow
+## Recommended Quality Workflow
 
-For ANY coding task, follow this workflow:
+`enhance_prompt` is optional by default and **recommended** before security-sensitive, multi-file, or new-library work. `validate_code_quality` after writing remains mandatory.
 
-1. **Start**: Call `mcp__mirdan__enhance_prompt` with the task description
-   - Save the returned `session_id` — pass it to every `validate_code_quality` call
-   - Follow `tool_recommendations` to call context7, sequential-thinking, enyal as suggested
-2. **Standards**: Call `mcp__mirdan__get_quality_standards` for the detected language
-3. **Implement**: Follow the `quality_requirements` from enhance_prompt
-4. **Validate**: Call `mcp__mirdan__validate_code_quality(code, session_id=<id>)` on all changed code
-   - Check `session_context.resolved` — violations cleared since last run
-   - Check `session_context.new` — violations introduced since last run
-   - Check `session_context.persistent` — violations that recur across multiple runs (high priority)
-   - Follow `recommendation_reminders` to confirm suggested MCPs were called
-5. **Fix**: Resolve all errors before considering the task complete
-6. **Conventions**: Run `mcp__mirdan__scan_conventions` after establishing patterns to persist them
+- **Validate (mandatory)**: Call `mcp__mirdan__validate_code_quality(code)` on changed code; pass `check_security=true` for security-sensitive files. Fix all errors before the task is complete.
+- **Optional helpers**: `mcp__mirdan__enhance_prompt` (task-specific quality requirements + security detection), `get_quality_standards` (language rules), `scan_conventions` (persist patterns).
 
 ## AI Quality Rules (Mandatory)
 
